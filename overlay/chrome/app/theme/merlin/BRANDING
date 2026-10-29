@@ -1,0 +1,10 @@
+COMPANY_FULLNAME=The Merlin Authors
+COMPANY_SHORTNAME=The Merlin Authors
+PRODUCT_FULLNAME=Merlin
+PRODUCT_SHORTNAME=Merlin
+PRODUCT_INSTALLER_FULLNAME=Merlin Installer
+PRODUCT_INSTALLER_SHORTNAME=Merlin Installer
+COPYRIGHT=Copyright @LASTCHANGE_YEAR@ The Merlin Authors and The Chromium Authors. All rights reserved.
+MAC_BUNDLE_ID=local.merlin.Merlin
+MAC_CREATOR_CODE=Mrln
+MAC_TEAM_ID=

@@ -1,0 +1,13 @@
+/target/
+.DS_Store
+
+# Local Chromium checkout, never committed here
+/chromium/
+
+# Local agent settings
+.claude/
+
+# Private planning notes, status logs and prompts
+/notes/
+chromium_neovim_browser_plan.md
+claude_code_chromium_browser_prompt.md

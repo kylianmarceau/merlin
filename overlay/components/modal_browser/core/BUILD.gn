@@ -1,0 +1,38 @@
+# Copyright 2026 The modal_browser Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# UNVERIFIED in GN: written against //build/rust/rust_static_library.gni at
+# Chromium 156.0.8078.48. Verified with Cargo (see docs/TESTING.md).
+
+import("//build/rust/rust_static_library.gni")
+
+# Pure Rust, no third-party dependencies, no unsafe code.
+rust_static_library("modal_browser_core") {
+  crate_root = "src/lib.rs"
+  sources = [
+    "src/action.rs",
+    "src/command.rs",
+    "src/config.rs",
+    "src/document.rs",
+    "src/editor.rs",
+    "src/focus.rs",
+    "src/fuzzy.rs",
+    "src/hints.rs",
+    "src/ipc.rs",
+    "src/json.rs",
+    "src/key.rs",
+    "src/keymap.rs",
+    "src/lib.rs",
+    "src/mode.rs",
+    "src/palette.rs",
+    "src/session.rs",
+    "src/target.rs",
+    "src/toml_lite.rs",
+    "src/workspace.rs",
+  ]
+  visibility = [ "//components/modal_browser/*" ]
+}
+# TODO(next): port tests/*.rs to rust_gtest_interop (#[gtest(Suite, Name)])
+# in a rust_static_library with is_gtest_unittests = true, and link it into
+# components_unittests. Until then the tests run with `cargo test`.

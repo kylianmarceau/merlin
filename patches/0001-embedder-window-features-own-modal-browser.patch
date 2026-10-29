@@ -1,0 +1,73 @@
+--- a/chrome/browser/ui/browser_window/public/embedder_browser_window_features.h
++++ b/chrome/browser/ui/browser_window/public/embedder_browser_window_features.h
+@@ -5,11 +5,17 @@
+ #ifndef CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_EMBEDDER_BROWSER_WINDOW_FEATURES_H_
+ #define CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_EMBEDDER_BROWSER_WINDOW_FEATURES_H_
+ 
++#include <memory>
++
+ #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
+ 
+ class BrowserView;
+ class BrowserWindowInterface;
+ 
++namespace modal_browser {
++class ModalBrowserController;
++}
++
+ // This class should only be used by Chromium embedders, where it will own
+ // embedder-specific browser window features.
+ // Chromium features themselves should not be added to this class, rather to
+@@ -42,8 +48,15 @@
+   // Called exactly once to tear down state that depends on the window object.
+   void TearDownPreBrowserWindowDestruction();
+ 
++  // Null for window types without the modal layer (apps, popups, devtools).
++  modal_browser::ModalBrowserController* modal_browser_controller() {
++    return modal_browser_controller_.get();
++  }
++
+  private:
+   // Embedder-specific feature members:
++  std::unique_ptr<modal_browser::ModalBrowserController>
++      modal_browser_controller_;
+ };
+ 
+ #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_EMBEDDER_BROWSER_WINDOW_FEATURES_H_
+--- a/chrome/browser/ui/browser_window/internal/embedder_browser_window_features.cc
++++ b/chrome/browser/ui/browser_window/internal/embedder_browser_window_features.cc
+@@ -5,6 +5,7 @@
+ #include "chrome/browser/ui/browser_window/public/embedder_browser_window_features.h"
+ 
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
++#include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
+ 
+ DEFINE_USER_DATA(EmbedderBrowserWindowFeatures);
+@@ -31,9 +32,14 @@
+ 
+ void EmbedderBrowserWindowFeatures::InitPostBrowserViewConstruction(
+     BrowserView* browser_view) {
+-  // Embedder implementation goes here.
++  BrowserWindowInterface* browser = browser_view->browser();
++  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
++    modal_browser_controller_ =
++        std::make_unique<modal_browser::ModalBrowserController>(browser,
++                                                                browser_view);
++  }
+ }
+ 
+ void EmbedderBrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
+-  // Embedder implementation goes here.
++  modal_browser_controller_.reset();
+ }
+--- a/chrome/browser/ui/browser_window/internal/BUILD.gn
++++ b/chrome/browser/ui/browser_window/internal/BUILD.gn
+@@ -241,6 +241,7 @@
+       "//chrome/browser/ui:browser_location_bar_model_delegate",
+       "//chrome/browser/ui:browser_select_file_dialog_controller",
+       "//chrome/browser/ui:browser_window_header",
++      "//chrome/browser/ui/modal_browser",
+       "//chrome/browser/ui/views/frame:browser_view_header",
+     ]
+   }

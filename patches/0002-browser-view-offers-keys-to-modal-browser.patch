@@ -1,0 +1,44 @@
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -105,6 +105,7 @@
+ #include "chrome/browser/ui/global_error/global_error_service_factory.h"
+ #include "chrome/browser/ui/layout_constants.h"
+ #include "chrome/browser/ui/location_bar/location_bar.h"
++#include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
+ #include "chrome/browser/ui/navigator/browser_navigator.h"
+ #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+ #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
+@@ -3234,6 +3235,18 @@
+     return content::KeyboardEventProcessingResult::NOT_HANDLED;
+   }
+ 
++  // modal_browser: offer key-downs headed to web content to the modal layer
++  // before accelerators. It consumes only keys it handles; everything else,
++  // including Command-key shortcuts, continues below unchanged. Returning
++  // HANDLED makes RenderWidgetHostImpl drop the matching char/key-up events.
++  if (event.GetType() == blink::WebInputEvent::Type::kRawKeyDown) {
++    if (auto* modal =
++            modal_browser::ModalBrowserController::From(browser_.get());
++        modal && modal->PreHandleKeyDown(event)) {
++      return content::KeyboardEventProcessingResult::HANDLED;
++    }
++  }
++
+   ui::Accelerator accelerator =
+       ui::GetAcceleratorFromNativeWebKeyboardEvent(event);
+ 
+--- a/chrome/browser/ui/BUILD.gn
++++ b/chrome/browser/ui/BUILD.gn
+@@ -3512,6 +3512,12 @@
+     ]
+     allow_circular_includes_from +=
+         [ "//chrome/browser/ui/views/device_signals_consent:impl" ]
++  }
++
++  # modal_browser (downstream): browser_view.cc calls into the modal layer.
++  if (toolkit_views) {
++    deps += [ "//chrome/browser/ui/modal_browser" ]
++    allow_circular_includes_from += [ "//chrome/browser/ui/modal_browser" ]
+   }
+   if (enable_webui_certificate_viewer) {
+     deps += [

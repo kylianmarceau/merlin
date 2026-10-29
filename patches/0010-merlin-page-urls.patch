@@ -1,0 +1,40 @@
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index 33a6696fd8..cb51bfb54f 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1382,6 +1382,9 @@ source_set("core") {
+       "//chrome/browser/ui/web_applications",
+       "//chrome/browser/ui/web_applications:impl",
+       "//chrome/browser/ui/webui/util",
++
++      # Merlin: chrome://settings and friends open Merlin's pages.
++      "//chrome/browser/ui/modal_browser:url_rewrite",
+     ]
+   }
+ 
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index 2e0f287290..e8b7987301 100644
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -200,6 +200,9 @@
+ #include "chrome/browser/ui/blocked_content/chrome_popup_navigation_delegate.h"
+ #include "chrome/browser/ui/color/chrome_color_id.h"
+ #include "chrome/browser/ui/login/http_auth_coordinator.h"
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++#include "chrome/browser/ui/modal_browser/merlin_url_rewrite.h"
++#endif
+ #include "chrome/browser/ui/navigator/browser_navigator.h"
+ #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+ #include "chrome/browser/ui/prefs/pref_watcher.h"
+@@ -7529,6 +7532,11 @@ bool ChromeContentBrowserClient::HandleWebUI(
+                                  chrome::kChromeUIHelpHost);
+   }
+ 
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++  // Merlin's Settings, History, Downloads and Bookmarks pages.
++  modal_browser::RewriteMerlinPageUrl(url);
++#endif
++
+ #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+     BUILDFLAG(IS_CHROMEOS)
+ 

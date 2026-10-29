@@ -1,0 +1,34 @@
+[package]
+name = "modal_browser_ffi"
+version = "0.1.0"
+description = "cxx bridge exposing modal_browser_core to the C++ browser host."
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+# Lets dependent crates' build scripts #include the generated header.
+links = "modal_browser_ffi"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+modal_browser_core = { path = "../core" }
+# Same version Chromium vendors at the pinned tag
+# (third_party/rust/chromium_crates_io/Cargo.lock, 156.0.8078.48).
+cxx = "=1.0.202"
+
+[features]
+# Set by the GN target only: imports the core crate with chromium::import!.
+chromium_gn = []
+
+[build-dependencies]
+cxx-build = "=1.0.202"
+
+# Not the workspace lints: cxx expands to `unsafe` code, so this crate cannot
+# forbid it (GN needs `allow_unsafe = true` for the same reason). Our own code
+# in this crate contains no `unsafe`.
+[lints.rust]
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

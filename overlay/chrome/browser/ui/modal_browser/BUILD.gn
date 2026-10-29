@@ -1,0 +1,206 @@
+# Copyright 2026 The modal_browser Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# Dependency labels are from the 156.0.8078.48 BUILD files and pass
+# `gn check out/Modal "//chrome/browser/ui/modal_browser/*"`.
+
+import("//build/config/ui.gni")
+
+assert(toolkit_views)
+
+# Chromium-free glue between the Rust session and BrowserOps. Also compiled
+# and tested outside Chromium by tools/host_harness.
+source_set("router") {
+  sources = [
+    "modal_input_router.cc",
+    "modal_input_router.h",
+  ]
+  public_deps = [ "//components/modal_browser/ffi:modal_browser_ffi" ]
+}
+
+# The chrome:// rewrite ChromeContentBrowserClient calls (patches/0010).
+# A leaf so //chrome/browser can depend on it.
+source_set("url_rewrite") {
+  sources = [
+    "merlin_url_rewrite.cc",
+    "merlin_url_rewrite.h",
+  ]
+  deps = [
+    "//base",
+    "//url",
+  ]
+}
+
+source_set("modal_browser") {
+  sources = [
+    "browserctl_server.cc",
+    "browserctl_server.h",
+    "config_file.cc",
+    "config_file.h",
+    "external_editor.cc",
+    "external_editor.h",
+    "hint_overlay_view.cc",
+    "hint_overlay_view.h",
+    "merlin_downloads.cc",
+    "merlin_downloads.h",
+    "merlin_library_pages.cc",
+    "merlin_library_pages.h",
+    "merlin_pages.cc",
+    "merlin_pages.h",
+    "merlin_restyle.cc",
+    "merlin_restyle.h",
+    "merlin_settings_page.cc",
+    "merlin_settings_page.h",
+    "merlin_start_page.cc",
+    "merlin_start_page.h",
+    "merlin_theme.cc",
+    "merlin_theme.h",
+    "merlin_toolbar.cc",
+    "merlin_toolbar.h",
+    "merlin_urls.cc",
+    "merlin_urls.h",
+    "modal_browser_controller.cc",
+    "modal_browser_controller.h",
+    "modal_style.cc",
+    "modal_style.h",
+    "overlay_host.cc",
+    "overlay_host.h",
+    "page_scripts.cc",
+    "page_scripts.h",
+    "paint_util.cc",
+    "paint_util.h",
+    "palette_view.cc",
+    "palette_view.h",
+    "status_view.cc",
+    "status_view.h",
+    "workspace_store.cc",
+    "workspace_store.h",
+  ]
+  public_deps = [
+    ":router",
+    ":url_rewrite",
+    "//base",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//content/public/browser",
+    "//ui/views",
+  ]
+  deps = [
+    "//cc/paint",
+    "//chrome/app:command_ids",
+    "//chrome/browser:browser_process",
+    "//chrome/browser/autocomplete",
+    "//chrome/browser/bookmarks",
+    "//chrome/browser/history",
+    "//chrome/browser/prefs:util",
+    "//chrome/browser/profiles:profile_manager",
+    "//chrome/browser/profiles:profile_util",
+    "//base/version_info",
+    "//components/bookmarks/browser",
+    "//components/download/content/public",
+    "//components/download/public/common:public",
+    "//components/password_manager/core/common",
+    "//components/performance_manager",
+    "//components/search_engines",
+    "//extensions/browser",
+    "//extensions/common",
+    "//ui/shell_dialogs",
+    "//components/history/core/browser",
+    "//components/keyed_service/core",
+    "//components/split_tabs",
+    "//net",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/sessions",
+    "//chrome/browser/ui:browser_commands",
+    "//chrome/browser/ui:browser_tabrestore",
+    "//components/sessions",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui:bubble_anchor_util",
+    "//chrome/browser/ui/color:color_headers",
+    "//chrome/browser/ui/page_info",
+    "//chrome/browser/ui/toolbar",
+    "//components/security_state/content",
+    "//components/security_state/core",
+    "//chrome/browser/ui/tabs:tab_enums",
+    "//chrome/browser/ui/tabs:tab_strip_model_observer",
+    "//chrome/browser/ui/tabs:tabs",
+    "//chrome/browser/ui/views:theme_copying_widget",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/frame:multi_contents_view",
+    "//chrome/browser/ui/views/location_bar",
+    "//chrome/browser/ui:browser_live_tab_context",
+    "//chrome/common",
+    "//components/favicon/content",
+    "//components/input",
+    "//components/omnibox/browser",
+    "//components/prefs",
+    "//components/tabs:public",
+    "//components/url_formatter",
+    "//third_party/blink/public/common:headers",
+    "//third_party/metrics_proto",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/base/clipboard",
+    "//ui/color",
+    "//ui/compositor",
+    "//ui/events",
+    "//ui/gfx",
+    "//url",
+  ]
+}
+
+# Linked into //chrome/test:browser_tests by patches/0003.
+source_set("browser_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [ "modal_browser_browsertest.cc" ]
+  if (is_mac) {
+    sources += [ "background_test_process_mac.mm" ]
+    frameworks = [
+      "AppKit.framework",
+      "ApplicationServices.framework",
+    ]
+  }
+  deps = [
+    ":modal_browser",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/app/theme:theme_resources",
+    "//chrome/browser/extensions:test_support",
+    "//chrome/browser/prefs:util",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/themes",
+    "//chrome/browser/ui",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/tabs:tabs",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/frame:multi_contents_view",
+    "//chrome/browser/ui/views/location_bar",
+    "//chrome/common",
+    "//chrome/test:test_support",
+    "//components/bookmarks/browser",
+    "//components/history/core/browser",
+    "//components/omnibox/browser",
+    "//components/zoom",
+    "//components/prefs",
+    "//components/input",
+    "//components/split_tabs",
+    "//components/tabs:public",
+    "//components/viz/common",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//extensions/common",
+    "//net:test_support",
+    "//testing/gtest",
+    "//third_party/blink/public/common:headers",
+    "//ui/base",
+    "//ui/base/clipboard",
+    "//ui/base/clipboard:clipboard_test_support",
+    "//ui/events",
+    "//ui/gfx",
+    "//ui/gfx:test_support",
+    "//ui/views:test_support",
+    "//ui/views",
+    "//ui/views:test_support",
+  ]
+}

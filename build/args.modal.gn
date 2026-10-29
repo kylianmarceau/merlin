@@ -1,0 +1,22 @@
+# Development build of the fork on Apple Silicon: release component build
+# with DCHECKs on and no symbols, so relinks stay fast on a 16 GB machine.
+# Not a distribution configuration: macOS signing requires a non-component
+# build (chrome/installer/mac/signing/README.md).
+target_cpu = "arm64"
+is_debug = false
+is_component_build = true
+dcheck_always_on = true
+symbol_level = 0
+blink_symbol_level = 0
+v8_symbol_level = 0
+# Not Google Chrome branding (Merlin's is below); no proprietary codecs or
+# Widevine.
+is_chrome_branded = false
+proprietary_codecs = false
+enable_widevine = false
+# Merlin's name, bundle ID and icon (overlay/chrome/app/theme/merlin,
+# linked in by scripts/apply_overlay.sh; patch 0004 makes the icon follow).
+branding_file_path = "//chrome/app/theme/merlin/BRANDING"
+# Product logos (About, version page, profile picker, menus) from
+# chrome/app/theme/merlin and its sibling folders, not chromium/.
+branding_path_component = "merlin"

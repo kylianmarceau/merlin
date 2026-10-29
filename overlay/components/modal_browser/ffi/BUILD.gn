@@ -1,0 +1,24 @@
+# Copyright 2026 The modal_browser Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+#
+# UNVERIFIED in GN. Modelled on
+# //components/user_data_importer/utility:zip_ffi_glue at 156.0.8078.48.
+
+import("//build/rust/rust_static_library.gni")
+
+rust_static_library("modal_browser_ffi") {
+  # cxx expands to unsafe code; the crate's own code has none.
+  allow_unsafe = true
+  crate_root = "src/lib.rs"
+  sources = [ "src/lib.rs" ]
+
+  # Generates "components/modal_browser/ffi/src/lib.rs.h" and adds the cxx
+  # dependencies automatically.
+  cxx_bindings = [ "src/lib.rs" ]
+
+  # Switches the core import to chromium::import! (see src/lib.rs).
+  features = [ "chromium_gn" ]
+  deps = [ "//components/modal_browser/core:modal_browser_core" ]
+  visibility = [ "//chrome/browser/ui/modal_browser:*" ]
+}

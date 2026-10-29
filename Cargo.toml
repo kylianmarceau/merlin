@@ -1,0 +1,25 @@
+# Cargo workspace used for fast local development and testing of the Rust
+# components outside of a Chromium checkout. Inside the Chromium fork these
+# crates are built by GN (see each directory's BUILD.gn); Cargo is never the
+# top-level build there.
+[workspace]
+resolver = "3"
+members = [
+  "overlay/components/modal_browser/core",
+  "overlay/components/modal_browser/ffi",
+  "tools/host_harness",
+  "tools/modalctl",
+  "tools/browserctl",
+]
+
+[workspace.package]
+edition = "2024"
+license = "BSD-3-Clause"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

@@ -1,0 +1,17 @@
+[package]
+name = "host_harness"
+version = "0.1.0"
+description = "Compiles the C++ ModalInputRouter against the real cxx bridge and drives it with an in-memory fake browser. Cargo-only; never part of the Chromium build."
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+modal_browser_ffi = { path = "../../overlay/components/modal_browser/ffi" }
+cxx = "=1.0.202"
+
+[build-dependencies]
+cxx-build = "=1.0.202"
+
+[lints.rust]
+missing_debug_implementations = "warn"

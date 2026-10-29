@@ -1,0 +1,52 @@
+diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
+index d98c86e..f3f2c1f 100644
+--- a/chrome/BUILD.gn
++++ b/chrome/BUILD.gn
+@@ -669,13 +669,15 @@ if (is_win) {
+     }
+   }
+ 
++  # The app icon and asset catalog live beside the BRANDING file in use, so
++  # `branding_file_path` alone selects a product's name and icon.
+   bundle_data("chrome_app_icon") {
+-    sources = [ "app/theme/$branding_path_component/mac/app.icns" ]
++    sources = [ get_path_info(branding_file_path, "dir") + "/mac/app.icns" ]
+     outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
+   }
+ 
+   bundle_data("chrome_asset_catalog") {
+-    sources = [ "app/theme/$branding_path_component/mac/Assets.car" ]
++    sources = [ get_path_info(branding_file_path, "dir") + "/mac/Assets.car" ]
+     outputs = [ "{{bundle_resources_dir}}/{{source_file_part}}" ]
+   }
+ 
+diff --git a/chrome/app/app-Info.plist b/chrome/app/app-Info.plist
+index 6fada0a..9422e3b 100644
+--- a/chrome/app/app-Info.plist
++++ b/chrome/app/app-Info.plist
+@@ -161,6 +161,8 @@
+ 	<string>APPL</string>
+ 	<key>CFBundleSignature</key>
+ 	<string>${CHROMIUM_CREATOR}</string>
++	<key>CrProductDirName</key>
++	<string>${CHROMIUM_SHORT_NAME}</string>
+ 	<key>NSAppleScriptEnabled</key>
+ 	<true/>
+ 	<key>OSAScriptingDefinition</key>
+diff --git a/chrome/app/chromium_strings.grd b/chrome/app/chromium_strings.grd
+index 3de8ca6..a2d8ccb 100644
+--- a/chrome/app/chromium_strings.grd
++++ b/chrome/app/chromium_strings.grd
+@@ -294,10 +294,10 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
+         </then>
+         <else>
+           <message name="IDS_PRODUCT_NAME" desc="The Chrome application name" translateable="false">
+-            Chromium
++            Merlin
+           </message>
+           <message name="IDS_SHORT_PRODUCT_NAME" desc="The Chrome application short name." translateable="false">
+-            Chromium
++            Merlin
+           </message>
+         </else>
+       </if>

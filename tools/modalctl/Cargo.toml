@@ -1,0 +1,13 @@
+[package]
+name = "modalctl"
+version = "0.1.0"
+description = "Terminal REPL for driving modal_browser_core by hand. Development tool, not the future browserctl."
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+modal_browser_core = { path = "../../overlay/components/modal_browser/core" }
+
+[lints]
+workspace = true
