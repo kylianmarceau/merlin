@@ -94,6 +94,10 @@ class ModalBrowserController : public BrowserOps,
 
   // For Merlin Settings (merlin_settings_page.cc).
   bool TabsInSidebar() const;
+  // Rereads the config file in every window, after Settings saved it.
+  // `announce` also confirms the reload in its status bar; errors show in
+  // every window.
+  static void ReloadConfigInAllWindows(ModalBrowserController* announce);
   std::vector<ModalInputRouter::Binding> KeyBindings() const;
   std::string HintChars() const;
 

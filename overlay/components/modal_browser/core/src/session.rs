@@ -66,6 +66,10 @@ const MAX_COMPLETIONS: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SessionConfig {
+    /// Modes, bindings and hints are on. Off, every key goes to the page as
+    /// in any other browser; the rest of Merlin (its pages, toolbar, palette
+    /// from the menu, browserctl) keeps working.
+    pub modal_browsing: bool,
     /// Enter Insert mode when an editable element gains focus.
     pub auto_insert: bool,
     /// How long an ambiguous sequence waits for more keys.
@@ -109,6 +113,7 @@ pub struct Mark {
 impl Default for SessionConfig {
     fn default() -> Self {
         Self {
+            modal_browsing: true,
             auto_insert: true,
             sequence_timeout_ms: 1000,
             passthrough_exit: Key::new(KeyCode::Escape, Modifiers::SHIFT),
@@ -356,6 +361,16 @@ impl ModalSession {
         self.mode
     }
 
+    /// The label for the mode indicator; empty while modal browsing is off,
+    /// so the status shows no mode.
+    pub fn mode_indicator(&self) -> &'static str {
+        if self.config.modal_browsing {
+            self.mode.indicator()
+        } else {
+            ""
+        }
+    }
+
     pub fn registry(&self) -> &CommandRegistry {
         &self.registry
     }
@@ -430,6 +445,9 @@ impl ModalSession {
     pub fn handle_key(&mut self, key: Key, focus: &FocusContext) -> Outcome {
         let before = self.mode;
         let mut actions = Vec::new();
+        if !self.config.modal_browsing {
+            return self.finish(before, KeyDisposition::Forward, actions);
+        }
         let recordable = matches!(self.mode, Mode::Normal | Mode::Visual | Mode::Hint)
             && !focus.is_off_limits()
             && !focus.is_editable()
@@ -452,6 +470,9 @@ impl ModalSession {
     pub fn on_focus_changed(&mut self, focus: &FocusContext) -> Outcome {
         let before = self.mode;
         let mut actions = Vec::new();
+        if !self.config.modal_browsing {
+            return self.finish(before, KeyDisposition::Forward, actions);
+        }
         match (self.mode, focus.is_editable()) {
             (Mode::Normal | Mode::Visual, true) if self.config.auto_insert => {
                 self.enter_auto_insert();
@@ -502,7 +523,8 @@ impl ModalSession {
             .config
             .passthrough_sites
             .iter()
-            .any(|p| p.matches(&self.host));
+            .any(|p| p.matches(&self.host))
+            && self.config.modal_browsing;
         match self.mode {
             Mode::Normal if site_wants_passthrough => {
                 self.set_mode(Mode::Passthrough);
@@ -1269,6 +1291,9 @@ impl ModalSession {
     pub fn load_config(&mut self, text: &str) -> ConfigReport {
         let (file, mut errors) = ConfigFile::parse(text);
         let mut config = SessionConfig::default();
+        if let Some(v) = file.modal_browsing {
+            config.modal_browsing = v;
+        }
         if let Some(v) = file.sequence_timeout_ms {
             config.sequence_timeout_ms = v;
         }
@@ -1358,6 +1383,15 @@ impl ModalSession {
         self.config = config;
         self.keymap = keymap;
         self.clear_pending();
+        if !self.config.modal_browsing {
+            // Leave whatever mode the window was in; the host hides hints
+            // and the palette.
+            self.set_mode(Mode::Normal);
+            self.hints = None;
+            self.palette = None;
+            self.recording = None;
+            self.playback = None;
+        }
         ConfigReport { errors, bindings }
     }
 

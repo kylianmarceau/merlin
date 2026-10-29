@@ -295,9 +295,11 @@ void StatusView::PaintBar(gfx::Canvas* canvas,
   const int cy = bar.CenterPoint().y();
 
   // Mode chip: Merlin yellow in Normal mode, the mode's own color
-  // otherwise.
+  // otherwise. No chip (and no key hints) while modal browsing is off,
+  // which the empty indicator says.
+  const bool modal = !state_.indicator.empty();
   int x = bar.x() + 2;
-  {
+  if (modal) {
     const bool normal = state_.mode == ffi::Mode::Normal;
     const SkColor fill =
         normal ? colors.hint_bg : style::ModeColor(state_.mode, dark);
@@ -347,7 +349,8 @@ void StatusView::PaintBar(gfx::Canvas* canvas,
                           MessageFont(), MessageFont(), colors.text_secondary,
                           colors.text_secondary);
     right -= w + 16;
-  } else if (bar.width() >= kMinWidthForHints && state_.message.empty()) {
+  } else if (modal && bar.width() >= kMinWidthForHints &&
+             state_.message.empty()) {
     static const std::pair<const char16_t*, const char16_t*> kHints[] = {
         {u"?", u"help"}, {u"f", u"hints"}, {u":", u"command"}};
     for (const auto& [key, desc] : kHints) {

@@ -244,6 +244,7 @@ void ModalInputRouter::OnConfigRead(bool found,
                                     std::string_view path,
                                     bool announce,
                                     BrowserOps& ops) {
+  const bool palette_was_open = session_->palette_state().visible;
   // A missing file means defaults; loading "" resets to them.
   ffi::ConfigResult result = session_->load_config(ToStr(found ? text : ""));
   if (!result.errors.empty()) {
@@ -261,6 +262,14 @@ void ModalInputRouter::OnConfigRead(bool found,
               : "No config at " + std::string(path) + "; using defaults");
   }
   ops.SetVerticalTabsDefault(session_->vertical_tabs_default());
+  if (!session_->modal_browsing()) {
+    // The core has left any mode it was in; take its surfaces down too.
+    ops.StopSequenceTimer();
+    ops.HideHints();
+    if (palette_was_open) {
+      ops.HidePalette();
+    }
+  }
   ops.UpdateStatus(session_->mode(), View(session_->mode_indicator()), "", {});
 }
 

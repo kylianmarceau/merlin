@@ -11,6 +11,10 @@
 # inline tables, multi-line strings.
 
 [options]
+# Modes, link hints and key bindings. With false, every key goes to the page
+# as in any other browser; Merlin's pages, toolbar and browserctl keep
+# working. The switch in Settings > Keys sets this.
+modal_browsing = true
 # Pixels per j/k/h/l step.
 scroll_step = 60
 # Animate page-sized jumps (gg, G, Ctrl-d, Ctrl-f). Line steps are always

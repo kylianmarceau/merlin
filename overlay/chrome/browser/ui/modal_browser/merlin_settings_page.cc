@@ -225,14 +225,34 @@ constexpr char kSettingsJs[] = R"JS('use strict';
         linkRow('Fonts and page size', 'Typefaces and minimum font size', () => open('fonts'))));
   }
 
+  // The table a line opens ("options" for "[options]  # x"), or null.
+  function tableOf(line) {
+    const m = /^\[([^\]]+)\]\s*(#.*)?$/.exec(line.trim());
+    return m ? m[1].trim() : null;
+  }
+
+  // A true/false option from [options] in the file's text, or null when
+  // the file does not set it. Read from the file rather than the window,
+  // which rereads it a moment after a save.
+  function boolOption(text, name) {
+    let table = '';
+    for (const line of text.split('\n')) {
+      const t = tableOf(line);
+      if (t !== null) { table = t; continue; }
+      const m = new RegExp('^' + name + '\\s*=\\s*(true|false)\\b').exec(line.trim());
+      if (table === 'options' && m) return m[1] === 'true';
+    }
+    return null;
+  }
+
   function setOption(text, name, literal) {
     const lines = text.split('\n');
     let table = '';
     let header = -1;
     for (let i = 0; i < lines.length; i++) {
       const t = lines[i].trim();
-      const m = /^\[([^\]]+)\]$/.exec(t);
-      if (m) { table = m[1].trim(); if (table === 'options') header = i; continue; }
+      const opened = tableOf(t);
+      if (opened !== null) { table = opened; if (table === 'options') header = i; continue; }
       if (table === 'options' && new RegExp('^' + name + '\\s*=').test(t)) {
         lines[i] = name + ' = ' + literal;
         return lines.join('\n');
@@ -291,7 +311,15 @@ constexpr char kSettingsJs[] = R"JS('use strict';
     });
     const pathRow = row('Configuration file', 'Merlin reads it at startup and on :config-reload.',
                         el('span', 'path', '\u200e' + config.path + '\u200e'));
+    const modal = boolOption(config.text, 'modal_browsing') ?? true;
+    const modalRow = row('Modal browsing',
+        'Modes, link hints and every binding below. Off, Merlin works like any other browser: keys go to the page.',
+        toggle(modal, (v) => {
+          pendingToast = v ? 'Modal browsing is on' : 'Modal browsing is off: keys go to the page';
+          saveConfig(setOption(config.text, 'modal_browsing', String(v)));
+        }, 'Modal browsing'));
     return section('keys', 'Keys', 'Every Normal-mode binding. Change them in the configuration file below.',
+      group(modalRow),
       binds,
       sub('Link hints'),
       group(row('Hint characters', 'Letters used for the labels f shows, home row first.', charRow)),
@@ -305,6 +333,9 @@ constexpr char kSettingsJs[] = R"JS('use strict';
     status.textContent = config.error ? config.error
         : config.found ? 'Saved on disk. ⌘S saves.' : 'No file yet: saving creates it.';
   }
+
+  // Shown instead of the generic confirmation after the next save.
+  let pendingToast = '';
 
   function saveConfig(text) {
     send('saveConfig', text);
@@ -511,8 +542,10 @@ constexpr char kSettingsJs[] = R"JS('use strict';
       if (state) render();
     },
     saved(error) {
+      const done = pendingToast;
+      pendingToast = '';
       if (error) { toast(error); return; }
-      toast('Saved. Merlin reloaded its configuration.');
+      toast(done || 'Saved. Merlin reloaded its configuration.');
     },
     message(text) { toast(text); },
   };
@@ -994,10 +1027,9 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
   void OnConfigWritten(std::string error) {
     if (error.empty()) {
       // Every window rereads it; errors show in each status bar, as with
-      // :config-reload.
-      if (ModalBrowserController* controller = ControllerForWebUI(web_ui())) {
-        controller->RunCommandLine("config-reload");
-      }
+      // :config-reload, and this one also confirms the reload.
+      ModalBrowserController::ReloadConfigInAllWindows(
+          ControllerForWebUI(web_ui()));
     }
     if (IsJavascriptAllowed()) {
       CallJavascriptFunction("merlinPage.saved", base::Value(error));

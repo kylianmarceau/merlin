@@ -22,7 +22,9 @@ DevTools and security work the way you expect.
 
 It never gets in your way: typing in a page's text field is never taken
 over, sites with their own shortcuts can have their keys back, and every
-binding can be changed.
+binding can be changed. If you want a plain browser for a while, turn off
+**Modal browsing** in Settings > Keys: every key goes to the page until you
+turn it back on.
 
 ## Features
 

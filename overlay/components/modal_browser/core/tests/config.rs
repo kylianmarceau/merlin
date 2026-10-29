@@ -315,3 +315,55 @@ fn page_change_ends_insert_and_hints() {
     assert_eq!(o.mode, Mode::Normal);
     assert_eq!(o.actions, vec![Action::HideHints]);
 }
+
+#[test]
+fn modal_browsing_off_gives_every_key_to_the_page() {
+    let mut s = ModalSession::new();
+    assert!(s.config().modal_browsing);
+    assert_eq!(s.mode_indicator(), "NORMAL");
+
+    let report = s.load_config("[options]\nmodal_browsing = false");
+    assert!(report.errors.is_empty(), "{:?}", report.errors);
+    assert!(!s.config().modal_browsing);
+    assert_eq!(s.mode_indicator(), "");
+    for keys in ["f", "j", ":", "gg", "i", "<Esc>", "<S-Esc>", "<C-S-e>"] {
+        let (disposition, actions) = press(&mut s, keys);
+        assert_eq!(disposition, KeyDisposition::Forward, "{keys}");
+        assert!(actions.is_empty(), "{keys}: {actions:?}");
+        assert_eq!(s.mode(), Mode::Normal, "{keys}");
+    }
+    // No mode follows focus or the site.
+    assert_eq!(
+        s.on_focus_changed(&FocusContext::EDITABLE).mode,
+        Mode::Normal
+    );
+    s.load_config("[options]\nmodal_browsing = false\npassthrough_sites = [\"mail.google.com\"]");
+    let o = s.on_page_changed("mail.google.com");
+    assert_eq!(o.mode, Mode::Normal);
+    assert!(o.actions.is_empty());
+}
+
+#[test]
+fn turning_modal_browsing_off_leaves_the_current_mode_and_on_restores_keys() {
+    let mut s = ModalSession::new();
+    press(&mut s, "f");
+    assert_eq!(s.mode(), Mode::Hint);
+    s.load_config("[options]\nmodal_browsing = false");
+    assert_eq!(s.mode(), Mode::Normal);
+    assert!(s.hints().is_none());
+
+    s.load_config("[options]\nmodal_browsing = true");
+    assert_eq!(s.mode_indicator(), "NORMAL");
+    assert_eq!(press(&mut s, "j").0, KeyDisposition::Consumed);
+    // A missing option means on.
+    s.load_config("");
+    assert!(s.config().modal_browsing);
+}
+
+#[test]
+fn modal_browsing_must_be_a_boolean() {
+    let (file, errors) = ConfigFile::parse("[options]\nmodal_browsing = \"no\"");
+    assert_eq!(file.modal_browsing, None);
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].message.contains("true or false"), "{}", errors[0]);
+}

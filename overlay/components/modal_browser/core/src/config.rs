@@ -2,6 +2,7 @@
 //!
 //! ```toml
 //! [options]
+//! modal_browsing = true            # false: keys go to the page as in any browser
 //! sequence_timeout_ms = 800        # 100..=5000
 //! hint_chars = "asdfghjkl"
 //! auto_insert = true
@@ -138,6 +139,7 @@ pub struct UnmapEntry {
 /// Everything the file sets. `None` means "keep the default".
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConfigFile {
+    pub modal_browsing: Option<bool>,
     pub sequence_timeout_ms: Option<u32>,
     pub hint_chars: Option<HintAlphabet>,
     pub auto_insert: Option<bool>,
@@ -157,6 +159,7 @@ pub struct ConfigFile {
 }
 
 const OPTION_NAMES: &[&str] = &[
+    "modal_browsing",
     "sequence_timeout_ms",
     "hint_chars",
     "auto_insert",
@@ -357,6 +360,7 @@ impl ConfigFile {
                 let chars = expect_str(name, value)?;
                 self.hint_chars = Some(HintAlphabet::new(chars).map_err(|e| e.to_string())?);
             }
+            "modal_browsing" => self.modal_browsing = Some(expect_bool(name, value)?),
             "auto_insert" => self.auto_insert = Some(expect_bool(name, value)?),
             "passthrough_exit" => {
                 let notation = expect_str(name, value)?;

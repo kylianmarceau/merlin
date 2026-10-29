@@ -479,6 +479,18 @@ bool ModalBrowserController::TabsInSidebar() const {
   return state && state->ShouldDisplayVerticalTabs();
 }
 
+// static
+void ModalBrowserController::ReloadConfigInAllWindows(
+    ModalBrowserController* announce) {
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [announce](BrowserWindowInterface* browser) {
+        if (ModalBrowserController* c = From(browser)) {
+          c->LoadConfig(/*announce=*/c == announce);
+        }
+        return true;
+      });
+}
+
 std::vector<ModalInputRouter::Binding> ModalBrowserController::KeyBindings()
     const {
   return router_.key_bindings();

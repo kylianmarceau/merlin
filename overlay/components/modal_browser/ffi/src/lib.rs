@@ -648,7 +648,10 @@ mod ffi {
         fn load_config(self: &mut Session, text: &str) -> ConfigResult;
 
         fn mode(self: &Session) -> Mode;
+        /// Empty while modal browsing is off.
         fn mode_indicator(self: &Session) -> String;
+        /// Config `modal_browsing`: off, every key goes to the page.
+        fn modal_browsing(self: &Session) -> bool;
         /// Whether tabs should start in a sidebar (config `vertical_tabs`).
         fn vertical_tabs_default(self: &Session) -> bool;
         /// Normal-mode bindings for Merlin Settings: `title` is the
@@ -918,7 +921,11 @@ impl Session {
     }
 
     fn mode_indicator(&self) -> String {
-        self.inner.mode().indicator().to_string()
+        self.inner.mode_indicator().to_string()
+    }
+
+    fn modal_browsing(&self) -> bool {
+        self.inner.config().modal_browsing
     }
 
     fn vertical_tabs_default(&self) -> bool {
