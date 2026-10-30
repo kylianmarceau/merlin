@@ -36,6 +36,7 @@
 class BrowserView;
 class BrowserWindowInterface;
 class GURL;
+class LocationBarView;
 
 namespace input {
 struct NativeWebKeyboardEvent;
@@ -51,6 +52,9 @@ inline constexpr char kUpstreamDefaultsSwitch[] =
 
 class ExternalEditor;
 class HintHost;
+class MerlinAddressEditor;
+class MerlinTabBarHost;
+class PageColorSampler;
 class MerlinAddressField;
 class MerlinNavButton;
 class StatusHost;
@@ -226,6 +230,7 @@ class ModalBrowserController : public BrowserOps,
   std::string workspace_for_testing() const { return router_.workspace(); }
   ExternalEditor* field_editor_for_testing() { return field_editor_.get(); }
   MerlinAddressField* address_field_for_testing() { return address_field_; }
+  MerlinTabBarHost* tab_bar_host_for_testing() { return tab_bar_host_.get(); }
   MerlinNavButton* back_button_for_testing() { return back_button_; }
   // Called after page-side work (hint collection, activation) finishes.
   void set_page_work_done_callback_for_testing(base::RepeatingClosure cb) {
@@ -250,12 +255,19 @@ class ModalBrowserController : public BrowserOps,
   // Puts Merlin's back, forward, reload and address field in the toolbar
   // row in place of Chromium's (once per window), then shows the field on
   // sites and hides it on the start page.
-  void InstallMerlinToolbar(views::View* location_bar);
+  // Gives the active tab, the toolbar and what is drawn on it the page's
+  // color (nullopt: Merlin's own).
+  void ApplyPageColor(std::optional<SkColor> color);
+  void InstallMerlinToolbar(LocationBarView* location_bar);
   void UpdateMerlinToolbar(content::WebContents* contents, bool start_page);
   void ShowSiteInfo();
   bool ToolbarHidden() const { return toolbar_hidden_; }
-  // The palette's command line, pre-filled to edit the page address. Stands
-  // in for the address field while the toolbar row is hidden.
+  // Puts the cursor where the address is typed: the toolbar row's field on
+  // sites (MerlinAddressEditor), the start page's own field there.
+  void EditAddress();
+  bool EditingAddress() const;
+  // The palette's command line, pre-filled to edit the page address, for
+  // when neither field is there.
   void EditAddressInPalette();
   float DeviceScaleFactor();
   void LoadConfig(bool announce);
@@ -307,6 +319,13 @@ class ModalBrowserController : public BrowserOps,
   raw_ptr<MerlinNavButton> forward_button_ = nullptr;
   raw_ptr<MerlinNavButton> reload_button_ = nullptr;
   raw_ptr<MerlinAddressField> address_field_ = nullptr;
+  // Swaps Chromium's field in while the address is edited.
+  std::unique_ptr<MerlinAddressEditor> address_editor_;
+  // Merlin's tab bar over Chromium's, with tabs on top.
+  std::unique_ptr<MerlinTabBarHost> tab_bar_host_;
+  // The active page's color, which the active tab and the toolbar take.
+  std::unique_ptr<PageColorSampler> page_color_;
+  std::optional<SkColor> page_color_value_;
   // Last editable level reported for the observed tab, to tell plain text
   // fields from rich editors when IsFocusedElementEditable() is true.
   content::EditableLevel last_editable_level_ =

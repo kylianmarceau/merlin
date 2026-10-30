@@ -44,7 +44,14 @@
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
+#include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/modal_browser/merlin_page_color.h"
+#include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
+// Part of //chrome/browser/ui/views/toolbar, which depends on this target.
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"  // nogncheck
+#include "ui/views/background.h"
 #include "chrome/browser/ui/modal_browser/merlin_theme.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/status_view.h"
@@ -370,6 +377,10 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
   InstallMerlinPages();
   SetMerlinStartAsNewTabDefault(browser_->GetProfile());
   status_->SetCardMode(true);
+  tab_bar_host_ = std::make_unique<MerlinTabBarHost>(browser_, browser_view_);
+  page_color_ = std::make_unique<PageColorSampler>(base::BindRepeating(
+      &ModalBrowserController::ApplyPageColor, base::Unretained(this)));
+  page_color_->Watch(ActiveContents());
   {
     // Defaults only: a user's or a policy's choice still wins. The address
     // field's AI Mode entry point goes (it sends the query to Google), and
@@ -425,6 +436,9 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
 ModalBrowserController::~ModalBrowserController() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   BrowserctlService::Get().Update(this, false);
+  // Before the tab strip model and the window go.
+  page_color_.reset();
+  tab_bar_host_.reset();
   download_notifier_.reset();
   browser_->GetTabStripModel()->RemoveObserver(this);
   Observe(nullptr);
@@ -464,7 +478,7 @@ bool ModalBrowserController::PreHandleKeyDown(
 #endif
   if (merlin_ui_ && address_chord && !key.alt && !key.shift &&
       (dom_key == "l" || dom_key == "L")) {
-    EditAddressInPalette();
+    EditAddress();
     return true;
   }
   return router_.OnKeyDown(key, CurrentFocus(), *this);
@@ -708,10 +722,37 @@ void ModalBrowserController::Scroll(ffi::ScrollKind scroll,
 
 void ModalBrowserController::FocusAddressBar() {
   if (merlin_ui_) {
-    EditAddressInPalette();
+    EditAddress();
     return;
   }
   chrome::FocusLocationBar(browser_);
+}
+
+void ModalBrowserController::EditAddress() {
+  content::WebContents* contents = ActiveContents();
+  if (address_editor_ && address_field_ && address_field_->GetVisible()) {
+    address_editor_->Begin();
+    return;
+  }
+  if (address_editor_ && address_editor_->editing()) {
+    address_editor_->Begin();  // Focuses it again.
+    return;
+  }
+  const GURL url = contents ? contents->GetVisibleURL() : GURL();
+  if (contents && url.SchemeIs(content::kChromeUIScheme) &&
+      url.host() == kMerlinStartHost) {
+    // The start page's field (merlin_start_page.cc), focused and selected.
+    contents->Focus();
+    contents->GetPrimaryMainFrame()->ExecuteJavaScript(
+        u"window.merlinStart && merlinStart.focusField();",
+        base::NullCallback());
+    return;
+  }
+  EditAddressInPalette();
+}
+
+bool ModalBrowserController::EditingAddress() const {
+  return address_editor_ && address_editor_->editing();
 }
 
 void ModalBrowserController::EditAddressInPalette() {
@@ -729,6 +770,9 @@ void ModalBrowserController::EditAddressInPalette() {
 
 void ModalBrowserController::OnTabLayoutChanged() {
   UpdateBarContext();
+  if (tab_bar_host_) {
+    tab_bar_host_->Update();
+  }
 }
 
 void ModalBrowserController::ApplyTabLayout() {
@@ -744,16 +788,22 @@ void ModalBrowserController::ApplyTabLayout() {
   if (!location_bar) {
     return;
   }
-  if (location_bar->GetVisible() == toolbar_hidden_) {
-    location_bar->SetVisible(!toolbar_hidden_);
+  // Chromium's field also shows while the address is edited in it.
+  const bool show_chromium_field = !toolbar_hidden_ || EditingAddress();
+  if (location_bar->GetVisible() != show_chromium_field) {
+    location_bar->SetVisible(show_chromium_field);
   }
   if (toolbar_hidden_) {
     InstallMerlinToolbar(location_bar);
   }
   HideChromiumToolbarButtons();
+  if (tab_bar_host_) {
+    tab_bar_host_->Update();
+  }
 }
 
-void ModalBrowserController::InstallMerlinToolbar(views::View* location_bar) {
+void ModalBrowserController::InstallMerlinToolbar(
+    LocationBarView* location_bar) {
   views::View* row = location_bar->parent();
   if (address_field_ || !row) {
     return;
@@ -789,9 +839,13 @@ void ModalBrowserController::InstallMerlinToolbar(views::View* location_bar) {
   // [spacer][field][spacer] after Chromium's (hidden) field: the field is
   // at most its preferred width and sits centered in the space left.
   size_t index = *row->GetIndexOf(location_bar) + 1;
-  toolbar_spacer_ = row->AddChildViewAt(flexible(), index++);
+  // Left-aligned after the buttons, as in Dia; the right spacer takes what
+  // the field does not need.
+  auto gap = std::make_unique<views::View>();
+  gap->SetPreferredSize(gfx::Size(2, 1));
+  toolbar_spacer_ = row->AddChildViewAt(std::move(gap), index++);
   auto field = std::make_unique<MerlinAddressField>(
-      base::BindRepeating(&ModalBrowserController::EditAddressInPalette,
+      base::BindRepeating(&ModalBrowserController::EditAddress,
                           weak_factory_.GetWeakPtr()),
       base::BindRepeating(&ModalBrowserController::ShowSiteInfo,
                           weak_factory_.GetWeakPtr()));
@@ -800,9 +854,26 @@ void ModalBrowserController::InstallMerlinToolbar(views::View* location_bar) {
       views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
                                views::MaximumFlexSizeRule::kPreferred)
           .WithOrder(1));
-  field->SetProperty(views::kMarginsKey, gfx::Insets::VH(0, 8));
+  field->SetProperty(views::kMarginsKey, gfx::Insets::VH(0, 2));
   address_field_ = row->AddChildViewAt(std::move(field), index++);
   toolbar_spacer_right_ = row->AddChildViewAt(flexible(), index);
+  address_editor_ = std::make_unique<MerlinAddressEditor>(
+      location_bar,
+      std::vector<views::View*>{toolbar_spacer_, address_field_,
+                                toolbar_spacer_right_},
+      // The start page hides Merlin's field again.
+      base::BindRepeating(&ModalBrowserController::UpdateBarContext,
+                          weak_factory_.GetWeakPtr()),
+      base::BindRepeating(
+          [](base::WeakPtr<ModalBrowserController> self) {
+            if (self) {
+              if (content::WebContents* contents = self->ActiveContents()) {
+                contents->Focus();
+              }
+            }
+          },
+          weak_factory_.GetWeakPtr()));
+  ApplyPageColor(page_color_value_);
 }
 
 void ModalBrowserController::UpdateMerlinToolbar(
@@ -811,8 +882,9 @@ void ModalBrowserController::UpdateMerlinToolbar(
   if (!address_field_) {
     return;
   }
-  // The start page has its own field.
-  const bool show_field = contents && !start_page;
+  // The start page has its own field, and Chromium's stands in for this one
+  // while the address is edited.
+  const bool show_field = contents && !start_page && !EditingAddress();
   if (show_field) {
     address_field_->Update(contents);
   }
@@ -1329,6 +1401,17 @@ void ModalBrowserController::SetVerticalTabsDefault(bool vertical) {
   // value and wins. Chromium's vertical tab controller observes the pref
   // and switches live.
   PrefService* prefs = browser_->GetProfile()->GetPrefs();
+  // Changing the default notifies even when a user value hides it, and
+  // Chromium then rebuilds a tab strip that never switched (a crash in
+  // TabStrip::Reset at startup), so leave it alone in that case.
+  const PrefService::Preference* pref =
+      prefs->FindPreference(prefs::kVerticalTabsEnabled);
+  const base::Value* current =
+      prefs->GetDefaultPrefValue(prefs::kVerticalTabsEnabled);
+  if (!pref || pref->HasUserSetting() ||
+      (current && *current == base::Value(vertical))) {
+    return;
+  }
   prefs->SetDefaultPrefValue(prefs::kVerticalTabsEnabled,
                              base::Value(vertical));
 }
@@ -2653,6 +2736,28 @@ PageFocus ModalBrowserController::CurrentFocus() {
 void ModalBrowserController::ObserveActiveContents() {
   last_editable_level_ = content::EditableLevel::kNotEditable;
   Observe(ActiveContents());
+  if (page_color_) {
+    page_color_->Watch(ActiveContents());
+  }
+}
+
+void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
+  page_color_value_ = color;
+  if (tab_bar_host_ && tab_bar_host_->bar()) {
+    tab_bar_host_->bar()->SetActiveColor(color);
+  }
+  if (ToolbarView* toolbar = browser_view_->toolbar()) {
+    MerlinToolbarBackdrop::InstallIn(toolbar)->SetColor(color);
+  }
+  for (MerlinNavButton* button : {back_button_.get(), forward_button_.get(),
+                                  reload_button_.get()}) {
+    if (button) {
+      button->SetSurface(color);
+    }
+  }
+  if (address_field_) {
+    address_field_->SetSurface(color);
+  }
 }
 
 void ModalBrowserController::PageWorkDone() {

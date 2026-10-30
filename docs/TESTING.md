@@ -317,4 +317,15 @@ Phase 4 gate: a large docs.rs or MDN page navigable like a document.
 | 34 | `:extract links editor` | A read-only Markdown list of links opens in the editor |
 | 35 | `gl`, type part of a link text, Enter | Navigates there |
 
+Tab bar and page color (decision 38):
+
+| # | Steps | Expected |
+|---|---|---|
+| 36 | Tabs on top, open docs.rs, then netflix.com | The active tab, toolbar and page are one surface: white on docs.rs, black on Netflix; no line or gap where the toolbar meets the page; text and icons stay readable on both |
+| 37 | Hover, click, middle-click, drag a tab; right-click one | Soft fill on hover, × appears; click selects; middle-click and × close; drag reorders; Chromium's tab menu opens |
+| 38 | Drag empty tab-row space; double-click it | The window moves; it zooms |
+| 39 | `:vertical-tabs on` with 30 tabs | Rows with full titles; the active row is a card in the page's color; the wheel scrolls rows a whole row at a time; "New tab" stays at the bottom; switching to a tab out of view scrolls it in |
+| 40 | `gp` on two tabs, in both layouts | Pinned tabs become icon tiles in one capsule (in the sidebar, as many to a row as fit) |
+| 41 | Light and dark mode, both layouts | One even chrome color around the page; nothing of Chromium's strip shows |
+
 Record results with build args, commit and date in this file.

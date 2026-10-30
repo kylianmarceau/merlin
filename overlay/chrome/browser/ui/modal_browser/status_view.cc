@@ -34,12 +34,13 @@ constexpr int kPanelMaxRows = 10;
 constexpr size_t kMaxPanelLines = 14;
 
 // The page card and the bar under it (redesign steps 4 and 5).
-constexpr int kCardTop = 2;
-constexpr int kCardSide = 8;
+// The card's sides and radius are in modal_style.h; its top meets the
+// toolbar, which carries the card's top corners.
+constexpr int kCardSide = style::kCardSide;
 constexpr int kBarHeight = 26;
 constexpr int kBarGap = 4;  // between the card, the bar and the window edge
 constexpr int kCardBottom = kBarHeight + 2 * kBarGap;
-constexpr float kCardRadius = 12;
+constexpr float kCardRadius = style::kCardRadius;
 // The which-key and message panel floats inside the card, this far from
 // its bottom-left corner.
 constexpr int kPanelInset = 14;
@@ -518,10 +519,10 @@ void StatusHost::UpdateCard() {
     return;
   }
   const bool card = BarActive();
-  mcv->SetCardInsets(card ? gfx::Insets::TLBR(kCardTop, kCardSide, kCardBottom,
-                                              kCardSide)
-                          : gfx::Insets(),
-                     kCardRadius);
+  mcv->SetCardInsets(
+      card ? gfx::Insets::TLBR(0, kCardSide, kCardBottom, kCardSide)
+           : gfx::Insets(),
+      gfx::RoundedCornersF(0, 0, kCardRadius, kCardRadius));
   state_.bar = card;
 }
 

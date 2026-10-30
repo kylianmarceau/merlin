@@ -35,6 +35,11 @@
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/menu/menu_runner.h"
+#include "third_party/skia/include/core/SkRRect.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
+#include "ui/views/background.h"
+#include "ui/views/view_class_properties.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
@@ -47,10 +52,9 @@ constexpr int kNavButtonRadius = 8;
 constexpr float kStroke = 1.6f;
 
 constexpr int kFieldHeight = 30;
-constexpr int kFieldRadius = 9;
-constexpr int kFieldPadding = 12;
-constexpr int kFieldPreferredWidth = 560;
-constexpr int kGlyphSize = 14;
+constexpr int kFieldRadius = 8;
+constexpr int kFieldPadding = 8;
+constexpr int kFieldPreferredWidth = 640;
 constexpr int kChipGap = 8;
 
 cc::PaintFlags StrokeFlags(SkColor color, float width = kStroke) {
@@ -110,23 +114,15 @@ void DrawStop(gfx::Canvas* canvas, const gfx::PointF& o, SkColor color) {
   canvas->DrawPath(path.detach(), StrokeFlags(color));
 }
 
-// A small lock in a 14 x 14 box.
-void DrawLock(gfx::Canvas* canvas, const gfx::PointF& o, SkColor color) {
-  const SkRect body = SkRect::MakeXYWH(o.x() + 2.5f, o.y() + 6.0f, 9.0f, 6.5f);
-  canvas->sk_canvas()->drawRoundRect(body, 1.8f, 1.8f,
-                                     StrokeFlags(color, 1.3f));
-  SkPathBuilder shackle;
-  shackle.moveTo(o.x() + 4.75f, o.y() + 6.0f);
-  shackle.lineTo(o.x() + 4.75f, o.y() + 4.25f);
-  shackle.arcTo(SkRect::MakeXYWH(o.x() + 4.75f, o.y() + 1.75f, 4.5f, 5.0f),
-                180.0f, 180.0f, /*forceMoveTo=*/false);
-  shackle.lineTo(o.x() + 9.25f, o.y() + 6.0f);
-  canvas->DrawPath(shackle.detach(), StrokeFlags(color, 1.3f));
-}
-
 SkColor Color(const views::View* view, ui::ColorId id) {
   const ui::ColorProvider* provider = view->GetColorProvider();
   return provider ? provider->GetColor(id) : gfx::kPlaceholderColor;
+}
+
+// Ink for what is drawn on the toolbar: on the page's color when there is
+// one, else on the toolbar's own.
+style::Ink InkFor(const views::View* view, std::optional<SkColor> surface) {
+  return style::InkOn(surface ? *surface : Color(view, kColorToolbar));
 }
 
 }  // namespace
@@ -158,6 +154,13 @@ void MerlinNavButton::SetLoading(bool loading) {
   loading_ = loading;
   UpdateTooltip();
   SchedulePaint();
+}
+
+void MerlinNavButton::SetSurface(std::optional<SkColor> surface) {
+  if (surface_ != surface) {
+    surface_ = surface;
+    SchedulePaint();
+  }
 }
 
 void MerlinNavButton::UpdateTooltip() {
@@ -194,17 +197,13 @@ void MerlinNavButton::StateChanged(ButtonState old_state) {
 void MerlinNavButton::PaintButtonContents(gfx::Canvas* canvas) {
   const gfx::Rect bounds = GetLocalBounds();
   const ButtonState state = GetState();
+  const style::Ink ink = InkFor(this, surface_);
   if (state == STATE_HOVERED || state == STATE_PRESSED) {
-    const SkColor hover = Color(this, state == STATE_PRESSED
-                                          ? kColorToolbarInkDropRipple
-                                          : kColorToolbarInkDropHover);
-    canvas->sk_canvas()->drawRoundRect(gfx::RectToSkRect(bounds),
-                                       kNavButtonRadius, kNavButtonRadius,
-                                       FillFlags(hover));
+    canvas->sk_canvas()->drawRoundRect(
+        gfx::RectToSkRect(bounds), kNavButtonRadius, kNavButtonRadius,
+        FillFlags(state == STATE_PRESSED ? ink.pressed : ink.hover));
   }
-  SkColor icon = Color(this, state == STATE_DISABLED
-                                 ? kColorToolbarButtonIconDisabled
-                                 : kColorToolbarButtonIcon);
+  SkColor icon = state == STATE_DISABLED ? ink.icon_disabled : ink.icon;
   const gfx::PointF origin(bounds.x() + (bounds.width() - 16) / 2.0f,
                            bounds.y() + (bounds.height() - 16) / 2.0f);
   switch (kind_) {
@@ -284,11 +283,20 @@ MerlinAddressField::MerlinAddressField(base::RepeatingClosure edit_address,
 
 MerlinAddressField::~MerlinAddressField() = default;
 
+void MerlinAddressField::SetSurface(std::optional<SkColor> surface) {
+  if (surface_ != surface) {
+    surface_ = surface;
+    SchedulePaint();
+  }
+}
+
 void MerlinAddressField::Update(content::WebContents* contents) {
   std::u16string host;
   std::u16string rest;
+  std::u16string title;
   Security security = Security::kNone;
   if (contents) {
+    title = contents->GetTitle();
     const GURL& url = contents->GetVisibleURL();
     if (url.SchemeIs(content::kChromeUIScheme)) {
       host = base::UTF8ToUTF16(MerlinDisplayUrl(url));
@@ -333,13 +341,21 @@ void MerlinAddressField::Update(content::WebContents* contents) {
       }
     }
   }
-  if (host == host_ && rest == rest_ && security == security_) {
+  // A page without a title shows its address as its title; that adds
+  // nothing after the host.
+  if (title == host + rest || title == host) {
+    title.clear();
+  }
+  if (host == host_ && rest == rest_ && title == title_ &&
+      security == security_) {
     return;
   }
   host_ = std::move(host);
   rest_ = std::move(rest);
+  title_ = std::move(title);
   security_ = security;
   GetViewAccessibility().SetName(u"Address: " + host_ + rest_);
+  SetTooltipText(host_ + rest_);
   SchedulePaint();
 }
 
@@ -356,16 +372,15 @@ std::u16string MerlinAddressField::ChipText() const {
 }
 
 gfx::Rect MerlinAddressField::SiteInfoBounds() const {
-  if (security_ == Security::kNone) {
+  // Only warnings show; a secure page needs no lock, as in Dia.
+  const std::u16string chip = ChipText();
+  if (chip.empty()) {
     return gfx::Rect();
   }
-  int width = kGlyphSize;
-  if (const std::u16string chip = ChipText(); !chip.empty()) {
-    width = gfx::GetStringWidth(chip, style::UiFont(-1, gfx::Font::Weight::MEDIUM)) +
-            2 * 7;
-  }
-  return gfx::Rect(kFieldPadding - (security_ == Security::kSecure ? 0 : 5),
-                   (height() - 20) / 2, width, 20);
+  const int width =
+      gfx::GetStringWidth(chip, style::UiFont(-1, gfx::Font::Weight::MEDIUM)) +
+      2 * 7;
+  return gfx::Rect(kFieldPadding - 4, (height() - 20) / 2, width, 20);
 }
 
 gfx::Size MerlinAddressField::CalculatePreferredSize(
@@ -380,21 +395,15 @@ void MerlinAddressField::StateChanged(ButtonState old_state) {
 
 void MerlinAddressField::PaintButtonContents(gfx::Canvas* canvas) {
   const gfx::Rect bounds = GetLocalBounds();
+  const style::Ink ink = InkFor(this, surface_);
+  // No box: the address is written on the toolbar. Hover shows where to
+  // click, around the text only.
   const bool hovered =
       GetState() == STATE_HOVERED || GetState() == STATE_PRESSED;
-  canvas->sk_canvas()->drawRoundRect(
-      gfx::RectToSkRect(bounds), kFieldRadius, kFieldRadius,
-      FillFlags(Color(this, hovered ? kColorLocationBarBackgroundHovered
-                                    : kColorLocationBarBackground)));
 
   int x = kFieldPadding;
   const gfx::Rect info = SiteInfoBounds();
-  if (security_ == Security::kSecure) {
-    DrawLock(canvas,
-             gfx::PointF(info.x(), (bounds.height() - kGlyphSize) / 2.0f),
-             Color(this, kColorOmniboxTextDimmed));
-    x = info.right() + 6;
-  } else if (!info.IsEmpty()) {
+  if (!info.IsEmpty()) {
     const SkColor warn = Color(this, kColorOmniboxSecurityChipDangerous);
     canvas->sk_canvas()->drawRoundRect(
         gfx::RectToSkRect(info), 6, 6,
@@ -406,26 +415,36 @@ void MerlinAddressField::PaintButtonContents(gfx::Canvas* canvas) {
     x = info.right() + kChipGap;
   }
 
-  const gfx::FontList& host_font =
-      style::UiFont(0, gfx::Font::Weight::MEDIUM);
-  const gfx::FontList& rest_font = style::UiFont();
+  const gfx::FontList& font = style::UiFont();
   const int available = bounds.width() - x - kFieldPadding;
   if (available <= 0) {
     return;
   }
   const std::u16string host =
-      gfx::ElideText(host_, host_font, available, gfx::ELIDE_HEAD);
-  const int host_width = std::min(gfx::GetStringWidth(host, host_font),
-                                  available);
-  canvas->DrawStringRect(host, host_font, Color(this, kColorOmniboxText),
+      gfx::ElideText(host_, font, available, gfx::ELIDE_HEAD);
+  const int host_width =
+      std::min(gfx::GetStringWidth(host, font), available);
+  // After the site: " / " and the page's title, else its path.
+  const std::u16string after =
+      title_.empty() ? rest_ : (u" / " + title_);
+  const int after_space = available - host_width;
+  std::u16string tail;
+  if (!after.empty() && after_space > 16) {
+    tail = gfx::ElideText(after, font, after_space, gfx::ELIDE_TAIL);
+  }
+  const int text_width = host_width + gfx::GetStringWidth(tail, font);
+  if (hovered) {
+    gfx::Rect hover(0, 0, std::min(bounds.width(), x + text_width + kFieldPadding),
+                    bounds.height());
+    canvas->sk_canvas()->drawRoundRect(gfx::RectToSkRect(hover), kFieldRadius,
+                                       kFieldRadius, FillFlags(ink.hover));
+  }
+  canvas->DrawStringRect(host, font, ink.text,
                          gfx::Rect(x, 0, host_width, bounds.height()));
-  const int rest_space = available - host_width;
-  if (!rest_.empty() && rest_space > 12) {
-    const std::u16string rest =
-        gfx::ElideText(rest_, rest_font, rest_space, gfx::ELIDE_TAIL);
+  if (!tail.empty()) {
     canvas->DrawStringRect(
-        rest, rest_font, Color(this, kColorOmniboxTextDimmed),
-        gfx::Rect(x + host_width, 0, rest_space, bounds.height()));
+        tail, font, ink.text_dim,
+        gfx::Rect(x + host_width, 0, after_space, bounds.height()));
   }
 }
 
@@ -443,6 +462,75 @@ void MerlinAddressField::OnPressed(const ui::Event& event) {
 }
 
 BEGIN_METADATA(MerlinAddressField)
+END_METADATA
+
+// MerlinToolbarBackdrop ----------------------------------------------------
+
+MerlinToolbarBackdrop::MerlinToolbarBackdrop() {
+  SetProperty(views::kViewIgnoredByLayoutKey, true);
+  SetCanProcessEventsWithinSubtree(false);
+  SetFocusBehavior(FocusBehavior::NEVER);
+  GetViewAccessibility().SetIsIgnored(true);
+}
+
+MerlinToolbarBackdrop::~MerlinToolbarBackdrop() = default;
+
+// static
+MerlinToolbarBackdrop* MerlinToolbarBackdrop::InstallIn(views::View* toolbar) {
+  for (views::View* child : toolbar->children()) {
+    if (auto* backdrop = views::AsViewClass<MerlinToolbarBackdrop>(child)) {
+      return backdrop;
+    }
+  }
+  auto* backdrop = toolbar->AddChildViewAt(
+      std::make_unique<MerlinToolbarBackdrop>(), 0);
+  backdrop->SetBoundsRect(toolbar->GetLocalBounds());
+  return backdrop;
+}
+
+void MerlinToolbarBackdrop::SetColor(std::optional<SkColor> color) {
+  if (color_ != color) {
+    color_ = color;
+    SchedulePaint();
+  }
+}
+
+void MerlinToolbarBackdrop::AddedToWidget() {
+  if (parent() && !observing_) {
+    parent()->AddObserver(this);
+    observing_ = true;
+    SetBoundsRect(parent()->GetLocalBounds());
+  }
+}
+
+void MerlinToolbarBackdrop::RemovedFromWidget() {
+  if (parent() && observing_) {
+    parent()->RemoveObserver(this);
+    observing_ = false;
+  }
+}
+
+void MerlinToolbarBackdrop::OnViewBoundsChanged(views::View* observed_view) {
+  SetBoundsRect(observed_view->GetLocalBounds());
+}
+
+void MerlinToolbarBackdrop::OnPaint(gfx::Canvas* canvas) {
+  if (!color_ || !parent()) {
+    return;
+  }
+  // The top of the page card: as wide as the page under it, with the card's
+  // top corners, so toolbar and page read as one surface. The sides show
+  // the toolbar's own color, the same color as around the card.
+  gfx::Rect card = GetLocalBounds();
+  card.Inset(gfx::Insets::VH(0, style::kCardSide));
+  const float r = style::kCardRadius;
+  const SkVector radii[4] = {{r, r}, {r, r}, {0, 0}, {0, 0}};
+  SkRRect rrect;
+  rrect.setRectRadii(gfx::RectToSkRect(card), radii);
+  canvas->sk_canvas()->drawRRect(rrect, FillFlags(*color_));
+}
+
+BEGIN_METADATA(MerlinToolbarBackdrop)
 END_METADATA
 
 }  // namespace modal_browser

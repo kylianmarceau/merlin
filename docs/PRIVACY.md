@@ -44,6 +44,11 @@ Scripts run in Chrome's isolated world and return:
 * for `yy`, `yf`, `yc`, `y` in Visual mode: the URL, link, code or
   selection being copied, straight to the clipboard.
 
+* for the tab bar's color: the pixels along the top edge of the active
+  page, read from the compositor (a strip two pixels tall, scaled down to
+  96), reduced to one color in memory and kept only as that color on the
+  tab. No page script runs and nothing is written or sent.
+
 ## Clipboard
 
 Written only by explicit yank commands; read only by `p`/`P`.

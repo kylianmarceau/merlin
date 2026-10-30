@@ -17,18 +17,24 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/modal_browser/merlin_pages.h"
+#include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
+#include "chrome/browser/ui/webui/favicon_source.h"
+#include "components/favicon_base/favicon_url_parser.h"
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/sessions/core/tab_restore_types.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/page_navigator.h"
+#include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -36,6 +42,8 @@
 #include "content/public/browser/webui_config.h"
 #include "content/public/browser/webui_config_map.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/common/referrer.h"
+#include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
@@ -68,10 +76,14 @@ constexpr char kIndexHtml[] = R"HTML(<!doctype html>
     <span>Merlin</span>
   </header>
 
-  <form id="go" class="field" autocomplete="off">
-    <span class="prompt" aria-hidden="true">:</span>
-    <input id="q" aria-label="Search or enter address" placeholder="Search or enter address" spellcheck="false">
-  </form>
+  <div class="omni">
+    <form id="go" class="field" autocomplete="off">
+      <span class="prompt" aria-hidden="true">:</span>
+      <input id="q" aria-label="Search or enter address" placeholder="Search or enter address" spellcheck="false"
+             role="combobox" aria-autocomplete="both" aria-expanded="false" aria-controls="sug">
+    </form>
+    <ol id="sug" class="sug" role="listbox" aria-label="Suggestions" hidden></ol>
+  </div>
   <p id="error" class="error" role="alert" hidden></p>
 
   <div id="cols" class="cols" hidden>
@@ -98,6 +110,8 @@ constexpr char kStartCss[] = R"CSS(:root {
   --hair-strong: rgba(40, 30, 10, 0.22);
   --field: #FFFFFF;
   --hover: rgba(40, 30, 10, 0.045);
+  --selected: rgba(40, 30, 10, 0.075);
+  --shadow: 0 14px 36px rgba(40, 30, 10, 0.14);
   --feather: #12352E;
   --caret: #B8920E;
   --error: #B3261E;
@@ -111,6 +125,8 @@ constexpr char kStartCss[] = R"CSS(:root {
     --hair-strong: rgba(255, 255, 255, 0.2);
     --field: #1E1D19;
     --hover: rgba(255, 255, 255, 0.045);
+    --selected: rgba(255, 255, 255, 0.085);
+    --shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
     --feather: #E9E3D6;
     --caret: #F6D44A;
     --error: #FF8A80;
@@ -147,6 +163,22 @@ html, body {
   font: 400 15.5px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: var(--text);
 }
 #q::placeholder { color: var(--text3); }
+.omni { position: relative; }
+.sug {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 2;
+  list-style: none; margin: 0; padding: 6px; border-radius: 12px;
+  background: var(--field); box-shadow: 0 0 0 1px var(--hair), var(--shadow);
+}
+.sug-row {
+  display: flex; align-items: center; gap: 11px; height: 36px; padding: 0 10px;
+  border-radius: 8px; cursor: pointer; font-size: 14px; color: var(--text);
+}
+.sug-row:hover { background: var(--hover); }
+.sug-row[aria-selected="true"] { background: var(--selected); }
+.sug-icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--text3); }
+.sug-title { flex: 0 1 auto; min-width: 0; max-width: 65%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sug-detail { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text3); }
+.sug-hint { flex-shrink: 0; margin-left: auto; font-size: 12px; color: var(--text3); }
 .error { margin: 10px 2px 0; color: var(--error); font-size: 13px; }
 .cols { margin-top: 36px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
 @media (max-width: 560px) { .cols { grid-template-columns: minmax(0, 1fr); gap: 28px; } }
@@ -236,15 +268,148 @@ constexpr char kStartJs[] = R"JS('use strict';
     // The browser gave this tab keyboard focus; put the cursor in the field.
     focusField() {
       $('q').focus();
+      $('q').select();
+    },
+    // Rows for query `id`; later calls for the same id add search
+    // suggestions, which arrive after the local ones.
+    suggestions(id, items) {
+      showSuggestions(id, items);
     },
   };
 
+  // -- Suggestions -----------------------------------------------------------
+  // The browser answers each query with Chromium's address-bar suggestions
+  // (merlin_suggestions.cc). Enter opens the highlighted row; with no rows
+  // for what is in the field yet, the text is opened like `:open`.
+  const q = $('q');
+  const sug = $('sug');
+  let queryId = 0;   // the latest query sent
+  let shownId = -1;  // the query the rows on screen answer
+  let rows = [];
+  let selected = -1;
+  let moved = false;     // the user picked a row with the arrows
+  let typed = '';        // the field's text without the inline completion
+  let deleting = false;  // the last edit removed text
+
+  // Built with DOM calls: WebUI pages enforce Trusted Types, which rejects
+  // HTML strings.
+  function searchIcon() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    const attrs = {class: 'sug-icon', viewBox: '0 0 16 16', 'aria-hidden': 'true', fill: 'none',
+                   stroke: 'currentColor', 'stroke-width': '1.6', 'stroke-linecap': 'round'};
+    for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
+    const circle = document.createElementNS(NS, 'circle');
+    circle.setAttribute('cx', '7');
+    circle.setAttribute('cy', '7');
+    circle.setAttribute('r', '4.5');
+    const handle = document.createElementNS(NS, 'path');
+    handle.setAttribute('d', 'M10.5 10.5L14 14');
+    svg.append(circle, handle);
+    return svg;
+  }
+
+  function favicon(url) {
+    const img = el('img', 'sug-icon');
+    img.alt = '';
+    img.src = 'chrome://favicon2/?size=16&scaleFactor=2x&allowGoogleServerFallback=0&pageUrl=' +
+        encodeURIComponent(url);
+    return img;
+  }
+
+  function hideSuggestions() {
+    sug.hidden = true;
+    sug.replaceChildren();
+    rows = [];
+    selected = -1;
+    shownId = -1;
+    q.setAttribute('aria-expanded', 'false');
+    q.removeAttribute('aria-activedescendant');
+  }
+
+  function select(i) {
+    selected = i;
+    sug.querySelectorAll('.sug-row').forEach((r, n) => r.setAttribute('aria-selected', String(n === i)));
+    if (i >= 0) q.setAttribute('aria-activedescendant', 'sug-' + i);
+    else q.removeAttribute('aria-activedescendant');
+  }
+
+  function openRow(i) {
+    if (i < 0 || i >= rows.length || shownId !== queryId) return false;
+    chrome.send('openSuggestion', [shownId, i]);
+    hideSuggestions();
+    return true;
+  }
+
+  function query() {
+    typed = q.value;
+    moved = false;
+    const text = typed.trim();
+    if (!text || text.startsWith(':')) {
+      chrome.send('stopSuggest');
+      hideSuggestions();
+      return;
+    }
+    queryId++;
+    chrome.send('suggest', [typed, queryId, deleting]);
+  }
+
+  function showSuggestions(id, items) {
+    if (id !== queryId || document.activeElement !== q) return;
+    shownId = id;
+    rows = items;
+    sug.replaceChildren(...items.map((s, i) => {
+      const li = el('li', 'sug-row');
+      li.id = 'sug-' + i;
+      li.setAttribute('role', 'option');
+      li.append(s.kind === 'search' ? searchIcon() : favicon(s.url));
+      li.append(el('span', 'sug-title', s.title));
+      if (s.detail && s.detail !== s.title) li.append(el('span', 'sug-detail', '\u2014 ' + s.detail));
+      if (s.kind === 'tab') li.append(el('span', 'sug-hint', 'Switch to tab'));
+      // Keep focus in the field while clicking.
+      li.addEventListener('mousedown', (e) => e.preventDefault());
+      li.addEventListener('click', () => openRow(i));
+      return li;
+    }));
+    sug.hidden = items.length === 0;
+    q.setAttribute('aria-expanded', String(items.length > 0));
+    select(items.length ? (moved ? Math.min(Math.max(selected, 0), items.length - 1) : 0) : -1);
+    // Complete the field to the first row ("youtu" -> "youtube.com"), with
+    // the added part selected so typing replaces it.
+    const inline = !moved && !deleting && items.length ? items[0].inline || '' : '';
+    if (!moved && q.selectionEnd === q.value.length && q.value.startsWith(typed)) {
+      q.value = typed + inline;
+      q.setSelectionRange(typed.length, q.value.length);
+    }
+  }
+
+  q.addEventListener('input', (e) => {
+    deleting = (e.inputType || '').startsWith('delete');
+    window.merlinStart.error('');
+    query();
+  });
+  q.addEventListener('keydown', (e) => {
+    if (e.isComposing || sug.hidden || !rows.length) return;
+    const down = e.key === 'ArrowDown' || (e.ctrlKey && e.key === 'n');
+    const up = e.key === 'ArrowUp' || (e.ctrlKey && e.key === 'p');
+    if (!down && !up) return;
+    e.preventDefault();
+    if (!moved && q.value !== typed) q.value = typed;  // drop the completion
+    moved = true;
+    select((selected + (down ? 1 : rows.length - 1)) % rows.length);
+  });
+  q.addEventListener('blur', () => {
+    chrome.send('stopSuggest');
+    hideSuggestions();
+  });
+  q.addEventListener('focus', () => { if (q.value.trim()) query(); });
+
   $('go').addEventListener('submit', (e) => {
     e.preventDefault();
-    const text = $('q').value.trim();
+    if (openRow(selected)) return;
+    const text = q.value.trim();
     if (text) chrome.send('go', [text]);
   });
-  $('q').addEventListener('input', () => window.merlinStart.error(''));
 
   // Labels work while nothing on the page is being typed into (Esc leaves
   // the field). In Normal mode Merlin passes these unbound keys to the page.
@@ -353,6 +518,16 @@ class MerlinStartHandler : public content::WebUIMessageHandler {
     web_ui()->RegisterMessageCallback(
         "reopen", base::BindRepeating(&MerlinStartHandler::OnReopen,
                                       base::Unretained(this)));
+    web_ui()->RegisterMessageCallback(
+        "suggest", base::BindRepeating(&MerlinStartHandler::OnSuggest,
+                                       base::Unretained(this)));
+    web_ui()->RegisterMessageCallback(
+        "stopSuggest", base::BindRepeating(&MerlinStartHandler::OnStopSuggest,
+                                           base::Unretained(this)));
+    web_ui()->RegisterMessageCallback(
+        "openSuggestion",
+        base::BindRepeating(&MerlinStartHandler::OnOpenSuggestion,
+                            base::Unretained(this)));
   }
 
  private:
@@ -514,6 +689,97 @@ class MerlinStartHandler : public content::WebUIMessageHandler {
                               WindowOpenDisposition::CURRENT_TAB);
   }
 
+  // -- Suggestions ------------------------------------------------------------
+
+  static std::optional<int> IntArg(const base::ListValue& args, size_t i) {
+    if (args.size() <= i) {
+      return std::nullopt;
+    }
+    if (args[i].is_int()) {
+      return args[i].GetInt();
+    }
+    // JavaScript numbers may arrive as doubles.
+    if (args[i].is_double()) {
+      const double d = args[i].GetDouble();
+      if (d >= 0 && d <= 1e9 && d == static_cast<int>(d)) {
+        return static_cast<int>(d);
+      }
+    }
+    return std::nullopt;
+  }
+
+  // [text, query id, whether the last edit deleted text]
+  void OnSuggest(const base::ListValue& args) {
+    std::optional<int> id = IntArg(args, 1);
+    if (args.size() < 3 || !args[0].is_string() || !id ||
+        !args[2].is_bool() || args[0].GetString().size() > kMaxInput) {
+      return;
+    }
+    AllowJavascript();
+    if (!suggestions_) {
+      // Owned here, so the callback never outlives this handler.
+      suggestions_ = std::make_unique<MerlinSuggestions>(
+          profile(), base::BindRepeating(&MerlinStartHandler::OnSuggestions,
+                                         base::Unretained(this)));
+    }
+    suggest_id_ = *id;
+    suggestions_->Query(base::UTF8ToUTF16(args[0].GetString()),
+                        args[2].GetBool());
+  }
+
+  void OnStopSuggest(const base::ListValue& args) {
+    if (suggestions_) {
+      suggestions_->Stop();
+    }
+  }
+
+  void OnSuggestions(
+      const std::vector<MerlinSuggestions::Suggestion>& results) {
+    if (!IsJavascriptAllowed()) {
+      return;
+    }
+    base::ListValue items;
+    for (const MerlinSuggestions::Suggestion& s : results) {
+      base::DictValue item;
+      item.Set("kind", s.kind == MerlinSuggestions::Kind::kSearch ? "search"
+                       : s.kind == MerlinSuggestions::Kind::kTab  ? "tab"
+                                                                  : "url");
+      item.Set("title", s.title);
+      item.Set("detail", s.detail);
+      item.Set("url", s.destination.spec());
+      item.Set("inline", s.inline_completion);
+      items.Append(std::move(item));
+    }
+    CallJavascriptFunction("merlinStart.suggestions", base::Value(suggest_id_),
+                           items);
+  }
+
+  // [query id, row]. Opens what the browser suggested for that row, never
+  // an address the page supplies.
+  void OnOpenSuggestion(const base::ListValue& args) {
+    std::optional<int> id = IntArg(args, 0);
+    std::optional<int> index = IntArg(args, 1);
+    if (!suggestions_ || !id || !index || *id != suggest_id_ ||
+        static_cast<size_t>(*index) >= suggestions_->results().size()) {
+      return;
+    }
+    const MerlinSuggestions::Suggestion s = suggestions_->results()[*index];
+    suggestions_->Stop();
+    // An open tab is switched to (Chromium closes this start page when it
+    // does); anything else opens here. Nothing may use `this` after
+    // OpenURL, which can close the tab and so this handler.
+    content::OpenURLParams params(
+        s.destination, content::Referrer(),
+        s.kind == MerlinSuggestions::Kind::kTab
+            ? WindowOpenDisposition::SWITCH_TO_TAB
+            : WindowOpenDisposition::CURRENT_TAB,
+        s.transition, /*is_renderer_initiated=*/false);
+    web_ui()->GetWebContents()->OpenURL(params,
+                                        /*navigation_handle_callback=*/{});
+  }
+
+  std::unique_ptr<MerlinSuggestions> suggestions_;
+  int suggest_id_ = 0;
   base::WeakPtrFactory<MerlinStartHandler> weak_factory_{this};
 };
 
@@ -558,6 +824,15 @@ MerlinStartUI::MerlinStartUI(content::WebUI* web_ui)
                 base::MakeRefCounted<base::RefCountedString>(
                     std::string(FileForPath(path))));
           }));
+  // Suggestion rows show site icons from chrome://favicon2, as Chromium's
+  // history page does.
+  Profile* profile = Profile::FromWebUI(web_ui);
+  content::URLDataSource::Add(
+      profile, std::make_unique<FaviconSource>(
+                   profile, chrome::FaviconUrlFormat::kFavicon2));
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::ImgSrc,
+      "img-src chrome://favicon2 'self' data:;");
   web_ui->AddMessageHandler(std::make_unique<MerlinStartHandler>());
 }
 

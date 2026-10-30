@@ -1,0 +1,20 @@
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -4756,6 +4756,17 @@
+     // `GetTabStripVisible` as the tabstrip might have been hidden in immersive
+     // mode.
+ 
++    // modal_browser: a view laid over the tab strip that names its hit-test
++    // component (views::kHitTestComponentKey) answers for the points it
++    // covers. Merlin's tab bar marks its tabs as client area and the space
++    // between them as caption.
++    gfx::Point point_in_widget(point);
++    views::View::ConvertPointToWidget(parent(), &point_in_widget);
++    if (const int component = views::GetHitTestComponent(this, point_in_widget);
++        component != HTNOWHERE) {
++      return component;
++    }
++
+     // See if the mouse pointer is within the bounds of the
+     // HorizontalTabStripRegionView.
+     gfx::Point test_point(point);

@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/frame/multi_contents_view.cc b/chrome/browser/ui/views/frame/multi_contents_view.cc
-index a756f076ff..5378a5d168 100644
+index a756f076ff..c00bff7f17 100644
 --- a/chrome/browser/ui/views/frame/multi_contents_view.cc
 +++ b/chrome/browser/ui/views/frame/multi_contents_view.cc
 @@ -508,7 +508,7 @@ views::ProposedLayout MultiContentsView::CalculateProposedLayout(
@@ -20,7 +20,26 @@ index a756f076ff..5378a5d168 100644
    }
    ViewSizes sizes = GetViewSizes(available_space);
  
-@@ -800,8 +802,9 @@ void MultiContentsView::UpdateContentsBorderAndOverlay() {
+@@ -673,13 +675,15 @@ gfx::Rect MultiContentsView::CalculateSeparatorLayouts(
+   const int width = available_space.width();
+   const int height = available_space.height();
+ 
++  // A card joins the toolbar above it with no line between.
++  const bool should_show_top =
++      contents_separators_.should_show_top && !IsShowingCard();
+   const int separator_height =
+-      contents_separators_.should_show_top
++      should_show_top
+           ? contents_separators_.top_separator->GetPreferredSize().height()
+           : 0;
+   child_layouts.emplace_back(
+-      contents_separators_.top_separator.get(),
+-      contents_separators_.should_show_top,
++      contents_separators_.top_separator.get(), should_show_top,
+       gfx::Rect(available_space.origin(), {width, separator_height}));
+ 
+   const bool should_show_leading =
+@@ -800,8 +804,9 @@ void MultiContentsView::UpdateContentsBorderAndOverlay() {
      const bool is_active =
          contents_container_view->contents_view() == GetActiveContentsView();
      contents_container_view->SetRoundedCorners(
@@ -28,21 +47,21 @@ index a756f076ff..5378a5d168 100644
 -            ? kSplitViewContentRoundedCorners
 +        is_in_split ? kSplitViewContentRoundedCorners
 +        : (is_active && IsShowingCard())
-+            ? gfx::RoundedCornersF(card_corner_radius_)
++            ? card_corners_
              : (is_active ? GetBackgroundRadii() : gfx::RoundedCornersF()));
      contents_container_view->UpdateBorderAndOverlay(
          is_in_split, is_active, is_active && active_contents_view_highlighted_);
-@@ -852,6 +855,21 @@ void MultiContentsView::SetShouldShowTopSeparator(bool should_show) {
+@@ -852,6 +857,21 @@ void MultiContentsView::SetShouldShowTopSeparator(bool should_show) {
    InvalidateLayout(/*avoid_propagate_during_layout=*/true);
  }
  
 +void MultiContentsView::SetCardInsets(const gfx::Insets& insets,
-+                                      float corner_radius) {
-+  if (card_insets_ == insets && card_corner_radius_ == corner_radius) {
++                                      const gfx::RoundedCornersF& corners) {
++  if (card_insets_ == insets && card_corners_ == corners) {
 +    return;
 +  }
 +  card_insets_ = insets;
-+  card_corner_radius_ = corner_radius;
++  card_corners_ = corners;
 +  UpdateContentsBorderAndOverlay();
 +  InvalidateLayout(/*avoid_propagate_during_layout=*/true);
 +}
@@ -55,28 +74,29 @@ index a756f076ff..5378a5d168 100644
    if (split_view_insets_ == insets) {
      return;
 diff --git a/chrome/browser/ui/views/frame/multi_contents_view.h b/chrome/browser/ui/views/frame/multi_contents_view.h
-index e39f000c2a..f7fd071134 100644
+index e39f000c2a..c4ebe400b1 100644
 --- a/chrome/browser/ui/views/frame/multi_contents_view.h
 +++ b/chrome/browser/ui/views/frame/multi_contents_view.h
-@@ -187,6 +187,11 @@ class MultiContentsView
+@@ -187,6 +187,12 @@ class MultiContentsView
  
    void SetShouldShowTopSeparator(bool should_show);
    void SetSplitViewInsets(const gfx::Insets& insets);
 +  // Merlin (downstream): show a single page as a card, inset by `insets`
 +  // with rounded corners, over the same background split view uses. Empty
 +  // insets turn it off. Split view keeps its own insets.
-+  void SetCardInsets(const gfx::Insets& insets, float corner_radius);
++  void SetCardInsets(const gfx::Insets& insets,
++                     const gfx::RoundedCornersF& corners);
 +  bool IsShowingCard() const;
    const gfx::Insets& split_view_insets_for_testing() const {
      return split_view_insets_;
    }
-@@ -339,6 +344,10 @@ class MultiContentsView
+@@ -339,6 +345,10 @@ class MultiContentsView
    // Insets of the start and end contents view when in split view.
    gfx::Insets split_view_insets_;
  
 +  // Merlin: see SetCardInsets().
 +  gfx::Insets card_insets_;
-+  float card_corner_radius_ = 0;
++  gfx::RoundedCornersF card_corners_;
 +
    bool active_contents_view_highlighted_ = false;
  

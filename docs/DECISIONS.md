@@ -524,3 +524,52 @@ Everything named `kestrel` moved to `merlin`: the overlay folders and
 the short name, so it is now `~/Library/Application Support/Merlin`; a
 Kestrel profile is not carried over. The interface accent stays Hint
 yellow `#F6D44A`: it belongs to link hints, not to the logo.
+
+## 38. Merlin draws its own tab bar
+
+Chromium's tab strip, on top and in the sidebar, is replaced by Merlin's
+(`merlin_tab_bar.{h,cc}`), modeled on Dia's. The chrome around the page
+is one even color. The active tab takes the color of the page under it
+(`merlin_page_color.{h,cc}`), so tab, toolbar and page read as one
+surface: white above a white site, black above a black one. The others
+sit flat with no separators and take a soft fill on hover; titles fade
+out instead of ending in an ellipsis; × shows on hover; pinned tabs are
+icon tiles in one capsule; open, close and reorder are animated.
+
+* On top: the active tab is cut from the toolbar, with a rounded top and
+  bottom corners that flare out into it. The toolbar is the top of the
+  page card (rounded top corners, the page's width), and the address has
+  no box: host and title as text, a fill on hover.
+* In the sidebar: one row per tab, the active one a card in the page's
+  color; a "New tab" row last; rows scroll a whole row at a time when
+  they do not fit, and switching tabs scrolls the active one into view.
+  A collapsed sidebar shows icons only.
+* Page color: the top edge of the page as drawn (a strip read from the
+  compositor, scaled down), its most common color; nothing when no color
+  clearly dominates (a photo), then the toolbar's own. Read again on
+  load, first paint, theme and background changes and every 2 seconds
+  (sticky headers change on scroll), and kept per tab so switching back
+  shows it at once. Text and icons on it pick light or dark ink by its
+  luminance. See PRIVACY.md.
+* How: the bar is a child of `BrowserView` laid over Chromium's strip
+  (`MerlinTabBarHost` keeps the bounds equal and follows the switch
+  between top and sidebar). Chromium's strip stays in the layout,
+  transparent and deaf to the mouse, so the window keeps its shape, the
+  traffic lights keep their place and bubbles that anchor to the strip
+  still find it. Every action goes through `TabStripModel` (select,
+  close, move, Chromium's tab menu), so nothing else in Chromium sees a
+  difference. The toolbar's own background must stay Chromium's (it is
+  checked), so the page color is painted by a view under its children.
+* Why patches: on the Mac, a click that `NonClientHitTest` calls caption
+  never reaches a view; it moves the window. Chromium asks its own strip,
+  which cannot know about Merlin's tabs. 0011 lets a view over the strip
+  answer through `views::kHitTestComponentKey`, the property Chromium
+  already uses for the same purpose in app windows. 0005 takes a radius
+  per corner and hides the top separator, so the page meets the toolbar
+  square and without a line.
+* Not done: dragging a tab out into a new window, tab groups (grouped
+  tabs show as plain tabs), resizing the sidebar by its edge (Chromium's
+  handle is under Merlin's bar; the width is Chromium's saved one), and
+  scrolling tabs on top (they shrink to their icons first). In
+  fullscreen, Chromium moves its strip into a separate widget; Merlin's
+  bar steps aside and Chromium's shows.

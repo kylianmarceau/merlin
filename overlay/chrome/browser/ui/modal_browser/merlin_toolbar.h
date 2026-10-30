@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_TOOLBAR_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/functional/callback.h"
@@ -14,6 +15,7 @@
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/view.h"
+#include "ui/views/view_observer.h"
 
 class BackForwardMenuModel;
 class BrowserWindowInterface;
@@ -46,6 +48,9 @@ class MerlinNavButton : public views::Button,
 
   // Reload turns into stop while the page loads.
   void SetLoading(bool loading);
+  // The color behind the button (the page's, see PageColorSampler), or
+  // nullopt for the toolbar's own; icons take a color that reads on it.
+  void SetSurface(std::optional<SkColor> surface);
   bool loading() const { return loading_; }
 
   // views::Button:
@@ -67,15 +72,18 @@ class MerlinNavButton : public views::Button,
   const raw_ptr<BrowserWindowInterface> browser_;
   const Kind kind_;
   bool loading_ = false;
+  std::optional<SkColor> surface_;
   std::unique_ptr<BackForwardMenuModel> menu_model_;
   std::unique_ptr<views::MenuRunner> menu_runner_;
 };
 
-// The address of the page, shown in the toolbar row on sites and hidden on
-// the start page, which has its own field. Not an editor: clicking it (or
-// ⌘L) opens the palette with the address filled in, which is Merlin's
-// address dropdown. The host is in full color and the rest dimmed; a lock,
-// "Not secure" or "Dangerous" at the left opens the site's page info.
+// The address of the page, written on the toolbar row with no box around
+// it, as in Dia: "github.com / neovim/neovim: Vim-fork…", the site in full
+// color and the page title dimmed (the path when there is no title). Shown
+// on sites, hidden on the start page, which has its own field. Not an
+// editor itself: clicking it (or ⌘L) puts Chromium's field, with its
+// suggestions, in its place (MerlinAddressEditor). "Not secure" or
+// "Dangerous" at the left opens the site's page info.
 class MerlinAddressField : public views::Button {
   METADATA_HEADER(MerlinAddressField, views::Button)
 
@@ -86,8 +94,10 @@ class MerlinAddressField : public views::Button {
   MerlinAddressField& operator=(const MerlinAddressField&) = delete;
   ~MerlinAddressField() override;
 
-  // Reads the address and security state of `contents`.
+  // Reads the address, title and security state of `contents`.
   void Update(content::WebContents* contents);
+  // As MerlinNavButton::SetSurface.
+  void SetSurface(std::optional<SkColor> surface);
 
   const std::u16string& host_for_testing() const { return host_; }
   const std::u16string& rest_for_testing() const { return rest_; }
@@ -110,7 +120,42 @@ class MerlinAddressField : public views::Button {
   base::RepeatingClosure show_site_info_;
   std::u16string host_;
   std::u16string rest_;
+  std::u16string title_;
   Security security_ = Security::kNone;
+  std::optional<SkColor> surface_;
+};
+
+// The page's color behind the toolbar row (PageColorSampler), so the
+// toolbar, the active tab and the page read as one surface, as in Dia.
+// Chromium requires the toolbar to keep its own background object, which
+// only takes theme colors, so this is the first child of the toolbar,
+// painted over that background and under the buttons, in the same rounded
+// shape. With no color it draws nothing and the theme's toolbar shows.
+class MerlinToolbarBackdrop : public views::View, public views::ViewObserver {
+  METADATA_HEADER(MerlinToolbarBackdrop, views::View)
+
+ public:
+  MerlinToolbarBackdrop();
+  MerlinToolbarBackdrop(const MerlinToolbarBackdrop&) = delete;
+  MerlinToolbarBackdrop& operator=(const MerlinToolbarBackdrop&) = delete;
+  ~MerlinToolbarBackdrop() override;
+
+  // Puts a backdrop under `toolbar`'s children, or returns the one there.
+  static MerlinToolbarBackdrop* InstallIn(views::View* toolbar);
+
+  void SetColor(std::optional<SkColor> color);
+
+  // views::View:
+  void OnPaint(gfx::Canvas* canvas) override;
+  void AddedToWidget() override;
+  void RemovedFromWidget() override;
+
+  // views::ViewObserver (the toolbar):
+  void OnViewBoundsChanged(views::View* observed_view) override;
+
+ private:
+  std::optional<SkColor> color_;
+  bool observing_ = false;
 };
 
 }  // namespace modal_browser

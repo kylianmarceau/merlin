@@ -46,6 +46,20 @@ inline const Colors& ColorsFor(const views::View* view) {
 // Mode pill colors: the dot and the label tint.
 SkColor ModeColor(ffi::Mode mode, bool dark);
 
+// Text and icon colors that read on `surface`, whatever its color: Merlin's
+// charcoal ink on light surfaces, its cream on dark ones. The toolbar and
+// the active tab take the page's color, so everything drawn on them uses
+// this.
+struct Ink {
+  SkColor text;
+  SkColor text_dim;
+  SkColor icon;
+  SkColor icon_disabled;
+  SkColor hover;
+  SkColor pressed;
+};
+Ink InkOn(SkColor surface);
+
 // Fonts. UI text uses the system font; keys and hint labels use a monospaced
 // face so labels line up and are easy to read at a glance.
 const gfx::FontList& UiFont(int size_delta = 0,
@@ -68,6 +82,10 @@ inline constexpr int kEdgeMargin = 12;
 inline constexpr int kKeycapHeight = 20;
 inline constexpr int kKeycapRadius = 5;
 inline constexpr int kHintRadius = 4;
+// The page card: the toolbar and the page as one surface, inset from the
+// window's sides, rounded at its four outer corners.
+inline constexpr int kCardSide = 8;
+inline constexpr float kCardRadius = 12;
 // Delay before the which-key panel appears after a prefix, so fast
 // sequences like `gg` never flash it.
 inline constexpr int kWhichKeyDelayMs = 400;
