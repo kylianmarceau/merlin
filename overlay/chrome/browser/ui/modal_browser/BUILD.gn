@@ -129,6 +129,8 @@ source_set("modal_browser") {
     "//chrome/browser/ui/page_info",
     "//chrome/browser/ui/webui:favicon_source",
     "//components/favicon_base",
+    "//chrome/browser/favicon",
+    "//components/favicon/core",
     "//services/network/public/mojom",
     "//chrome/browser/ui/toolbar",
     "//components/security_state/content",

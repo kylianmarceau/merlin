@@ -587,3 +587,33 @@ icon tiles in one capsule; open, close and reorder are animated.
   tabs Chromium draws (fullscreen). In fullscreen, Chromium moves its
   strip into a separate widget; Merlin's bar steps aside and Chromium's
   shows.
+
+## 39. Merlin edits the address in its own card
+
+Clicking the address (or ⌘L) used to bring back Chromium's own field and
+its dropdown, which looked like Chrome: an outlined box and Chrome's
+result rows. Now the address lifts into a Merlin card
+(`merlin_address_editor.{h,cc}`) that opens over it: the address,
+selected, at the same place the toolbar showed it, with no box; as you
+type, the card grows downward with the results, in the palette's colors,
+shadow and row style.
+
+* Results come from Chromium's address-bar engine
+  (`merlin_suggestions.h`, shared with the start page): searches with
+  the default engine, pages from history and bookmarks with their
+  favicons and a quieter address, open tabs tagged "Switch to tab". The
+  first result completes the text in place, as Chromium's field does.
+* Keys as in Chromium's field: ↑/↓ pick a row, Enter opens it (⌥ or ⌘
+  for a new tab), Tab accepts the completion, Esc or a click on the page
+  closes the card and drops the edit. With no row picked, Enter reads the
+  text as Chromium would (an address, or a search, keywords included).
+  javascript:, data:, blob: and filesystem: addresses are not opened.
+* Rows are painted in one view and never take focus, and the card's
+  widget cannot be activated, so the address keeps keyboard focus while
+  the mouse is used on the rows.
+* Chromium's field stays hidden in normal windows; features that need it
+  still check IsLocationBarVisible().
+* Not done: Chromium's special rows (pedals, answers, "Ask Google about
+  this page", clipboard), keyword mode chips, and the text following the
+  row picked with ↑/↓.
+

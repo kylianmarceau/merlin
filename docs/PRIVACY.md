@@ -11,6 +11,9 @@ None. The modal layer makes no network requests of its own: no
 telemetry, no update checks, no accounts, no AI services. Searches typed in
 the command line go to the user's default search engine through
 Chromium's own omnibox classifier, as if typed in the address bar.
+The address card (decision 39) asks Chromium's address-bar engine as
+Chromium's own field does, so the default search engine's suggestions
+follow Chromium's setting for them.
 
 ## Files written
 

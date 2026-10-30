@@ -4,26 +4,321 @@
 
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 
+#include <algorithm>
 #include <utility>
 
-#include "chrome/browser/ui/omnibox/omnibox_controller.h"
-#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "base/auto_reset.h"
+#include "base/functional/bind.h"
+#include "base/strings/string_util.h"
+#include "cc/paint/paint_flags.h"
+#include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
+#include "chrome/browser/favicon/favicon_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/modal_browser/merlin_start_page.h"
+#include "chrome/browser/ui/modal_browser/modal_style.h"
+#include "chrome/browser/ui/modal_browser/paint_util.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "components/favicon/core/favicon_service.h"
+#include "components/favicon_base/favicon_types.h"
+#include "components/keyed_service/core/service_access_type.h"
+#include "components/omnibox/browser/autocomplete_classifier.h"
+#include "components/omnibox/browser/autocomplete_match.h"
+#include "components/url_formatter/url_formatter.h"
+#include "components/vector_icons/vector_icons.h"
+#include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
+#include "third_party/metrics_proto/omnibox_event.pb.h"
+#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/paint_vector_icon.h"
+#include "ui/gfx/text_elider.h"
+#include "ui/gfx/text_utils.h"
+#include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/border.h"
+#include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/view.h"
+#include "ui/views/widget/widget.h"
+#include "url/url_constants.h"
 
 namespace modal_browser {
 
-MerlinAddressEditor::MerlinAddressEditor(LocationBarView* location_bar,
-                                         std::vector<views::View*> merlin_views,
+namespace {
+
+// The card, in DIPs.
+constexpr int kCardRadius = 12;
+constexpr int kInputHeight = 40;
+// The address's left edge inside the card; the card opens this much left
+// of the toolbar's field so the text does not move.
+constexpr int kInputPadX = 12;
+constexpr int kFieldTextInset = 8;  // MerlinAddressField's own padding
+constexpr int kCardMinWidth = 560;
+constexpr int kRowHeight = 36;
+constexpr int kRowInsetX = 6;
+constexpr int kRowRadius = 8;
+constexpr int kRowPadX = 10;
+constexpr int kIconSize = 16;
+constexpr int kIconGap = 12;
+constexpr int kListPadTop = 5;
+constexpr int kListPadBottom = 6;
+
+// Addresses the field may open: not script or data the user did not mean
+// to run (typing javascript: here does nothing, as in Chromium's field).
+bool IsOpenable(const GURL& url) {
+  return url.is_valid() && !url.SchemeIs(url::kJavaScriptScheme) &&
+         !url.SchemeIs(url::kDataScheme) && !url.SchemeIs(url::kBlobScheme) &&
+         !url.SchemeIs(url::kFileSystemScheme);
+}
+
+}  // namespace
+
+// The card: the address on top, suggestions under a hairline. Rows are
+// painted, not views, and never take focus, so the address keeps it.
+class MerlinAddressCard : public views::View {
+  METADATA_HEADER(MerlinAddressCard, views::View)
+
+ public:
+  struct Row {
+    MerlinSuggestions::Kind kind = MerlinSuggestions::Kind::kUrl;
+    std::u16string title;
+    std::u16string detail;
+    gfx::ImageSkia icon;
+  };
+
+  explicit MerlinAddressCard(MerlinAddressEditor* editor) : editor_(editor) {
+    GetViewAccessibility().SetRole(ax::mojom::Role::kListBox);
+    GetViewAccessibility().SetName(u"Suggestions");
+    auto textfield = std::make_unique<views::Textfield>();
+    textfield->set_controller(editor);
+    textfield->SetBorder(views::NullBorder());
+    textfield->SetBackgroundEnabled(false);
+    textfield->SetFontList(style::UiFont());
+    textfield->SetPlaceholderText(u"Search or enter address");
+    textfield->GetViewAccessibility().SetName(u"Address and search bar");
+    textfield_ = AddChildView(std::move(textfield));
+  }
+  MerlinAddressCard(const MerlinAddressCard&) = delete;
+  MerlinAddressCard& operator=(const MerlinAddressCard&) = delete;
+  ~MerlinAddressCard() override = default;
+
+  views::Textfield* textfield() { return textfield_; }
+  const std::vector<Row>& rows() const { return rows_; }
+
+  void SetRows(std::vector<Row> rows, int selected) {
+    rows_ = std::move(rows);
+    selected_ = selected;
+    hovered_ = -1;
+    pressed_ = -1;
+    InvalidateLayout();
+    SchedulePaint();
+  }
+
+  // The card's height, without the shadow around it.
+  int CardHeight() const {
+    int height = kInputHeight;
+    if (!rows_.empty()) {
+      height += 1 + kListPadTop + static_cast<int>(rows_.size()) * kRowHeight +
+                kListPadBottom;
+    }
+    return height;
+  }
+
+  // views::View:
+  void Layout(PassKey) override {
+    const gfx::Rect card = CardBounds();
+    textfield_->SetBounds(card.x() + kInputPadX, card.y(),
+                          std::max(0, card.width() - 2 * kInputPadX),
+                          kInputHeight);
+  }
+
+  void OnPaint(gfx::Canvas* canvas) override {
+    const style::Colors& c = style::ColorsFor(this);
+    const gfx::Rect card = CardBounds();
+    paint::DrawCard(canvas, card, kCardRadius, c, c.surface);
+    if (rows_.empty()) {
+      return;
+    }
+    canvas->FillRect(gfx::Rect(card.x() + kInputPadX, card.y() + kInputHeight,
+                               card.width() - 2 * kInputPadX, 1),
+                     c.border);
+    for (int i = 0; i < static_cast<int>(rows_.size()); ++i) {
+      PaintRow(canvas, i, c);
+    }
+  }
+
+  bool OnMousePressed(const ui::MouseEvent& event) override {
+    pressed_ = RowAt(event.location());
+    // The card swallows clicks between rows, so they do not reach the page.
+    return true;
+  }
+
+  void OnMouseReleased(const ui::MouseEvent& event) override {
+    const int row = RowAt(event.location());
+    const int pressed = pressed_;
+    pressed_ = -1;
+    if (row < 0 || row != pressed) {
+      return;
+    }
+    WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB;
+    if (event.IsMiddleMouseButton() || event.IsCommandDown()) {
+      disposition = event.IsShiftDown()
+                        ? WindowOpenDisposition::NEW_FOREGROUND_TAB
+                        : WindowOpenDisposition::NEW_BACKGROUND_TAB;
+    } else if (event.IsShiftDown()) {
+      disposition = WindowOpenDisposition::NEW_WINDOW;
+    }
+    editor_->OpenRow(row, disposition);
+  }
+
+  void OnMouseMoved(const ui::MouseEvent& event) override {
+    SetHovered(RowAt(event.location()));
+  }
+
+  void OnMouseExited(const ui::MouseEvent& event) override { SetHovered(-1); }
+
+  void OnThemeChanged() override {
+    views::View::OnThemeChanged();
+    SchedulePaint();
+  }
+
+ private:
+  gfx::Rect CardBounds() const {
+    gfx::Rect card = GetLocalBounds();
+    card.Inset(style::kShadowMargin);
+    return card;
+  }
+
+  gfx::Rect RowBounds(int index) const {
+    const gfx::Rect card = CardBounds();
+    return gfx::Rect(card.x() + kRowInsetX,
+                     card.y() + kInputHeight + 1 + kListPadTop +
+                         index * kRowHeight,
+                     card.width() - 2 * kRowInsetX, kRowHeight);
+  }
+
+  int RowAt(const gfx::Point& point) const {
+    for (int i = 0; i < static_cast<int>(rows_.size()); ++i) {
+      if (RowBounds(i).Contains(point)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  void SetHovered(int row) {
+    if (hovered_ != row) {
+      hovered_ = row;
+      SchedulePaint();
+    }
+  }
+
+  void PaintRow(gfx::Canvas* canvas, int index, const style::Colors& c) {
+    const Row& row = rows_[index];
+    const gfx::Rect bounds = RowBounds(index);
+    cc::PaintFlags fill;
+    fill.setAntiAlias(true);
+    // A quiet neutral highlight; the accent is kept for Merlin's modes.
+    if (index == selected_) {
+      fill.setColor(c.surface_raised);
+      canvas->DrawRoundRect(gfx::RectF(bounds), kRowRadius, fill);
+    } else if (index == hovered_) {
+      fill.setColor(SkColorSetA(c.surface_raised, 0x80));
+      canvas->DrawRoundRect(gfx::RectF(bounds), kRowRadius, fill);
+    }
+
+    const int center_y = bounds.CenterPoint().y();
+    const gfx::Rect icon(bounds.x() + kRowPadX, center_y - kIconSize / 2,
+                         kIconSize, kIconSize);
+    if (row.kind == MerlinSuggestions::Kind::kSearch) {
+      canvas->DrawImageInt(gfx::CreateVectorIcon(vector_icons::kSearchIcon,
+                                                 kIconSize, c.text_secondary),
+                           icon.x(), icon.y());
+    } else if (!row.icon.isNull()) {
+      canvas->DrawImageInt(row.icon, 0, 0, row.icon.width(),
+                           row.icon.height(), icon.x(), icon.y(), kIconSize,
+                           kIconSize, true);
+    } else {
+      canvas->DrawImageInt(gfx::CreateVectorIcon(vector_icons::kGlobeIcon,
+                                                 kIconSize, c.text_secondary),
+                           icon.x(), icon.y());
+    }
+
+    int x = icon.right() + kIconGap;
+    int right = bounds.right() - kRowPadX;
+    const gfx::FontList& small = style::UiFont(-2, gfx::Font::Weight::MEDIUM);
+    if (row.kind == MerlinSuggestions::Kind::kTab) {
+      // An open tab: choosing it switches there.
+      const std::u16string tag = u"Switch to tab";
+      const int tag_width = gfx::GetStringWidth(tag, small) + 14;
+      const gfx::Rect pill(right - tag_width, center_y - 10, tag_width, 20);
+      cc::PaintFlags tag_fill;
+      tag_fill.setAntiAlias(true);
+      tag_fill.setColor(index == selected_ ? c.surface : c.surface_raised);
+      canvas->DrawRoundRect(gfx::RectF(pill), 6, tag_fill);
+      canvas->DrawStringRectWithFlags(tag, small, c.text_secondary, pill,
+                                      gfx::Canvas::TEXT_ALIGN_CENTER);
+      right = pill.x() - 10;
+    }
+    if (right <= x) {
+      return;
+    }
+
+    const gfx::FontList& font = style::UiFont();
+    const std::u16string title =
+        gfx::ElideText(row.title, font, right - x, gfx::ELIDE_TAIL);
+    const int title_width = std::min(gfx::GetStringWidth(title, font), right - x);
+    canvas->DrawStringRect(title, font, c.text,
+                           gfx::Rect(x, bounds.y(), title_width, bounds.height()));
+    x += title_width;
+    if (row.detail.empty() || row.detail == row.title || right - x < 48) {
+      return;
+    }
+    // The address after the title, quieter.
+    const gfx::FontList& detail_font = style::UiFont(-1);
+    const std::u16string detail = gfx::ElideText(
+        u"  —  " + row.detail, detail_font, right - x, gfx::ELIDE_TAIL);
+    canvas->DrawStringRect(detail, detail_font, c.text_tertiary,
+                           gfx::Rect(x, bounds.y(), right - x, bounds.height()));
+  }
+
+  const raw_ptr<MerlinAddressEditor> editor_;
+  raw_ptr<views::Textfield> textfield_ = nullptr;
+  std::vector<Row> rows_;
+  int selected_ = -1;
+  int hovered_ = -1;
+  int pressed_ = -1;
+};
+
+BEGIN_METADATA(MerlinAddressCard)
+END_METADATA
+
+// MerlinAddressEditor --------------------------------------------------------
+
+MerlinAddressEditor::MerlinAddressEditor(BrowserView* browser_view,
+                                         BrowserWindowInterface* browser,
+                                         views::View* field,
                                          base::RepeatingClosure on_end,
                                          base::RepeatingClosure focus_page)
-    : location_bar_(location_bar),
+    : browser_view_(browser_view),
+      browser_(browser),
+      field_(field),
       on_end_(std::move(on_end)),
-      focus_page_(std::move(focus_page)) {
-  for (views::View* view : merlin_views) {
-    merlin_views_.push_back(view);
-  }
+      focus_page_(std::move(focus_page)),
+      host_(browser_view,
+            {.name = "MerlinAddressCard", .accept_events = true}) {
+  host_.set_on_parent_bounds_changed(base::BindRepeating(
+      [](MerlinAddressEditor* self) {
+        if (self->editing_) {
+          self->Layout();
+        }
+      },
+      base::Unretained(this)));
 }
 
 MerlinAddressEditor::~MerlinAddressEditor() {
@@ -31,21 +326,57 @@ MerlinAddressEditor::~MerlinAddressEditor() {
 }
 
 void MerlinAddressEditor::Begin() {
+  if (!card_) {
+    card_ = static_cast<MerlinAddressCard*>(host_.EnsureWidget(base::BindOnce(
+        [](MerlinAddressEditor* editor) -> std::unique_ptr<views::View> {
+          return std::make_unique<MerlinAddressCard>(editor);
+        },
+        base::Unretained(this))));
+    if (!card_) {
+      return;  // No browser widget yet.
+    }
+  }
   if (!editing_) {
     editing_ = true;
-    for (views::View* view : merlin_views_) {
-      view->SetVisible(false);
+    // Starts from the page's address; empty on the start page.
+    std::u16string text;
+    content::WebContents* contents =
+        browser_->GetTabStripModel()->GetActiveWebContents();
+    if (contents) {
+      const GURL url = contents->GetVisibleURL();
+      const bool start_page = url.SchemeIs(content::kChromeUIScheme) &&
+                              (url.host() == kMerlinStartHost ||
+                               url.host() == "newtab");
+      if (!start_page && !url.is_empty()) {
+        text = url_formatter::FormatUrl(
+            url, url_formatter::kFormatUrlOmitDefaults,
+            base::UnescapeRule::SPACES, nullptr, nullptr, nullptr);
+      }
     }
-    location_bar_->SetVisible(true);
-    focus_manager_ = location_bar_->GetFocusManager();
+    typed_ = text;
+    results_.clear();
+    selected_ = -1;
+    deleting_ = false;
+    {
+      base::AutoReset<bool> setting(&setting_text_, true);
+      card_->textfield()->SetText(text);
+    }
+    if (!suggestions_) {
+      suggestions_ = std::make_unique<MerlinSuggestions>(
+          browser_->GetProfile(),
+          base::BindRepeating(&MerlinAddressEditor::OnResults,
+                              weak_factory_.GetWeakPtr()));
+    }
+    UpdateCard();
+    Layout();
+    focus_manager_ = card_->textfield()->GetFocusManager();
     if (focus_manager_) {
       focus_manager_->AddFocusChangeListener(this);
     }
-    location_bar_->AddPreTargetHandler(this);
   }
   // Focused with the address selected, as Chromium does on ⌘L.
-  location_bar_->FocusLocation(/*is_user_initiated=*/true,
-                               /*clear_focus_if_failed=*/false);
+  card_->textfield()->RequestFocus();
+  card_->textfield()->SelectAll(/*reversed=*/false);
 }
 
 void MerlinAddressEditor::End() {
@@ -54,13 +385,18 @@ void MerlinAddressEditor::End() {
   }
   editing_ = false;
   StopWatching();
-  // An unfinished edit is dropped, so the next edit starts from the page's
-  // address.
-  location_bar_->Revert();
-  location_bar_->SetVisible(false);
-  for (views::View* view : merlin_views_) {
-    view->SetVisible(true);
+  if (suggestions_) {
+    suggestions_->Stop();
   }
+  icon_tracker_.TryCancelAll();
+  // Icons that never arrived are asked for again next time; the rest are
+  // kept a while.
+  std::erase_if(icons_, [](const auto& entry) { return entry.second.isNull(); });
+  if (icons_.size() > 200) {
+    icons_.clear();
+  }
+  results_.clear();
+  host_.Hide();
   on_end_.Run();
 }
 
@@ -69,35 +405,233 @@ void MerlinAddressEditor::StopWatching() {
     focus_manager_->RemoveFocusChangeListener(this);
     focus_manager_ = nullptr;
   }
-  location_bar_->RemovePreTargetHandler(this);
 }
 
 void MerlinAddressEditor::OnDidChangeFocus(views::View* focused_before,
                                            views::View* focused_now) {
-  // No focused view while the window is in the background; Chromium's
-  // field gets focus back when the window does.
-  if (!focused_now || location_bar_->Contains(focused_now)) {
+  // No focused view while the window is in the background; the field gets
+  // focus back when the window does.
+  if (!focused_now || (card_ && card_->Contains(focused_now))) {
     return;
   }
   End();
 }
 
-void MerlinAddressEditor::OnKeyEvent(ui::KeyEvent* event) {
-  constexpr int kModifiers = ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN |
-                             ui::EF_ALT_DOWN | ui::EF_COMMAND_DOWN;
-  if (event->type() != ui::EventType::kKeyPressed ||
-      event->key_code() != ui::VKEY_ESCAPE || (event->flags() & kModifiers)) {
+void MerlinAddressEditor::ContentsChanged(views::Textfield* sender,
+                                          const std::u16string& new_contents) {
+  if (setting_text_) {
     return;
   }
-  // While suggestions show, Esc is Chromium's and closes them. With none
-  // showing, Esc returns to the page and drops the unfinished edit (End()
-  // reverts it), so two presses always leave.
-  OmniboxController* omnibox = location_bar_->GetOmniboxController();
-  if (omnibox && omnibox->IsPopupOpen()) {
+  // Typing over a completion replaces it, so the text is what was typed.
+  deleting_ = new_contents.size() <= typed_.size();
+  typed_ = new_contents;
+  selected_ = -1;
+  if (base::TrimWhitespace(new_contents, base::TRIM_ALL).empty()) {
+    suggestions_->Stop();
+    results_.clear();
+    UpdateCard();
+    Layout();
     return;
   }
-  event->SetHandled();
+  suggestions_->Query(new_contents, /*prevent_inline=*/deleting_);
+}
+
+void MerlinAddressEditor::OnResults(
+    const std::vector<MerlinSuggestions::Suggestion>& results) {
+  if (!editing_ || !card_) {
+    return;
+  }
+  results_ = results;
+  if (selected_ >= static_cast<int>(results_.size())) {
+    selected_ = -1;
+  }
+  // Complete in place, selected, so typing on replaces it.
+  views::Textfield* field = card_->textfield();
+  if (!deleting_ && !results_.empty() &&
+      !results_[0].inline_completion.empty() &&
+      field->GetText() == typed_ &&
+      field->GetSelectedRange() == gfx::Range(typed_.size())) {
+    const std::u16string full = typed_ + results_[0].inline_completion;
+    base::AutoReset<bool> setting(&setting_text_, true);
+    field->SetText(full);
+    field->SetSelectedRange(gfx::Range(typed_.size(), full.size()));
+  }
+  for (const MerlinSuggestions::Suggestion& s : results_) {
+    if (s.kind != MerlinSuggestions::Kind::kSearch &&
+        !icons_.contains(s.destination)) {
+      FetchIcon(s.destination);
+    }
+  }
+  UpdateCard();
+  Layout();
+}
+
+void MerlinAddressEditor::UpdateCard() {
+  if (!card_) {
+    return;
+  }
+  std::vector<MerlinAddressCard::Row> rows;
+  for (const MerlinSuggestions::Suggestion& s : results_) {
+    MerlinAddressCard::Row row;
+    row.kind = s.kind;
+    row.title = s.title;
+    row.detail = s.detail;
+    if (auto it = icons_.find(s.destination); it != icons_.end()) {
+      row.icon = it->second;
+    }
+    rows.push_back(std::move(row));
+  }
+  // With no row picked, the first is what Enter opens, as in Chromium.
+  const int highlighted = selected_ >= 0 ? selected_ : (rows.empty() ? -1 : 0);
+  card_->SetRows(std::move(rows), highlighted);
+}
+
+void MerlinAddressEditor::Layout() {
+  if (!card_ || !editing_ || !field_->GetWidget()) {
+    return;
+  }
+  const gfx::Rect field = field_->ConvertRectToWidget(field_->GetLocalBounds());
+  int right = field.right();
+  if (views::View* row = field_->parent()) {
+    right = row->ConvertRectToWidget(row->GetLocalBounds()).right() - 8;
+  }
+  // The address stays where the toolbar showed it.
+  const int x = field.x() + kFieldTextInset - kInputPadX;
+  const int width =
+      std::max(0, std::min(std::max(field.width() + 2 * (kInputPadX -
+                                                         kFieldTextInset),
+                                    kCardMinWidth),
+                           right - x));
+  const gfx::Rect card(x, field.CenterPoint().y() - kInputHeight / 2, width,
+                       card_->CardHeight());
+  gfx::Rect bounds = card;
+  bounds.Outset(style::kShadowMargin);
+  host_.ShowAt(bounds);
+  host_.widget()->LayoutRootViewIfNecessary();
+}
+
+bool MerlinAddressEditor::HandleKeyEvent(views::Textfield* sender,
+                                         const ui::KeyEvent& key_event) {
+  if (key_event.type() != ui::EventType::kKeyPressed) {
+    return false;
+  }
+  const int count = static_cast<int>(results_.size());
+  switch (key_event.key_code()) {
+    case ui::VKEY_DOWN:
+    case ui::VKEY_UP: {
+      if (count == 0) {
+        return true;
+      }
+      const int from = selected_ >= 0 ? selected_ : 0;
+      const int step = key_event.key_code() == ui::VKEY_DOWN ? 1 : -1;
+      SelectRow(std::clamp(from + step, 0, count - 1));
+      return true;
+    }
+    case ui::VKEY_RETURN: {
+      const WindowOpenDisposition disposition =
+          key_event.IsAltDown() || key_event.IsCommandDown()
+              ? WindowOpenDisposition::NEW_FOREGROUND_TAB
+              : WindowOpenDisposition::CURRENT_TAB;
+      if (selected_ >= 0) {
+        OpenRow(selected_, disposition);
+      } else {
+        OpenTyped(disposition);
+      }
+      return true;
+    }
+    case ui::VKEY_ESCAPE:
+      // Back to the page; the unfinished edit is dropped.
+      End();
+      focus_page_.Run();
+      return true;
+    case ui::VKEY_TAB: {
+      // Accepts the completion; focus stays here either way.
+      const gfx::Range selection = sender->GetSelectedRange();
+      if (!selection.is_empty() &&
+          selection.GetMax() == sender->GetText().size()) {
+        sender->SetSelectedRange(gfx::Range(sender->GetText().size()));
+        typed_ = std::u16string(sender->GetText());
+      }
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+void MerlinAddressEditor::SelectRow(int index) {
+  selected_ = index;
+  UpdateCard();
+}
+
+void MerlinAddressEditor::OpenRow(int index, WindowOpenDisposition disposition) {
+  if (index < 0 || index >= static_cast<int>(results_.size())) {
+    return;
+  }
+  const MerlinSuggestions::Suggestion s = results_[index];
+  if (s.kind == MerlinSuggestions::Kind::kTab &&
+      disposition == WindowOpenDisposition::CURRENT_TAB) {
+    disposition = WindowOpenDisposition::SWITCH_TO_TAB;
+  }
+  Open(s.destination, s.transition, disposition);
+}
+
+void MerlinAddressEditor::OpenTyped(WindowOpenDisposition disposition) {
+  const std::u16string text(card_->textfield()->GetText());
+  if (base::TrimWhitespace(text, base::TRIM_ALL).empty()) {
+    return;
+  }
+  // The same reading Chromium's field gives: an address, or a search with
+  // the default engine and keywords.
+  AutocompleteMatch match;
+  AutocompleteClassifierFactory::GetForProfile(browser_->GetProfile())
+      ->Classify(text, /*in_keyword_mode=*/false,
+                 /*allow_exact_keyword_match=*/true,
+                 metrics::OmniboxEventProto::OTHER, &match,
+                 /*alternate_nav_url=*/nullptr);
+  Open(match.destination_url, match.transition, disposition);
+}
+
+void MerlinAddressEditor::Open(GURL url,
+                               ui::PageTransition transition,
+                               WindowOpenDisposition disposition) {
+  if (!IsOpenable(url)) {
+    return;
+  }
+  content::WebContents* contents =
+      browser_->GetTabStripModel()->GetActiveWebContents();
+  End();
+  if (!contents) {
+    return;
+  }
   focus_page_.Run();
+  content::OpenURLParams params(url, content::Referrer(), disposition,
+                                transition, /*is_renderer_initiated=*/false);
+  contents->OpenURL(params, /*navigation_handle_callback=*/{});
+}
+
+void MerlinAddressEditor::FetchIcon(const GURL& page_url) {
+  favicon::FaviconService* service = FaviconServiceFactory::GetForProfile(
+      browser_->GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
+  if (!service) {
+    return;
+  }
+  // Remembered as missing until it arrives, so it is asked for once.
+  icons_[page_url] = gfx::ImageSkia();
+  service->GetFaviconImageForPageURL(
+      page_url,
+      base::BindOnce(&MerlinAddressEditor::OnIcon, weak_factory_.GetWeakPtr(),
+                     page_url),
+      &icon_tracker_);
+}
+
+void MerlinAddressEditor::OnIcon(GURL page_url,
+                                 const favicon_base::FaviconImageResult& result) {
+  if (result.image.IsEmpty()) {
+    return;
+  }
+  icons_[page_url] = *result.image.ToImageSkia();
+  UpdateCard();
 }
 
 }  // namespace modal_browser

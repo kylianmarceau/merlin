@@ -333,5 +333,10 @@ Tab bar and page color (decision 38):
 | 45 | Drag a tab down into the page and let go | It fades once clear of the bar; a new window opens with that tab under the mouse |
 | 46 | Drag a tab onto another window's tabs | It moves there, at the drop place, and is selected |
 | 47 | Sidebar: drag its right edge | Resize cursor; it resizes, snaps near the default width, folds to icons when dragged narrow; the width is kept after relaunch |
+| 48 | Click the address on a site | A card opens over it with the address selected where it was; no outline box, no dropdown yet |
+| 49 | Type "youtu" | Completes to "youtube.com" (selected); rows with search glyphs, favicons, quiet addresses; the first row highlighted |
+| 50 | ↓ twice, Enter; then ⌘L, type a search, ⌘Enter | The third row opens here; the search opens in a new tab |
+| 51 | Type the title of an open tab, click its "Switch to tab" row | Switches to that tab |
+| 52 | Click the address, then click the page; ⌘L then Esc | The card closes and the address shows again each time |
 
 Record results with build args, commit and date in this file.

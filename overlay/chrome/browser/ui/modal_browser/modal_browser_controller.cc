@@ -788,8 +788,8 @@ void ModalBrowserController::ApplyTabLayout() {
   if (!location_bar) {
     return;
   }
-  // Chromium's field also shows while the address is edited in it.
-  const bool show_chromium_field = !toolbar_hidden_ || EditingAddress();
+  // Merlin edits the address in its own card (merlin_address_editor.h).
+  const bool show_chromium_field = !toolbar_hidden_;
   if (location_bar->GetVisible() != show_chromium_field) {
     location_bar->SetVisible(show_chromium_field);
   }
@@ -858,9 +858,7 @@ void ModalBrowserController::InstallMerlinToolbar(
   address_field_ = row->AddChildViewAt(std::move(field), index++);
   toolbar_spacer_right_ = row->AddChildViewAt(flexible(), index);
   address_editor_ = std::make_unique<MerlinAddressEditor>(
-      location_bar,
-      std::vector<views::View*>{toolbar_spacer_, address_field_,
-                                toolbar_spacer_right_},
+      browser_view_, browser_.get(), address_field_,
       // The start page hides Merlin's field again.
       base::BindRepeating(&ModalBrowserController::UpdateBarContext,
                           weak_factory_.GetWeakPtr()),
