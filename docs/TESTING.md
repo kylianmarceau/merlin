@@ -327,5 +327,11 @@ Tab bar and page color (decision 38):
 | 39 | `:vertical-tabs on` with 30 tabs | Rows with full titles; the active row is a card in the page's color; the wheel scrolls rows a whole row at a time; "New tab" stays at the bottom; switching to a tab out of view scrolls it in |
 | 40 | `gp` on two tabs, in both layouts | Pinned tabs become icon tiles in one capsule (in the sidebar, as many to a row as fit) |
 | 41 | Light and dark mode, both layouts | One even chrome color around the page; nothing of Chromium's strip shows |
+| 42 | Right-click a tab, "Add tab to new group", name it; add another tab | Chromium's editor opens; a chip in the group's color before its tabs, a line under them (a header row and a side line in the sidebar) |
+| 43 | Click the group's header; click it again | The group folds (the chip shows its tab count; the active tab moves out); it opens again |
+| 44 | Right-click the group's header | Chromium's group editor: rename, color, ungroup, close, move to new window |
+| 45 | Drag a tab down into the page and let go | It fades once clear of the bar; a new window opens with that tab under the mouse |
+| 46 | Drag a tab onto another window's tabs | It moves there, at the drop place, and is selected |
+| 47 | Sidebar: drag its right edge | Resize cursor; it resizes, snaps near the default width, folds to icons when dragged narrow; the width is kept after relaunch |
 
 Record results with build args, commit and date in this file.

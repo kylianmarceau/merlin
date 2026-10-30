@@ -567,9 +567,23 @@ icon tiles in one capsule; open, close and reorder are animated.
   already uses for the same purpose in app windows. 0005 takes a radius
   per corner and hides the top separator, so the page meets the toolbar
   square and without a line.
-* Not done: dragging a tab out into a new window, tab groups (grouped
-  tabs show as plain tabs), resizing the sidebar by its edge (Chromium's
-  handle is under Merlin's bar; the width is Chromium's saved one), and
-  scrolling tabs on top (they shrink to their icons first). In
-  fullscreen, Chromium moves its strip into a separate widget; Merlin's
-  bar steps aside and Chromium's shows.
+* Tab groups: on top, a chip in the group's color with its name (a dot
+  for an unnamed group) and a line in that color under its tabs; in the
+  sidebar, a header row with a dot and a chevron, the rows set in a
+  little with the line beside them. Clicking a header folds the group
+  (its tabs hide; the chip shows how many) and the active tab moves out
+  of it, as in Chromium; right-click opens Chromium's own group editor
+  (name, color, ungroup, close, move to a new window).
+* Dragging a tab well clear of the bar lifts it (it fades). Dropped over
+  another window's tabs, it moves there, where it was dropped; anywhere
+  else it opens in a new window with the tab under the mouse (a window's
+  only tab moves its window instead). Unlike Chromium, the window does
+  not follow the mouse during the drag; it appears on drop.
+* The sidebar's edge resizes it: Merlin's bar has its own strip there
+  and hands the drag to Chromium's sidebar, which snaps to the default
+  width, folds to icons when dragged narrow, and saves the width.
+* Not done: scrolling tabs on top (they shrink to their icons first),
+  dragging a whole group by its header, and dropping onto a window whose
+  tabs Chromium draws (fullscreen). In fullscreen, Chromium moves its
+  strip into a separate widget; Merlin's bar steps aside and Chromium's
+  shows.

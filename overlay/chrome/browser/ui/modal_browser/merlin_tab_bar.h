@@ -16,6 +16,8 @@
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/split_tabs/split_tab_id.h"
+#include "components/tab_groups/tab_group_color.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_alert.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/tabs/public/tab_network_state.h"
@@ -27,6 +29,7 @@
 #include "ui/views/animation/bounds_animator.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/button.h"
+#include "ui/views/controls/resize_area_delegate.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
 
@@ -40,6 +43,8 @@ class RenderText;
 
 namespace views {
 class MenuRunner;
+class ResizeArea;
+class Widget;
 }
 
 namespace modal_browser {
@@ -59,6 +64,7 @@ struct MerlinTabData {
   bool pinned = false;
   bool active = false;
   std::optional<split_tabs::SplitTabId> split;
+  std::optional<tab_groups::TabGroupId> group;
 };
 
 // One tab, after Dia's: the active tab is cut from the toolbar (the bar
@@ -89,6 +95,10 @@ class MerlinTab : public views::View, public views::AnimationDelegateViews {
   // Being dragged: drawn above the others, no hover change.
   void SetDragging(bool dragging);
   bool dragging() const { return dragging_; }
+
+  // Pulled out of the bar: drawn faded; dropping it moves it to another
+  // window.
+  void SetDetaching(bool detaching);
 
   // Closing: animates out, no longer reacts to the mouse.
   void SetClosing();
@@ -123,6 +133,7 @@ class MerlinTab : public views::View, public views::AnimationDelegateViews {
   bool ShowsTitle() const;
   // Active, or the other half of a split pair with the active tab.
   bool Highlighted() const;
+  void PaintTab(gfx::Canvas* canvas);
   // Title and icon color: on the page's color when highlighted.
   SkColor TextColor() const;
   void PaintBackground(gfx::Canvas* canvas, const gfx::Rect& pill);
@@ -142,9 +153,60 @@ class MerlinTab : public views::View, public views::AnimationDelegateViews {
   bool close_hovered_ = false;
   bool close_pressed_ = false;
   bool dragging_ = false;
+  bool detaching_ = false;
   bool closing_ = false;
   // Where a press started, for telling a click from a drag.
   std::optional<gfx::Point> press_point_;
+};
+
+// A tab group's header: on top, a chip in the group's color with its name
+// before its tabs; in the sidebar, a row with a colored dot. Click to
+// collapse or expand the group; right-click for Chromium's group editor
+// (name, color, ungroup, close).
+class MerlinGroupHeader : public views::View,
+                          public views::AnimationDelegateViews {
+  METADATA_HEADER(MerlinGroupHeader, views::View)
+
+ public:
+  MerlinGroupHeader(MerlinTabBar* bar, const tab_groups::TabGroupId& group);
+  MerlinGroupHeader(const MerlinGroupHeader&) = delete;
+  MerlinGroupHeader& operator=(const MerlinGroupHeader&) = delete;
+  ~MerlinGroupHeader() override;
+
+  const tab_groups::TabGroupId& group() const { return group_; }
+  bool collapsed() const { return collapsed_; }
+  void SetData(std::u16string title,
+               tab_groups::TabGroupColorId color,
+               bool collapsed,
+               int tab_count);
+  // The group's color as drawn in this window.
+  SkColor Color() const;
+  // Width on top.
+  int PreferredWidth() const;
+
+  // views::View:
+  void OnPaint(gfx::Canvas* canvas) override;
+  bool OnMousePressed(const ui::MouseEvent& event) override;
+  void OnMouseReleased(const ui::MouseEvent& event) override;
+  void OnMouseEntered(const ui::MouseEvent& event) override;
+  void OnMouseExited(const ui::MouseEvent& event) override;
+  std::u16string GetRenderedTooltipText(const gfx::Point& p) const override;
+  void OnThemeChanged() override;
+
+  // views::AnimationDelegateViews:
+  void AnimationProgressed(const gfx::Animation* animation) override;
+
+ private:
+  std::u16string Label() const;
+  void UpdateAccessibleName();
+
+  const raw_ptr<MerlinTabBar> bar_;
+  const tab_groups::TabGroupId group_;
+  std::u16string title_;
+  tab_groups::TabGroupColorId color_ = tab_groups::TabGroupColorId::kGrey;
+  bool collapsed_ = false;
+  int tab_count_ = 0;
+  gfx::SlideAnimation hover_animation_{this};
 };
 
 // The "+" at the end of the tabs; in the sidebar, a "New tab" row.
@@ -175,7 +237,8 @@ class MerlinNewTabButton : public views::Button {
 class MerlinTabBar : public views::View,
                      public TabStripModelObserver,
                      public views::ContextMenuController,
-                     public ui::SimpleMenuModel::Delegate {
+                     public ui::SimpleMenuModel::Delegate,
+                     public views::ResizeAreaDelegate {
   METADATA_HEADER(MerlinTabBar, views::View)
 
  public:
@@ -192,6 +255,10 @@ class MerlinTabBar : public views::View,
   void SetVertical(bool vertical, int top_inset);
   bool vertical() const { return vertical_; }
 
+  // Where the sidebar's edge drags go: Chromium's sidebar, which snaps,
+  // collapses and saves the width. Null on top.
+  void SetResizeTarget(views::ResizeAreaDelegate* target);
+
   // The active page's color (PageColorSampler), which the active tab takes
   // so it runs on into the toolbar and the page; nullopt for the toolbar's
   // own color.
@@ -203,10 +270,18 @@ class MerlinTabBar : public views::View,
   void ActivateTab(MerlinTab* tab);
   void CloseTab(MerlinTab* tab);
   void ToggleMute(MerlinTab* tab);
-  // `pos_in_bar` and `grab_offset` are along the bar's axis (x on top, y in
-  // the sidebar).
-  void DragTab(MerlinTab* tab, int pos_in_bar, int grab_offset);
+  // `press_in_tab` is where the drag started in the tab; `screen_point`
+  // where the mouse is now.
+  void DragTab(MerlinTab* tab,
+               const gfx::Point& press_in_tab,
+               const gfx::Point& screen_point);
   void EndDrag(bool cancel);
+  // Where a tab dropped at `screen_point` would go (a model index).
+  int DropIndexAt(const gfx::Point& screen_point) const;
+
+  // Called by group headers.
+  void ToggleGroup(MerlinGroupHeader* header);
+  SkColor GroupColor(tab_groups::TabGroupColorId color) const;
   // Deletes a tab view that finished animating out.
   void RemoveClosedTab(tabs::TabHandle handle);
 
@@ -231,6 +306,12 @@ class MerlinTabBar : public views::View,
                       TabChangeType change_type) override;
   void OnTabPinnedStateChanged(tabs::TabInterface* tab, int index) override;
   void OnSplitTabChanged(const SplitTabChange& change) override;
+  void TabGroupedStateChanged(TabStripModel* tab_strip_model,
+                              std::optional<tab_groups::TabGroupId> old_group,
+                              std::optional<tab_groups::TabGroupId> new_group,
+                              tabs::TabInterface* tab,
+                              int index) override;
+  void OnTabGroupChanged(const TabGroupChange& change) override;
 
   // views::ContextMenuController:
   void ShowContextMenuForViewImpl(
@@ -243,23 +324,51 @@ class MerlinTabBar : public views::View,
   bool IsCommandIdEnabled(int command_id) const override;
   void ExecuteCommand(int command_id, int event_flags) override;
 
+  // views::ResizeAreaDelegate:
+  void OnResize(int resize_amount, bool done_resizing) override;
+
  private:
   // Matches the tab views to the model: reuses views by tab, adds new ones,
   // animates removed ones out, then lays everything out.
   void Rebuild();
   void UpdateTab(tabs::TabInterface* tab);
   MerlinTabData DataFor(tabs::TabInterface* tab, int index) const;
-  // Target bounds for every live tab and the + button, in model order.
+  // Target bounds for every live tab (model order), every group header
+  // (headers_ order) and the + button. In the sidebar, also how many rows
+  // there are, how many fit, and which one is the active tab.
   struct Slots {
+    Slots();
+    Slots(const Slots&);
+    ~Slots();
     std::vector<gfx::Rect> tabs;
+    std::vector<gfx::Rect> headers;
     gfx::Rect new_tab;
+    // Sidebar: where the scrolling rows start (below the pinned tiles).
+    int list_top = 0;
+    int rows = 0;
+    int fit = 0;
+    int active_row = -1;
   };
+  // A tab or a group header, in the order drawn. A tab in a collapsed group
+  // is hidden (unless it is the active one).
+  struct Item {
+    int tab = -1;     // index into the order laid out
+    int header = -1;  // index into headers_
+    bool hidden = false;
+  };
+  std::vector<Item> Items(const std::vector<MerlinTab*>& order) const;
+  MerlinGroupHeader* HeaderFor(const tab_groups::TabGroupId& group) const;
+  // Matches the header views to the groups in tabs_; returns new ones.
+  std::vector<MerlinGroupHeader*> UpdateHeaders();
   Slots ComputeSlots() const;
   Slots ComputeRowSlots(const std::vector<MerlinTab*>& order) const;
   // The pinned tabs' capsule around `tabs`' bounds; empty without any.
   gfx::Rect CapsuleBounds() const;
   void LayoutTabs(bool animate);
   std::optional<int> IndexOf(const MerlinTab* tab) const;
+  // Moves a dropped tab to the window under `screen_point`, or to a new
+  // window there.
+  void DetachTab(tabs::TabHandle tab, gfx::Point screen_point);
   void UpdateLoadingTimer();
   void OnLoadingTimer();
   void NewTab();
@@ -268,6 +377,11 @@ class MerlinTabBar : public views::View,
   const raw_ptr<TabStripModel> model_;
   // Live tabs in model order; closing ones are only children.
   std::vector<raw_ptr<MerlinTab>> tabs_;
+  std::vector<raw_ptr<MerlinGroupHeader>> headers_;
+  raw_ptr<views::ResizeArea> resize_area_ = nullptr;
+  raw_ptr<views::ResizeAreaDelegate> resize_target_ = nullptr;
+  // Chromium's group editor, while open.
+  std::unique_ptr<views::Widget> group_editor_;
   raw_ptr<MerlinNewTabButton> new_tab_button_ = nullptr;
   views::BoundsAnimator bounds_animator_{this};
   int leading_inset_ = 0;
@@ -286,6 +400,12 @@ class MerlinTabBar : public views::View,
   // Drag to reorder.
   raw_ptr<MerlinTab> drag_tab_ = nullptr;
   int drag_target_index_ = 0;
+  // Pulled far enough out to leave the bar.
+  bool detaching_ = false;
+  gfx::Point drag_screen_point_;
+  // From the window's origin to the grab point, so a new window lands with
+  // the tab under the mouse.
+  gfx::Vector2d drag_offset_in_window_;
 
   // Spinner frames while any tab loads.
   base::RepeatingTimer loading_timer_;

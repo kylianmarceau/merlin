@@ -10,17 +10,23 @@
 
 #include "base/auto_reset.h"
 #include "base/functional/bind.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/modal_browser/modal_style.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_group_theme.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -29,8 +35,12 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 // Part of //chrome/browser/ui/views/frame:frame, which depends on this target.
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"  // nogncheck
+#include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"  // nogncheck
+#include "chrome/browser/ui/views/tabs/groups/tab_group_editor_bubble_view.h"  // nogncheck
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"  // nogncheck
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/tab_context_menu_command.h"
+#include "components/tabs/public/tab_group.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -38,6 +48,7 @@
 #include "third_party/skia/include/core/SkRRect.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/compositor/layer.h"
+#include "ui/base/base_window.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
@@ -48,9 +59,11 @@
 #include "ui/gfx/paint_throbber.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/render_text.h"
+#include "ui/gfx/text_utils.h"
 #include "ui/gfx/shadow_value.h"
 #include "ui/gfx/skia_paint_util.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/controls/resize_area.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_targeter.h"
@@ -103,6 +116,22 @@ constexpr int kPinnedMinTile = 44;
 constexpr int kSidebarBottomPad = 8;
 // One wheel step of this many pixels scrolls one row.
 constexpr int kWheelPerRow = 40;
+constexpr int kResizeWidth = 6;
+
+// Tab groups: a chip in the group's color on top; in the sidebar a header
+// row with a dot, the group's rows set in a little, and a line beside them.
+constexpr int kChipHeight = 22;
+constexpr int kChipRadius = 7;
+constexpr int kChipPad = 9;
+constexpr int kChipMaxWidth = 140;
+constexpr int kGroupDotOnly = 26;
+constexpr int kGroupIndent = 8;
+constexpr float kGroupDotRadius = 5;
+
+// A tab dragged this far outside the bar leaves it (on top, the toolbar
+// below still counts as the bar).
+constexpr int kDetachMargin = 40;
+constexpr int kDetachMarginBelow = 64;
 
 constexpr base::TimeDelta kLayoutDuration = base::Milliseconds(180);
 constexpr base::TimeDelta kHoverDuration = base::Milliseconds(120);
@@ -350,6 +379,13 @@ void MerlinTab::SetDragging(bool dragging) {
   SchedulePaint();
 }
 
+void MerlinTab::SetDetaching(bool detaching) {
+  if (detaching_ != detaching) {
+    detaching_ = detaching;
+    SchedulePaint();
+  }
+}
+
 void MerlinTab::SetClosing() {
   closing_ = true;
   SetCanProcessEventsWithinSubtree(false);
@@ -417,6 +453,17 @@ bool MerlinTab::Highlighted() const {
 }
 
 void MerlinTab::OnPaint(gfx::Canvas* canvas) {
+  if (!detaching_) {
+    PaintTab(canvas);
+    return;
+  }
+  // Lifted out of the bar: faded until it lands.
+  canvas->SaveLayerAlpha(0x70);
+  PaintTab(canvas);
+  canvas->Restore();
+}
+
+void MerlinTab::PaintTab(gfx::Canvas* canvas) {
   const gfx::Rect body = PillBounds();
   PaintBackground(canvas, body);
 
@@ -607,17 +654,15 @@ bool MerlinTab::OnMouseDragged(const ui::MouseEvent& event) {
   if (!press_point_ || closing_ || data_.split) {
     return true;
   }
-  // Pinned tiles in the sidebar move along their row.
-  const bool vertical = Vertical() && !data_.pinned;
-  const int moved = vertical ? event.location().y() - press_point_->y()
-                             : event.location().x() - press_point_->x();
-  if (!dragging_ && std::abs(moved) < kDragThreshold) {
-    return true;
+  if (!dragging_) {
+    const gfx::Vector2d moved = event.location() - *press_point_;
+    if (std::max(std::abs(moved.x()), std::abs(moved.y())) < kDragThreshold) {
+      return true;
+    }
   }
-  gfx::Point in_bar = event.location();
-  views::View::ConvertPointToTarget(this, parent(), &in_bar);
-  bar_->DragTab(this, vertical ? in_bar.y() : in_bar.x(),
-                vertical ? press_point_->y() : press_point_->x());
+  gfx::Point screen = event.location();
+  views::View::ConvertPointToScreen(this, &screen);
+  bar_->DragTab(this, *press_point_, screen);
   return true;
 }
 
@@ -705,6 +750,187 @@ void MerlinTab::UpdateAccessibleName() {
 BEGIN_METADATA(MerlinTab)
 END_METADATA
 
+// MerlinGroupHeader ---------------------------------------------------------
+
+MerlinGroupHeader::MerlinGroupHeader(MerlinTabBar* bar,
+                                     const tab_groups::TabGroupId& group)
+    : AnimationDelegateViews(this), bar_(bar), group_(group) {
+  SetProperty(views::kHitTestComponentKey, static_cast<int>(HTCLIENT));
+  hover_animation_.SetSlideDuration(kHoverDuration);
+  set_context_menu_controller(bar);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
+}
+
+MerlinGroupHeader::~MerlinGroupHeader() = default;
+
+void MerlinGroupHeader::SetData(std::u16string title,
+                                tab_groups::TabGroupColorId color,
+                                bool collapsed,
+                                int tab_count) {
+  title_ = std::move(title);
+  color_ = color;
+  collapsed_ = collapsed;
+  tab_count_ = tab_count;
+  UpdateAccessibleName();
+  SchedulePaint();
+}
+
+SkColor MerlinGroupHeader::Color() const {
+  return bar_ ? bar_->GroupColor(color_) : SK_ColorGRAY;
+}
+
+std::u16string MerlinGroupHeader::Label() const {
+  if (!collapsed_) {
+    return title_;
+  }
+  const std::u16string count = base::NumberToString16(tab_count_);
+  return title_.empty() ? count : title_ + u"  " + count;
+}
+
+int MerlinGroupHeader::PreferredWidth() const {
+  const std::u16string label = Label();
+  if (label.empty()) {
+    return kGroupDotOnly;
+  }
+  const int text = gfx::GetStringWidth(
+      label, style::UiFont(-1, gfx::Font::Weight::MEDIUM));
+  return std::min(kChipMaxWidth, text + 2 * kChipPad) + 4;
+}
+
+void MerlinGroupHeader::OnPaint(gfx::Canvas* canvas) {
+  const TabColors& c = ColorsFor(this);
+  const SkColor color = Color();
+  const double hover = hover_animation_.GetCurrentValue();
+  const gfx::FontList& font = style::UiFont(-1, gfx::Font::Weight::MEDIUM);
+
+  if (bar_ && bar_->vertical()) {
+    // A row: dot where a favicon goes, the name, the count when collapsed,
+    // and a chevron.
+    if (hover > 0) {
+      PaintRoundRect(canvas, GetLocalBounds(), kRowRadius,
+                     SkColorSetA(c.hover_fill, static_cast<U8CPU>(
+                                                   SkColorGetA(c.hover_fill) *
+                                                   hover)));
+    }
+    const float cy = height() / 2.0f;
+    const bool compact = width() < kCompactWidth;
+    const float dot_x =
+        compact ? width() / 2.0f : kTabPadding + kIconSize / 2.0f;
+    canvas->DrawCircle(gfx::PointF(dot_x, cy), kGroupDotRadius, Fill(color));
+    if (compact) {
+      return;
+    }
+    const int chevron_x = width() - kTabPadding - 4;
+    int text_right = chevron_x - 10;
+    if (collapsed_) {
+      const std::u16string count = base::NumberToString16(tab_count_);
+      const int count_width = gfx::GetStringWidth(count, font);
+      canvas->DrawStringRect(count, font, c.icon_subtle,
+                             gfx::Rect(text_right - count_width, 0,
+                                       count_width, height()));
+      text_right -= count_width + 8;
+    }
+    const int text_x = kTabPadding + kIconSize + kIconGap;
+    if (text_right > text_x) {
+      canvas->DrawStringRect(title_.empty() ? u"Group" : title_, font,
+                             title_.empty() ? c.icon_subtle : c.text,
+                             gfx::Rect(text_x, 0, text_right - text_x,
+                                       height()));
+    }
+    cc::PaintFlags stroke = Hairline(c.icon_subtle);
+    stroke.setStrokeWidth(1.4f);
+    stroke.setStrokeCap(cc::PaintFlags::kRound_Cap);
+    const gfx::PointF center(chevron_x, cy);
+    constexpr float kArm = 3.5f;
+    if (collapsed_) {
+      canvas->DrawLine(center + gfx::Vector2dF(-kArm / 2, -kArm),
+                       center + gfx::Vector2dF(kArm / 2, 0), stroke);
+      canvas->DrawLine(center + gfx::Vector2dF(kArm / 2, 0),
+                       center + gfx::Vector2dF(-kArm / 2, kArm), stroke);
+    } else {
+      canvas->DrawLine(center + gfx::Vector2dF(-kArm, -kArm / 2),
+                       center + gfx::Vector2dF(0, kArm / 2), stroke);
+      canvas->DrawLine(center + gfx::Vector2dF(0, kArm / 2),
+                       center + gfx::Vector2dF(kArm, -kArm / 2), stroke);
+    }
+    return;
+  }
+
+  // On top: a chip in the group's color, or a dot for an unnamed group.
+  const gfx::Rect body(0, kTopInset, width(), std::max(0, height() - kTopInset));
+  const std::u16string label = Label();
+  if (label.empty()) {
+    if (hover > 0) {
+      gfx::Rect pill = body;
+      pill.Inset(gfx::Insets::TLBR(1, 1, 4, 1));
+      PaintRoundRect(canvas, pill, kHoverRadius,
+                     SkColorSetA(c.hover_fill, static_cast<U8CPU>(
+                                                   SkColorGetA(c.hover_fill) *
+                                                   hover)));
+    }
+    canvas->DrawCircle(gfx::PointF(width() / 2.0f, body.y() + (body.height() - 3) / 2.0f),
+                       kGroupDotRadius, Fill(color));
+    return;
+  }
+  const gfx::Rect chip(2, body.y() + (body.height() - 3 - kChipHeight) / 2,
+                       std::max(0, width() - 4), kChipHeight);
+  PaintRoundRect(canvas, chip, kChipRadius, color);
+  const style::Ink ink = style::InkOn(color);
+  if (hover > 0) {
+    PaintRoundRect(canvas, chip, kChipRadius,
+                   SkColorSetA(ink.hover, static_cast<U8CPU>(
+                                              SkColorGetA(ink.hover) * hover)));
+  }
+  gfx::Rect text = chip;
+  text.Inset(gfx::Insets::VH(0, kChipPad));
+  canvas->DrawStringRectWithFlags(label, font, ink.text, text,
+                                  gfx::Canvas::TEXT_ALIGN_CENTER);
+}
+
+bool MerlinGroupHeader::OnMousePressed(const ui::MouseEvent& event) {
+  return event.IsOnlyLeftMouseButton();
+}
+
+void MerlinGroupHeader::OnMouseReleased(const ui::MouseEvent& event) {
+  if (event.IsOnlyLeftMouseButton() && HitTestPoint(event.location()) &&
+      bar_) {
+    bar_->ToggleGroup(this);
+  }
+}
+
+void MerlinGroupHeader::OnMouseEntered(const ui::MouseEvent& event) {
+  hover_animation_.Show();
+}
+
+void MerlinGroupHeader::OnMouseExited(const ui::MouseEvent& event) {
+  hover_animation_.Hide();
+}
+
+std::u16string MerlinGroupHeader::GetRenderedTooltipText(
+    const gfx::Point& p) const {
+  return collapsed_ ? u"Expand group" : u"Collapse group";
+}
+
+void MerlinGroupHeader::OnThemeChanged() {
+  views::View::OnThemeChanged();
+  SchedulePaint();
+}
+
+void MerlinGroupHeader::AnimationProgressed(const gfx::Animation* animation) {
+  SchedulePaint();
+}
+
+void MerlinGroupHeader::UpdateAccessibleName() {
+  std::u16string name = title_.empty() ? u"Unnamed group" : title_;
+  name += u", " + base::NumberToString16(tab_count_) +
+          (tab_count_ == 1 ? u" tab" : u" tabs");
+  name += collapsed_ ? u", collapsed" : u", expanded";
+  GetViewAccessibility().SetName(name);
+}
+
+BEGIN_METADATA(MerlinGroupHeader)
+END_METADATA
+
 // MerlinNewTabButton --------------------------------------------------------
 
 MerlinNewTabButton::MerlinNewTabButton(PressedCallback callback)
@@ -770,11 +996,17 @@ MerlinTabBar::MerlinTabBar(BrowserWindowInterface* browser)
   bounds_animator_.SetAnimationDuration(kLayoutDuration);
   new_tab_button_ = AddChildView(std::make_unique<MerlinNewTabButton>(
       base::BindRepeating(&MerlinTabBar::NewTab, base::Unretained(this))));
+  // The sidebar's edge: drag to resize, as on Chromium's.
+  resize_area_ = AddChildView(std::make_unique<views::ResizeArea>(this));
+  resize_area_->SetProperty(views::kHitTestComponentKey,
+                            static_cast<int>(HTCLIENT));
+  resize_area_->SetVisible(false);
   model_->AddObserver(this);
   Rebuild();
 }
 
 MerlinTabBar::~MerlinTabBar() {
+  group_editor_.reset();
   model_->RemoveObserver(this);
   loading_timer_.Stop();
   bounds_animator_.Cancel();
@@ -863,6 +1095,7 @@ MerlinTabData MerlinTabBar::DataFor(tabs::TabInterface* tab, int index) const {
   data.pinned = tab->IsPinned();
   data.active = index == model_->active_index();
   data.split = tab->GetSplit();
+  data.group = tab->GetGroup();
   if (TabUIHelper* helper = TabUIHelper::From(tab)) {
     data.title = helper->GetTitle();
     data.favicon = helper->GetFavicon();
@@ -938,9 +1171,15 @@ void MerlinTabBar::Rebuild() {
     tabs_[i]->SetJoin(join);
   }
 
-  // New tabs grow from nothing at their place.
+  const std::vector<MerlinGroupHeader*> added_headers = UpdateHeaders();
+
+  // New tabs grow from nothing at their place; new headers just appear.
   if (laid_out_once_) {
     const Slots slots = ComputeSlots();
+    for (MerlinGroupHeader* header : added_headers) {
+      auto it = std::find(headers_.begin(), headers_.end(), header);
+      header->SetBoundsRect(slots.headers[it - headers_.begin()]);
+    }
     for (MerlinTab* view : added) {
       auto it = std::find(tabs_.begin(), tabs_.end(), view);
       const gfx::Rect& slot = slots.tabs[it - tabs_.begin()];
@@ -972,10 +1211,55 @@ void MerlinTabBar::UpdateTab(tabs::TabInterface* tab) {
   UpdateLoadingTimer();
 }
 
+MerlinTabBar::Slots::Slots() = default;
+MerlinTabBar::Slots::Slots(const Slots&) = default;
+MerlinTabBar::Slots::~Slots() = default;
+
+MerlinGroupHeader* MerlinTabBar::HeaderFor(
+    const tab_groups::TabGroupId& group) const {
+  for (MerlinGroupHeader* header : headers_) {
+    if (header->group() == group) {
+      return header;
+    }
+  }
+  return nullptr;
+}
+
+std::vector<MerlinTabBar::Item> MerlinTabBar::Items(
+    const std::vector<MerlinTab*>& order) const {
+  std::vector<Item> items;
+  std::vector<int> seen;
+  std::optional<tab_groups::TabGroupId> previous;
+  for (size_t i = 0; i < order.size(); ++i) {
+    const MerlinTabData& data = order[i]->data();
+    const std::optional<tab_groups::TabGroupId> group =
+        data.pinned ? std::nullopt : data.group;
+    MerlinGroupHeader* header = group ? HeaderFor(*group) : nullptr;
+    int header_index = -1;
+    if (header) {
+      header_index = static_cast<int>(
+          std::find(headers_.begin(), headers_.end(), header) -
+          headers_.begin());
+    }
+    // The header goes before its group's first tab (once, even while a
+    // dragged tab splits the group for a moment).
+    if (header && group != previous &&
+        std::find(seen.begin(), seen.end(), header_index) == seen.end()) {
+      items.push_back({.header = header_index});
+      seen.push_back(header_index);
+    }
+    items.push_back({.tab = static_cast<int>(i),
+                     .hidden = header && header->collapsed() && !data.active &&
+                               order[i] != drag_tab_});
+    previous = group;
+  }
+  return items;
+}
+
 MerlinTabBar::Slots MerlinTabBar::ComputeSlots() const {
   // The order to lay out: the model's, with a dragged tab at its target.
   std::vector<MerlinTab*> order(tabs_.begin(), tabs_.end());
-  if (drag_tab_) {
+  if (drag_tab_ && !detaching_) {
     auto it = std::find(order.begin(), order.end(), drag_tab_.get());
     if (it != order.end()) {
       order.erase(it);
@@ -989,56 +1273,79 @@ MerlinTabBar::Slots MerlinTabBar::ComputeSlots() const {
     return ComputeRowSlots(order);
   }
 
+  const std::vector<Item> items = Items(order);
   int pinned = 0;
-  int unpinned = 0;
+  int visible = 0;
+  int header_room = 0;
   bool active_unpinned = false;
-  for (MerlinTab* tab : order) {
-    if (tab->data().pinned) {
+  for (const Item& item : items) {
+    if (item.header >= 0) {
+      header_room += headers_[item.header]->PreferredWidth() + kTabGap;
+      continue;
+    }
+    const MerlinTabData& data = order[item.tab]->data();
+    if (data.pinned) {
       ++pinned;
-    } else {
-      ++unpinned;
-      active_unpinned |= tab->data().active;
+    } else if (!item.hidden) {
+      ++visible;
+      active_unpinned |= data.active;
     }
   }
   const int start = leading_inset_ + kLeadingPad;
   const int pinned_room =
       pinned ? 2 * kCapsulePad + pinned * kPinnedWidth + kAfterCapsule : 0;
   const int room = width() - start - pinned_room - kTrailingPad -
-                   kNewTabSize - 2 * kTabGap;
-  const int free =
-      std::max(0, room - std::max(0, unpinned - 1) * kTabGap);
-  int width_each = unpinned ? std::clamp(free / std::max(unpinned, 1),
-                                         kMinTabWidth, kMaxTabWidth)
-                            : 0;
+                   kNewTabSize - 2 * kTabGap - header_room;
+  const int free = std::max(0, room - std::max(0, visible - 1) * kTabGap);
+  int width_each =
+      visible ? std::clamp(free / visible, kMinTabWidth, kMaxTabWidth) : 0;
   int active_width = width_each;
-  if (active_unpinned && unpinned > 1 && width_each < kActiveMinWidth) {
+  if (active_unpinned && visible > 1 && width_each < kActiveMinWidth) {
     // The active tab keeps room for its title; the others give way.
     active_width = std::max(
         width_each,
-        std::min(kActiveMinWidth, free - (unpinned - 1) * kMinTabWidth));
-    width_each = std::clamp((free - active_width) / (unpinned - 1),
+        std::min(kActiveMinWidth, free - (visible - 1) * kMinTabWidth));
+    width_each = std::clamp((free - active_width) / (visible - 1),
                             kMinTabWidth, kMaxTabWidth);
   }
 
-  std::vector<gfx::Rect> by_order;
+  std::vector<gfx::Rect> tab_rects(order.size());
+  std::vector<gfx::Rect> header_rects(headers_.size());
   int x = start + (pinned ? kCapsulePad : 0);
-  const MerlinTab* previous = nullptr;
-  for (MerlinTab* tab : order) {
-    if (previous) {
-      if (previous->data().pinned && !tab->data().pinned) {
+  bool any = false;
+  bool previous_pinned = false;
+  const MerlinTab* previous_tab = nullptr;
+  for (const Item& item : items) {
+    if (item.hidden) {
+      // A collapsed group's tab: folded away at the group's end.
+      tab_rects[item.tab] = gfx::Rect(x, 0, 0, height());
+      continue;
+    }
+    MerlinTab* tab = item.tab >= 0 ? order[item.tab] : nullptr;
+    const bool pinned_item = tab && tab->data().pinned;
+    if (any) {
+      if (previous_pinned && !pinned_item) {
         x += kCapsulePad + kAfterCapsule;
-      } else if (!tab->data().pinned) {
-        x += SameSplit(previous, tab) ? kSplitGap : kTabGap;
+      } else if (!pinned_item) {
+        x += SameSplit(previous_tab, tab) ? kSplitGap : kTabGap;
       }
     }
-    const int w = tab->data().pinned ? kPinnedWidth
-                  : tab->data().active ? active_width
-                                       : width_each;
-    by_order.emplace_back(x, 0, w, height());
+    int w = 0;
+    if (!tab) {
+      w = headers_[item.header]->PreferredWidth();
+      header_rects[item.header] = gfx::Rect(x, 0, w, height());
+    } else {
+      w = pinned_item          ? kPinnedWidth
+          : tab->data().active ? active_width
+                               : width_each;
+      tab_rects[item.tab] = gfx::Rect(x, 0, w, height());
+    }
     x += w;
-    previous = tab;
+    any = true;
+    previous_pinned = pinned_item;
+    previous_tab = tab;
   }
-  if (previous && previous->data().pinned) {
+  if (any && previous_pinned) {
     x += kCapsulePad;
   }
 
@@ -1046,9 +1353,10 @@ MerlinTabBar::Slots MerlinTabBar::ComputeSlots() const {
   // Back to model order (tabs_), which callers index by.
   for (MerlinTab* tab : tabs_) {
     auto it = std::find(order.begin(), order.end(), tab);
-    slots.tabs.push_back(by_order[it - order.begin()]);
+    slots.tabs.push_back(tab_rects[it - order.begin()]);
   }
-  const int new_tab_x = std::min(x + (order.empty() ? 0 : kTabGap + 4),
+  slots.headers = std::move(header_rects);
+  const int new_tab_x = std::min(x + (any ? kTabGap + 4 : 0),
                                  width() - kTrailingPad - kNewTabSize);
   slots.new_tab = gfx::Rect(
       std::max(start, new_tab_x),
@@ -1062,63 +1370,83 @@ MerlinTabBar::Slots MerlinTabBar::ComputeRowSlots(
   const int x = kSidePad;
   const int w = std::max(0, width() - 2 * kSidePad);
   int y = top_inset_;
+  std::vector<gfx::Rect> tab_rects(order.size());
+  std::vector<gfx::Rect> header_rects(headers_.size());
 
   // Pinned tabs: icon tiles in a capsule at the top, as many to a row as fit.
   int pinned = 0;
   for (MerlinTab* tab : order) {
     pinned += tab->data().pinned ? 1 : 0;
   }
-  std::vector<gfx::Rect> by_order;
   if (pinned) {
     const int inner = std::max(1, w - 2 * kCapsulePad);
     const int columns =
         std::clamp(inner / kPinnedMinTile, 1, std::max(pinned, 1));
     const int tile = inner / columns;
     int i = 0;
-    for (MerlinTab* tab : order) {
-      if (!tab->data().pinned) {
+    for (size_t t = 0; t < order.size(); ++t) {
+      if (!order[t]->data().pinned) {
         continue;
       }
-      by_order.emplace_back(x + kCapsulePad + (i % columns) * tile,
-                            y + kCapsulePad + (i / columns) * kPinnedTileHeight,
-                            tile, kPinnedTileHeight);
+      tab_rects[t] =
+          gfx::Rect(x + kCapsulePad + (i % columns) * tile,
+                    y + kCapsulePad + (i / columns) * kPinnedTileHeight, tile,
+                    kPinnedTileHeight);
       ++i;
     }
     const int rows = (pinned + columns - 1) / columns;
     y += 2 * kCapsulePad + rows * kPinnedTileHeight + kAfterCapsule;
   }
 
-  // The rest: one row each, scrolled when they do not all fit (the + row
-  // then stays at the bottom).
-  const int unpinned = static_cast<int>(order.size()) - pinned;
+  // The rest: one row each (a group's header is a row too), scrolled when
+  // they do not all fit; the + row then stays at the bottom.
+  const std::vector<Item> items = Items(order);
+  int rows = 0;
+  for (const Item& item : items) {
+    if (item.header >= 0 ||
+        (!order[item.tab]->data().pinned && !item.hidden)) {
+      ++rows;
+    }
+  }
   const int step = kRowHeight + kRowGap;
-  const int rows_bottom =
-      height() - kSidebarBottomPad - kRowHeight - kRowGap;
+  const int rows_bottom = height() - kSidebarBottomPad - kRowHeight - kRowGap;
   const int fit = std::max(1, (rows_bottom - y + kRowGap) / step);
-  const int scroll = std::clamp(scroll_, 0, std::max(0, unpinned - fit));
+  const int scroll = std::clamp(scroll_, 0, std::max(0, rows - fit));
+  Slots slots;
   int row = 0;
-  for (MerlinTab* tab : order) {
+  for (const Item& item : items) {
+    const int row_y = y + (row - scroll) * step;
+    if (item.header >= 0) {
+      header_rects[item.header] = gfx::Rect(x, row_y, w, kRowHeight);
+      ++row;
+      continue;
+    }
+    const MerlinTab* tab = order[item.tab];
     if (tab->data().pinned) {
       continue;
     }
-    by_order.emplace_back(x, y + (row - scroll) * step, w, kRowHeight);
+    const int indent = tab->data().group ? kGroupIndent : 0;
+    if (item.hidden) {
+      tab_rects[item.tab] = gfx::Rect(x + indent, row_y, w - indent, 0);
+      continue;
+    }
+    if (tab->data().active) {
+      slots.active_row = row;
+    }
+    tab_rects[item.tab] = gfx::Rect(x + indent, row_y, w - indent, kRowHeight);
     ++row;
   }
-  // Pinned tiles came first in by_order; put everything in `order`'s order.
-  std::vector<gfx::Rect> ordered;
-  int next_pinned = 0;
-  int next_row = pinned;
-  for (MerlinTab* tab : order) {
-    ordered.push_back(by_order[tab->data().pinned ? next_pinned++ : next_row++]);
-  }
 
-  Slots slots;
   for (MerlinTab* tab : tabs_) {
     auto it = std::find(order.begin(), order.end(), tab);
-    slots.tabs.push_back(ordered[it - order.begin()]);
+    slots.tabs.push_back(tab_rects[it - order.begin()]);
   }
-  const int after_rows = y + std::min(unpinned, fit) * step;
-  slots.new_tab = gfx::Rect(x, unpinned > fit ? rows_bottom + kRowGap : after_rows,
+  slots.headers = std::move(header_rects);
+  slots.list_top = y;
+  slots.rows = rows;
+  slots.fit = fit;
+  const int after_rows = y + std::min(rows, fit) * step;
+  slots.new_tab = gfx::Rect(x, rows > fit ? rows_bottom + kRowGap : after_rows,
                             w, kRowHeight);
   return slots;
 }
@@ -1165,83 +1493,70 @@ void MerlinTabBar::LayoutTabs(bool animate) {
   if (width() == 0) {
     return;
   }
+  Slots slots = ComputeSlots();
   if (vertical_) {
-    // How far the rows can scroll.
-    int pinned = 0;
-    for (MerlinTab* tab : tabs_) {
-      pinned += tab->data().pinned ? 1 : 0;
-    }
-    const int saved = scroll_;
-    scroll_ = 0;
-    const Slots top = ComputeSlots();
-    scroll_ = saved;
-    int fit = 0;
-    for (size_t i = 0; i < tabs_.size(); ++i) {
-      if (!tabs_[i]->data().pinned &&
-          top.tabs[i].bottom() <= top.new_tab.y()) {
-        ++fit;
-      }
-    }
-    const int unpinned = static_cast<int>(tabs_.size()) - pinned;
-    fit = std::max(fit, 1);
-    max_scroll_ = std::max(0, unpinned - fit);
-    if (reveal_active_) {
+    max_scroll_ = std::max(0, slots.rows - slots.fit);
+    int scroll = scroll_;
+    if (reveal_active_ && slots.active_row >= 0) {
       // Keep the active row in view.
-      int row = 0;
-      for (MerlinTab* tab : tabs_) {
-        if (tab->data().pinned) {
-          continue;
-        }
-        if (tab->data().active) {
-          if (row < scroll_) {
-            scroll_ = row;
-          } else if (row >= scroll_ + fit) {
-            scroll_ = row - fit + 1;
-          }
-          break;
-        }
-        ++row;
+      if (slots.active_row < scroll) {
+        scroll = slots.active_row;
+      } else if (slots.active_row >= scroll + slots.fit) {
+        scroll = slots.active_row - slots.fit + 1;
       }
     }
-    scroll_ = std::clamp(scroll_, 0, max_scroll_);
+    scroll = std::clamp(scroll, 0, max_scroll_);
+    if (scroll != scroll_) {
+      scroll_ = scroll;
+      slots = ComputeSlots();
+    }
   } else {
     scroll_ = max_scroll_ = 0;
   }
-  const Slots slots = ComputeSlots();
-  // Sidebar rows scrolled out of the list hide, so they never cover the
-  // pinned tiles or the + row.
-  int list_top = 0;
-  if (vertical_) {
-    list_top = top_inset_;
-    const gfx::Rect capsule = CapsuleBounds();
-    if (!capsule.IsEmpty()) {
-      list_top = capsule.bottom() + kAfterCapsule - kCapsulePad;
+
+  // In the sidebar, rows scrolled out of the list hide, so they never cover
+  // the pinned tiles or the + row; folded tabs hide in both layouts.
+  auto shown = [&](const gfx::Rect& r, bool pinned) {
+    if (!vertical_) {
+      return r.width() > 0;
     }
-  }
+    if (pinned) {
+      return true;
+    }
+    return r.height() > 0 && r.y() >= slots.list_top - 1 &&
+           r.bottom() <= slots.new_tab.y();
+  };
+  auto place = [&](views::View* view, const gfx::Rect& target) {
+    if (animate) {
+      bounds_animator_.AnimateViewTo(view, target);
+    } else {
+      bounds_animator_.StopAnimatingView(view);
+      view->SetBoundsRect(target);
+    }
+  };
   for (size_t i = 0; i < tabs_.size(); ++i) {
     MerlinTab* tab = tabs_[i];
-    if (vertical_ && !tab->data().pinned) {
-      tab->SetVisible(tab == drag_tab_ ||
-                      (slots.tabs[i].y() >= list_top - 1 &&
-                       slots.tabs[i].bottom() <= slots.new_tab.y()));
-    } else {
-      tab->SetVisible(true);
-    }
+    tab->SetVisible(tab == drag_tab_ ||
+                    shown(slots.tabs[i], tab->data().pinned));
     if (tab == drag_tab_) {
       continue;  // Follows the mouse.
     }
-    if (animate) {
-      bounds_animator_.AnimateViewTo(tab, slots.tabs[i]);
-    } else {
-      bounds_animator_.StopAnimatingView(tab);
-      tab->SetBoundsRect(slots.tabs[i]);
-    }
+    place(tab, slots.tabs[i]);
   }
-  if (animate) {
-    bounds_animator_.AnimateViewTo(new_tab_button_, slots.new_tab);
-  } else {
-    bounds_animator_.StopAnimatingView(new_tab_button_);
-    new_tab_button_->SetBoundsRect(slots.new_tab);
+  for (size_t i = 0; i < headers_.size(); ++i) {
+    headers_[i]->SetVisible(shown(slots.headers[i], false));
+    place(headers_[i], slots.headers[i]);
+  }
+  place(new_tab_button_, slots.new_tab);
+
+  // The sidebar's edge, above everything else.
+  const bool resizable = vertical_ && resize_target_;
+  resize_area_->SetVisible(resizable);
+  if (resizable) {
+    resize_area_->SetBounds(width() - kResizeWidth, 0, kResizeWidth, height());
+    if (children().back() != resize_area_.get()) {
+      ReorderChildView(resize_area_, children().size());
+    }
   }
   laid_out_once_ = true;
   SchedulePaint();
@@ -1328,6 +1643,39 @@ void MerlinTabBar::OnPaint(gfx::Canvas* canvas) {
     }
   }
 
+  // Each open group: a line in its color along its tabs (under them on
+  // top, beside them in the sidebar).
+  for (MerlinGroupHeader* header : headers_) {
+    if (!header->GetVisible() || header->collapsed()) {
+      continue;
+    }
+    gfx::Rect span = header->bounds();
+    bool any = false;
+    for (MerlinTab* tab : tabs_) {
+      if (tab->data().group == header->group() && tab->GetVisible() &&
+          !tab->dragging() && !tab->closing() && !tab->bounds().IsEmpty()) {
+        span.Union(tab->bounds());
+        any = true;
+      }
+    }
+    if (!any) {
+      continue;
+    }
+    const cc::PaintFlags color = Fill(header->Color());
+    if (vertical_) {
+      const int top = header->bounds().bottom() + 2;
+      canvas->DrawRoundRect(
+          gfx::RectF(kSidePad + 1, top, 2.5f,
+                     std::max(0, span.bottom() - top - 4)),
+          1.25f, color);
+    } else {
+      canvas->DrawRoundRect(
+          gfx::RectF(span.x() + 6, height() - 3, std::max(0, span.width() - 12),
+                     2),
+          1, color);
+    }
+  }
+
   // The active tab (a split pair holding it shares one shape, with a
   // hairline between its halves).
   for (size_t i = 0; i < tabs_.size(); ++i) {
@@ -1378,19 +1726,51 @@ void MerlinTabBar::OnThemeChanged() {
   SchedulePaint();
 }
 
-void MerlinTabBar::DragTab(MerlinTab* tab, int pos_in_bar, int grab_offset) {
+void MerlinTabBar::DragTab(MerlinTab* tab,
+                           const gfx::Point& press_in_tab,
+                           const gfx::Point& screen_point) {
   if (!drag_tab_) {
     std::optional<int> index = IndexOf(tab);
-    if (!index) {
+    if (!index || !GetWidget()) {
       return;
     }
     drag_tab_ = tab;
     drag_target_index_ = *index;
+    detaching_ = false;
     tab->SetDragging(true);
     bounds_animator_.StopAnimatingView(tab);
     tab->SetBoundsRect(bounds_animator_.GetTargetBounds(tab));
     ReorderChildView(tab, children().size());
+    gfx::Point grab = press_in_tab;
+    views::View::ConvertPointToScreen(tab, &grab);
+    drag_offset_in_window_ =
+        grab - GetWidget()->GetWindowBoundsInScreen().origin();
   }
+  drag_screen_point_ = screen_point;
+  gfx::Point in_bar = screen_point;
+  views::View::ConvertPointFromScreen(this, &in_bar);
+
+  // Far enough out, the tab lifts off: dropped, it goes to the window under
+  // it or to a new one.
+  gfx::Rect zone = GetLocalBounds();
+  zone.Outset(vertical_ ? gfx::Outsets(kDetachMargin)
+                        : gfx::Outsets::TLBR(kDetachMargin, kDetachMargin,
+                                             kDetachMarginBelow,
+                                             kDetachMargin));
+  const bool detaching = !zone.Contains(in_bar);
+  if (detaching != detaching_) {
+    detaching_ = detaching;
+    tab->SetDetaching(detaching);
+    // Back in the model's order while it is out (its place stays open).
+    LayoutTabs(/*animate=*/true);
+  }
+  if (detaching_) {
+    return;
+  }
+  // Pinned tiles in the sidebar move along their row.
+  const bool vertical_drag = vertical_ && !tab->data().pinned;
+  const int pos_in_bar = vertical_drag ? in_bar.y() : in_bar.x();
+  const int grab_offset = vertical_drag ? press_in_tab.y() : press_in_tab.x();
   // Pinned tabs move among pinned tabs, the rest among the rest.
   int first = 0;
   int last = static_cast<int>(tabs_.size()) - 1;
@@ -1457,6 +1837,18 @@ void MerlinTabBar::EndDrag(bool cancel) {
   }
   drag_tab_ = nullptr;
   tab->SetDragging(false);
+  const bool detach = detaching_ && !cancel;
+  detaching_ = false;
+  tab->SetDetaching(false);
+  if (detach) {
+    // After this mouse event: moving the tab may delete this view.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&MerlinTabBar::DetachTab,
+                                  weak_factory_.GetWeakPtr(), tab->handle(),
+                                  drag_screen_point_));
+    LayoutTabs(/*animate=*/true);
+    return;
+  }
   std::optional<int> from = IndexOf(tab);
   if (!cancel && from && *from != drag_target_index_) {
     // The model's Moved notification rebuilds and animates into place.
@@ -1465,6 +1857,179 @@ void MerlinTabBar::EndDrag(bool cancel) {
     return;
   }
   LayoutTabs(/*animate=*/true);
+}
+
+int MerlinTabBar::DropIndexAt(const gfx::Point& screen_point) const {
+  gfx::Point p = screen_point;
+  views::View::ConvertPointFromScreen(this, &p);
+  const int pos = vertical_ ? p.y() : p.x();
+  int index = 0;
+  for (size_t i = 0; i < tabs_.size(); ++i) {
+    const gfx::Rect bounds = bounds_animator_.GetTargetBounds(tabs_[i]);
+    const int center =
+        vertical_ ? bounds.CenterPoint().y() : bounds.CenterPoint().x();
+    if (center < pos) {
+      index = static_cast<int>(i) + 1;
+    }
+  }
+  return index;
+}
+
+void MerlinTabBar::DetachTab(tabs::TabHandle handle, gfx::Point screen_point) {
+  tabs::TabInterface* tab = handle.Get();
+  const int index = tab ? model_->GetIndexOfTab(tab) : TabStripModel::kNoTab;
+  if (index == TabStripModel::kNoTab) {
+    return;
+  }
+  // Over another window's tabs: the tab moves there, where it was dropped.
+  for (BrowserWindowInterface* other : GetAllBrowserWindowInterfaces()) {
+    if (other == browser_.get() ||
+        other->GetProfile() != browser_->GetProfile() ||
+        other->GetType() != BrowserWindowInterface::TYPE_NORMAL) {
+      continue;
+    }
+    BrowserView* view = BrowserView::GetBrowserViewForBrowser(other);
+    if (!view || !view->GetWidget() || !view->GetWidget()->IsVisible()) {
+      continue;
+    }
+    MerlinTabBar* other_bar = nullptr;
+    for (views::View* child : view->children()) {
+      if ((other_bar = views::AsViewClass<MerlinTabBar>(child))) {
+        break;
+      }
+    }
+    if (!other_bar || !other_bar->GetVisible() ||
+        !other_bar->GetBoundsInScreen().Contains(screen_point)) {
+      continue;
+    }
+    const int drop = other_bar->DropIndexAt(screen_point);
+    const bool pinned = tab->IsPinned();
+    TabStripModel* target = other->GetTabStripModel();
+    // This window closes if that was its last tab; touch nothing of it
+    // after.
+    chrome::MoveTabsToExistingWindow(browser_, other, {index});
+    if (!pinned && target->count() > 0) {
+      const int from = target->count() - 1;
+      const int to = std::clamp(drop, target->IndexOfFirstNonPinnedTab(), from);
+      if (to != from) {
+        target->MoveWebContentsAt(from, to, /*select_after_move=*/true);
+      }
+    }
+    return;
+  }
+
+  // Anywhere else: a window of its own, with the tab under the mouse.
+  ui::BaseWindow* window = browser_->GetWindow();
+  if (!window) {
+    return;
+  }
+  gfx::Rect bounds = window->GetBounds();
+  bounds.set_origin(screen_point - drag_offset_in_window_);
+  if (model_->count() == 1) {
+    // Its only tab: the window itself moves.
+    window->SetBounds(bounds);
+    return;
+  }
+  BrowserWindowCreateParams params(*browser_->GetProfile(),
+                                   /*from_user_gesture=*/true);
+  params.initial_bounds = bounds;
+  params.initial_origin_specified =
+      BrowserWindowCreateParams::ValueSpecified::kSpecified;
+  BrowserWindowInterface* created = CreateBrowserWindow(std::move(params));
+  if (created) {
+    chrome::MoveTabsToExistingWindow(browser_, created, {index});
+  }
+}
+
+void MerlinTabBar::ToggleGroup(MerlinGroupHeader* header) {
+  TabGroupModel* groups = model_->group_model();
+  if (!groups || !groups->ContainsTabGroup(header->group())) {
+    return;
+  }
+  TabGroup* group = groups->GetTabGroup(header->group());
+  const tab_groups::TabGroupVisualData visuals = *group->visual_data();
+  const bool collapse = !visuals.is_collapsed();
+  if (collapse) {
+    // As in Chromium, the active tab leaves a group that folds away: the
+    // next tab after the group, else the one before. A window of only this
+    // group stays open.
+    const gfx::Range range = group->ListTabs();
+    const int active = model_->active_index();
+    if (active >= static_cast<int>(range.start()) &&
+        active < static_cast<int>(range.end())) {
+      int next = TabStripModel::kNoTab;
+      if (static_cast<int>(range.end()) < model_->count()) {
+        next = static_cast<int>(range.end());
+      } else if (range.start() > 0) {
+        next = static_cast<int>(range.start()) - 1;
+      }
+      if (next == TabStripModel::kNoTab) {
+        return;
+      }
+      model_->ActivateTabAt(next);
+    }
+  }
+  model_->ChangeTabGroupVisuals(
+      header->group(), tab_groups::TabGroupVisualData(
+                           visuals.title(), visuals.color(), collapse));
+}
+
+SkColor MerlinTabBar::GroupColor(tab_groups::TabGroupColorId color) const {
+  const ui::ColorProvider* provider = GetColorProvider();
+  if (!provider) {
+    return SK_ColorGRAY;
+  }
+  const bool active = !GetWidget() || GetWidget()->ShouldPaintAsActive();
+  return provider->GetColor(GetTabGroupTabStripColorId(color, active));
+}
+
+std::vector<MerlinGroupHeader*> MerlinTabBar::UpdateHeaders() {
+  std::vector<MerlinGroupHeader*> added;
+  std::vector<raw_ptr<MerlinGroupHeader>> next;
+  TabGroupModel* groups = model_->group_model();
+  for (MerlinTab* tab : tabs_) {
+    if (!groups || !tab->data().group || tab->data().pinned) {
+      continue;
+    }
+    const tab_groups::TabGroupId& id = *tab->data().group;
+    if (std::any_of(next.begin(), next.end(),
+                    [&](MerlinGroupHeader* h) { return h->group() == id; }) ||
+        !groups->ContainsTabGroup(id)) {
+      continue;
+    }
+    const TabGroup* group = groups->GetTabGroup(id);
+    MerlinGroupHeader* header = HeaderFor(id);
+    if (!header) {
+      header = AddChildViewAt(std::make_unique<MerlinGroupHeader>(this, id),
+                              GetIndexOf(new_tab_button_).value());
+      added.push_back(header);
+    }
+    const tab_groups::TabGroupVisualData* visuals = group->visual_data();
+    header->SetData(visuals->title(), visuals->color(),
+                    visuals->is_collapsed(), group->tab_count());
+    next.push_back(header);
+  }
+  for (MerlinGroupHeader* old : headers_) {
+    if (std::find(next.begin(), next.end(), old) == next.end()) {
+      bounds_animator_.StopAnimatingView(old);
+      auto removed = RemoveChildViewT(old);
+    }
+  }
+  headers_ = std::move(next);
+  return added;
+}
+
+void MerlinTabBar::SetResizeTarget(views::ResizeAreaDelegate* target) {
+  if (resize_target_ != target) {
+    resize_target_ = target;
+    LayoutTabs(/*animate=*/false);
+  }
+}
+
+void MerlinTabBar::OnResize(int resize_amount, bool done_resizing) {
+  if (resize_target_) {
+    resize_target_->OnResize(resize_amount, done_resizing);
+  }
 }
 
 void MerlinTabBar::UpdateLoadingTimer() {
@@ -1513,10 +2078,35 @@ void MerlinTabBar::OnSplitTabChanged(const SplitTabChange& change) {
   Rebuild();
 }
 
+void MerlinTabBar::TabGroupedStateChanged(
+    TabStripModel* tab_strip_model,
+    std::optional<tab_groups::TabGroupId> old_group,
+    std::optional<tab_groups::TabGroupId> new_group,
+    tabs::TabInterface* tab,
+    int index) {
+  Rebuild();
+}
+
+void MerlinTabBar::OnTabGroupChanged(const TabGroupChange& change) {
+  if (change.type == TabGroupChange::kVisualsChanged ||
+      change.type == TabGroupChange::kCreated ||
+      change.type == TabGroupChange::kClosed ||
+      change.type == TabGroupChange::kMoved) {
+    Rebuild();
+  }
+}
+
 void MerlinTabBar::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
     ui::mojom::MenuSourceType source_type) {
+  if (auto* header = views::AsViewClass<MerlinGroupHeader>(source)) {
+    group_editor_.reset();
+    group_editor_ = TabGroupEditorBubbleView::Show(
+        browser_, header->group(), header, std::nullopt,
+        /*stop_context_menu_propagation=*/false);
+    return;
+  }
   auto* tab = views::AsViewClass<MerlinTab>(source);
   std::optional<int> index = IndexOf(tab);
   if (!index) {
@@ -1630,6 +2220,7 @@ void MerlinTabBarHost::Update() {
         toolbar_shown ? toolbar_top + toolbar->height() : bounds.y() + 44;
     bar_->SetLeadingInset(0);
     bar_->SetVertical(true, std::max(0, toolbar_bottom - bounds.y()));
+    bar_->SetResizeTarget(views::AsViewClass<VerticalTabStripRegionView>(region_));
     bar_->SetBoundsRect(bounds);
     if (browser_view_->children().back() != bar_.get()) {
       browser_view_->ReorderChildView(bar_, browser_view_->children().size());
@@ -1639,6 +2230,7 @@ void MerlinTabBarHost::Update() {
     return;
   }
   bar_->SetVertical(false, 0);
+  bar_->SetResizeTarget(nullptr);
   // Tabs start where Chromium's would: after the traffic lights.
   int leading = region_->GetInsets().left();
   for (views::View* child : region_->children()) {
@@ -1699,6 +2291,9 @@ void MerlinTabBarHost::OnViewRemovedFromWidget(views::View* observed_view) {
 
 void MerlinTabBarHost::OnViewIsDeleting(views::View* observed_view) {
   if (observed_view == region_) {
+    if (bar_) {
+      bar_->SetResizeTarget(nullptr);
+    }
     region_->RemoveObserver(this);
     region_ = nullptr;
     region_hidden_ = false;
