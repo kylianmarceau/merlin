@@ -24,8 +24,8 @@ class BrowserView;
 
 namespace modal_browser {
 
-// The bottom-left status: a pill with the mode, pending keys and the latest
-// message, and above it a panel listing either what a pending prefix can
+// The bottom-left status: a pill with the mode, pending keys, the latest
+// message and running downloads, and above it a panel listing either what a pending prefix can
 // continue with (which-key) or a multi-line message such as `:help open`.
 // Painted by hand so its look is fully ours; text stays readable in light
 // and dark themes. Never takes clicks.
@@ -41,16 +41,7 @@ class StatusView : public views::View {
     bool message_is_error = false;
     std::vector<std::pair<std::u16string, std::u16string>> which_key;
     bool show_which_key = false;
-    // Bar mode: the full-width status bar under the page card
-    // (redesign step 5). Off, the view is the floating pill.
-    bool bar = false;
-    std::u16string workspace;
-    std::u16string title;
-    // Shown at the right of the bar instead of the key hints: the page's
-    // address, when the tabs are in the sidebar and there is no address
-    // field at the top.
-    std::u16string url;
-    // Running downloads ("↓ 2 · 45%"), at the far right of the bar.
+    // Running downloads ("↓ 2 · 45%"), at the end of the pill.
     std::u16string downloads;
   };
 
@@ -62,7 +53,7 @@ class StatusView : public views::View {
   void SetState(State state);
   const State& state() const { return state_; }
   // False when there is nothing worth showing (Normal mode, no keys, no
-  // message).
+  // message, no downloads).
   bool HasContent() const;
   static bool HasContent(const State& state);
   bool PanelVisible() const;
@@ -76,19 +67,22 @@ class StatusView : public views::View {
  private:
   std::vector<std::u16string> PanelLines() const;
   gfx::Size PillSize() const;
+  // The mode shows unless the pill only reports downloads.
+  bool ShowsMode() const;
+  int MessageWidth() const;
   gfx::Size PanelSize() const;
   void PaintPanel(gfx::Canvas* canvas,
                   const gfx::Rect& panel,
                   const style::Colors& colors);
-  void PaintBar(gfx::Canvas* canvas, const gfx::Rect& bar, bool dark);
 
   State state_;
 };
 
-// Owns the status widget. With the page card on, it keeps the page inset
-// as a rounded card and docks the bar in the space under it; otherwise
-// (fullscreen, upstream defaults) it keeps the pill in the bottom-left
-// corner of the active web contents.
+// Owns the status widget, which floats in the bottom-left corner of the
+// active page and shows only while there is something to say (a mode other
+// than Normal, keys typed, a message, downloads). With the page card on,
+// it also keeps the page inset as a card with the same margin on three
+// sides.
 class StatusHost : public views::ViewObserver {
  public:
   explicit StatusHost(BrowserView* browser_view);
@@ -105,13 +99,8 @@ class StatusHost : public views::ViewObserver {
   void ClearMessage();
   // Hide while the palette shows the same information.
   void SetSuppressed(bool suppressed);
-  // Turns the page card and the status bar on.
+  // Turns the page card on.
   void SetCardMode(bool on);
-  // What the bar shows about the window: workspace, page title and, in
-  // sidebar mode, the address.
-  void SetContext(std::u16string workspace,
-                  std::u16string title,
-                  std::u16string url);
   // Running downloads; empty hides the indicator.
   void SetDownloads(std::u16string text);
   // Re-anchors after the browser layout changed (tab strip moved, window
@@ -129,8 +118,8 @@ class StatusHost : public views::ViewObserver {
  private:
   void Apply();
   void Layout();
-  // Whether the card and bar show right now: card mode and not fullscreen.
-  bool BarActive();
+  // Whether the page card shows right now: card mode and not fullscreen.
+  bool CardActive();
   void UpdateCard();
 
   OverlayHost host_;

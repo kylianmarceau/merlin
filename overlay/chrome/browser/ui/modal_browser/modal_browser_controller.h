@@ -248,7 +248,7 @@ class ModalBrowserController : public BrowserOps,
   void UpdateDownloadStatus();
   void OnActiveTabChanged();
   // Workspace and title for the status bar, and the toolbar row's state.
-  void UpdateBarContext();
+  void UpdatePageContext();
   // Tabs moved between the top and the sidebar.
   void OnTabLayoutChanged();
   void ApplyTabLayout();

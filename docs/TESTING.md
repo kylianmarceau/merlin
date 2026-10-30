@@ -338,5 +338,8 @@ Tab bar and page color (decision 38):
 | 50 | ↓ twice, Enter; then ⌘L, type a search, ⌘Enter | The third row opens here; the search opens in a new tab |
 | 51 | Type the title of an open tab, click its "Switch to tab" row | Switches to that tab |
 | 52 | Click the address, then click the page; ⌘L then Esc | The card closes and the address shows again each time |
+| 53 | Any page in Normal mode | No bar under the page; the page has the same margin on its sides and bottom, rounded bottom corners; nothing over the page |
+| 54 | Click a text field; type `g` in Normal mode; `:help open` | A pill in the page's bottom-left corner: INSERT; NORMAL g with the which-key panel; the help panel above the pill. Each goes away when done |
+| 55 | Start a large download | The pill shows "↓ 1 · n%" until it finishes |
 
 Record results with build args, commit and date in this file.

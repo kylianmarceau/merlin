@@ -39,8 +39,9 @@ turn it back on.
 | **Hint** | Labels on every link or field; type a label to act on it |
 | **Passthrough** | Every key goes to the site (Gmail, Figma, web terminals, games) |
 
-The current mode, workspace and page are always shown in the status bar
-under the page.
+Outside Normal mode, the mode shows in a small pill in the page's
+bottom-left corner, with the keys you have typed and the latest message;
+in Normal mode nothing covers the page.
 
 ### Navigation
 
@@ -88,9 +89,10 @@ and payment fields never leave the browser.
 
 ### Merlin's own look
 
-Warm stone and charcoal colors in light and dark, the page on a rounded
-card, a status bar instead of an address bar, and a start page with your
-workspaces and recently closed tabs one key away.
+Warm stone and charcoal colors in light and dark, tabs and an address bar
+that take the color of the page under them, the page on a rounded card,
+and a start page with your workspaces and recently closed tabs one key
+away.
 
 ## Keys
 
@@ -257,7 +259,7 @@ and tests on its own with `cargo`, without a Chromium checkout.
 | Path | What it holds |
 |---|---|
 | `overlay/components/modal_browser/` | The Rust core and its bridge to C++ |
-| `overlay/chrome/browser/ui/modal_browser/` | The browser side: input, palette, status bar, Merlin's pages |
+| `overlay/chrome/browser/ui/modal_browser/` | The browser side: input, palette, tab bar, address card, status pill, Merlin's pages |
 | `patches/` | Every edit to Chromium's own files, one small patch each |
 | `tools/` | `browserctl`, `modalctl` and a test harness that fakes the browser |
 | `branding/` | Name, logo and colors |

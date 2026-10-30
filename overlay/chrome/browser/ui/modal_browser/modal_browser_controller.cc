@@ -769,7 +769,7 @@ void ModalBrowserController::EditAddressInPalette() {
 }
 
 void ModalBrowserController::OnTabLayoutChanged() {
-  UpdateBarContext();
+  UpdatePageContext();
   if (tab_bar_host_) {
     tab_bar_host_->Update();
   }
@@ -860,7 +860,7 @@ void ModalBrowserController::InstallMerlinToolbar(
   address_editor_ = std::make_unique<MerlinAddressEditor>(
       browser_view_, browser_.get(), address_field_,
       // The start page hides Merlin's field again.
-      base::BindRepeating(&ModalBrowserController::UpdateBarContext,
+      base::BindRepeating(&ModalBrowserController::UpdatePageContext,
                           weak_factory_.GetWeakPtr()),
       base::BindRepeating(
           [](base::WeakPtr<ModalBrowserController> self) {
@@ -1457,7 +1457,7 @@ void ModalBrowserController::UpdateStatus(
   status_->UpdateStatus(mode, ToU16(indicator), ToU16(pending),
                         std::move(entries));
   // Commands may have switched workspace or tab layout.
-  UpdateBarContext();
+  UpdatePageContext();
 }
 
 void ModalBrowserController::StartSequenceTimer(uint32_t delay_ms) {
@@ -2612,7 +2612,7 @@ void ModalBrowserController::OnTabStripModelChanged(
 void ModalBrowserController::OnTabChangedAt(tabs::TabInterface* tab,
                                             TabChangeType change_type) {
   if (tab == browser_->GetActiveTabInterface()) {
-    UpdateBarContext();
+    UpdatePageContext();
   }
   if (change_type != TabChangeType::kLoadingOnly) {
     router_.RefreshTabs(*this);  // titles and icons in an open switcher
@@ -2646,14 +2646,14 @@ void ModalBrowserController::OnActiveTabChanged() {
   router_.OnPageChanged(contents ? contents->GetLastCommittedURL().host() : "",
                         *this);
   router_.OnFocusChanged(CurrentFocus(), *this);
-  UpdateBarContext();
+  UpdatePageContext();
   if (merlin_ui_) {
     RestyleMerlinPage(contents);
   }
 }
 
 void ModalBrowserController::DidChangeVisibleSecurityState() {
-  UpdateBarContext();
+  UpdatePageContext();
 }
 
 void ModalBrowserController::DocumentOnLoadCompletedInPrimaryMainFrame() {
@@ -2662,28 +2662,21 @@ void ModalBrowserController::DocumentOnLoadCompletedInPrimaryMainFrame() {
   }
 }
 
-void ModalBrowserController::UpdateBarContext() {
+void ModalBrowserController::UpdatePageContext() {
   if (!status_->card_mode()) {
     return;
   }
   ApplyTabLayout();
   content::WebContents* contents = ActiveContents();
-  std::u16string title;
-  std::u16string url;
   if (contents) {
     const GURL& page = contents->GetVisibleURL();
     const bool start_page = page.SchemeIs(content::kChromeUIScheme) &&
                             (page.host() == kMerlinStartHost ||
                              page.host() == "newtab");
-    title = start_page ? u"Start" : contents->GetTitle();
     UpdateMerlinToolbar(contents, start_page);
   } else {
     UpdateMerlinToolbar(nullptr, /*start_page=*/false);
   }
-  // The address is in the toolbar row's field, so the bar no longer
-  // repeats it.
-  status_->SetContext(base::UTF8ToUTF16(router_.workspace()), std::move(title),
-                      std::move(url));
 }
 
 void ModalBrowserController::OnFocusChangedInPage(
@@ -2695,7 +2688,7 @@ void ModalBrowserController::OnFocusChangedInPage(
 void ModalBrowserController::PrimaryPageChanged(content::Page& page) {
   router_.OnPageChanged(page.GetMainDocument().GetLastCommittedURL().host(),
                         *this);
-  UpdateBarContext();
+  UpdatePageContext();
 }
 
 void ModalBrowserController::DidGetUserInteraction(

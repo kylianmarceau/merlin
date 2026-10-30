@@ -617,3 +617,19 @@ shadow and row style.
   this page", clipboard), keyword mode chips, and the text following the
   row picked with ↑/↓.
 
+## 40. No status bar under the page
+
+The bar under the page card (mode chip, page title, key hints) is gone:
+it repeated what the toolbar shows and framed the page in a second strip.
+The page card now has the same 8-point margin on its sides and bottom,
+square at the top where it meets the toolbar and rounded below.
+
+* The mode, the keys typed so far, the latest message and running
+  downloads show in the floating pill the status used before the bar, in
+  the bottom-left corner of the page, only while there is something to
+  say. In Normal mode with nothing to report, nothing covers the page;
+  Normal's name shows only in front of keys being typed.
+* The which-key and help panel opens above the pill, as before.
+* Dropped with the bar: the workspace name and the "? help, f hints,
+  : command" key hints. `?` and `:` still work from anywhere.
+

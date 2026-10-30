@@ -985,27 +985,24 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NewTabsOpenMerlinStartPage) {
   }));
 }
 
-IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, PageCardBarAndTabLayout) {
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, PageCardAndTabLayout) {
   BrowserView* view = BrowserView::GetBrowserViewForBrowser(browser());
   StatusHost* host = controller()->status_for_testing();
-  ASSERT_TRUE(base::test::RunUntil([&] { return status() != nullptr; }));
   EXPECT_TRUE(view->multi_contents_view()->IsShowingCard());
-  EXPECT_TRUE(status()->state().bar);
-  EXPECT_TRUE(host->widget_for_testing()->IsVisible())
-      << "the bar shows even with nothing to report";
+  // No bar under the page: in Normal mode with nothing to report, no status
+  // shows at all.
+  EXPECT_TRUE(!host->widget_for_testing() ||
+              !host->widget_for_testing()->IsVisible());
 
   NavigateTo("/hints");
   auto* state = tabs::VerticalTabStripStateController::From(browser());
   ASSERT_TRUE(state->ShouldDisplayVerticalTabs());
-  // Sidebar: Merlin's address field replaces Chromium's; the bar has the
-  // title only.
+  // Sidebar: Merlin's address field replaces Chromium's.
   MerlinAddressField* field = controller()->address_field_for_testing();
   ASSERT_TRUE(field);
   EXPECT_FALSE(view->GetLocationBarView()->GetVisible());
   EXPECT_TRUE(field->GetVisible());
   EXPECT_EQ(field->rest_for_testing(), u"/hints");
-  EXPECT_EQ(status()->state().title, u"hints");
-  EXPECT_TRUE(status()->state().url.empty());
 
   EXPECT_EQ(controller()->RunCommandLine("set tabs=top"), "");
   ASSERT_TRUE(base::test::RunUntil(

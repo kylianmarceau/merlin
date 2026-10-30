@@ -32,7 +32,7 @@ every upstream file referenced in this repo was read at
 Phases 2 to 4 added no upstream edits: all new code (palette, hints,
 status, config, splits, workspaces, browserctl, external editor, page
 structure) lives in `overlay/`. The redesign added
-0005 to 0011; the start page, Merlin's pages, colors, status bar and
+0005 to 0011; the start page, Merlin's pages, colors, status pill and
 sidebar mode use public hooks otherwise. 0010 is the first patch outside
 `//chrome/browser/ui` (one call and one dep in `//chrome/browser`).
 

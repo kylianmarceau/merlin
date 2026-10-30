@@ -33,21 +33,10 @@ constexpr int kPanelColumnWidth = 210;
 constexpr int kPanelMaxRows = 10;
 constexpr size_t kMaxPanelLines = 14;
 
-// The page card and the bar under it (redesign steps 4 and 5).
-// The card's sides and radius are in modal_style.h; its top meets the
-// toolbar, which carries the card's top corners.
+// The page card: the same margin on three sides (sizes in modal_style.h);
+// its top meets the toolbar, which carries the card's top corners.
 constexpr int kCardSide = style::kCardSide;
-constexpr int kBarHeight = 26;
-constexpr int kBarGap = 4;  // between the card, the bar and the window edge
-constexpr int kCardBottom = kBarHeight + 2 * kBarGap;
 constexpr float kCardRadius = style::kCardRadius;
-// The which-key and message panel floats inside the card, this far from
-// its bottom-left corner.
-constexpr int kPanelInset = 14;
-constexpr int kChipHeight = 18;
-constexpr int kChipPaddingX = 8;
-// Below this bar width the key hints at the right are left out.
-constexpr int kMinWidthForHints = 640;
 
 const gfx::FontList& ModeFont() {
   return style::UiFont(-2, gfx::Font::Weight::SEMIBOLD);
@@ -57,9 +46,6 @@ const gfx::FontList& PendingFont() {
 }
 const gfx::FontList& MessageFont() {
   return style::UiFont(-1);
-}
-const gfx::FontList& BarTitleFont() {
-  return style::UiFont(-1, gfx::Font::Weight::MEDIUM);
 }
 
 std::u16string FirstLine(const std::u16string& text) {
@@ -100,8 +86,15 @@ void StatusView::SetState(State state) {
 
 // static
 bool StatusView::HasContent(const State& state) {
-  return state.bar || state.mode != ffi::Mode::Normal || !state.pending.empty() ||
-         !state.message.empty();
+  return state.mode != ffi::Mode::Normal || !state.pending.empty() ||
+         !state.message.empty() || !state.downloads.empty();
+}
+
+bool StatusView::ShowsMode() const {
+  // Normal mode is the quiet default: its name shows only in front of keys
+  // being typed, not in front of a message or downloads.
+  return !state_.indicator.empty() &&
+         (state_.mode != ffi::Mode::Normal || !state_.pending.empty());
 }
 
 bool StatusView::HasContent() const {
@@ -130,17 +123,32 @@ std::vector<std::u16string> StatusView::PanelLines() const {
   return lines;
 }
 
+int StatusView::MessageWidth() const {
+  return std::min(kMaxMessageWidth,
+                  gfx::Canvas::GetStringWidth(FirstLine(state_.message),
+                                              MessageFont()));
+}
+
 gfx::Size StatusView::PillSize() const {
-  int width = kPillPaddingX + kDot + kGap +
-              gfx::Canvas::GetStringWidth(state_.indicator, ModeFont());
+  int width = kPillPaddingX;
+  bool first = true;
+  if (ShowsMode()) {
+    width += kDot + kGap +
+             gfx::Canvas::GetStringWidth(state_.indicator, ModeFont());
+    first = false;
+  }
   if (!state_.pending.empty()) {
-    width += kGap + gfx::Canvas::GetStringWidth(state_.pending, PendingFont());
+    width += (first ? 0 : kGap) +
+             gfx::Canvas::GetStringWidth(state_.pending, PendingFont());
+    first = false;
   }
   if (!state_.message.empty()) {
-    width += kGap * 2 + 1 +
-             std::min(kMaxMessageWidth,
-                      gfx::Canvas::GetStringWidth(FirstLine(state_.message),
-                                                  MessageFont()));
+    width += (first ? 0 : kGap * 2 + 1) + MessageWidth();
+    first = false;
+  }
+  if (!state_.downloads.empty()) {
+    width += (first ? 0 : kGap * 2 + 1) +
+             gfx::Canvas::GetStringWidth(state_.downloads, PendingFont());
   }
   width += kPillPaddingX;
   return gfx::Size(width, style::kPillHeight);
@@ -170,15 +178,6 @@ gfx::Size StatusView::PanelSize() const {
 gfx::Size StatusView::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
   const gfx::Size panel = PanelSize();
-  if (state_.bar) {
-    // The host sets the width (the whole page area). The height covers the
-    // bar and, when shown, the panel above it inside the card.
-    int height = kBarHeight + kBarGap;
-    if (!panel.IsEmpty()) {
-      height += kBarGap + kPanelInset + panel.height() + style::kShadowMargin;
-    }
-    return gfx::Size(panel.width() + 2 * style::kShadowMargin, height);
-  }
   const gfx::Size pill = PillSize();
   const int width = std::max(pill.width(), panel.width());
   const int height =
@@ -190,20 +189,6 @@ gfx::Size StatusView::CalculatePreferredSize(
 void StatusView::OnPaint(gfx::Canvas* canvas) {
   const bool dark = style::IsDark(this);
   const style::Colors& colors = style::ColorsFor(dark);
-  if (state_.bar) {
-    const gfx::Rect bar(kCardSide, height() - kBarGap - kBarHeight,
-                        width() - 2 * kCardSide, kBarHeight);
-    const gfx::Size panel_size = PanelSize();
-    if (!panel_size.IsEmpty()) {
-      PaintPanel(canvas,
-                 gfx::Rect(style::kShadowMargin,
-                           bar.y() - kBarGap - kPanelInset - panel_size.height(),
-                           panel_size.width(), panel_size.height()),
-                 colors);
-    }
-    PaintBar(canvas, bar, dark);
-    return;
-  }
   const gfx::Size pill_size = PillSize();
   const gfx::Size panel_size = PanelSize();
   const int left = style::kShadowMargin;
@@ -217,42 +202,64 @@ void StatusView::OnPaint(gfx::Canvas* canvas) {
                colors);
   }
 
-  // The pill.
+  // The pill: the mode and its dot, the keys typed so far, the latest
+  // message, running downloads; each only when there is one.
   gfx::Rect pill(left, pill_top, pill_size.width(), pill_size.height());
   paint::DrawCard(canvas, pill, style::kPillRadius, colors, colors.surface);
   int x = pill.x() + kPillPaddingX;
-  const SkColor mode_color = style::ModeColor(state_.mode, dark);
-  cc::PaintFlags dot;
-  dot.setAntiAlias(true);
-  dot.setColor(mode_color);
-  canvas->DrawCircle(gfx::PointF(x + kDot / 2.f, pill.CenterPoint().y()),
-                     kDot / 2.f, dot);
-  x += kDot + kGap;
-  const int mode_width =
-      gfx::Canvas::GetStringWidth(state_.indicator, ModeFont());
-  canvas->DrawStringRect(state_.indicator, ModeFont(),
-                         state_.mode == ffi::Mode::Normal ? colors.text_secondary
-                                                          : mode_color,
-                         gfx::Rect(x, pill.y(), mode_width + 1, pill.height()));
-  x += mode_width;
-  if (!state_.pending.empty()) {
+  bool first = true;
+  auto rule = [&] {
     x += kGap;
+    cc::PaintFlags flags;
+    flags.setColor(colors.border);
+    canvas->DrawRect(gfx::Rect(x, pill.y() + 7, 1, pill.height() - 14), flags);
+    x += 1 + kGap;
+  };
+  if (ShowsMode()) {
+    const SkColor mode_color = style::ModeColor(state_.mode, dark);
+    cc::PaintFlags dot;
+    dot.setAntiAlias(true);
+    dot.setColor(mode_color);
+    canvas->DrawCircle(gfx::PointF(x + kDot / 2.f, pill.CenterPoint().y()),
+                       kDot / 2.f, dot);
+    x += kDot + kGap;
+    const int mode_width =
+        gfx::Canvas::GetStringWidth(state_.indicator, ModeFont());
+    canvas->DrawStringRect(
+        state_.indicator, ModeFont(),
+        state_.mode == ffi::Mode::Normal ? colors.text_secondary : mode_color,
+        gfx::Rect(x, pill.y(), mode_width + 1, pill.height()));
+    x += mode_width;
+    first = false;
+  }
+  if (!state_.pending.empty()) {
+    x += first ? 0 : kGap;
     const int w = gfx::Canvas::GetStringWidth(state_.pending, PendingFont());
     canvas->DrawStringRect(state_.pending, PendingFont(), colors.text,
                            gfx::Rect(x, pill.y(), w + 1, pill.height()));
     x += w;
+    first = false;
   }
   if (!state_.message.empty()) {
-    x += kGap;
-    cc::PaintFlags rule;
-    rule.setColor(colors.border);
-    canvas->DrawRect(gfx::Rect(x, pill.y() + 7, 1, pill.height() - 14), rule);
-    x += 1 + kGap;
+    if (!first) {
+      rule();
+    }
+    const int w = MessageWidth();
     canvas->DrawStringRect(
         FirstLine(state_.message), MessageFont(),
         state_.message_is_error ? colors.error : colors.text,
-        gfx::Rect(x, pill.y(), pill.right() - kPillPaddingX - x + 1,
-                  pill.height()));
+        gfx::Rect(x, pill.y(), w + 1, pill.height()));
+    x += w;
+    first = false;
+  }
+  if (!state_.downloads.empty()) {
+    if (!first) {
+      rule();
+    }
+    const int w = gfx::Canvas::GetStringWidth(state_.downloads, PendingFont());
+    canvas->DrawStringRect(state_.downloads, PendingFont(),
+                           colors.text_secondary,
+                           gfx::Rect(x, pill.y(), w + 1, pill.height()));
   }
 }
 
@@ -286,116 +293,6 @@ void StatusView::PaintPanel(gfx::Canvas* canvas,
         state_.which_key[i].second, MessageFont(), colors.text,
         gfx::Rect(x + caps + kGap, y, kPanelColumnWidth - caps - 2 * kGap,
                   kPanelLineHeight));
-  }
-}
-
-void StatusView::PaintBar(gfx::Canvas* canvas,
-                          const gfx::Rect& bar,
-                          bool dark) {
-  const style::Colors& colors = style::ColorsFor(dark);
-  const int cy = bar.CenterPoint().y();
-
-  // Mode chip: Merlin yellow in Normal mode, the mode's own color
-  // otherwise. No chip (and no key hints) while modal browsing is off,
-  // which the empty indicator says.
-  const bool modal = !state_.indicator.empty();
-  int x = bar.x() + 2;
-  if (modal) {
-    const bool normal = state_.mode == ffi::Mode::Normal;
-    const SkColor fill =
-        normal ? colors.hint_bg : style::ModeColor(state_.mode, dark);
-    const SkColor ink = normal || dark ? colors.hint_text : SK_ColorWHITE;
-    const int text_width =
-        gfx::Canvas::GetStringWidth(state_.indicator, ModeFont());
-    const gfx::Rect chip(x, cy - kChipHeight / 2,
-                         text_width + 2 * kChipPaddingX, kChipHeight);
-    cc::PaintFlags flags;
-    flags.setAntiAlias(true);
-    flags.setColor(fill);
-    canvas->DrawRoundRect(gfx::RectF(chip), 5, flags);
-    canvas->DrawStringRectWithFlags(state_.indicator, ModeFont(), ink, chip,
-                                    gfx::Canvas::TEXT_ALIGN_CENTER);
-    x = chip.right() + 10;
-  }
-  if (!state_.pending.empty()) {
-    const int w = gfx::Canvas::GetStringWidth(state_.pending, PendingFont());
-    canvas->DrawStringRect(state_.pending, PendingFont(), colors.text,
-                           gfx::Rect(x, bar.y(), w + 1, bar.height()));
-    x += w + 10;
-  }
-
-  // Right side: running downloads, then the address in sidebar mode, else
-  // a few key hints.
-  int right = bar.right() - 4;
-  if (!state_.downloads.empty()) {
-    const int w =
-        gfx::Canvas::GetStringWidth(state_.downloads, PendingFont()) + 1;
-    const gfx::Rect chip(right - w - 2 * kChipPaddingX, cy - kChipHeight / 2,
-                         w + 2 * kChipPaddingX, kChipHeight);
-    cc::PaintFlags flags;
-    flags.setAntiAlias(true);
-    flags.setColor(SkColorSetA(colors.text, 0x18));
-    canvas->DrawRoundRect(gfx::RectF(chip), 5, flags);
-    canvas->DrawStringRectWithFlags(state_.downloads, PendingFont(),
-                                    colors.text, chip,
-                                    gfx::Canvas::TEXT_ALIGN_CENTER);
-    right = chip.x() - 14;
-  }
-  if (!state_.url.empty()) {
-    const int w = std::min(
-        bar.width() * 2 / 5,
-        gfx::Canvas::GetStringWidth(state_.url, MessageFont()) + 1);
-    paint::DrawMarkedText(canvas, state_.url, {},
-                          gfx::Rect(right - w, bar.y(), w, bar.height()),
-                          MessageFont(), MessageFont(), colors.text_secondary,
-                          colors.text_secondary);
-    right -= w + 16;
-  } else if (modal && bar.width() >= kMinWidthForHints &&
-             state_.message.empty()) {
-    static const std::pair<const char16_t*, const char16_t*> kHints[] = {
-        {u"?", u"help"}, {u"f", u"hints"}, {u":", u"command"}};
-    for (const auto& [key, desc] : kHints) {
-      const int w = gfx::Canvas::GetStringWidth(desc, MessageFont());
-      canvas->DrawStringRect(desc, MessageFont(), colors.text_tertiary,
-                             gfx::Rect(right - w, bar.y(), w + 1, bar.height()));
-      right = paint::DrawKeycaps(canvas, {key}, right - w - 6, cy, colors) -
-              14;
-    }
-  }
-
-  // Middle: the latest message, or workspace › page.
-  const int avail = right - x;
-  if (avail <= 0) {
-    return;
-  }
-  if (!state_.message.empty()) {
-    paint::DrawMarkedText(canvas, FirstLine(state_.message), {},
-                          gfx::Rect(x, bar.y(), avail, bar.height()),
-                          MessageFont(), MessageFont(),
-                          state_.message_is_error ? colors.error : colors.text,
-                          colors.text);
-    return;
-  }
-  if (!state_.workspace.empty()) {
-    const std::u16string sep = u"  \u203A  ";
-    const int ws = std::min(
-        avail / 3, gfx::Canvas::GetStringWidth(state_.workspace, MessageFont()) +
-                       1);
-    paint::DrawMarkedText(canvas, state_.workspace, {},
-                          gfx::Rect(x, bar.y(), ws, bar.height()),
-                          MessageFont(), MessageFont(), colors.text_secondary,
-                          colors.text_secondary);
-    x += ws;
-    const int sw = gfx::Canvas::GetStringWidth(sep, MessageFont());
-    canvas->DrawStringRect(sep, MessageFont(), colors.text_tertiary,
-                           gfx::Rect(x, bar.y(), sw + 1, bar.height()));
-    x += sw;
-  }
-  if (right - x > 0 && !state_.title.empty()) {
-    paint::DrawMarkedText(canvas, state_.title, {},
-                          gfx::Rect(x, bar.y(), right - x, bar.height()),
-                          BarTitleFont(), BarTitleFont(), colors.text,
-                          colors.text);
   }
 }
 
@@ -479,19 +376,6 @@ void StatusHost::SetCardMode(bool on) {
   Relayout();
 }
 
-void StatusHost::SetContext(std::u16string workspace,
-                            std::u16string title,
-                            std::u16string url) {
-  if (state_.workspace == workspace && state_.title == title &&
-      state_.url == url) {
-    return;
-  }
-  state_.workspace = std::move(workspace);
-  state_.title = std::move(title);
-  state_.url = std::move(url);
-  Apply();
-}
-
 void StatusHost::SetDownloads(std::u16string text) {
   if (state_.downloads == text) {
     return;
@@ -505,7 +389,7 @@ void StatusHost::Relayout() {
   Apply();
 }
 
-bool StatusHost::BarActive() {
+bool StatusHost::CardActive() {
   BrowserView* browser_view = host_.browser_view();
   // IsFullscreen() needs the widget, which BrowserView gets after the
   // controller is built.
@@ -518,12 +402,11 @@ void StatusHost::UpdateCard() {
   if (!mcv) {
     return;
   }
-  const bool card = BarActive();
+  const bool card = CardActive();
   mcv->SetCardInsets(
-      card ? gfx::Insets::TLBR(0, kCardSide, kCardBottom, kCardSide)
+      card ? gfx::Insets::TLBR(0, kCardSide, kCardSide, kCardSide)
            : gfx::Insets(),
       gfx::RoundedCornersF(0, 0, kCardRadius, kCardRadius));
-  state_.bar = card;
 }
 
 void StatusHost::Apply() {
@@ -550,21 +433,6 @@ void StatusHost::Layout() {
   }
   if (!view_->HasContent()) {
     host_.Hide();
-    return;
-  }
-  if (state_.bar) {
-    // The bar stays while the palette is open: the palette floats over the
-    // page, the bar is part of the window.
-    MultiContentsView* mcv = host_.browser_view()->multi_contents_view();
-    if (!mcv->GetVisible() || mcv->bounds().IsEmpty()) {
-      host_.Hide();
-      return;
-    }
-    const gfx::Rect area = mcv->ConvertRectToWidget(mcv->GetLocalBounds());
-    const int height =
-        std::min(view_->GetPreferredSize().height(), area.height());
-    host_.ShowAt(gfx::Rect(area.x(), area.bottom() - height, area.width(),
-                           height));
     return;
   }
   if (suppressed_) {
