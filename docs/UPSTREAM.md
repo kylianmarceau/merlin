@@ -18,7 +18,7 @@ every upstream file referenced in this repo was read at
 | Patch | Files | Purpose |
 |---|---|---|
 | `0001-embedder-window-features-own-modal-browser.patch` | `browser_window/public/embedder_browser_window_features.h`, `browser_window/internal/embedder_browser_window_features.cc`, `browser_window/internal/BUILD.gn` | Create/destroy `ModalBrowserController` per normal window through Chromium's embedder hook |
-| `0002-browser-view-offers-keys-to-modal-browser.patch` | `views/frame/browser_view.cc`, `ui/BUILD.gn` | Offer key-downs to the modal layer before accelerators; add the GN dep |
+| `0002-browser-view-offers-keys-to-modal-browser.patch` | `views/frame/browser_view.cc`, `views/frame/BUILD.gn` | Offer key-downs to the modal layer before accelerators; add the GN dep to the dedicated `browser_view` target (157 refresh) |
 | `0003-browser-tests-include-modal-browser.patch` | `chrome/test/BUILD.gn` | Test only: link our browser tests into `browser_tests` |
 | `0004-merlin-name-and-icon.patch` | `chrome/BUILD.gn`, `chromium_strings.grd`, Mac bundle settings | Product name, icon and profile folder follow the BRANDING file |
 | `0005-multi-contents-card-insets.patch` | `views/frame/multi_contents_view.{h,cc}` | `SetCardInsets()`: inset a single page and round its corners (each one set apart, so the top can meet the toolbar square) the way split view already does, so the page sits on a card; the top separator hides while the card shows. Zero insets give an edge-to-edge page that still joins the toolbar with no line. With no card set, nothing changes |

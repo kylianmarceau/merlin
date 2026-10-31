@@ -1,11 +1,20 @@
 # Updating Chromium after the 2026-10-31 fixes
 
 The fixes are in the overlay; Chromium has **not** been updated or rebuilt.
-The current pin is 156.0.8078.48. On October 31 the official Mac Stable
-[Chromiumdash feed](https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Mac&num=1)
-reported **156.0.8078.80**. Check again before starting; use the newer tag if
-Stable has advanced. This is an upstream update, not `git rebase` of this
-small overlay repository onto Chromium.
+The current pin is 156.0.8078.48. On October 31 `scripts/check_upstream.py`
+reported Mac Stable **157.0.8103.26**, Chromium commit
+`4c20950d2f187a6976cf5e2a1234ca896dcdfd1c`. Check again before starting; use
+the newer tag if Stable has advanced. This is an upstream update, not `git
+rebase` of this small overlay repository onto Chromium. Because this crosses
+from milestone 156 to 157, expect possible patch or Chromium API changes.
+
+The patch series has now been refreshed for 157.0.8103.26 and all 12 patches
+apply sequentially with `git apply --check` and `git apply`. Patch 0002 now
+adds its dependency to `//chrome/browser/ui/views/frame:browser_view`; 0003
+has updated test-target context, and 0007 was regenerated from 157's strings.
+This checks patch application only; GN generation and compilation still need
+the checkout update below. `UPSTREAM_PIN` deliberately stays at the installed
+156 revision until step 3, so use the explicit TAG override in step 1.
 
 Run each block in order and stop if any command fails. Stop any existing
 build first, close the development browser, and save your work. A same-series
@@ -30,7 +39,7 @@ Chromium checkout:
 
 ```bash
 cd /Users/kyliandabancourt/Documents/vela
-TAG=156.0.8078.80 scripts/verify_patches.sh
+TAG=157.0.8103.26 scripts/verify_patches.sh
 ```
 
 If this fails, stop: the affected patches need refreshing against that tag.
@@ -51,8 +60,8 @@ tracked modifications with a named stash; do not use `git reset --hard` or
 
 ```bash
 git stash push -m "before Merlin Chromium update 2026-10-31"
-git fetch --depth=1 origin refs/tags/156.0.8078.80:refs/tags/156.0.8078.80
-git checkout --detach refs/tags/156.0.8078.80
+git fetch --depth=1 origin refs/tags/157.0.8103.26:refs/tags/157.0.8103.26
+git checkout --detach refs/tags/157.0.8103.26
 caffeinate gclient sync -D
 ```
 
@@ -72,7 +81,7 @@ python3 - <<'PY'
 from pathlib import Path
 import subprocess
 src = Path.home() / 'chromium/src'
-tag = '156.0.8078.80'
+tag = '157.0.8103.26'
 commit = subprocess.check_output(
     ['git', '-C', str(src), 'rev-parse', 'HEAD'], text=True).strip()
 expected = subprocess.check_output(

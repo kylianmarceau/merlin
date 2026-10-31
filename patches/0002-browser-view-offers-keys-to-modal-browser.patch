@@ -27,18 +27,14 @@
    ui::Accelerator accelerator =
        ui::GetAcceleratorFromNativeWebKeyboardEvent(event);
  
---- a/chrome/browser/ui/BUILD.gn
-+++ b/chrome/browser/ui/BUILD.gn
-@@ -3512,6 +3512,12 @@
-     ]
-     allow_circular_includes_from +=
-         [ "//chrome/browser/ui/views/device_signals_consent:impl" ]
-+  }
-+
-+  # modal_browser (downstream): browser_view.cc calls into the modal layer.
-+  if (toolkit_views) {
-+    deps += [ "//chrome/browser/ui/modal_browser" ]
-+    allow_circular_includes_from += [ "//chrome/browser/ui/modal_browser" ]
-   }
-   if (enable_webui_certificate_viewer) {
-     deps += [
+--- a/chrome/browser/ui/views/frame/BUILD.gn
++++ b/chrome/browser/ui/views/frame/BUILD.gn
+@@ -768,6 +768,8 @@
+     "//chrome/browser:browser_public_dependencies",
+   ]
+   deps = [
++    # modal_browser (downstream): browser_view.cc offers page keys to Merlin.
++    "//chrome/browser/ui/modal_browser",
+     ":app_menu_button",
+     ":browser_frame_view",
+     ":browser_native_widget",

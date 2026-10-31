@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Checks that patches/*.patch apply cleanly to the pinned Chromium tag,
 # without a checkout: downloads only the files the patches touch from
-# chromium.googlesource.com and dry-runs `patch` against them.
+# chromium.googlesource.com and checks them with the same git apply command
+# used by apply_overlay.sh (no fuzzy context matching).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -18,9 +19,9 @@ for f in $files; do
 done
 
 for p in patches/*.patch; do
-  (cd "$work" && patch -p1 --dry-run --silent < "$OLDPWD/$p" > /dev/null) ||
+  (cd "$work" && git apply --check "$OLDPWD/$p") ||
     { echo "FAIL: $p does not apply to $TAG"; exit 1; }
-  (cd "$work" && patch -p1 --silent < "$OLDPWD/$p")
+  (cd "$work" && git apply "$OLDPWD/$p")
   echo "ok   $p"
 done
 echo "All patches apply to $TAG."
