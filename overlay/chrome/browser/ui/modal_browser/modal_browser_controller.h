@@ -29,6 +29,7 @@
 #include "content/public/browser/editable_level.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/browser/weak_document_ptr.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/views/view.h"
@@ -301,11 +302,12 @@ class ModalBrowserController : public BrowserOps,
   // URL for a split, a search or a command, checked like OpenUrl does.
   std::optional<GURL> ResolveTarget(const OpenRequest& target);
   void OnDocument(uint32_t generation, base::Value result);
-  void OnFieldInfo(bool force, base::Value result);
-  void OnFieldValue(std::vector<std::string> argv, base::Value result);
-  void WriteBackField(std::string text);
-  void OnFieldWritten(base::Value result);
-  void OnFieldEditDone(std::string error);
+  void OnFieldInfo(uint64_t generation, bool force, base::Value result);
+  void OnFieldValue(uint64_t generation, std::vector<std::string> argv, base::Value result);
+  void WriteBackField(uint64_t generation, std::string text);
+  void OnFieldWritten(uint64_t generation, base::Value result);
+  void OnFieldEditDone(uint64_t generation, std::string error);
+  void CancelFieldEdit();
   void ScheduleAutosave();
   void ApplyConfigToBrowser();
   void FocusTabNumber(uint32_t number, std::string* error);
@@ -384,6 +386,10 @@ class ModalBrowserController : public BrowserOps,
     uint64_t token = 0;
   };
   EditTarget edit_target_;
+  content::WeakDocumentPtr edit_document_;
+  uint64_t edit_generation_ = 0;
+  size_t edit_writes_pending_ = 0;
+  bool edit_done_ = false;
   std::unique_ptr<ExternalEditor> field_editor_;
   // Read-only exports (`:extract ... editor`), by increasing id.
   std::map<int, std::unique_ptr<ExternalEditor>> exports_;

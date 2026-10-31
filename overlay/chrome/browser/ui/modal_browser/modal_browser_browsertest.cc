@@ -58,6 +58,10 @@
 #include "chrome/browser/ui/modal_browser/merlin_settings_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_toolbar.h"
+#include "chrome/browser/ui/modal_browser/merlin_page_color.h"
+#include "chrome/browser/ui/modal_browser/modal_style.h"
+#include "chrome/browser/ui/modal_browser/external_editor.h"
+#include "ui/gfx/color_utils.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -127,6 +131,18 @@
 #include "ui/views/widget/widget.h"
 
 namespace modal_browser {
+
+// Supplies compositor results deterministically without depending on GPU timing.
+struct PageColorSamplerTestPeer {
+  static auto Begin(PageColorSampler& sampler, content::WebContents* contents) {
+    sampler.soon_.Stop();
+    sampler.sampling_ = true;
+    return base::BindOnce(&PageColorSampler::OnSampled,
+                         sampler.weak_factory_.GetWeakPtr(),
+                         contents->GetPrimaryMainFrame()->GetWeakDocumentPtr());
+  }
+  static void StopTimer(PageColorSampler& sampler) { sampler.soon_.Stop(); }
+};
 
 namespace {
 
@@ -1626,6 +1642,94 @@ editor = ["/bin/sh", "-c", "printf 'edited in nvim' > \"$1\"", "sh", "{file}"]
   FocusElement("pw");
   RunAndWait("edit!");
   EXPECT_EQ(StatusMessage(), u"Password fields never leave the browser");
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, RefusedEditStopsPreviousSession) {
+  WriteConfig(R"([options]
+editor = ["/usr/bin/true", "{file}"]
+)");
+  ReloadConfig();
+  NavigateTo("/form");
+  FocusElement("comment");
+  RunAndWait("edit");
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    auto* editor = controller()->field_editor_for_testing();
+    return editor && !editor->path().empty();
+  }));
+  const base::FilePath old_file =
+      controller()->field_editor_for_testing()->path();
+  FocusElement("pw");
+  RunAndWait("edit!");
+  EXPECT_EQ(StatusMessage(), u"Password fields never leave the browser");
+  EXPECT_EQ(controller()->field_editor_for_testing(), nullptr);
+  // A refused replacement must leave the old file available for recovery.
+  base::ScopedAllowBlockingForTesting allow;
+  EXPECT_TRUE(base::PathExists(old_file));
+  EXPECT_TRUE(base::DeletePathRecursively(old_file.DirName()));
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, PageColourNavigationAndCache) {
+  NavigateTo("/form");
+  PageColorSampler sampler(base::BindRepeating([](std::optional<SkColor>) {}));
+  sampler.Watch(contents());
+  SkBitmap black;
+  black.allocN32Pixels(2, 2);
+  black.eraseColor(SK_ColorBLACK);
+  content::CopyFromSurfaceResult dark{viz::CopyOutputBitmapWithMetadata(black)};
+  PageColorSamplerTestPeer::Begin(sampler, contents()).Run(dark);
+  EXPECT_EQ(sampler.color(), SK_ColorBLACK);
+
+  auto stale = PageColorSamplerTestPeer::Begin(sampler, contents());
+  sampler.Watch(nullptr);
+  sampler.Watch(contents());
+  EXPECT_EQ(sampler.color(), SK_ColorBLACK);
+  SkBitmap empty;
+  empty.allocN32Pixels(2, 2);
+  empty.eraseColor(SK_ColorTRANSPARENT);
+  content::CopyFromSurfaceResult neutral{viz::CopyOutputBitmapWithMetadata(empty)};
+  std::move(stale).Run(neutral);
+  EXPECT_EQ(sampler.color(), SK_ColorBLACK);
+
+  auto previous_page = PageColorSamplerTestPeer::Begin(sampler, contents());
+  NavigateTo("/doc");
+  PageColorSamplerTestPeer::StopTimer(sampler);
+  // Navigation clears the old document's result before its new sample arrives.
+  EXPECT_FALSE(sampler.color());
+  std::move(previous_page).Run(dark);
+  EXPECT_FALSE(sampler.color());
+  PageColorSamplerTestPeer::Begin(sampler, contents()).Run(dark);
+  EXPECT_EQ(sampler.color(), SK_ColorBLACK);
+  PageColorSamplerTestPeer::Begin(sampler, contents()).Run(neutral);
+  EXPECT_FALSE(sampler.color());
+  sampler.Watch(nullptr);
+  sampler.Watch(contents());
+  EXPECT_FALSE(sampler.color());  // A cached neutral result is retained too.
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, PageColourBucketsAndContrast) {
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(12, 12);
+  bitmap.eraseColor(SK_ColorBLACK);
+  EXPECT_EQ(PageColorSampler::DominantColor(bitmap), SK_ColorBLACK);
+  bitmap.eraseColor(SK_ColorWHITE);
+  EXPECT_EQ(PageColorSampler::DominantColor(bitmap), SK_ColorWHITE);
+  bitmap.eraseColor(SK_ColorTRANSPARENT);
+  EXPECT_FALSE(PageColorSampler::DominantColor(bitmap));
+  const std::array<SkColor, 4> colours = {SK_ColorRED, SK_ColorGREEN,
+                            SK_ColorBLUE, SK_ColorWHITE};
+  for (int y = 0; y < 12; ++y) {
+    for (int x = 0; x < 12; ++x) {
+      *bitmap.getAddr32(x, y) = colours.at(x / 3);
+    }
+  }
+  EXPECT_FALSE(PageColorSampler::DominantColor(bitmap));
+  for (int grey = 0; grey <= 255; ++grey) {
+    const SkColor background = SkColorSetRGB(grey, grey, grey);
+    const auto ink = style::InkOn(background);
+    EXPECT_GE(color_utils::GetContrastRatio(ink.text, background), 4.5f);
+    EXPECT_GE(color_utils::GetContrastRatio(ink.text_dim, background), 4.5f);
+    EXPECT_GE(color_utils::GetContrastRatio(ink.icon, background), 4.5f);
+  }
 }
 
 // -- Phase 4: outline, extraction, jumps, Visual mode ---------------------------

@@ -90,21 +90,22 @@ SkColor ModeColor(ffi::Mode mode, bool dark) {
 }
 
 Ink InkOn(SkColor surface) {
-  const bool dark = color_utils::GetRelativeLuminance(surface) < 0.4f;
+  const bool dark = color_utils::GetContrastRatio(SK_ColorWHITE, surface) >
+                    color_utils::GetContrastRatio(SK_ColorBLACK, surface);
   if (dark) {
     return {
-        .text = SkColorSetRGB(0xEC, 0xE8, 0xDD),
-        .text_dim = SkColorSetARGB(0x8C, 0xEC, 0xE8, 0xDD),
-        .icon = SkColorSetARGB(0xD9, 0xEC, 0xE8, 0xDD),
+        .text = SK_ColorWHITE,
+        .text_dim = SK_ColorWHITE,
+        .icon = SK_ColorWHITE,
         .icon_disabled = SkColorSetARGB(0x4D, 0xEC, 0xE8, 0xDD),
         .hover = SkColorSetARGB(0x1A, 0xFF, 0xFF, 0xFF),
         .pressed = SkColorSetARGB(0x29, 0xFF, 0xFF, 0xFF),
     };
   }
   return {
-      .text = SkColorSetRGB(0x1C, 0x1B, 0x18),
-      .text_dim = SkColorSetARGB(0x8C, 0x1C, 0x1B, 0x18),
-      .icon = SkColorSetARGB(0xCC, 0x1C, 0x1B, 0x18),
+      .text = SK_ColorBLACK,
+      .text_dim = SK_ColorBLACK,
+      .icon = SK_ColorBLACK,
       .icon_disabled = SkColorSetARGB(0x47, 0x1C, 0x1B, 0x18),
       .hover = SkColorSetARGB(0x12, 0x28, 0x1E, 0x0A),
       .pressed = SkColorSetARGB(0x1F, 0x28, 0x1E, 0x0A),

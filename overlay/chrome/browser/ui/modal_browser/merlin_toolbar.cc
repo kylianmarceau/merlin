@@ -27,6 +27,7 @@
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/text_elider.h"
@@ -404,7 +405,9 @@ void MerlinAddressField::PaintButtonContents(gfx::Canvas* canvas) {
   int x = kFieldPadding;
   const gfx::Rect info = SiteInfoBounds();
   if (!info.IsEmpty()) {
-    const SkColor warn = Color(this, kColorOmniboxSecurityChipDangerous);
+    const SkColor warn = color_utils::BlendForMinContrast(
+        Color(this, kColorOmniboxSecurityChipDangerous),
+        surface_.value_or(Color(this, kColorToolbar))).color;
     canvas->sk_canvas()->drawRoundRect(
         gfx::RectToSkRect(info), 6, 6,
         FillFlags(SkColorSetA(warn, security_ == Security::kDangerous ? 0x2E

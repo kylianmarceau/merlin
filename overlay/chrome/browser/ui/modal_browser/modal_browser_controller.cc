@@ -2192,6 +2192,11 @@ void ModalBrowserController::CopyText(std::string_view text,
 void ModalBrowserController::OpenInEditor(std::string_view text,
                                           std::string_view extension,
                                           const std::vector<std::string>& argv) {
+  if (browser_->GetProfile()->IsOffTheRecord()) {
+    ShowMessage(ffi::MessageLevel::Error,
+                "Editor exports are disabled in private windows");
+    return;
+  }
   if (exports_.size() >= kMaxExports) {
     exports_.erase(exports_.begin());  // stops watching the oldest
   }
@@ -2227,7 +2232,30 @@ content::RenderFrameHost* ModalBrowserController::FocusedFrame() {
   return frame ? frame : contents->GetPrimaryMainFrame();
 }
 
+void ModalBrowserController::CancelFieldEdit() {
+  ++edit_generation_;
+  edit_writes_pending_ = 0;
+  edit_done_ = false;
+  edit_document_ = content::WeakDocumentPtr();
+  if (field_editor_) {
+    if (!field_editor_->path().empty()) {
+      field_editor_->KeepFile();
+      ShowMessage(ffi::MessageLevel::Info,
+                  "Stopped external editing; your file is kept at " +
+                      field_editor_->path().value());
+    }
+    field_editor_.reset();
+  }
+}
+
 void ModalBrowserController::InspectField(bool force) {
+  CancelFieldEdit();
+  if (browser_->GetProfile()->IsOffTheRecord()) {
+    ShowMessage(ffi::MessageLevel::Error,
+                "External editing is disabled in private windows");
+    PageWorkDone();
+    return;
+  }
   content::RenderFrameHost* frame = FocusedFrame();
   if (!frame) {
     return;
@@ -2238,14 +2266,20 @@ void ModalBrowserController::InspectField(bool force) {
                             frame->GetGlobalId(),
                             frame->GetLastCommittedOrigin(),
                             base::RandUint64()};
+  edit_document_ = frame->GetWeakDocumentPtr();
   frame->ExecuteJavaScriptInIsolatedWorld(
       page_scripts::FieldInfoScript(edit_target_.token),
       base::BindOnce(&ModalBrowserController::OnFieldInfo,
-                     weak_factory_.GetWeakPtr(), force),
+                     weak_factory_.GetWeakPtr(), edit_generation_, force),
       ISOLATED_WORLD_ID_CHROME_INTERNAL);
 }
 
-void ModalBrowserController::OnFieldInfo(bool force, base::Value result) {
+void ModalBrowserController::OnFieldInfo(uint64_t generation,
+                                          bool force,
+                                          base::Value result) {
+  if (generation != edit_generation_) {
+    return;
+  }
   std::optional<page_scripts::FieldDescription> info =
       page_scripts::ParseFieldInfo(result);
   if (!info) {
@@ -2264,7 +2298,7 @@ void ModalBrowserController::OnFieldInfo(bool force, base::Value result) {
 
 void ModalBrowserController::EditField(const std::vector<std::string>& argv) {
   content::RenderFrameHost* frame =
-      content::RenderFrameHost::FromID(edit_target_.frame);
+      edit_document_.AsRenderFrameHostIfValid();
   if (!frame) {
     ShowMessage(ffi::MessageLevel::Error, "The page changed; try again");
     return;
@@ -2272,15 +2306,23 @@ void ModalBrowserController::EditField(const std::vector<std::string>& argv) {
   frame->ExecuteJavaScriptInIsolatedWorld(
       page_scripts::FieldValueScript(edit_target_.token),
       base::BindOnce(&ModalBrowserController::OnFieldValue,
-                     weak_factory_.GetWeakPtr(), argv),
+                     weak_factory_.GetWeakPtr(), edit_generation_, argv),
       ISOLATED_WORLD_ID_CHROME_INTERNAL);
 }
 
-void ModalBrowserController::OnFieldValue(std::vector<std::string> argv,
+void ModalBrowserController::OnFieldValue(uint64_t generation,
+                                           std::vector<std::string> argv,
                                           base::Value result) {
+  if (generation != edit_generation_) {
+    return;
+  }
   if (!result.is_string() ||
       result.GetString().size() > page_scripts::kMaxTextBytes) {
     ShowMessage(ffi::MessageLevel::Error, "The field is gone");
+    PageWorkDone();
+    return;
+  }
+  if (!edit_document_.AsRenderFrameHostIfValid()) {
     PageWorkDone();
     return;
   }
@@ -2288,38 +2330,53 @@ void ModalBrowserController::OnFieldValue(std::vector<std::string> argv,
   options.argv = std::move(argv);
   options.text = result.GetString();
   options.extension = "md";  // comment boxes are usually Markdown
-  // Replacing an earlier session stops watching it (its file is removed).
+  // Callbacks are scoped to this edit generation, including queued saves.
   field_editor_ = std::make_unique<ExternalEditor>(
       std::move(options),
       base::BindRepeating(&ModalBrowserController::WriteBackField,
-                          weak_factory_.GetWeakPtr()),
+                          weak_factory_.GetWeakPtr(), generation),
       base::BindOnce(&ModalBrowserController::OnFieldEditDone,
-                     weak_factory_.GetWeakPtr()));
+                     weak_factory_.GetWeakPtr(), generation));
   ShowMessage(ffi::MessageLevel::Info,
               "Editing in your editor; each save updates the field");
   PageWorkDone();
 }
 
-void ModalBrowserController::WriteBackField(std::string text) {
+void ModalBrowserController::WriteBackField(uint64_t generation,
+                                            std::string text) {
+  if (generation != edit_generation_) {
+    return;
+  }
   content::RenderFrameHost* frame =
-      content::RenderFrameHost::FromID(edit_target_.frame);
+      edit_document_.AsRenderFrameHostIfValid();
   tabs::TabInterface* tab = tabs::TabHandle(edit_target_.tab).Get();
   // Only into the same field, on the same page, from the same origin.
   if (!frame || !tab ||
       frame->GetLastCommittedOrigin() != edit_target_.origin) {
-    OnFieldWritten(base::Value(false));
+    OnFieldWritten(generation, base::Value(false));
     return;
   }
+  ++edit_writes_pending_;
   frame->ExecuteJavaScriptInIsolatedWorld(
       page_scripts::FieldWriteScript(edit_target_.token, text),
       base::BindOnce(&ModalBrowserController::OnFieldWritten,
-                     weak_factory_.GetWeakPtr()),
+                     weak_factory_.GetWeakPtr(), generation),
       ISOLATED_WORLD_ID_CHROME_INTERNAL);
 }
 
-void ModalBrowserController::OnFieldWritten(base::Value result) {
+void ModalBrowserController::OnFieldWritten(uint64_t generation,
+                                            base::Value result) {
+  if (generation != edit_generation_) {
+    return;
+  }
+  if (edit_writes_pending_ > 0) {
+    --edit_writes_pending_;
+  }
   if (result.is_bool() && result.GetBool()) {
     ShowMessage(ffi::MessageLevel::Info, "Updated the field from your editor");
+    if (edit_done_ && edit_writes_pending_ == 0) {
+      field_editor_.reset();
+    }
   } else if (field_editor_) {
     // Never lose what the user wrote: keep the file and say where it is.
     field_editor_->KeepFile();
@@ -2331,11 +2388,22 @@ void ModalBrowserController::OnFieldWritten(base::Value result) {
   PageWorkDone();
 }
 
-void ModalBrowserController::OnFieldEditDone(std::string error) {
+void ModalBrowserController::OnFieldEditDone(uint64_t generation,
+                                             std::string error) {
+  if (generation != edit_generation_) {
+    return;
+  }
+  edit_done_ = true;
+  if (!error.empty() && field_editor_) {
+    field_editor_->KeepFile();
+    error += "; your file is kept at " + field_editor_->path().value();
+  }
   if (!error.empty()) {
     ShowMessage(ffi::MessageLevel::Error, error);
   }
-  field_editor_.reset();
+  if (edit_writes_pending_ == 0) {
+    field_editor_.reset();
+  }
   PageWorkDone();
 }
 
@@ -2759,6 +2827,7 @@ void ModalBrowserController::OnFocusChangedInPage(
 }
 
 void ModalBrowserController::PrimaryPageChanged(content::Page& page) {
+  CancelFieldEdit();
   router_.OnPageChanged(page.GetMainDocument().GetLastCommittedURL().host(),
                         *this);
   UpdatePageContext();

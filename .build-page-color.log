@@ -1,2 +1,6 @@
 Run `siso ps -C out/Modal` in another terminal to see build status.
-..................................................
+.............................................................
+30m44.11s Build Failure: 9799 done, 0 failed, 27840 remaining - 5.31/s
+ interrupt by signal
+Detected AI agent env (AI_AGENT). Prepending --quiet --batch=false --heartbeat_period=30s to improve latency and reduce context pollution. User-supplied flags take precedence.
+The build has finished with an error.

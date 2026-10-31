@@ -12,6 +12,7 @@
 #include "base/timer/timer.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/browser/weak_document_ptr.h"
 #include "third_party/skia/include/core/SkColor.h"
 
 namespace modal_browser {
@@ -20,11 +21,11 @@ namespace modal_browser {
 // toolbar can take it and read as one surface with the page (white above
 // a white site, black above a black one), as in Dia.
 //
-// It reads the pixels the page has drawn: the whole page, scaled down,
+// It reads the pixels the page has drawn: the visible viewport, scaled down,
 // and takes the most common color in it. It reads when the page loads and
 // paints for the first time, then leaves it alone — scrolling does not
 // change the color, so the bar does not flicker as the page moves. The
-// last color is kept per tab, so switching back to a tab shows its color
+// last color is kept per document, so switching back to a tab shows its color
 // at once. Nothing leaves the browser; see docs/PRIVACY.md.
 class PageColorSampler : public content::WebContentsObserver {
  public:
@@ -54,8 +55,9 @@ class PageColorSampler : public content::WebContentsObserver {
   void WebContentsDestroyed() override;
 
  private:
+  friend struct PageColorSamplerTestPeer;
   void SampleSoon();
-  void OnSampled(base::WeakPtr<content::WebContents> contents,
+  void OnSampled(content::WeakDocumentPtr document,
                  const content::CopyFromSurfaceResult& result);
   void SetColor(std::optional<SkColor> color);
 

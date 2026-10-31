@@ -478,6 +478,14 @@ constexpr char kFieldValueTemplate[] = R"JS(
   const edit = window.__modalBrowserEdit;
   if (!edit || edit.token !== token || !edit.el.isConnected) return null;
   const el = edit.el;
+  const type = (el.type || '').toLowerCase();
+  const autocomplete = (el.getAttribute('autocomplete') || '').toLowerCase();
+  if (el.readOnly || el.disabled ||
+      (el.tagName === 'INPUT' &&
+       !['text', 'search', 'url', 'email', 'tel', ''].includes(type)) ||
+      autocomplete.split(/\s+/).some(t => t.startsWith('cc-') ||
+        ['current-password', 'new-password', 'one-time-code',
+         'transaction-amount'].includes(t))) return null;
   return String(el.isContentEditable ? el.innerText : el.value);
 })
 )JS";
@@ -490,6 +498,14 @@ constexpr char kFieldWriteTemplate[] = R"JS(
   const edit = window.__modalBrowserEdit;
   if (!edit || edit.token !== token || !edit.el.isConnected) return false;
   const el = edit.el;
+  const type = (el.type || '').toLowerCase();
+  const autocomplete = (el.getAttribute('autocomplete') || '').toLowerCase();
+  if (el.readOnly || el.disabled ||
+      (el.tagName === 'INPUT' &&
+       !['text', 'search', 'url', 'email', 'tel', ''].includes(type)) ||
+      autocomplete.split(/\s+/).some(t => t.startsWith('cc-') ||
+        ['current-password', 'new-password', 'one-time-code',
+         'transaction-amount'].includes(t))) return null;
   if (el.isContentEditable) {
     el.focus();
     const range = document.createRange();

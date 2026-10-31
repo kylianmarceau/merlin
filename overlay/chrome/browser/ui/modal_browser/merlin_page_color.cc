@@ -13,6 +13,7 @@
 #include "base/supports_user_data.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/page.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
@@ -23,25 +24,22 @@ namespace {
 
 // Short enough to follow a page; long enough not to be noticed.
 constexpr base::TimeDelta kSoonDelay = base::Milliseconds(80);
-// The page is sampled whole, scaled down to at most this many points on a
+// The viewport is scaled down to at most this many points on a
 // side — enough to know its colors, small enough to be cheap.
 constexpr int kSampleWidth = 96;
 constexpr int kSampleHeight = 96;
 
-// The last color read for a tab, kept on its WebContents.
+// The last result for a document, including a neutral fallback.
 class LastColor : public base::SupportsUserData::Data {
  public:
   static constexpr char kKey[] = "merlin_page_color";
-  explicit LastColor(SkColor color) : color(color) {}
-  SkColor color;
+  explicit LastColor(std::optional<SkColor> color) : color(color) {}
+  std::optional<SkColor> color;
 };
 
-std::optional<SkColor> LastColorOf(content::WebContents* contents) {
-  if (auto* data = static_cast<LastColor*>(
-          contents->GetUserData(LastColor::kKey))) {
-    return data->color;
-  }
-  return std::nullopt;
+LastColor* LastColorOf(content::WebContents* contents) {
+  return static_cast<LastColor*>(
+      contents->GetPrimaryPage().GetUserData(LastColor::kKey));
 }
 
 }  // namespace
@@ -55,21 +53,21 @@ void PageColorSampler::Watch(content::WebContents* contents) {
   if (contents == web_contents()) {
     return;
   }
+  weak_factory_.InvalidateWeakPtrs();
+  sampling_ = false;
   Observe(contents);
   soon_.Stop();
   if (!contents) {
     SetColor(std::nullopt);
     return;
   }
-  // What it was last time, else what the page says its background is.
-  std::optional<SkColor> color = LastColorOf(contents);
-  if (!color) {
-    color = contents->GetBackgroundColor();
-    if (color && SkColorGetA(*color) != SK_AlphaOPAQUE) {
-      color.reset();
-    }
+  // A cached neutral result is also final for this document. Switching
+  // back must not sample a different scrolled viewport.
+  if (LastColor* cached = LastColorOf(contents)) {
+    SetColor(cached->color);
+    return;
   }
-  SetColor(color);
+  SetColor(std::nullopt);
   SampleSoon();
 }
 
@@ -81,7 +79,11 @@ void PageColorSampler::SampleSoon() {
 
 void PageColorSampler::Sample() {
   content::WebContents* contents = web_contents();
-  if (!contents || sampling_) {
+  if (!contents) {
+    return;
+  }
+  if (sampling_) {
+    SampleSoon();
     return;
   }
   content::RenderWidgetHostView* view = contents->GetRenderWidgetHostView();
@@ -93,30 +95,28 @@ void PageColorSampler::Sample() {
     return;
   }
   sampling_ = true;
-  // The whole page, scaled down, so the color is the majority of what the
+  // The visible viewport, scaled down, so the color is the majority of what the
   // site looks like — not just its top edge, which changes as it scrolls.
   const int height =
       std::clamp(size.height() * kSampleWidth / size.width(), 1, kSampleHeight);
   view->CopyFromSurface(
       gfx::Rect(size), gfx::Size(kSampleWidth, height), base::TimeDelta(),
       base::BindOnce(&PageColorSampler::OnSampled, weak_factory_.GetWeakPtr(),
-                     contents->GetWeakPtr()));
+                     contents->GetPrimaryMainFrame()->GetWeakDocumentPtr()));
 }
 
-void PageColorSampler::OnSampled(base::WeakPtr<content::WebContents> contents,
+void PageColorSampler::OnSampled(content::WeakDocumentPtr document,
                                  const content::CopyFromSurfaceResult& result) {
   sampling_ = false;
-  if (!contents || !result.has_value()) {
+  auto* frame = document.AsRenderFrameHostIfValid();
+  if (!frame || !web_contents() ||
+      frame != web_contents()->GetPrimaryMainFrame() || !result.has_value()) {
     return;
   }
-  const std::optional<SkColor> color = DominantColor(result->bitmap);
-  if (!color) {
-    return;
-  }
-  contents->SetUserData(LastColor::kKey, std::make_unique<LastColor>(*color));
-  if (contents.get() == web_contents()) {
-    SetColor(color);
-  }
+  const auto color = DominantColor(result->bitmap);
+  frame->GetPage().SetUserData(LastColor::kKey,
+                             std::make_unique<LastColor>(color));
+  SetColor(color);  // No dominant colour explicitly restores neutral chrome.
 }
 
 // static
@@ -181,7 +181,15 @@ void PageColorSampler::DidStopLoading() {
 }
 
 void PageColorSampler::PrimaryPageChanged(content::Page& page) {
-  SampleSoon();
+  weak_factory_.InvalidateWeakPtrs();
+  sampling_ = false;
+  soon_.Stop();
+  if (LastColor* cached = LastColorOf(web_contents())) {
+    SetColor(cached->color);
+  } else {
+    SetColor(std::nullopt);
+    SampleSoon();
+  }
 }
 
 void PageColorSampler::WebContentsDestroyed() {

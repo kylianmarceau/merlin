@@ -20,12 +20,14 @@ follow Chromium's setting for them.
 | What | Where | Mode | When |
 |---|---|---|---|
 | Workspaces: URLs, titles, pins, split pairs | `$XDG_DATA_HOME/modal_browser/workspaces/*.json` | 0600, directory 0700 | `:workspace save`, and autosave for windows opened from a workspace |
-| Field text for `:edit` | a fresh `modal_browser_edit_*` directory in `$TMPDIR` | 0600, directory 0700 | while editing; deleted when the editor exits, the session is replaced or the page goes away (kept, with its path shown, only if write-back failed so the text is not lost) |
+| Field text for `:edit` | a fresh `modal_browser_edit_*` directory in `$TMPDIR` | 0600, directory 0700 | while editing; deleted after normal editor exit and successful write-back; kept for recovery, with its path shown, when an established session is replaced, navigation cancels it, or write-back fails |
 | Exports (`:extract ... editor`) | same as above | 0400 | deleted when the editor exits |
 | browserctl socket | `$TMPDIR/modal_browser/browserctl.sock` | directory 0700 | while a normal window is open and `browserctl = true` |
 
-Nothing is written for private (incognito) windows: they cannot save
-workspaces and browserctl cannot see them.
+Private (incognito) page data is not saved by the workspace/editor layer: private windows cannot save
+workspaces and browserctl cannot see them. External editing and exports to an
+editor are also disabled in private windows. Explicit downloads and browser
+settings changes still follow Chromium and Merlin Settings behaviour.
 
 ## Files read
 
@@ -47,10 +49,10 @@ Scripts run in Chrome's isolated world and return:
 * for `yy`, `yf`, `yc`, `y` in Visual mode: the URL, link, code or
   selection being copied, straight to the clipboard.
 
-* for the tab bar's color: the pixels along the top edge of the active
-  page, read from the compositor (a strip two pixels tall, scaled down to
-  96), reduced to one color in memory and kept only as that color on the
-  tab. No page script runs and nothing is written or sent.
+* for the tab bar's color: the visible viewport of the active page, read from the compositor
+  and scaled down to at most 96 by 96 pixels, reduced to one colour (or a
+  neutral fallback) in memory and cached on that document. Switching tabs
+  reuses the cached result; navigation invalidates it. No page script runs and nothing is written or sent.
 
 ## Clipboard
 

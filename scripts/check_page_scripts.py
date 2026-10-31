@@ -66,6 +66,54 @@ cases = {
          selection, mark, scroll_to, field_info, field_value, field_write,
          collect]),
 }
+# Exercise the field boundary with minimal DOM stand-ins. These checks model
+# metadata changing between browser approval and the eventual read/write.
+field_safety = r"""
+const assert = require('node:assert/strict');
+global.window = {};
+global.document = {body: {}};
+global.HTMLInputElement = function() {};
+global.HTMLTextAreaElement = function() {};
+Object.defineProperty(HTMLInputElement.prototype, 'value', {
+  set(value) { this.value = value; }
+});
+global.InputEvent = function() {};
+global.Event = function() {};
+let active;
+const __mbDeepActive = () => active;
+const __mbEditable = () => true;
+function field() {
+  return {type: 'text', tagName: 'INPUT', isConnected: true, value: 'draft',
+          autocomplete: '', getAttribute(name) { return this[name] || ''; },
+          dispatchEvent() {}};
+}
+"""
+field_safety += "const inspect = " + raw("kFieldInfoTemplate") + ";\n"
+field_safety += "const read = " + raw("kFieldValueTemplate") + ";\n"
+field_safety += "const write = " + raw("kFieldWriteTemplate") + ";\n"
+field_safety += r"""
+active = field(); inspect('one');
+assert.equal(read('one'), 'draft');
+assert.equal(write('one', 'edited'), true);
+assert.equal(active.value, 'edited');
+assert.equal(read('stale'), null);
+assert.equal(write('stale', 'wrong'), false);
+for (const change of [e => e.type = 'password',
+                       e => e.autocomplete = 'section-login ONE-TIME-CODE',
+                       e => e.autocomplete = 'cc-number',
+                       e => e.readOnly = true,
+                       e => e.disabled = true]) {
+  active = field(); inspect('two'); change(active);
+  assert.equal(read('two'), null);
+  assert.notEqual(write('two', 'secret'), true);
+  assert.equal(active.value, 'draft');
+}
+active = field(); inspect('old');
+active = field(); inspect('new');
+assert.equal(write('old', 'stale save'), false);
+assert.equal(active.value, 'draft');
+"""
+
 failed = False
 with tempfile.TemporaryDirectory() as d:
     for name, js in cases.items():
@@ -83,4 +131,10 @@ with tempfile.TemporaryDirectory() as d:
             print(f"{name}: syntax error\n{r.stderr}")
         else:
             print(f"{name}: ok")
+r = subprocess.run(["node", "-e", field_safety], capture_output=True, text=True)
+if r.returncode:
+    failed = True
+    print("field safety: FAILED\n" + r.stderr)
+else:
+    print("field safety: ok")
 sys.exit(1 if failed else 0)

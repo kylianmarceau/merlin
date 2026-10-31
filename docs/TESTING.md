@@ -1,5 +1,15 @@
 # Testing
 
+## 2026-10-31 safety and colour regression additions
+
+`RefusedEditStopsPreviousSession` checks that a denied replacement cannot keep
+the previous editor writing into a new target, and preserves its recovery file.
+`PageColourBucketsAndContrast` covers neutral samples and contrast across every
+grey value. `scripts/check_page_scripts.py` now also executes field-safety
+checks for stale tokens and metadata changing to password/payment/OTP/read-only
+or disabled fields. The new C++ browser tests require a rebuilt browser_tests;
+see `CHROMIUM_UPDATE.md`.
+
 ## Run everything available today
 
 ```bash
