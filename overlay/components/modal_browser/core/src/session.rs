@@ -83,6 +83,8 @@ pub struct SessionConfig {
     /// Whether tabs start in a sidebar. The host applies this as the
     /// *default*: a layout the user picked in the browser's own UI wins.
     pub vertical_tabs: bool,
+    /// Whether windows start with their tabs hidden (Cmd-S toggles).
+    pub hide_tabs: bool,
     /// Reopen the last session's windows at launch (a default; the user's
     /// choice in Settings wins).
     pub restore_session: bool,
@@ -121,6 +123,7 @@ impl Default for SessionConfig {
             commands: CommandOptions::default(),
             passthrough_sites: Vec::new(),
             vertical_tabs: true,
+            hide_tabs: false,
             restore_session: true,
             workspace_autosave: true,
             browserctl: true,
@@ -1317,6 +1320,9 @@ impl ModalSession {
         }
         if let Some(v) = file.vertical_tabs {
             config.vertical_tabs = v;
+        }
+        if let Some(v) = file.hide_tabs {
+            config.hide_tabs = v;
         }
         if let Some(v) = file.restore_session {
             config.restore_session = v;

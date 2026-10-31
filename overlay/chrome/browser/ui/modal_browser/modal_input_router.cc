@@ -262,6 +262,7 @@ void ModalInputRouter::OnConfigRead(bool found,
               : "No config at " + std::string(path) + "; using defaults");
   }
   ops.SetVerticalTabsDefault(session_->vertical_tabs_default());
+  ops.SetTabsHiddenDefault(session_->hide_tabs_default());
   if (!session_->modal_browsing()) {
     // The core has left any mode it was in; take its surfaces down too.
     ops.StopSequenceTimer();
@@ -294,6 +295,10 @@ ffi::Mode ModalInputRouter::mode() const {
 
 bool ModalInputRouter::vertical_tabs_default() const {
   return session_->vertical_tabs_default();
+}
+
+bool ModalInputRouter::hide_tabs_default() const {
+  return session_->hide_tabs_default();
 }
 
 std::vector<ModalInputRouter::Binding> ModalInputRouter::key_bindings() const {
@@ -452,6 +457,9 @@ void ModalInputRouter::Perform(const ffi::Action& action, BrowserOps& ops) {
       return;
     case ffi::ActionKind::TabSidebar:
       ops.SetTabSidebar(action.setting);
+      return;
+    case ffi::ActionKind::HideTabs:
+      ops.SetTabsHidden(action.setting);
       return;
     case ffi::ActionKind::ShowMessage:
       ops.ShowMessage(action.level, View(action.text));

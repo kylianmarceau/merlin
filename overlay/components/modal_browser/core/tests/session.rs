@@ -987,6 +987,30 @@ fn vertical_tabs_default_comes_from_config() {
 }
 
 #[test]
+fn hide_tabs_command_and_config() {
+    let mut s = ModalSession::new();
+    assert_eq!(
+        s.run_command("hide-tabs").unwrap().actions,
+        vec![Action::HideTabs(Switch::Toggle)]
+    );
+    assert_eq!(
+        s.run_command("hide-tabs off").unwrap().actions,
+        vec![Action::HideTabs(Switch::Off)]
+    );
+    assert!(s.run_command("hide-tabs maybe").is_err());
+    assert!(!s.config().hide_tabs, "tabs shown by default");
+    assert!(
+        s.load_config("[options]\nhide_tabs = true")
+            .errors
+            .is_empty()
+    );
+    assert!(s.config().hide_tabs);
+    assert_eq!(s.load_config("[options]\nhide_tabs = 1").errors.len(), 1);
+    assert!(s.load_config("").errors.is_empty());
+    assert!(!s.config().hide_tabs);
+}
+
+#[test]
 fn tabs_layout_setting() {
     let mut s = ModalSession::new();
     assert!(s.load_config("[options]\ntabs = \"top\"").errors.is_empty());

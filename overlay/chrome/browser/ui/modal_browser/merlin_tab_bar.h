@@ -21,6 +21,7 @@
 #include "components/tabs/public/tab_alert.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/tabs/public/tab_network_state.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/gfx/animation/slide_animation.h"
@@ -425,6 +426,27 @@ class MerlinTabBar : public views::View,
 // keeps its shape and bubbles can still anchor to it). In fullscreen,
 // where Chromium moves its strip into a separate widget, Merlin's bar
 // hides and Chromium's comes back.
+// With the tabs hidden, the toolbar row runs up beside the window controls;
+// this fills the space under them in the page's color, so the row reads as
+// one surface from the window's edge, and lets the window be dragged by it.
+class MerlinCaptionFill : public views::View {
+  METADATA_HEADER(MerlinCaptionFill, views::View)
+
+ public:
+  MerlinCaptionFill();
+  MerlinCaptionFill(const MerlinCaptionFill&) = delete;
+  MerlinCaptionFill& operator=(const MerlinCaptionFill&) = delete;
+  ~MerlinCaptionFill() override;
+
+  void SetColor(std::optional<SkColor> color);
+
+  // views::View:
+  void OnPaint(gfx::Canvas* canvas) override;
+
+ private:
+  std::optional<SkColor> color_;
+};
+
 class MerlinTabBarHost : public views::ViewObserver {
  public:
   MerlinTabBarHost(BrowserWindowInterface* browser, BrowserView* browser_view);
@@ -437,6 +459,12 @@ class MerlinTabBarHost : public views::ViewObserver {
 
   MerlinTabBar* bar() { return bar_; }
 
+  // Tabs hidden entirely (BrowserView::SetTabStripHiddenByEmbedder): no bar,
+  // only the fill beside the window controls.
+  void SetTabsHidden(bool hidden);
+  // The page's color, for the active tab and the fill.
+  void SetPageColor(std::optional<SkColor> color);
+
   // views::ViewObserver (Chromium's tab strip region):
   void OnViewBoundsChanged(views::View* observed_view) override;
   void OnViewVisibilityChanged(views::View* observed_view,
@@ -448,11 +476,16 @@ class MerlinTabBarHost : public views::ViewObserver {
 
  private:
   void SetChromiumStripHidden(bool hidden);
+  void UpdateFill();
+  void WatchToolbar();
 
   const raw_ptr<BrowserWindowInterface> browser_;
   const raw_ptr<BrowserView> browser_view_;
   raw_ptr<MerlinTabBar> bar_ = nullptr;
+  raw_ptr<MerlinCaptionFill> fill_ = nullptr;
   raw_ptr<views::View> region_ = nullptr;
+  raw_ptr<views::View> toolbar_ = nullptr;
+  bool tabs_hidden_ = false;
   bool region_hidden_ = false;
   bool updating_ = false;
 };

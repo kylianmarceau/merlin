@@ -633,3 +633,26 @@ square at the top where it meets the toolbar and rounded below.
 * Dropped with the bar: the workspace name and the "? help, f hints,
   : command" key hints. `?` and `:` still work from anywhere.
 
+## 41. Hide the tabs (Cmd-S)
+
+As in Dia, Cmd-S hides the tabs entirely, the row on top or the sidebar,
+and shows them again. The toolbar row moves up beside the window
+controls, the page runs edge to edge under it with no card margin, and
+the row and the space under the window controls take the page's color,
+so the window is one surface. Tabs stay reachable from the keyboard
+(Cmd-1 to 9, Ctrl-Tab, `b` for the tab list).
+
+* Per window: Cmd-S or `:hide-tabs [on|off]` toggles the current window.
+  Settings > Appearance > Hide tabs writes `hide_tabs` to the config file;
+  that is the state new windows start in, and changing it applies to
+  every open window. A reload that leaves `hide_tabs` alone does not undo
+  a window's Cmd-S.
+* Chromium has no "no tab strip" state for normal windows, so patch 0012
+  adds one to BrowserView: the layout then treats the window like one in
+  content fullscreen, with no tab strip at all, rather than Merlin
+  covering Chromium's strip with something else.
+* The page gets Cmd-S first. Sites that save with it (Docs, Figma, the
+  config editor in Settings) keep doing so; Merlin's shortcut is a
+  normal-priority accelerator that runs only when the page leaves the key
+  alone. Save Page As moves to Shift-Cmd-S, in the File menu as before.
+

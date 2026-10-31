@@ -1,0 +1,129 @@
+diff --git a/chrome/browser/ui/accelerator_table.cc b/chrome/browser/ui/accelerator_table.cc
+--- a/chrome/browser/ui/accelerator_table.cc
++++ b/chrome/browser/ui/accelerator_table.cc
+@@ -78,7 +78,10 @@ const AcceleratorMapping kAcceleratorMap[] = {
+     {ui::VKEY_R, ui::EF_PLATFORM_ACCELERATOR, IDC_RELOAD},
+     {ui::VKEY_R, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
+      IDC_RELOAD_BYPASSING_CACHE},
+-    {ui::VKEY_S, ui::EF_PLATFORM_ACCELERATOR, IDC_SAVE_PAGE},
++    // modal_browser: Cmd/Ctrl-S hides Merlin's tabs; Save Page As takes
++    // Shift-Cmd/Ctrl-S.
++    {ui::VKEY_S, ui::EF_PLATFORM_ACCELERATOR | ui::EF_SHIFT_DOWN,
++     IDC_SAVE_PAGE},
+     {ui::VKEY_9, ui::EF_PLATFORM_ACCELERATOR, IDC_SELECT_LAST_TAB},
+     {ui::VKEY_NUMPAD9, ui::EF_PLATFORM_ACCELERATOR, IDC_SELECT_LAST_TAB},
+ #if BUILDFLAG(IS_LINUX)
+diff --git a/chrome/browser/ui/cocoa/accelerators_cocoa.mm b/chrome/browser/ui/cocoa/accelerators_cocoa.mm
+--- a/chrome/browser/ui/cocoa/accelerators_cocoa.mm
++++ b/chrome/browser/ui/cocoa/accelerators_cocoa.mm
+@@ -46,7 +46,9 @@
+     {IDC_PASTE, ui::EF_COMMAND_DOWN, ui::VKEY_V},
+     {IDC_PRINT, ui::EF_COMMAND_DOWN, ui::VKEY_P},
+     {IDC_RESTORE_TAB, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN, ui::VKEY_T},
+-    {IDC_SAVE_PAGE, ui::EF_COMMAND_DOWN, ui::VKEY_S},
++    // modal_browser: Cmd-S hides Merlin's tabs; Save Page As takes
++    // Shift-Cmd-S.
++    {IDC_SAVE_PAGE, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN, ui::VKEY_S},
+     {IDC_SHOW_BOOKMARK_BAR, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
+      ui::VKEY_B},
+     {IDC_SHOW_BOOKMARK_MANAGER, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN,
+diff --git a/chrome/browser/ui/views/frame/browser_native_widget_mac.mm b/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
+--- a/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
++++ b/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
+@@ -277,7 +277,8 @@ - (NSTouchBar*)makeTouchBar {
+         std::max(top_element_info.tabstrip_preferred_height,
+                  top_element_info.toolbar_minimum_height) +
+         browser_view_->browser_widget()->GetFrameView()->GetTopInset(true);
+-    if (!browser_view_->ShouldDrawTabStrip()) {
++    if (!browser_view_->ShouldDrawTabStrip() &&
++        !browser_view_->tab_strip_hidden_by_embedder()) {
+       *titlebar_height += kWebAppMenuMargin * 2;
+     }
+   } else {
+diff --git a/chrome/browser/ui/views/frame/browser_view.cc b/chrome/browser/ui/views/frame/browser_view.cc
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -1257,7 +1257,8 @@ ClientFrameElementInfo BrowserView::GetFrameElementInfo() const {
+                 ->GetPreferredSize()
+                 .height()
+           : 0;
+-  if (toolbar_ && ShouldDrawVerticalTabStrip()) {
++  if (toolbar_ &&
++      (ShouldDrawVerticalTabStrip() || tab_strip_hidden_by_embedder_)) {
+     info.toolbar_minimum_height = toolbar_->GetMinimumSize().height();
+   } else if (web_app_frame_toolbar_ && ShouldDrawWebAppFrameToolbar()) {
+     info.toolbar_minimum_height =
+@@ -1425,7 +1426,23 @@ bool BrowserView::ShouldDrawTabStrokes() const {
+ #endif  // !BUILDFLAG(IS_CHROMEOS)
+ }
+ 
++void BrowserView::SetTabStripHiddenByEmbedder(bool hidden) {
++  if (tab_strip_hidden_by_embedder_ == hidden) {
++    return;
++  }
++  tab_strip_hidden_by_embedder_ = hidden;
++  if (GetWidget() && GetWidget()->non_client_view()) {
++    GetWidget()->non_client_view()->InvalidateLayout();
++  }
++  InvalidateLayout();
++}
++
+ bool BrowserView::ShouldDrawTabStrip() const {
++  // modal_browser: the embedder hid the tab strip.
++  if (tab_strip_hidden_by_embedder_) {
++    return false;
++  }
++
+   // Return false if this window does not normally display a tabstrip or if the
+   // tabstrip is currently hidden, e.g. because we're in fullscreen.
+   if (!WindowFeatureController::From(browser_)->SupportsWindowFeature(
+@@ -4750,6 +4767,21 @@ int BrowserView::NonClientHitTest(const gfx::Point& point) {
+         return HTNOWHERE;
+       }
+     }
++  } else if (tab_strip_hidden_by_embedder_) {
++    // modal_browser: with the tab strip hidden, views that name a hit-test
++    // component answer first (Merlin's strip behind the window controls),
++    // then the toolbar's empty space is caption, as beside a vertical strip.
++    gfx::Point point_in_widget(point);
++    views::View::ConvertPointToWidget(parent(), &point_in_widget);
++    if (const int component = views::GetHitTestComponent(this, point_in_widget);
++        component != HTNOWHERE) {
++      return component;
++    }
++    gfx::Point test_point(point);
++    if (ConvertedHitTest(parent(), top_container_, &test_point) &&
++        top_container_->IsPositionInWindowCaption(test_point)) {
++      return HTNOWHERE;
++    }
+   } else if (GetTabStripVisible()) {
+     // Determine if the Horizontal TabStrip exists and is capable of being
+     // clicked on. We might be a popup window without a TabStrip. Use
+diff --git a/chrome/browser/ui/views/frame/browser_view.h b/chrome/browser/ui/views/frame/browser_view.h
+--- a/chrome/browser/ui/views/frame/browser_view.h
++++ b/chrome/browser/ui/views/frame/browser_view.h
+@@ -340,6 +340,14 @@ class BrowserView : public BrowserWindow,
+   // Returns whether a vertical tabstrip should be shown.
+   bool ShouldDrawVerticalTabStrip() const;
+ 
++  // modal_browser: hides the tab strip (horizontal or vertical) while set, so
++  // the window lays out as if it had none: the toolbar moves up beside the
++  // window controls.
++  void SetTabStripHiddenByEmbedder(bool hidden);
++  bool tab_strip_hidden_by_embedder() const {
++    return tab_strip_hidden_by_embedder_;
++  }
++
+   // Returns whether the webapp frame toolbar should be drawn.
+   bool ShouldDrawWebAppFrameToolbar() const;
+ 
+@@ -1214,6 +1222,9 @@ class BrowserView : public BrowserWindow,
+   // separator when not overlaid (i.e. no immersive fullscreen).
+   raw_ptr<views::View> top_container_separator_ = nullptr;
+ 
++  // modal_browser: see SetTabStripHiddenByEmbedder().
++  bool tab_strip_hidden_by_embedder_ = false;
++
+   // The do-nothing view which controls the z-order of the find bar widget
+   // relative to views which paint into layers and views with an associated
+   // NativeView.

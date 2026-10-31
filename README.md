@@ -70,6 +70,9 @@ in Normal mode nothing covers the page.
 
 * **Two layouts**: a slim tab sidebar, or soft pill tabs on top
   (`:set tabs=top`).
+* **Hide the tabs** with `⌘S`, as in Dia: the page fills the window and the
+  toolbar sits beside the traffic lights. Settings > Appearance > Hide tabs
+  makes it the default. Save Page As moves to `⇧⌘S`.
 * **Splits**: `<C-w>v` side by side, `<C-w>s` top and bottom, `<C-w>w` to
   move between them, `<C-w>x` to swap, `<C-w>o` to close the split.
 * **Pinned tabs** with `gp`.

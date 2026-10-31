@@ -304,6 +304,15 @@ void FakeBrowser::SetVerticalTabs(ffi::Switch value) {
   vertical_tabs_user = on ? 1 : 0;
 }
 
+void FakeBrowser::SetTabsHiddenDefault(bool hidden) {
+  tabs_hidden = hidden;
+}
+
+void FakeBrowser::SetTabsHidden(ffi::Switch value) {
+  tabs_hidden = value == ffi::Switch::Toggle ? !tabs_hidden
+                                             : value == ffi::Switch::On;
+}
+
 void FakeBrowser::SetTabSidebar(ffi::Switch value) {
   if (!vertical_tabs()) {
     message = "error: tabs are not in a sidebar";

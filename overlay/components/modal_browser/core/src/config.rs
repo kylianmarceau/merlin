@@ -11,6 +11,7 @@
 //! smooth_scroll = true             # animate page-sized jumps
 //! passthrough_sites = ["mail.google.com", "*.figma.com"]
 //! tabs = "side"                    # "side" (a rail) or "top"; vertical_tabs = true|false also works
+//! hide_tabs = false                # start with tabs hidden; Cmd-S (:hide-tabs) toggles
 //! restore_session = true           # reopen last session's windows at launch
 //! workspace_autosave = true        # keep an opened workspace saved as it changes
 //! browserctl = true                # accept commands from browserctl (same user only)
@@ -148,6 +149,7 @@ pub struct ConfigFile {
     pub smooth_scroll: Option<bool>,
     pub passthrough_sites: Option<Vec<SitePattern>>,
     pub vertical_tabs: Option<bool>,
+    pub hide_tabs: Option<bool>,
     pub restore_session: Option<bool>,
     pub workspace_autosave: Option<bool>,
     pub browserctl: Option<bool>,
@@ -169,6 +171,7 @@ const OPTION_NAMES: &[&str] = &[
     "passthrough_sites",
     "vertical_tabs",
     "tabs",
+    "hide_tabs",
     "restore_session",
     "workspace_autosave",
     "browserctl",
@@ -394,6 +397,7 @@ impl ConfigFile {
             "scroll_step" => self.scroll_step = Some(expect_int(name, value, 10, 2000)?),
             "smooth_scroll" => self.smooth_scroll = Some(expect_bool(name, value)?),
             "vertical_tabs" => self.vertical_tabs = Some(expect_bool(name, value)?),
+            "hide_tabs" => self.hide_tabs = Some(expect_bool(name, value)?),
             "tabs" => {
                 self.vertical_tabs = Some(match expect_str(name, value)? {
                     "side" => true,

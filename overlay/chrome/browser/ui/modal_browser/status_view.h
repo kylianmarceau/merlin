@@ -101,6 +101,9 @@ class StatusHost : public views::ViewObserver {
   void SetSuppressed(bool suppressed);
   // Turns the page card on.
   void SetCardMode(bool on);
+  // With the tabs hidden the page runs edge to edge under the toolbar, still
+  // joined to it with no line.
+  void SetFullBleed(bool on);
   // Running downloads; empty hides the indicator.
   void SetDownloads(std::u16string text);
   // Re-anchors after the browser layout changed (tab strip moved, window
@@ -124,6 +127,7 @@ class StatusHost : public views::ViewObserver {
 
   OverlayHost host_;
   bool card_mode_ = false;
+  bool full_bleed_ = false;
   raw_ptr<StatusView> view_ = nullptr;
   StatusView::State state_;
   bool suppressed_ = false;

@@ -222,6 +222,11 @@ constexpr char kSettingsJs[] = R"JS('use strict';
         row('Tabs', 'A slim sidebar, or a row above the page.',
             segmented([['side', 'Sidebar'], ['top', 'On top']], state.tabs,
                       (v) => send('setTabs', v), 'Tabs')),
+        row('Hide tabs', 'The page fills the window. \u2318S shows or hides them any time.',
+            toggle(boolOption(config.text, 'hide_tabs') ?? false, (v) => {
+              pendingToast = v ? 'Tabs are hidden: \u2318S shows them' : 'Tabs are shown';
+              saveConfig(setOption(config.text, 'hide_tabs', String(v)));
+            }, 'Hide tabs')),
         linkRow('Fonts and page size', 'Typefaces and minimum font size', () => open('fonts'))));
   }
 

@@ -73,6 +73,8 @@ class FakeBrowser : public BrowserOps {
   void SetVerticalTabsDefault(bool vertical) override;
   void SetVerticalTabs(ffi::Switch value) override;
   void SetTabSidebar(ffi::Switch value) override;
+  void SetTabsHiddenDefault(bool hidden) override;
+  void SetTabsHidden(ffi::Switch value) override;
   void ShowMessage(ffi::MessageLevel level, std::string_view text) override;
   void UpdateStatus(ffi::Mode mode,
                     std::string_view indicator,
@@ -165,6 +167,7 @@ class FakeBrowser : public BrowserOps {
 
   // Shell: the default layout, the user's own choice (if any), collapse.
   bool vertical_tabs_default = false;
+  bool tabs_hidden = false;
   int vertical_tabs_user = -1;  // -1 unset, 0 off, 1 on
   bool sidebar_collapsed = false;
   bool vertical_tabs() const {

@@ -376,6 +376,14 @@ void StatusHost::SetCardMode(bool on) {
   Relayout();
 }
 
+void StatusHost::SetFullBleed(bool on) {
+  if (full_bleed_ == on) {
+    return;
+  }
+  full_bleed_ = on;
+  Relayout();
+}
+
 void StatusHost::SetDownloads(std::u16string text) {
   if (state_.downloads == text) {
     return;
@@ -402,11 +410,14 @@ void StatusHost::UpdateCard() {
   if (!mcv) {
     return;
   }
-  const bool card = CardActive();
-  mcv->SetCardInsets(
-      card ? gfx::Insets::TLBR(0, kCardSide, kCardSide, kCardSide)
-           : gfx::Insets(),
-      gfx::RoundedCornersF(0, 0, kCardRadius, kCardRadius));
+  if (!CardActive()) {
+    mcv->SetCardInsets(std::nullopt, gfx::RoundedCornersF());
+  } else if (full_bleed_) {
+    mcv->SetCardInsets(gfx::Insets(), gfx::RoundedCornersF());
+  } else {
+    mcv->SetCardInsets(gfx::Insets::TLBR(0, kCardSide, kCardSide, kCardSide),
+                       gfx::RoundedCornersF(0, 0, kCardRadius, kCardRadius));
+  }
 }
 
 void StatusHost::Apply() {

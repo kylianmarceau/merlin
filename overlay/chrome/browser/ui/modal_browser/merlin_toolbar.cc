@@ -495,6 +495,13 @@ void MerlinToolbarBackdrop::SetColor(std::optional<SkColor> color) {
   }
 }
 
+void MerlinToolbarBackdrop::SetFullBleed(bool on) {
+  if (full_bleed_ != on) {
+    full_bleed_ = on;
+    SchedulePaint();
+  }
+}
+
 void MerlinToolbarBackdrop::AddedToWidget() {
   if (parent() && !observing_) {
     parent()->AddObserver(this);
@@ -521,6 +528,10 @@ void MerlinToolbarBackdrop::OnPaint(gfx::Canvas* canvas) {
   // The top of the page card: as wide as the page under it, with the card's
   // top corners, so toolbar and page read as one surface. The sides show
   // the toolbar's own color, the same color as around the card.
+  if (full_bleed_) {
+    canvas->DrawColor(*color_);
+    return;
+  }
   gfx::Rect card = GetLocalBounds();
   card.Inset(gfx::Insets::VH(0, style::kCardSide));
   const float r = style::kCardRadius;

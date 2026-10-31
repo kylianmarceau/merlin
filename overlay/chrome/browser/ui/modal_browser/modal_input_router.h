@@ -153,6 +153,11 @@ class BrowserOps {
   virtual void SetVerticalTabsDefault(bool vertical) = 0;
   virtual void SetVerticalTabs(ffi::Switch value) = 0;
   virtual void SetTabSidebar(ffi::Switch value) = 0;
+  // Hide the tabs entirely, or show them. The default (config `hide_tabs`)
+  // applies when it changes, so a window toggled with Cmd-S keeps its state
+  // across config reloads that leave it alone.
+  virtual void SetTabsHiddenDefault(bool hidden) = 0;
+  virtual void SetTabsHidden(ffi::Switch value) = 0;
 
   // Status.
   virtual void ShowMessage(ffi::MessageLevel level, std::string_view text) = 0;
@@ -327,6 +332,7 @@ class ModalInputRouter {
 
   ffi::Mode mode() const;
   bool vertical_tabs_default() const;
+  bool hide_tabs_default() const;
   ffi::PaletteState palette_state() const;
 
   // Normal-mode bindings, most useful first, for Merlin Settings.

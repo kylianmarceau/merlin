@@ -134,6 +134,8 @@ mod ffi {
         VerticalTabs,
         /// `setting`: expand or collapse the tab sidebar.
         TabSidebar,
+        /// `setting`: hide the tabs entirely, or show them.
+        HideTabs,
         ShowMessage,
         /// `layout`; `target` says whether `text` is a URL, search or none.
         Split,
@@ -654,6 +656,8 @@ mod ffi {
         fn modal_browsing(self: &Session) -> bool;
         /// Whether tabs should start in a sidebar (config `vertical_tabs`).
         fn vertical_tabs_default(self: &Session) -> bool;
+        /// Whether windows start with their tabs hidden (config `hide_tabs`).
+        fn hide_tabs_default(self: &Session) -> bool;
         /// Normal-mode bindings for Merlin Settings: `title` is the
         /// description, `detail` the command, `value` the keys.
         fn key_bindings(self: &Session) -> Vec<ListItem>;
@@ -930,6 +934,10 @@ impl Session {
 
     fn vertical_tabs_default(&self) -> bool {
         self.inner.config().vertical_tabs
+    }
+
+    fn hide_tabs_default(&self) -> bool {
+        self.inner.config().hide_tabs
     }
 
     fn key_bindings(&self) -> Vec<ListItem> {
@@ -1690,6 +1698,10 @@ impl From<CoreAction> for Action {
             CoreAction::TabSidebar(s) => Action {
                 setting: s.into(),
                 ..Action::simple(K::TabSidebar)
+            },
+            CoreAction::HideTabs(s) => Action {
+                setting: s.into(),
+                ..Action::simple(K::HideTabs)
             },
             CoreAction::ShowMessage { level, text } => Action {
                 level: level.into(),

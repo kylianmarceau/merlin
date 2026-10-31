@@ -144,6 +144,9 @@ class MerlinToolbarBackdrop : public views::View, public views::ViewObserver {
   static MerlinToolbarBackdrop* InstallIn(views::View* toolbar);
 
   void SetColor(std::optional<SkColor> color);
+  // Edge to edge with square corners, over a page with no card (tabs
+  // hidden).
+  void SetFullBleed(bool on);
 
   // views::View:
   void OnPaint(gfx::Canvas* canvas) override;
@@ -155,6 +158,7 @@ class MerlinToolbarBackdrop : public views::View, public views::ViewObserver {
 
  private:
   std::optional<SkColor> color_;
+  bool full_bleed_ = false;
   bool observing_ = false;
 };
 

@@ -341,5 +341,9 @@ Tab bar and page color (decision 38):
 | 53 | Any page in Normal mode | No bar under the page; the page has the same margin on its sides and bottom, rounded bottom corners; nothing over the page |
 | 54 | Click a text field; type `g` in Normal mode; `:help open` | A pill in the page's bottom-left corner: INSERT; NORMAL g with the which-key panel; the help panel above the pill. Each goes away when done |
 | 55 | Start a large download | The pill shows "↓ 1 · n%" until it finishes |
+| 56 | Press Cmd-S on a page, then again | Tabs go (row or sidebar); the toolbar sits beside the traffic lights, the page fills the window under it, the row is the page's color with no line between them. Cmd-S brings the tabs back as they were |
+| 57 | Tabs hidden: drag the empty toolbar space or the space under the traffic lights | The window moves |
+| 58 | Cmd-S in Google Docs or in the Settings config editor | The page saves; the tabs stay. Shift-Cmd-S opens Save Page As |
+| 59 | Settings > Appearance > Hide tabs on; open a new window | Every window hides its tabs; the new one starts hidden. Off brings them back |
 
 Record results with build args, commit and date in this file.

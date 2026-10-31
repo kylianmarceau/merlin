@@ -587,7 +587,7 @@ impl CommandRegistry {
                     .iter()
                     .map(|(n, d)| ((*n).to_string(), (*d).to_string()))
                     .collect(),
-                    "vertical-tabs" | "sidebar" => ["on", "off"]
+                    "vertical-tabs" | "sidebar" | "hide-tabs" => ["on", "off"]
                         .iter()
                         .map(|n| ((*n).to_string(), format!("turn {n}")))
                         .collect(),
@@ -881,6 +881,7 @@ const NOP_USAGE: &str = ":nop";
 const VERTICAL_TABS_USAGE: &str = ":vertical-tabs [on|off]";
 const SET_USAGE: &str = ":set tabs=top|side";
 const SIDEBAR_USAGE: &str = ":sidebar [on|off]";
+const HIDE_TABS_USAGE: &str = ":hide-tabs [on|off]";
 const HELP_USAGE: &str = ":help [command]";
 const SPLIT_USAGE: &str = ":split [url | search terms]";
 const VSPLIT_USAGE: &str = ":vsplit [url | search terms]";
@@ -1314,6 +1315,11 @@ fn cmd_set(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
 fn cmd_sidebar(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
     let switch = switch_arg(inv, SIDEBAR_USAGE)?;
     Ok(Effects::action(Action::TabSidebar(switch)))
+}
+
+fn cmd_hide_tabs(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
+    let switch = switch_arg(inv, HIDE_TABS_USAGE)?;
+    Ok(Effects::action(Action::HideTabs(switch)))
 }
 
 fn cmd_nop(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
@@ -1973,6 +1979,13 @@ fn builtin_specs() -> Vec<CommandSpec> {
             SIDEBAR_USAGE,
             "expand or collapse the tab sidebar",
             cmd_sidebar,
+        ),
+        available(
+            "hide-tabs",
+            &[],
+            HIDE_TABS_USAGE,
+            "hide the tabs, or show them again",
+            cmd_hide_tabs,
         ),
         available("nop", &[], NOP_USAGE, "do nothing", cmd_nop),
         available(

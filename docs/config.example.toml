@@ -30,6 +30,9 @@ auto_insert = true
 # default: a layout you pick in the tab strip's menu or with :vertical-tabs
 # is remembered and wins over this.
 vertical_tabs = true
+# Start with the tabs hidden, the page filling the window. Cmd-S (or
+# :hide-tabs) shows or hides them in the current window.
+hide_tabs = false
 # The key that leaves Passthrough mode (plain <Esc> goes to the site).
 passthrough_exit = "<S-Esc>"
 # Sites with their own keyboard shortcuts: Passthrough starts automatically

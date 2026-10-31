@@ -2150,6 +2150,31 @@ void MerlinTabBar::ExecuteCommand(int command_id, int event_flags) {
 BEGIN_METADATA(MerlinTabBar)
 END_METADATA
 
+// MerlinCaptionFill ---------------------------------------------------------
+
+MerlinCaptionFill::MerlinCaptionFill() {
+  SetProperty(views::kViewIgnoredByLayoutKey, true);
+  SetProperty(views::kHitTestComponentKey, static_cast<int>(HTCAPTION));
+  SetFocusBehavior(FocusBehavior::NEVER);
+  GetViewAccessibility().SetIsIgnored(true);
+}
+
+MerlinCaptionFill::~MerlinCaptionFill() = default;
+
+void MerlinCaptionFill::SetColor(std::optional<SkColor> color) {
+  if (color_ != color) {
+    color_ = color;
+    SchedulePaint();
+  }
+}
+
+void MerlinCaptionFill::OnPaint(gfx::Canvas* canvas) {
+  canvas->DrawColor(color_ ? *color_ : ToolbarColor(this));
+}
+
+BEGIN_METADATA(MerlinCaptionFill)
+END_METADATA
+
 // MerlinTabBarHost ----------------------------------------------------------
 
 MerlinTabBarHost::MerlinTabBarHost(BrowserWindowInterface* browser,
@@ -2159,6 +2184,9 @@ MerlinTabBarHost::MerlinTabBarHost(BrowserWindowInterface* browser,
   bar->SetProperty(views::kViewIgnoredByLayoutKey, true);
   bar->SetVisible(false);
   bar_ = browser_view_->AddChildView(std::move(bar));
+  auto fill = std::make_unique<MerlinCaptionFill>();
+  fill->SetVisible(false);
+  fill_ = browser_view_->AddChildView(std::move(fill));
   Update();
 }
 
@@ -2168,10 +2196,75 @@ MerlinTabBarHost::~MerlinTabBarHost() {
     region_->RemoveObserver(this);
     region_ = nullptr;
   }
+  if (toolbar_) {
+    toolbar_->RemoveObserver(this);
+    toolbar_ = nullptr;
+  }
+  if (fill_) {
+    auto removed = browser_view_->RemoveChildViewT(fill_.get());
+    fill_ = nullptr;
+  }
   if (bar_) {
     auto removed = browser_view_->RemoveChildViewT(bar_.get());
     bar_ = nullptr;
   }
+}
+
+void MerlinTabBarHost::SetTabsHidden(bool hidden) {
+  if (tabs_hidden_ == hidden) {
+    return;
+  }
+  tabs_hidden_ = hidden;
+  Update();
+}
+
+void MerlinTabBarHost::SetPageColor(std::optional<SkColor> color) {
+  if (bar_) {
+    bar_->SetActiveColor(color);
+  }
+  if (fill_) {
+    fill_->SetColor(color);
+  }
+}
+
+void MerlinTabBarHost::WatchToolbar() {
+  views::View* toolbar = browser_view_->toolbar();
+  if (toolbar == toolbar_) {
+    return;
+  }
+  if (toolbar_) {
+    toolbar_->RemoveObserver(this);
+  }
+  toolbar_ = toolbar;
+  if (toolbar_) {
+    toolbar_->AddObserver(this);
+  }
+}
+
+void MerlinTabBarHost::UpdateFill() {
+  if (!fill_) {
+    return;
+  }
+  // From the window's left edge to where the toolbar starts, the toolbar's
+  // height: the space under the window controls.
+  const bool show = tabs_hidden_ && toolbar_ && toolbar_->GetVisible() &&
+                    toolbar_->parent() &&
+                    toolbar_->GetWidget() == browser_view_->GetWidget();
+  if (!show) {
+    fill_->SetVisible(false);
+    return;
+  }
+  const gfx::Rect toolbar = views::View::ConvertRectToTarget(
+      toolbar_->parent(), browser_view_.get(), toolbar_->bounds());
+  if (toolbar.x() <= 0 || toolbar.height() <= 0) {
+    fill_->SetVisible(false);
+    return;
+  }
+  fill_->SetBoundsRect(gfx::Rect(0, toolbar.y(), toolbar.x(), toolbar.height()));
+  if (browser_view_->children().back() != fill_.get()) {
+    browser_view_->ReorderChildView(fill_, browser_view_->children().size());
+  }
+  fill_->SetVisible(true);
 }
 
 void MerlinTabBarHost::Update() {
@@ -2179,6 +2272,12 @@ void MerlinTabBarHost::Update() {
     return;
   }
   base::AutoReset<bool> reentry(&updating_, true);
+  WatchToolbar();
+  UpdateFill();
+  if (tabs_hidden_) {
+    bar_->SetVisible(false);
+    return;
+  }
   auto* sidebar = tabs::VerticalTabStripStateController::From(browser_.get());
   const bool tabs_on_top = !sidebar || !sidebar->ShouldDisplayVerticalTabs();
   // Chromium's strip in use: the row on top, or the sidebar.
@@ -2290,6 +2389,11 @@ void MerlinTabBarHost::OnViewRemovedFromWidget(views::View* observed_view) {
 }
 
 void MerlinTabBarHost::OnViewIsDeleting(views::View* observed_view) {
+  if (observed_view == toolbar_) {
+    toolbar_->RemoveObserver(this);
+    toolbar_ = nullptr;
+    return;
+  }
   if (observed_view == region_) {
     if (bar_) {
       bar_->SetResizeTarget(nullptr);

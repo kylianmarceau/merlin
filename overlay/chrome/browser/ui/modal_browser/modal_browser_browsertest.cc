@@ -930,6 +930,34 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, VerticalTabsCommandAndConfig) {
       << "config never overrides a layout the user picked";
 }
 
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, HideTabsCommandAndConfig) {
+  BrowserView* view = BrowserView::GetBrowserViewForBrowser(browser());
+  ASSERT_TRUE(view->ShouldDrawTabStrip());
+
+  controller()->RunCommandLine("hide-tabs");
+  EXPECT_TRUE(controller()->TabsHidden());
+  EXPECT_FALSE(view->ShouldDrawTabStrip());
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return !view->tab_strip_view() || !view->tab_strip_view()->GetVisible();
+  }));
+
+  // A reload that leaves hide_tabs alone keeps the window's choice.
+  ReloadConfig();
+  EXPECT_TRUE(controller()->TabsHidden());
+
+  controller()->RunCommandLine("hide-tabs off");
+  EXPECT_TRUE(view->ShouldDrawTabStrip());
+
+  // The config's value applies when it changes.
+  WriteConfig("[options]\nhide_tabs = true\n");
+  ReloadConfig();
+  EXPECT_TRUE(controller()->TabsHidden());
+  WriteConfig("[options]\nhide_tabs = false\n");
+  ReloadConfig();
+  EXPECT_FALSE(controller()->TabsHidden());
+  EXPECT_TRUE(view->ShouldDrawTabStrip());
+}
+
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, GsCollapsesAndExpandsSidebar) {
   auto* state = tabs::VerticalTabStripStateController::From(browser());
   ASSERT_TRUE(state->ShouldDisplayVerticalTabs());

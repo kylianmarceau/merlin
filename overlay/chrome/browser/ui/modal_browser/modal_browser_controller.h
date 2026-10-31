@@ -29,6 +29,7 @@
 #include "content/public/browser/editable_level.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
@@ -40,6 +41,10 @@ class LocationBarView;
 
 namespace input {
 struct NativeWebKeyboardEvent;
+}
+
+namespace views {
+class FocusManager;
 }
 
 namespace modal_browser {
@@ -74,7 +79,8 @@ class ModalBrowserController : public BrowserOps,
                                public PaletteDelegate,
                                public TabStripModelObserver,
                                public content::WebContentsObserver,
-                               public download::AllDownloadItemNotifier::Observer {
+                               public download::AllDownloadItemNotifier::Observer,
+                               public ui::AcceleratorTarget {
  public:
   DECLARE_USER_DATA(ModalBrowserController);
 
@@ -98,6 +104,11 @@ class ModalBrowserController : public BrowserOps,
 
   // For Merlin Settings (merlin_settings_page.cc).
   bool TabsInSidebar() const;
+  bool TabsHidden() const { return tabs_hidden_; }
+
+  // ui::AcceleratorTarget (Cmd-S, after the page had its chance):
+  bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
+  bool CanHandleAccelerators() const override;
   // Rereads the config file in every window, after Settings saved it.
   // `announce` also confirms the reload in its status bar; errors show in
   // every window.
@@ -151,6 +162,8 @@ class ModalBrowserController : public BrowserOps,
   void SetVerticalTabsDefault(bool vertical) override;
   void SetVerticalTabs(ffi::Switch value) override;
   void SetTabSidebar(ffi::Switch value) override;
+  void SetTabsHiddenDefault(bool hidden) override;
+  void SetTabsHidden(ffi::Switch value) override;
   void ShowMessage(ffi::MessageLevel level, std::string_view text) override;
   void UpdateStatus(ffi::Mode mode,
                     std::string_view indicator,
@@ -258,6 +271,10 @@ class ModalBrowserController : public BrowserOps,
   // Gives the active tab, the toolbar and what is drawn on it the page's
   // color (nullopt: Merlin's own).
   void ApplyPageColor(std::optional<SkColor> color);
+  // Shows or hides the tabs (tabs_hidden_) everywhere it shows.
+  void ApplyTabsHidden();
+  // Cmd-S on the window's focus manager, once the window has one.
+  void RegisterAccelerators();
   void InstallMerlinToolbar(LocationBarView* location_bar);
   void UpdateMerlinToolbar(content::WebContents* contents, bool start_page);
   void ShowSiteInfo();
@@ -306,6 +323,13 @@ class ModalBrowserController : public BrowserOps,
   base::OneShotTimer sequence_timer_;
   base::CallbackListSubscription tab_layout_subscription_;
   bool toolbar_hidden_ = false;
+  // Tabs hidden entirely (Cmd-S, :hide-tabs, config hide_tabs).
+  bool tabs_hidden_ = false;
+  // The config's hide_tabs as last applied; it applies again only when it
+  // changes.
+  std::optional<bool> tabs_hidden_default_;
+  // The focus manager Cmd-S is registered with.
+  raw_ptr<views::FocusManager> accelerator_focus_manager_ = nullptr;
   // Merlin's own UI is on (not --modal-browser-upstream-defaults).
   bool merlin_ui_ = false;
   // Started after startup; keeps the status bar's download count.

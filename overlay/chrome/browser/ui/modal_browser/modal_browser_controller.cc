@@ -120,6 +120,10 @@
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
+#include "ui/events/event_constants.h"
+#include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/base/accelerators/accelerator_manager.h"
+#include "ui/views/focus/focus_manager.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -429,6 +433,7 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
   // Tabs in a sidebar unless the config or the user says otherwise; the
   // config file can change this default once it has been read.
   SetVerticalTabsDefault(router_.vertical_tabs_default());
+  SetTabsHiddenDefault(router_.hide_tabs_default());
   ApplyConfigToBrowser();
   LoadConfig(/*announce=*/false);
 }
@@ -436,6 +441,11 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
 ModalBrowserController::~ModalBrowserController() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   BrowserctlService::Get().Update(this, false);
+  if (accelerator_focus_manager_ &&
+      accelerator_focus_manager_ == browser_view_->GetFocusManager()) {
+    accelerator_focus_manager_->UnregisterAccelerators(this);
+  }
+  accelerator_focus_manager_ = nullptr;
   // Before the tab strip model and the window go.
   page_color_.reset();
   tab_bar_host_.reset();
@@ -486,6 +496,30 @@ bool ModalBrowserController::PreHandleKeyDown(
 
 std::string ModalBrowserController::RunCommandLine(std::string_view line) {
   return router_.OnCommandLineSubmitted(line, *this);
+}
+
+bool ModalBrowserController::AcceleratorPressed(
+    const ui::Accelerator& accelerator) {
+  SetTabsHidden(ffi::Switch::Toggle);
+  return true;
+}
+
+bool ModalBrowserController::CanHandleAccelerators() const {
+  return true;
+}
+
+void ModalBrowserController::RegisterAccelerators() {
+  views::FocusManager* focus_manager = browser_view_->GetFocusManager();
+  if (!focus_manager || focus_manager == accelerator_focus_manager_) {
+    return;
+  }
+  accelerator_focus_manager_ = focus_manager;
+  // Cmd-S (Ctrl-S elsewhere) hides the tabs, as in Dia. Only after the page
+  // had the key: a site that saves with Cmd-S (Docs, Figma) still does.
+  // Save Page As moves to Shift-Cmd-S (patches/0012).
+  focus_manager->RegisterAccelerator(
+      ui::Accelerator(ui::VKEY_S, ui::EF_PLATFORM_ACCELERATOR),
+      ui::AcceleratorManager::kNormalPriority, this);
 }
 
 bool ModalBrowserController::TabsInSidebar() const {
@@ -784,6 +818,7 @@ void ModalBrowserController::ApplyTabLayout() {
   // it check IsLocationBarVisible(). The toolbar builds the field after this
   // controller, so this runs again on every status update.
   toolbar_hidden_ = status_->card_mode();
+  RegisterAccelerators();
   LocationBarView* location_bar = browser_view_->GetLocationBarView();
   if (!location_bar) {
     return;
@@ -1424,6 +1459,44 @@ void ModalBrowserController::SetVerticalTabs(ffi::Switch value) {
                             ? !state->ShouldDisplayVerticalTabs()
                             : value == ffi::Switch::On;
   state->SetVerticalTabsEnabled(vertical);
+}
+
+void ModalBrowserController::SetTabsHiddenDefault(bool hidden) {
+  if (tabs_hidden_default_ == hidden) {
+    return;
+  }
+  tabs_hidden_default_ = hidden;
+  if (tabs_hidden_ != hidden) {
+    tabs_hidden_ = hidden;
+    ApplyTabsHidden();
+  }
+}
+
+void ModalBrowserController::SetTabsHidden(ffi::Switch value) {
+  const bool hidden = value == ffi::Switch::Toggle ? !tabs_hidden_
+                                                   : value == ffi::Switch::On;
+  if (tabs_hidden_ == hidden) {
+    return;
+  }
+  tabs_hidden_ = hidden;
+  ApplyTabsHidden();
+}
+
+void ModalBrowserController::ApplyTabsHidden() {
+  // Normal windows only; popups and apps have no tabs to hide.
+  if (browser_->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
+    return;
+  }
+  browser_view_->SetTabStripHiddenByEmbedder(tabs_hidden_);
+  if (status_) {
+    status_->SetFullBleed(tabs_hidden_);
+  }
+  if (ToolbarView* toolbar = browser_view_->toolbar()) {
+    MerlinToolbarBackdrop::InstallIn(toolbar)->SetFullBleed(tabs_hidden_);
+  }
+  if (tab_bar_host_) {
+    tab_bar_host_->SetTabsHidden(tabs_hidden_);
+  }
 }
 
 void ModalBrowserController::SetTabSidebar(ffi::Switch value) {
@@ -2734,8 +2807,8 @@ void ModalBrowserController::ObserveActiveContents() {
 
 void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
   page_color_value_ = color;
-  if (tab_bar_host_ && tab_bar_host_->bar()) {
-    tab_bar_host_->bar()->SetActiveColor(color);
+  if (tab_bar_host_) {
+    tab_bar_host_->SetPageColor(color);
   }
   if (ToolbarView* toolbar = browser_view_->toolbar()) {
     MerlinToolbarBackdrop::InstallIn(toolbar)->SetColor(color);

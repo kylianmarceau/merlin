@@ -299,6 +299,8 @@ pub enum Action {
     VerticalTabs(Switch),
     /// Collapse or expand the vertical tab sidebar.
     TabSidebar(Switch),
+    /// Hide the tabs entirely (the row on top or the sidebar), or show them.
+    HideTabs(Switch),
     /// Read the configuration file and pass it to
     /// `ModalSession::load_config`.
     ReloadConfig,
