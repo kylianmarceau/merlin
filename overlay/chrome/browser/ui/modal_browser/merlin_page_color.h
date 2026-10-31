@@ -16,17 +16,16 @@
 
 namespace modal_browser {
 
-// The color along the top edge of the active page, so the active tab and
-// the toolbar can take it and read as one surface with the page (white
-// above a white site, black above a black one), as in Dia.
+// The majority color of the active page, so the active tab and the
+// toolbar can take it and read as one surface with the page (white above
+// a white site, black above a black one), as in Dia.
 //
-// It reads the pixels the page has drawn: a strip one point tall at the
-// top, scaled down, and takes the most common color in it. It reads again
-// when the page loads, paints for the first time, changes its theme or
-// background color, and every few seconds while it stays active (sticky
-// headers change as the page scrolls). The last color is kept per tab, so
-// switching back to a tab shows its color at once. Nothing leaves the
-// browser; see docs/PRIVACY.md.
+// It reads the pixels the page has drawn: the whole page, scaled down,
+// and takes the most common color in it. It reads when the page loads and
+// paints for the first time, then leaves it alone — scrolling does not
+// change the color, so the bar does not flicker as the page moves. The
+// last color is kept per tab, so switching back to a tab shows its color
+// at once. Nothing leaves the browser; see docs/PRIVACY.md.
 class PageColorSampler : public content::WebContentsObserver {
  public:
   // Called with the active page's color, or nullopt when there is none yet
@@ -52,8 +51,6 @@ class PageColorSampler : public content::WebContentsObserver {
   void DidFirstVisuallyNonEmptyPaint() override;
   void DidStopLoading() override;
   void PrimaryPageChanged(content::Page& page) override;
-  void DidChangeThemeColor() override;
-  void OnBackgroundColorChanged() override;
   void WebContentsDestroyed() override;
 
  private:
@@ -65,7 +62,6 @@ class PageColorSampler : public content::WebContentsObserver {
   Callback on_color_;
   std::optional<SkColor> color_;
   base::OneShotTimer soon_;
-  base::RepeatingTimer refresh_;
   bool sampling_ = false;
   base::WeakPtrFactory<PageColorSampler> weak_factory_{this};
 };

@@ -544,13 +544,13 @@ icon tiles in one capsule; open, close and reorder are animated.
   color; a "New tab" row last; rows scroll a whole row at a time when
   they do not fit, and switching tabs scrolls the active one into view.
   A collapsed sidebar shows icons only.
-* Page color: the top edge of the page as drawn (a strip read from the
-  compositor, scaled down), its most common color; nothing when no color
-  clearly dominates (a photo), then the toolbar's own. Read again on
-  load, first paint, theme and background changes and every 2 seconds
-  (sticky headers change on scroll), and kept per tab so switching back
-  shows it at once. Text and icons on it pick light or dark ink by its
-  luminance. See PRIVACY.md.
+* Page color: the majority color of the page as drawn (read from the
+  compositor, scaled down) — the whole page, not just its top edge, so
+  scrolling does not change it and the bar does not flicker as a page
+  moves under a sticky header. Nothing when no color clearly dominates
+  (a photo), then the toolbar's own. Read on load and first paint, then
+  left alone; kept per tab so switching back shows it at once. Text and
+  icons on it pick light or dark ink by its luminance. See PRIVACY.md.
 * How: the bar is a child of `BrowserView` laid over Chromium's strip
   (`MerlinTabBarHost` keeps the bounds equal and follows the switch
   between top and sidebar). Chromium's strip stays in the layout,

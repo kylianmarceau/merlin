@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <utility>
@@ -22,8 +23,10 @@ namespace {
 
 // Short enough to follow a page; long enough not to be noticed.
 constexpr base::TimeDelta kSoonDelay = base::Milliseconds(80);
-constexpr base::TimeDelta kRefreshInterval = base::Seconds(2);
+// The page is sampled whole, scaled down to at most this many points on a
+// side — enough to know its colors, small enough to be cheap.
 constexpr int kSampleWidth = 96;
+constexpr int kSampleHeight = 96;
 
 // The last color read for a tab, kept on its WebContents.
 class LastColor : public base::SupportsUserData::Data {
@@ -53,7 +56,6 @@ void PageColorSampler::Watch(content::WebContents* contents) {
     return;
   }
   Observe(contents);
-  refresh_.Stop();
   soon_.Stop();
   if (!contents) {
     SetColor(std::nullopt);
@@ -69,9 +71,6 @@ void PageColorSampler::Watch(content::WebContents* contents) {
   }
   SetColor(color);
   SampleSoon();
-  refresh_.Start(FROM_HERE, kRefreshInterval,
-                 base::BindRepeating(&PageColorSampler::Sample,
-                                     base::Unretained(this)));
 }
 
 void PageColorSampler::SampleSoon() {
@@ -94,9 +93,12 @@ void PageColorSampler::Sample() {
     return;
   }
   sampling_ = true;
+  // The whole page, scaled down, so the color is the majority of what the
+  // site looks like — not just its top edge, which changes as it scrolls.
+  const int height =
+      std::clamp(size.height() * kSampleWidth / size.width(), 1, kSampleHeight);
   view->CopyFromSurface(
-      gfx::Rect(0, 0, size.width(), 2), gfx::Size(kSampleWidth, 1),
-      base::TimeDelta(),
+      gfx::Rect(size), gfx::Size(kSampleWidth, height), base::TimeDelta(),
       base::BindOnce(&PageColorSampler::OnSampled, weak_factory_.GetWeakPtr(),
                      contents->GetWeakPtr()));
 }
@@ -153,7 +155,7 @@ std::optional<SkColor> PageColorSampler::DominantColor(const SkBitmap& bitmap) {
       best = &bucket;
     }
   }
-  // A strip with no clear background (a photo, a gradient) keeps the bar
+  // A page with no clear background (a photo, a gradient) keeps the bar
   // neutral rather than picking a stripe of it.
   if (!best || best->count * 3 < total) {
     return std::nullopt;
@@ -179,14 +181,6 @@ void PageColorSampler::DidStopLoading() {
 }
 
 void PageColorSampler::PrimaryPageChanged(content::Page& page) {
-  SampleSoon();
-}
-
-void PageColorSampler::DidChangeThemeColor() {
-  SampleSoon();
-}
-
-void PageColorSampler::OnBackgroundColorChanged() {
   SampleSoon();
 }
 
