@@ -43,7 +43,7 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "ui/views/test/button_test_api.h"
@@ -127,7 +127,9 @@
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/views/controls/textfield/textfield.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/test/views_drawing_test_utils.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 
 namespace modal_browser {
@@ -1065,18 +1067,18 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, PageCardAndTabLayout) {
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinMarksReplaceChromiumLogo) {
   // The product logo Settings › About shows (chrome://theme/current-channel-
-  // logo) is the Merlin tile: yellow at the top, the black merlin at the
-  // center. Chromium's logo is white and blue there.
+  // logo) is the Merlin tile: cream at the top, the rust middle feather at
+  // the center. Chromium's logo is white and blue there.
   const gfx::ImageSkia* logo =
       ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
           IDR_PRODUCT_LOGO_32);
   ASSERT_TRUE(logo);
   const SkBitmap& bitmap = logo->GetRepresentation(1.0f).GetBitmap();
   ASSERT_EQ(bitmap.width(), 32);
-  EXPECT_EQ(bitmap.getColor(16, 3), SkColorSetRGB(0xF6, 0xD4, 0x4A));
-  EXPECT_EQ(bitmap.getColor(16, 16), SkColorSetRGB(0x1A, 0x1A, 0x1A));
+  EXPECT_EQ(bitmap.getColor(16, 3), SkColorSetRGB(0xF2, 0xEC, 0xE0));
+  EXPECT_EQ(bitmap.getColor(16, 16), SkColorSetRGB(0xC4, 0x55, 0x2D));
 
-  // chrome://version shows the Merlin wordmark (137 x 32, where Chromium's
+  // chrome://version shows the Merlin wordmark (112 x 32, where Chromium's
   // is 171 x 32) and Merlin's own credit lines.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
                                            GURL(chrome::kChromeUIVersionURL)));
@@ -1086,7 +1088,7 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinMarksReplaceChromiumLogo) 
       "      Math.round(100 * i.naturalWidth / i.naturalHeight) : 0; })()";
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return content::EvalJs(contents(), ratio).ExtractInt() > 0; }));
-  EXPECT_EQ(content::EvalJs(contents(), ratio).ExtractInt(), 428);
+  EXPECT_EQ(content::EvalJs(contents(), ratio).ExtractInt(), 350);
   const std::string header =
       content::EvalJs(contents(),
                       "document.getElementById('company').textContent + ' ' +"
@@ -1340,17 +1342,29 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinToolbarFollowsPage) {
   EXPECT_EQ(field->rest_for_testing(), u"/page");
   EXPECT_TRUE(back->GetEnabled());
 
-  // Clicking it edits the address in the palette.
+  // Clicking it opens the address card, focused with the address selected.
   ui::MouseEvent click(ui::EventType::kMousePressed,
                        field->GetLocalBounds().CenterPoint(),
                        field->GetLocalBounds().CenterPoint(),
                        ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
                        ui::EF_LEFT_MOUSE_BUTTON);
   views::test::ButtonTestApi(field).NotifyClick(click);
-  ASSERT_TRUE(base::test::RunUntil([&] { return palette()->IsVisible(); }));
-  EXPECT_NE(base::UTF16ToUTF8(palette_view()->model().text).find("open http"),
-            std::string::npos);
-  controller()->HidePalette();
+  views::Textfield* address_input = nullptr;
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    address_input = views::AsViewClass<views::Textfield>(
+        view->GetFocusManager()->GetStoredFocusView());
+    return address_input && address_input->GetWidget()->IsVisible();
+  }));
+  EXPECT_FALSE(palette()->IsVisible());
+  EXPECT_NE(address_input->GetText().find(field->host_for_testing()),
+            std::u16string::npos);
+  EXPECT_TRUE(base::EndsWith(address_input->GetText(), u"/page"));
+  EXPECT_EQ(address_input->GetSelectedText(), address_input->GetText());
+  ui::KeyEvent escape(ui::EventType::kKeyPressed, ui::VKEY_ESCAPE, ui::EF_NONE);
+  address_input->OnKeyEvent(&escape);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return !address_input->GetWidget()->IsVisible(); }));
+  ASSERT_TRUE(base::test::RunUntil([&] { return field->GetVisible(); }));
 
   // Its "Not secure" tag opens the site's page info, though Chromium's
   // field (its usual anchor) is hidden.
@@ -1869,7 +1883,9 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, HintsReachIntoIframes) {
   EXPECT_EQ(contents()->GetLastCommittedURL().path(), "/frames");
 
   labels = ShowHints("f");
-  ASSERT_EQ(labels.size(), 3u);
+  // /two uses kPageHtml: its input and contenteditable are both hint
+  // targets, alongside the main link and the same-origin frame's link.
+  ASSERT_EQ(labels.size(), 4u);
   PressLetters(base::UTF16ToUTF8(labels[1]));
   ASSERT_TRUE(base::test::RunUntil([&] {
     content::RenderFrameHost* f = content::ChildFrameAt(contents(), 0);

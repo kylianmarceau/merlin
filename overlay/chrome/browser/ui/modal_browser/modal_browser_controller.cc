@@ -2023,7 +2023,7 @@ void ModalBrowserController::ShowBrowserPage(ffi::BrowserPage page) {
       command = IDC_MANAGE_EXTENSIONS;
       break;
     case ffi::BrowserPage::ReadingMode:
-      command = IDC_SHOW_READING_MODE_SIDE_PANEL;
+      command = IDC_SHOW_READING_MODE;
       break;
     case ffi::BrowserPage::Settings:
     default:

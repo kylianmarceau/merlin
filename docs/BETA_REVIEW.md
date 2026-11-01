@@ -1,9 +1,18 @@
 # Beta readiness review — 2026-10-31
 
-Follow-up: the overlay now contains editor-generation/document guards, sensitive-field
-revalidation, document-scoped colour caching and contrast fixes. These changes
-postdate this review; full browser execution is pending the user-run rebuild.
-See `CHROMIUM_UPDATE.md`. The release and security-rebase gates below remain.
+Follow-up, 2026-11-01: Chromium **157.0.8103.26** now builds, and the complete
+Merlin browser suite passes **67/67**, including the editor and page-colour
+regressions. The four upstream regression suites pass **136/136** with their
+documented per-suite window settings. The overlay contains editor-generation/document guards,
+sensitive-field revalidation, private-window export restrictions,
+document-scoped colour caching and contrast fixes. See `TESTING.md` for the
+build, upstream regression results and validation limits.
+
+The review below records the October 31 source state. Remaining external-beta
+work includes dependable site controls and recording indicators, permission/
+accessibility/extension acceptance, a working signed and notarized release,
+security delivery, and privacy/license review and notices. Updating Chromium
+and passing the automated suites does not close those gates.
 
 Reviewed revision: `c7d4d2d` (`tab page colour majority fix`).
 

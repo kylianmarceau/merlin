@@ -710,11 +710,11 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
           continue;
         }
         base::DictValue item;
-        item.Set("id", base::NumberToString(url->id()));
+        item.Set("id", base::NumberToString(url->id().value()));
         item.Set("name", url->short_name());
         engines.Append(std::move(item));
         if (url == current) {
-          current_engine = base::NumberToString(url->id());
+          current_engine = base::NumberToString(url->id().value());
         }
       }
     }
@@ -882,7 +882,7 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
       return;
     }
     for (TemplateURL* url : service->GetTemplateURLs()) {
-      if (url->id() == id && service->CanMakeDefault(url)) {
+      if (url->id().value() == id && service->CanMakeDefault(url)) {
         service->SetUserSelectedDefaultSearchProvider(url);
         return;
       }

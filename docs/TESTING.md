@@ -1,14 +1,70 @@
 # Testing
 
+## Results, 2026-11-01: Chromium 157 rebase
+
+Chromium **157.0.8103.26**, commit
+`4c20950d2f187a6976cf5e2a1234ca896dcdfd1c`. The live Mac Stable checker
+confirmed this pin on November 1. Overlay: the rebase changes accompanying
+this record, based on `2618ce0` and including the editor/colour fixes.
+
+Host: Apple M2, 16 GB, macOS 27.0.1. `out/Modal` is the arm64 development
+configuration: release component build, DCHECKs enabled, symbol levels zero,
+Merlin branding, proprietary codecs and Widevine disabled. Four compile jobs
+avoided the heavy paging observed with eight jobs on large browser-test files.
+
+| Check | Result |
+|---|---|
+| `gn gen out/Modal`, overlay `gn check` | Passed |
+| `autoninja -C out/Modal -j 4 chrome browser_tests` | Passed; both final targets built |
+| Rust formatting, Clippy with warnings denied, workspace tests | Passed; **231 tests** |
+| Page-script parsing and executable field-safety checks | Passed |
+| Strict sequential patch application to the pinned upstream | **12/12 passed** |
+| `ModalBrowserBrowserTest.*` | **67/67 passed**, including snapshots |
+| `BrowserViewTest`, `BrowserCommandsTest`, `BrowserCommandControllerBrowserTest` | **92/92 passed**, default/restored window bounds |
+| `FindInPageControllerTest.*` | **44/44 passed**, 1280x900 window; upstream total **136/136** |
+| Built app `--version` | `Merlin 157.0.8103.26` |
+| Built app renderer smoke | Passed: JavaScript executed in an isolated headless profile |
+
+The renderer smoke used temporary config, workspace, socket and profile paths,
+and a mock keychain. It did not exercise the developer's everyday profile or
+real keychain. The snapshots test produced 14 PNGs; representative light/dark
+palette captures were inspected.
+
+The editor refusal/recovery, normal editor write-back, page-colour navigation,
+stale callback, neutral-cache and full grey-range contrast cases passed. The
+first native run also exposed three stale expectations from the earlier
+design. Tests now check the checked-in cream/rust fan logo and 112x32 wordmark,
+the address card with selected text and Escape dismissal, and both editable
+targets in the navigated iframe. Product behaviour was preserved.
+
+The upstream find-bar overlap test failed in headless mode's default small
+window and passed with `--window-size=1280,900`. The runner now supplies that
+window for the Find suite, within its 1680x1050 screen. Applying the override
+globally interferes with DevTools' default/restored-size assertions, so the
+BrowserView and command suites keep their normal bounds. Assertions in the
+upstream tests were unchanged. Run these groups separately and sequentially:
+
+```bash
+scripts/run_browser_tests.sh &&
+scripts/run_browser_tests.sh 'BrowserViewTest.*:BrowserCommandsTest.*:BrowserCommandControllerBrowserTest.*' &&
+scripts/run_browser_tests.sh 'FindInPageControllerTest.*'
+```
+
+This validates the component development build. It emitted Objective-C
+duplicate-class warnings for ANGLE/Crashpad and headless display fallback logs.
+A non-component release build, signing/notarization, real keyboard/IME and
+VoiceOver, permission/capture UI, the extension matrix, and upgrade/recovery
+acceptance still need their release checks. See `BETA_REVIEW.md`.
+
 ## 2026-10-31 safety and colour regression additions
 
 `RefusedEditStopsPreviousSession` checks that a denied replacement cannot keep
 the previous editor writing into a new target, and preserves its recovery file.
 `PageColourBucketsAndContrast` covers neutral samples and contrast across every
-grey value. `scripts/check_page_scripts.py` now also executes field-safety
-checks for stale tokens and metadata changing to password/payment/OTP/read-only
-or disabled fields. The new C++ browser tests require a rebuilt browser_tests;
-see `CHROMIUM_UPDATE.md`.
+grey value. `PageColourNavigationAndCache` covers navigation, cached neutral
+results and stale readbacks. `scripts/check_page_scripts.py` also executes
+field-safety checks for stale tokens and metadata changing to password/payment/OTP/read-only
+or disabled fields. These C++ cases are included in the fresh run above.
 
 ## Run everything available today
 
@@ -23,7 +79,7 @@ That runs, in order:
 | `cargo fmt --all -- --check` | formatting |
 | `cargo clippy --workspace --all-targets -- -D warnings` | no lint warnings, including in tests |
 | `cargo test --workspace` | Rust core, bridge mapping, and the C++ harness (below) |
-| `scripts/check_page_scripts.py` | the JavaScript in `page_scripts.cc`, assembled as the C++ does, parses and can run twice in one scope (needs Node; skipped without it) |
+| `scripts/check_page_scripts.py` | the JavaScript in `page_scripts.cc`, assembled as the C++ does, parses, can run twice in one scope, and rejects stale tokens and sensitive/non-editable field changes (needs Node; skipped without it) |
 | `scripts/verify_patches.sh` | all patches apply to the pinned upstream files (needs network); `TAG=<version>` checks another tag |
 
 Not part of `check.sh` (they answer different questions):
@@ -130,7 +186,8 @@ scroll state. Scenarios:
 ```bash
 autoninja -C ~/chromium/src/out/Modal chrome browser_tests
 scripts/run_browser_tests.sh                 # our 45 tests
-scripts/run_browser_tests.sh 'BrowserViewTest.*:BrowserCommandsTest.*:BrowserCommandControllerBrowserTest.*:FindInPageControllerTest.*'
+scripts/run_browser_tests.sh 'BrowserViewTest.*:BrowserCommandsTest.*:BrowserCommandControllerBrowserTest.*' &&
+scripts/run_browser_tests.sh 'FindInPageControllerTest.*'
 ```
 
 `run_browser_tests.sh` runs headless and in the background: it passes
@@ -181,11 +238,11 @@ Not checked by hand: typing in the palette, `v` and `yc` with labels, and a
 real GitHub comment box (the steps need typing into the browser, which the
 checks above could not do; the browser tests cover them).
 
-Phase 2 upstream regression: 135/136 headless (`BrowserViewTest`,
+Historical Phase 2 upstream regression: 135/136 headless (`BrowserViewTest`,
 `BrowserCommandsTest`, `BrowserCommandControllerBrowserTest`,
 `FindInPageControllerTest`); `FindInPageControllerTest.FindMovesWhenObscuring`
-fails only headless (it checks the find bar's window position, which
-headless fakes).
+failed with the old headless window setup. The November 1 results above
+validate it with a sufficiently wide Find-suite window.
 
 Tests install `ui::TestClipboard`, so they never read or change your
 clipboard, and point the config path at a temporary directory, so your own
@@ -269,7 +326,7 @@ Type `keys gg`, `keys! jk<Esc>` (text field focused), `:tabnew docs.rs`,
 |---|---|
 | Rust tests inside Chromium | port `tests/*.rs` to `#[gtest]`, then `autoninja -C out/Modal components_unittests` |
 | Real OS key events and palette focus in an active window | `interactive_ui_tests` case (to be written) |
-| Hints in iframes, at page zoom other than 100% | browser tests to be written |
+| Hints at page zoom other than 100% | browser tests to be written; same-origin and cross-site iframe hints are covered by `HintsReachIntoIframes` |
 
 ### Browser smoke test plan (by hand)
 

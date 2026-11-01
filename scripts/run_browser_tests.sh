@@ -16,6 +16,9 @@
 # Filters other than our own suite also get --modal-browser-upstream-defaults:
 # upstream tests assume Chromium's defaults (tabs on top) and must not read
 # your config.toml.
+# Run FindInPageControllerTest separately: it needs a 1280x900 window for
+# FindMovesWhenObscuring. The BrowserView DevTools size tests must retain
+# default/restored window sizes, so they must not receive that size override.
 #
 # Extra arguments after the filter go to browser_tests.
 set -euo pipefail
@@ -24,6 +27,9 @@ filter="${1:-ModalBrowserBrowserTest.*}"
 shift || true
 extra=()
 [[ "$filter" == ModalBrowserBrowserTest.* ]] || extra+=(--modal-browser-upstream-defaults)
+if [[ "$filter" == FindInPageControllerTest.* ]]; then
+  extra+=(--window-size=1280,900)
+fi
 cd "$CHROMIUM_DIR/src"
 MODAL_TESTS_IN_BACKGROUND=1 exec out/Modal/browser_tests --headless '--screen-info={1680x1050}' ${extra[@]+"${extra[@]}"} \
   --gtest_filter="$filter" --test-launcher-jobs=1 --test-launcher-retry-limit=0 "$@"
