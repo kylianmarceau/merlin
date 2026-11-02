@@ -1,0 +1,155 @@
+diff --git a/third_party/blink/public/platform/url_loader_throttle_provider.h b/third_party/blink/public/platform/url_loader_throttle_provider.h
+--- a/third_party/blink/public/platform/url_loader_throttle_provider.h
++++ b/third_party/blink/public/platform/url_loader_throttle_provider.h
+@@ -19,6 +19,7 @@
+ namespace blink {
+ 
+ class URLLoaderThrottle;
++class BrowserInterfaceBrokerProxy;
+ 
+ enum class URLLoaderThrottleProviderType {
+   // Used for requests from frames. Please note that the requests could be
+@@ -82,6 +83,11 @@
+       base::optional_ref<const LocalFrameToken> local_frame_token,
+       const network::ResourceRequest& request) = 0;
+ 
++  // Called on the worker thread after its own browser broker is available.
++  // A cloned provider must bind against the new worker rather than its parent.
++  virtual void InitializeForWorker(const BrowserInterfaceBrokerProxy&) {}
++  virtual void SetWorkerServiceWorkerControlled(bool controlled) {}
++
+   // Set the network status online state as specified in |is_online|.
+   virtual void SetOnline(bool is_online) = 0;
+ };
+diff --git a/third_party/blink/public/platform/web_worker_fetch_context.h b/third_party/blink/public/platform/web_worker_fetch_context.h
+--- a/third_party/blink/public/platform/web_worker_fetch_context.h
++++ b/third_party/blink/public/platform/web_worker_fetch_context.h
+@@ -36,6 +36,7 @@
+ namespace blink {
+ 
+ class AcceptLanguagesWatcher;
++class BrowserInterfaceBrokerProxy;
+ class WebDocumentSubresourceFilter;
+ class URLLoaderFactory;
+ class WebURLRequest;
+@@ -68,6 +69,7 @@
+   virtual void SetTerminateSyncLoadEvent(base::WaitableEvent*) = 0;
+ 
+   virtual void InitializeOnWorkerThread(AcceptLanguagesWatcher*) = 0;
++  virtual void InitializeThrottleProvider(const BrowserInterfaceBrokerProxy&) {}
+ 
+   // Returns a URLLoaderFactory which is associated with the worker context.
+   // The returned URLLoaderFactory is owned by |this|.
+diff --git a/third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.cc b/third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.cc
+--- a/third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.cc
++++ b/third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.cc
+@@ -392,6 +392,8 @@
+ 
+   DCHECK(!subresource_filter_);
+   web_worker_fetch_context_->InitializeOnWorkerThread(navigator());
++  web_worker_fetch_context_->InitializeThrottleProvider(
++      GetBrowserInterfaceBroker());
+   std::unique_ptr<blink::WebDocumentSubresourceFilter> web_filter =
+       web_worker_fetch_context_->TakeSubresourceFilter();
+   if (web_filter) {
+diff --git a/third_party/blink/renderer/platform/loader/fetch/url_loader/dedicated_or_shared_worker_global_scope_context_impl.h b/third_party/blink/renderer/platform/loader/fetch/url_loader/dedicated_or_shared_worker_global_scope_context_impl.h
+--- a/third_party/blink/renderer/platform/loader/fetch/url_loader/dedicated_or_shared_worker_global_scope_context_impl.h
++++ b/third_party/blink/renderer/platform/loader/fetch/url_loader/dedicated_or_shared_worker_global_scope_context_impl.h
+@@ -111,6 +111,7 @@
+   // WebWorkerFetchContext implementation:
+   void SetTerminateSyncLoadEvent(base::WaitableEvent*) override;
+   void InitializeOnWorkerThread(AcceptLanguagesWatcher*) override;
++  void InitializeThrottleProvider(const BrowserInterfaceBrokerProxy&) override;
+   URLLoaderFactory* GetURLLoaderFactory() override;
+   std::unique_ptr<URLLoaderFactory> WrapURLLoaderFactory(
+       CrossVariantMojoRemote<network::mojom::URLLoaderFactoryInterfaceBase>
+diff --git a/third_party/blink/renderer/platform/loader/fetch/url_loader/dedicated_or_shared_worker_global_scope_context_impl.cc b/third_party/blink/renderer/platform/loader/fetch/url_loader/dedicated_or_shared_worker_global_scope_context_impl.cc
+--- a/third_party/blink/renderer/platform/loader/fetch/url_loader/dedicated_or_shared_worker_global_scope_context_impl.cc
++++ b/third_party/blink/renderer/platform/loader/fetch/url_loader/dedicated_or_shared_worker_global_scope_context_impl.cc
+@@ -394,10 +394,19 @@
+   }
+ }
+ 
++void DedicatedOrSharedWorkerGlobalScopeContextImpl::InitializeThrottleProvider(
++    const BrowserInterfaceBrokerProxy& broker) {
++  if (throttle_provider_)
++    throttle_provider_->InitializeForWorker(broker);
++}
++
+ std::vector<std::unique_ptr<URLLoaderThrottle>>
+ DedicatedOrSharedWorkerGlobalScopeContextImpl::CreateThrottles(
+     const network::ResourceRequest& request) {
+   if (throttle_provider_) {
++    throttle_provider_->SetWorkerServiceWorkerControlled(
++        controller_service_worker_mode_ ==
++            mojom::ControllerServiceWorkerMode::kControlled);
+     return throttle_provider_->CreateThrottles(ancestor_frame_token_, request);
+   }
+   return {};
+diff --git a/chrome/renderer/url_loader_throttle_provider_impl.h b/chrome/renderer/url_loader_throttle_provider_impl.h
+--- a/chrome/renderer/url_loader_throttle_provider_impl.h
++++ b/chrome/renderer/url_loader_throttle_provider_impl.h
+@@ -27,6 +27,7 @@
+ }  // namespace base
+ 
+ class ChromeContentRendererClient;
++namespace merlin_adblock { class WorkerRequestPolicy; }
+ 
+ // Instances must be constructed on the render main thread, and then used and
+ // destructed on a single sequence, which can be different from the render main
+@@ -61,6 +62,8 @@
+       base::optional_ref<const blink::LocalFrameToken> local_frame_token,
+       const network::ResourceRequest& request) override;
+   void SetOnline(bool is_online) override;
++  void InitializeForWorker(const blink::BrowserInterfaceBrokerProxy&) override;
++  void SetWorkerServiceWorkerControlled(bool controlled) override;
+ 
+  private:
+   mojo::PendingRemote<safe_browsing::mojom::SafeBrowsing>
+@@ -95,6 +98,8 @@
+   // provider which was created on the main thread.
+   scoped_refptr<base::SequencedTaskRunner> main_thread_task_runner_;
+ 
++  scoped_refptr<merlin_adblock::WorkerRequestPolicy> worker_policy_;
++  bool worker_controlled_ = false;
+   SEQUENCE_CHECKER(sequence_checker_);
+ };
+ 
+diff --git a/chrome/renderer/url_loader_throttle_provider_impl.cc b/chrome/renderer/url_loader_throttle_provider_impl.cc
+--- a/chrome/renderer/url_loader_throttle_provider_impl.cc
++++ b/chrome/renderer/url_loader_throttle_provider_impl.cc
+@@ -167,6 +167,17 @@
+       main_thread_task_runner_, base::PassKey<URLLoaderThrottleProviderImpl>());
+ }
+ 
++void URLLoaderThrottleProviderImpl::InitializeForWorker(
++    const blink::BrowserInterfaceBrokerProxy& broker) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  worker_policy_ = merlin_adblock::CreateWorkerRequestPolicy(broker);
++}
++void URLLoaderThrottleProviderImpl::SetWorkerServiceWorkerControlled(
++    bool controlled) {
++  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
++  worker_controlled_ = controlled;
++}
++
+ std::vector<std::unique_ptr<blink::URLLoaderThrottle>>
+ URLLoaderThrottleProviderImpl::CreateThrottles(
+     base::optional_ref<const blink::LocalFrameToken> local_frame_token,
+@@ -184,8 +195,15 @@
+ #endif
+ 
+   std::vector<std::unique_ptr<blink::URLLoaderThrottle>> throttles;
+-  if (auto throttle = merlin_adblock::MaybeCreateRequestThrottle(local_frame_token, request, main_thread_task_runner_))
++  if (type_ == blink::URLLoaderThrottleProviderType::kWorker) {
++    if (worker_controlled_ && worker_policy_) {
++      if (auto throttle = worker_policy_->CreateThrottle(request))
++        throttles.emplace_back(std::move(throttle));
++    }
++  } else if (auto throttle = merlin_adblock::MaybeCreateRequestThrottle(
++                 local_frame_token, request, main_thread_task_runner_)) {
+     throttles.emplace_back(std::move(throttle));
++  }
+ 
+   // Some throttles have already been added in the browser for frame resources.
+   // Don't add them for frame requests.

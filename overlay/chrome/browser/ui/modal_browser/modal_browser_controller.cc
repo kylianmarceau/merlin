@@ -30,6 +30,7 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/merlin_adblock/service.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
@@ -44,6 +45,7 @@
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
+#include "chrome/browser/ui/modal_browser/merlin_adblock_button.h"
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -446,6 +448,11 @@ ModalBrowserController::~ModalBrowserController() {
     accelerator_focus_manager_->UnregisterAccelerators(this);
   }
   accelerator_focus_manager_ = nullptr;
+  if (adblock_button_) {
+    auto removed =
+        adblock_button_->parent()->RemoveChildViewT(adblock_button_.get());
+    adblock_button_ = nullptr;
+  }
   // Before the tab strip model and the window go.
   page_color_.reset();
   tab_bar_host_.reset();
@@ -891,6 +898,14 @@ void ModalBrowserController::InstallMerlinToolbar(
           .WithOrder(1));
   field->SetProperty(views::kMarginsKey, gfx::Insets::VH(0, 2));
   address_field_ = row->AddChildViewAt(std::move(field), index++);
+  adblock_button_ = row->AddChildViewAt(
+      std::make_unique<MerlinAdblockButton>(
+          browser_.get(),
+          base::BindRepeating(&ModalBrowserController::OpenUrl,
+                              weak_factory_.GetWeakPtr(),
+                              "chrome://merlin-settings/#adblock",
+                              ffi::OpenDisposition::CurrentTab)),
+      index++);
   toolbar_spacer_right_ = row->AddChildViewAt(flexible(), index);
   address_editor_ = std::make_unique<MerlinAddressEditor>(
       browser_view_, browser_.get(), address_field_,
@@ -912,6 +927,8 @@ void ModalBrowserController::InstallMerlinToolbar(
 void ModalBrowserController::UpdateMerlinToolbar(
     content::WebContents* contents,
     bool start_page) {
+  if (adblock_button_)
+    adblock_button_->Update();
   if (!address_field_) {
     return;
   }
@@ -2037,6 +2054,40 @@ void ModalBrowserController::ShowBrowserPage(ffi::BrowserPage page) {
 
 void ModalBrowserController::RunBrowserCommand(std::string_view name,
                                                std::string_view arg) {
+  if (name == "adblock") {
+    auto* service = merlin_adblock::Service::Get(browser_->GetProfile());
+    if (arg == "on" || arg == "off") {
+      service->SetEnabled(arg == "on");
+      ShowMessage(
+          ffi::MessageLevel::Info,
+          service->Status() + ". Reload the page to apply scriptlet changes.");
+    } else if (arg == "site toggle") {
+      auto* contents = ActiveContents();
+      if (!contents || !contents->GetLastCommittedURL().SchemeIsHTTPOrHTTPS()) {
+        ShowMessage(ffi::MessageLevel::Error,
+                    "Site protection is available on web pages");
+      } else {
+        const bool enabled =
+            service->ToggleSite(contents->GetLastCommittedURL());
+        ShowMessage(ffi::MessageLevel::Info,
+                    std::string(enabled ? "Protection enabled"
+                                        : "Protection disabled") +
+                        " for this site. Reload to apply page changes.");
+      }
+    } else if (arg == "update") {
+      service->Refresh();
+      ShowMessage(ffi::MessageLevel::Info, service->UpdateStatus());
+    } else {
+      auto* contents = ActiveContents();
+      ShowMessage(
+          ffi::MessageLevel::Info,
+          service->Status() + "; " +
+              base::NumberToString(service->Blocked(
+                  contents ? contents->GetPrimaryMainFrame() : nullptr)) +
+              " blocked on this page. " + service->UpdateStatus());
+    }
+    return;
+  }
   if (base::StartsWith(name, "download-")) {
     uint32_t id = 0;
     if (!base::StringToUint(arg, &id)) {
@@ -2891,6 +2942,8 @@ void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
   if (address_field_) {
     address_field_->SetSurface(color);
   }
+  if (adblock_button_)
+    adblock_button_->SetSurface(color);
 }
 
 void ModalBrowserController::PageWorkDone() {

@@ -1,0 +1,132 @@
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -10,6 +10,7 @@
+ #include "chrome/browser/merlin_adblock/network.h"
+ #include "chrome/browser/merlin_adblock/handshake.h"
+ #include "chrome/browser/merlin_adblock/popups.h"
++#include "chrome/browser/merlin_adblock/response_throttle.h"
+ 
+ #include <algorithm>
+ #include <iterator>
+@@ -6306,6 +6307,11 @@
+     result.push_back(std::move(glic_throttle));
+   }
+ 
++  if (auto throttle = merlin_adblock::MaybeCreateResponseThrottle(
++          request, browser_context, wc_getter)) {
++    result.push_back(std::move(throttle));
++  }
++
+   return result;
+ }
+ 
+diff --git a/third_party/blink/common/loader/throttling_url_loader.cc b/third_party/blink/common/loader/throttling_url_loader.cc
+--- a/third_party/blink/common/loader/throttling_url_loader.cc
++++ b/third_party/blink/common/loader/throttling_url_loader.cc
+@@ -955,10 +955,13 @@
+     network::mojom::URLResponseHeadPtr new_response_head,
+     mojo::ScopedDataPipeConsumerHandle body) {
+   DCHECK(response_info_);
+-  DCHECK(!body_);
++  DCHECK(!body || !body_);
+   DCHECK_EQ(DEFERRED_RESPONSE, deferred_stage_);
+   response_info_->response_head = std::move(new_response_head);
+-  body_ = std::move(body);
++  // A null replacement body updates headers while preserving the original
++  // response stream. Interceptors can still supply a body after taking it.
++  if (body)
++    body_ = std::move(body);
+ }
+ 
+ void ThrottlingURLLoader::InterceptResponse(
+diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b/third_party/blink/common/loader/throttling_url_loader_unittest.cc
+--- a/third_party/blink/common/loader/throttling_url_loader_unittest.cc
++++ b/third_party/blink/common/loader/throttling_url_loader_unittest.cc
+@@ -14,6 +14,7 @@
+ #include "base/test/scoped_feature_list.h"
+ #include "base/test/task_environment.h"
+ #include "mojo/public/cpp/bindings/pending_remote.h"
++#include "mojo/public/cpp/system/data_pipe_utils.h"
+ #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+ #include "services/network/public/cpp/features.h"
+ #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+@@ -73,10 +74,10 @@
+     return headers_update_params_.modified_cors_exempt_headers;
+   }
+ 
+-  void NotifyClientOnReceiveResponse() {
++  void NotifyClientOnReceiveResponse(
++      mojo::ScopedDataPipeConsumerHandle body = {}) {
+     client_remote_->OnReceiveResponse(network::mojom::URLResponseHead::New(),
+-                                      mojo::ScopedDataPipeConsumerHandle(),
+-                                      std::nullopt);
++                                      std::move(body), std::nullopt);
+   }
+ 
+   void NotifyClientOnReceiveRedirect() {
+@@ -169,6 +170,11 @@
+     on_received_redirect_callback_ = callback;
+   }
+ 
++  mojo::ScopedDataPipeConsumerHandle TakeResponseBody() {
++    return std::move(response_body_);
++  }
++  const std::string& response_mime() const { return response_mime_; }
++
+   void set_on_received_response_callback(base::OnceClosure callback) {
+     on_received_response_callback_ = std::move(callback);
+   }
+@@ -188,6 +194,8 @@
+       mojo::ScopedDataPipeConsumerHandle body,
+       std::optional<mojo_base::BigBuffer> cached_metadata) override {
+     on_received_response_called_++;
++    response_body_ = std::move(body);
++    response_mime_ = response_head->mime_type;
+     if (on_received_response_callback_)
+       std::move(on_received_response_callback_).Run();
+   }
+@@ -208,6 +216,8 @@
+       std::move(on_complete_callback_).Run(status.error_code);
+   }
+ 
++  mojo::ScopedDataPipeConsumerHandle response_body_;
++  std::string response_mime_;
+   size_t on_received_response_called_ = 0;
+   size_t on_received_redirect_called_ = 0;
+   size_t on_complete_called_ = 0;
+@@ -940,6 +950,34 @@
+       factory_.headers_modified_on_redirect().ToString());
+ }
+ 
++TEST_F(ThrottlingURLLoaderTest, DeferredHeaderUpdatePreservesResponseBody) {
++  base::RunLoop paused;
++  throttle_->set_will_process_response_callback(base::BindLambdaForTesting(
++      [&](URLLoaderThrottle::Delegate*, bool* defer) {
++        *defer = true;
++        paused.Quit();
++      }));
++  CreateLoaderAndStart();
++  mojo::ScopedDataPipeProducerHandle producer;
++  mojo::ScopedDataPipeConsumerHandle consumer;
++  ASSERT_EQ(MOJO_RESULT_OK, mojo::CreateDataPipe(nullptr, producer, consumer));
++  ASSERT_TRUE(mojo::BlockingCopyFromString("preserved response", producer));
++  producer.reset();
++  factory_.NotifyClientOnReceiveResponse(std::move(consumer));
++  paused.Run();
++  EXPECT_EQ(0u, client_.on_received_response_called());
++  auto head = network::mojom::URLResponseHead::New();
++  head->mime_type = "text/html";
++  throttle_->delegate()->UpdateDeferredResponseHead(std::move(head), {});
++  throttle_->delegate()->Resume();
++  base::RunLoop().RunUntilIdle();
++  EXPECT_EQ(1u, client_.on_received_response_called());
++  EXPECT_EQ("text/html", client_.response_mime());
++  std::string body;
++  ASSERT_TRUE(mojo::BlockingCopyToString(client_.TakeResponseBody(), &body));
++  EXPECT_EQ("preserved response", body);
++}
++
+ TEST_F(ThrottlingURLLoaderTest, CancelBeforeResponse) {
+   throttle_->set_will_process_response_callback(base::BindLambdaForTesting(
+       [](blink::URLLoaderThrottle::Delegate* delegate, bool* defer) {

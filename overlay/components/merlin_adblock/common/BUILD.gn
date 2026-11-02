@@ -1,0 +1,23 @@
+import("//mojo/public/tools/bindings/mojom.gni")
+
+source_set("request_types") {
+  sources = [ "request_type.h" ]
+  public_deps = [
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
+    "//third_party/blink/public/mojom:mojom_platform",
+  ]
+}
+
+source_set("features") {
+  sources = [
+    "features.cc",
+    "features.h",
+  ]
+  deps = [ "//base" ]
+}
+
+mojom("mojom") {
+  sources = [ "adblock.mojom" ]
+  public_deps = [ "//url/mojom:url_mojom_gurl" ]
+}

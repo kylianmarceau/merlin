@@ -1,0 +1,53 @@
+diff --git a/chrome/browser/chrome_content_browser_client_receiver_bindings.cc b/chrome/browser/chrome_content_browser_client_receiver_bindings.cc
+--- a/chrome/browser/chrome_content_browser_client_receiver_bindings.cc
++++ b/chrome/browser/chrome_content_browser_client_receiver_bindings.cc
+@@ -13,6 +13,8 @@
+ #include "chrome/browser/chrome_browser_interface_binders.h"
+ #include "chrome/browser/chrome_browser_interface_binders_webui.h"
+ #include "chrome/browser/chrome_content_browser_client.h"
++
++#include "chrome/browser/merlin_adblock/document_host.h"
+ #include "chrome/browser/chrome_content_browser_client_parts.h"
+ #include "chrome/browser/content_settings/content_settings_manager_delegate.h"
+ #include "chrome/browser/facilitated_payments/facilitated_payments_driver_binder.h"
+@@ -348,6 +350,7 @@
+ void ChromeContentBrowserClient::RegisterBrowserInterfaceBindersForFrame(
+     content::RenderFrameHost* render_frame_host,
+     mojo::BinderMapWithContext<content::RenderFrameHost*>* map) {
++  map->Add<merlin_adblock::mojom::AdblockHost>(&merlin_adblock::BindDocumentHost);
+   chrome::internal::PopulateChromeFrameBinders(map, render_frame_host);
+   chrome::internal::PopulateChromeWebUIFrameBinders(map, render_frame_host);
+ 
+diff --git a/chrome/common/chrome_isolated_world_ids.h b/chrome/common/chrome_isolated_world_ids.h
+--- a/chrome/common/chrome_isolated_world_ids.h
++++ b/chrome/common/chrome_isolated_world_ids.h
+@@ -24,6 +24,9 @@
+   ISOLATED_WORLD_ID_APPLESCRIPT,
+ #endif  // BUILDFLAG(IS_MAC)
+ 
++  // Native Merlin cosmetic helpers and ISOLATED scriptlets.
++  ISOLATED_WORLD_ID_MERLIN_ADBLOCK,
++
+   // Numbers for isolated worlds for extensions are set in
+   // extensions/renderer/script_injection.cc, and are are greater than or equal
+   // to this number.
+diff --git a/chrome/android/java/src/org/chromium/chrome/browser/common/ChromeIsolatedWorldIds.java b/chrome/android/java/src/org/chromium/chrome/browser/common/ChromeIsolatedWorldIds.java
+--- a/chrome/android/java/src/org/chromium/chrome/browser/common/ChromeIsolatedWorldIds.java
++++ b/chrome/android/java/src/org/chromium/chrome/browser/common/ChromeIsolatedWorldIds.java
+@@ -24,6 +24,7 @@
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_INDIGO,
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_CHROME_INTERNAL,
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_UNUSED_MAC,
++    ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_MERLIN_ADBLOCK,
+     ChromeIsolatedWorldIds.ISOLATED_WORLD_ID_UNUSED_EXTENSIONS
+ })
+ @Retention(RetentionPolicy.SOURCE)
+@@ -33,6 +34,7 @@
+     int ISOLATED_WORLD_ID_INDIGO = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 2;
+     int ISOLATED_WORLD_ID_CHROME_INTERNAL = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 3;
+     int ISOLATED_WORLD_UNUSED_MAC = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 4;
+-    int ISOLATED_WORLD_ID_UNUSED_EXTENSIONS = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 5;
++    int ISOLATED_WORLD_ID_MERLIN_ADBLOCK = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 5;
++    int ISOLATED_WORLD_ID_UNUSED_EXTENSIONS = IsolatedWorldIds.ISOLATED_WORLD_ID_CONTENT_END + 6;
+ }
+ // LINT.ThenChange(//chrome/common/chrome_isolated_world_ids.h)

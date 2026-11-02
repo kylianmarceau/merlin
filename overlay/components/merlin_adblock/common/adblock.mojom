@@ -1,0 +1,49 @@
+module merlin_adblock.mojom;
+
+import "url/mojom/url.mojom";
+
+enum RequestAction { Allow, Block, Replace, Rewrite };
+struct RequestDecision {
+  RequestAction action;
+  url.mojom.Url rewritten_url;
+};
+
+struct DocumentConfig {
+  string token;
+  string cache_partition;
+  uint64 generation;
+  url.mojom.Url url;
+  bool enabled;
+  bool generichide;
+  bool scripts_allowed = true;
+  array<string> selectors;
+  array<string> procedural;
+  array<string> exceptions;
+  string main_script;
+  string isolated_script;
+};
+
+// Associated with frame commit messages; ack before allowing commit.
+interface AdblockAgent {
+  Prepare(DocumentConfig configuration) => ();
+};
+
+// Browser derives the source origin and top-level exception from the bound RFH.
+interface AdblockHost {
+  GenericSelectors(string token, array<string> classes, array<string> ids)
+      => (array<string> selectors);
+  CheckRequest(url.mojom.Url url, string method, uint8 resource_type)
+      => (RequestDecision decision);
+};
+
+// Bound by a worker's browser-owned broker. Source and exception context never
+// come from the renderer; this covers controlled workers before a SW cache hit.
+interface AdblockWorkerHost {
+  CheckRequest(url.mojom.Url url, string method, uint8 resource_type)
+      => (RequestDecision decision);
+};
+
+// Process scoped so frozen/prerendered frames also see cache invalidations.
+interface AdblockProcess {
+  InvalidateResourceCache() => ();
+};

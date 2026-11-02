@@ -23,10 +23,16 @@
 # Extra arguments after the filter go to browser_tests.
 set -euo pipefail
 CHROMIUM_DIR="${CHROMIUM_DIR:-$HOME/chromium}"
-filter="${1:-ModalBrowserBrowserTest.*}"
+filter="${1:-ModalBrowserBrowserTest.*:MerlinAdblock*BrowserTest.*}"
 shift || true
 extra=()
-[[ "$filter" == ModalBrowserBrowserTest.* ]] || extra+=(--modal-browser-upstream-defaults)
+IFS=: read -r -a suites <<< "$filter"
+for suite in "${suites[@]}"; do
+  if [[ "$suite" != ModalBrowserBrowserTest.* && "$suite" != MerlinAdblock* ]]; then
+    extra+=(--modal-browser-upstream-defaults)
+    break
+  fi
+done
 if [[ "$filter" == FindInPageControllerTest.* ]]; then
   extra+=(--window-size=1280,900)
 fi

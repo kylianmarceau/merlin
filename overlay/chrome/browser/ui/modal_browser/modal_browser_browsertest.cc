@@ -1145,8 +1145,9 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinSettingsReplacesSettings) 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings")));
   ASSERT_TRUE(contents()->GetWebUI()->GetController()->GetAs<MerlinSettingsUI>());
   ASSERT_TRUE(base::test::RunUntil([&] {
-    return content::EvalJs(contents(), "document.querySelectorAll('section').length")
-               .ExtractInt() == 8;
+    return content::EvalJs(contents(),
+                           "document.querySelectorAll('section').length")
+               .ExtractInt() == 9;
   }));
   // No Google account, sync or AI sections. (The search engine list may
   // name Google: it is the user's choice.)
@@ -1155,6 +1156,7 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinSettingsReplacesSettings) 
   EXPECT_EQ(nav.find("Chrome"), std::string::npos) << nav;
   EXPECT_EQ(nav.find("AI"), std::string::npos) << nav;
   EXPECT_NE(nav.find("About Merlin"), std::string::npos);
+  EXPECT_NE(nav.find("Ad blocking"), std::string::npos);
 
   // chrome://settings/help opens on About; sync goes to Merlin Settings.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings/help")));
@@ -1990,6 +1992,27 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NewProfilesReopenTheirSession) {
   ReloadConfig();
   EXPECT_EQ(prefs->GetInteger(prefs::kRestoreOnStartup),
             SessionStartupPref::kPrefValueNewTab);
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       ContentFullscreenRestoresToolbarWithoutCrossingWidgets) {
+  auto* view = BrowserView::GetBrowserViewForBrowser(browser());
+  ASSERT_TRUE(view);
+  EXPECT_EQ(true, content::EvalJs(contents(), R"JS((async()=>{
+    await document.documentElement.requestFullscreen();
+    return !!document.fullscreenElement;
+  })())JS"));
+  EXPECT_EQ(true, content::EvalJs(contents(), R"JS((async()=>{
+    await document.exitFullscreen();
+    return !document.fullscreenElement;
+  })())JS"));
+  ASSERT_TRUE(
+      base::test::RunUntil([&] { return !view->GetWidget()->IsFullscreen(); }));
+  view->GetWidget()->LayoutRootViewIfNecessary();
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return view->toolbar()->parent() && view->Contains(view->toolbar());
+  }));
+  EXPECT_TRUE(contents()->GetPrimaryMainFrame()->IsRenderFrameLive());
 }
 
 }  // namespace modal_browser

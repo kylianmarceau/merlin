@@ -12,16 +12,20 @@
 #include <utility>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/no_destructor.h"
 #include "base/memory/weak_ptr.h"
+#include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/timer/timer.h"
 #include "base/values.h"
 #include "base/version_info/version_info.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/merlin_adblock/service.h"
+#include "chrome/browser/merlin_adblock/updater.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -34,6 +38,7 @@
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/common/pref_names.h"
+#include "components/merlin_adblock/common/features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/prefs/pref_service.h"
@@ -64,7 +69,8 @@ namespace modal_browser {
 
 namespace {
 
-constexpr int kZoomChoices[] = {50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200};
+constexpr int kZoomChoices[] = {50,  67,  75,  80,  90, 100,
+                                110, 125, 150, 175, 200};
 
 // Chromium pages Settings links to, for what Merlin does not reimplement.
 const std::map<std::string, std::string>& Links() {
@@ -132,7 +138,8 @@ constexpr char kIndexHtml[] = R"HTML(<!doctype html>
 </html>
 )HTML";
 
-constexpr char kSettingsCss[] = R"CSS(.frame { display: flex; min-height: 100vh; }
+constexpr char kSettingsCss[] =
+    R"CSS(.frame { display: flex; min-height: 100vh; }
 .side {
   width: 220px; flex-shrink: 0; padding: 40px 14px 24px 24px; position: sticky; top: 0; height: 100vh;
   display: flex; flex-direction: column; gap: 18px;
@@ -192,10 +199,10 @@ constexpr char kSettingsJs[] = R"JS('use strict';
   const {$, el, row, linkRow, group, toggle, segmented, select, button, toast} = K;
   const SECTIONS = [
     ['appearance', 'Appearance'], ['keys', 'Keys'], ['browsing', 'Browsing'],
-    ['workspaces', 'Workspaces'], ['privacy', 'Privacy'], ['passwords', 'Passwords and autofill'],
+    ['workspaces', 'Workspaces'], ['adblock', 'Ad blocking'], ['privacy', 'Privacy'], ['passwords', 'Passwords and autofill'],
     ['extensions', 'Extensions'], ['about', 'About Merlin'],
   ];
-  const MERLIN_ONLY = ['keys', 'browsing', 'workspaces', 'about'];
+  const MERLIN_ONLY = ['keys', 'browsing', 'workspaces', 'adblock', 'about'];
   let state = null;
   let config = {found: false, text: '', error: '', path: ''};
 
@@ -407,6 +414,47 @@ constexpr char kSettingsJs[] = R"JS('use strict';
     return g;
   }
 
+  function adblock() {
+    const a = state.adblock;
+    if (!a) return section('adblock', 'Ad blocking', 'Loading protection settings.');
+    const protect = toggle(a.enabled, v => send('setAdblock', v), 'Native ad blocking');
+    protect.id = 'adblock-enabled'; protect.disabled = !a.available;
+    const automatic = toggle(a.automatic, v => send('setAdblockUpdates', v), 'Automatic filter updates');
+    automatic.id = 'adblock-updates'; automatic.disabled = !a.available || a.private;
+    const refresh = button('Refresh now', 'btn', () => send('refreshAdblock'));
+    refresh.id = 'adblock-refresh'; refresh.disabled = !a.available || a.private;
+    const status = el('p', 'note', a.status); status.id = 'adblock-status';
+    const update = el('p', 'note', a.updateStatus); update.id = 'adblock-update-status';
+    const last = el('p', 'note', a.lastUpdate ? 'Last successful update: ' + new Date(a.lastUpdate * 1000).toLocaleString() : 'Initial lists are bundled for offline use.');
+    last.id = 'adblock-last-update';
+    const listRows = [
+      ['easylist', 'EasyList', 'Advertising request and page-element rules.'],
+      ['easyprivacy', 'EasyPrivacy', 'Tracking request rules.'],
+      ['ublock', 'uBlock compatibility filters', 'Scriptlets, quick fixes, privacy and site recovery rules.'],
+      ['brave', 'Brave compatibility filters', 'Vetted Brave-specific fixes and unbreak rules.'],
+    ].map(([id, name, description]) => {
+      const control = toggle(a.groups.includes(id), enabled => {
+        const groups = new Set(a.groups); enabled ? groups.add(id) : groups.delete(id);
+        send('setAdblockLists', [...groups]);
+      }, name);
+      control.id = 'adblock-list-' + id; control.disabled = !a.available;
+      return row(name, description, control);
+    });
+    const exceptions = a.exceptions.map(host => {
+      const remove = button('Remove exception', 'btn', () => send('removeAdblockException', host));
+      remove.id = 'adblock-remove-' + host;
+      return row(host, 'Protection is disabled only for this exact top-level hostname.', remove);
+    });
+    return section('adblock', 'Ad blocking', 'Native protection works independently of modal browsing.',
+      group(row('Native ad blocking', a.available ? 'Block advertising and tracking requests.' : 'Native protection is unavailable in this build.', protect)),
+      status, sub('Filter lists'), group(...listRows),
+      group(row('Automatic list updates', 'Checks run in the background with source expiry and retry backoff.', automatic),
+            row('Refresh selected lists', a.private ? 'Private windows use existing lists; updates run in a normal profile.' : 'Executable scriptlets update only with Merlin releases.', refresh)),
+      update, last, sub('Site exceptions'), group(...(exceptions.length ? exceptions : [row('No site exceptions', 'Use the ad blocking button on a web page to add an exception.')])),
+      el('p', 'note', 'Reload open pages after changing protection to apply or remove page hooks.'),
+      ...(a.private ? [el('p', 'note', 'Changes in this private window stay in memory.')] : []));
+  }
+
   function privacy() {
     return section('privacy', 'Privacy', '',
       group(
@@ -496,7 +544,7 @@ constexpr char kSettingsJs[] = R"JS('use strict';
     const s = $('sections');
     s.replaceChildren(appearance(), keys(), browsing(),
                       section('workspaces', 'Workspaces', 'Saved windows: tabs, splits and projects.', workspaces(lastWorkspaces)),
-                      privacy(), passwords(), extensions(), about());
+                      adblock(), privacy(), passwords(), extensions(), about());
     if (draft !== null) $('config').value = draft;
     filter();
     window.scrollTo(0, scroll);
@@ -527,12 +575,28 @@ constexpr char kSettingsJs[] = R"JS('use strict';
   }
 
   window.merlinPage = {
+    adblock(data) {
+      if (!state) return;
+      const previous = state.adblock;
+      state.adblock = data;
+      const policy = a => JSON.stringify([a.available, a.enabled, a.automatic, a.private, a.groups, a.exceptions]);
+      const old = $('adblock');
+      if (old && (!previous || policy(previous) !== policy(data))) {
+        const active = old.contains(document.activeElement) ? document.activeElement.id : '';
+        old.replaceWith(adblock());
+        if (active && $(active)) $(active).focus();
+        filter();
+      }
+      if ($('adblock-status')) $('adblock-status').textContent = data.status;
+      if ($('adblock-update-status')) $('adblock-update-status').textContent = data.updateStatus;
+      if ($('adblock-last-update')) $('adblock-last-update').textContent = data.lastUpdate ? 'Last successful update: ' + new Date(data.lastUpdate * 1000).toLocaleString() : 'Initial lists are bundled for offline use.';
+    },
     render(data) {
       state = data;
       render();
       if (first) {
         first = false;
-        let id = location.pathname.replace(/^\/+|\/+$/g, '');
+        let id = location.hash.slice(1) || location.pathname.replace(/^\/+|\/+$/g, '');
         if (id === 'help') id = 'about';
         renderNav(SECTIONS.some(([s]) => s === id) ? id : 'appearance');
         if (id) go(id, false);
@@ -617,9 +681,8 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
   ~MerlinSettingsHandler() override = default;
 
   void RegisterMessages() override {
-    auto on = [this](const char* name,
-                     void (MerlinSettingsHandler::*method)(
-                         const base::ListValue&)) {
+    auto on = [this](const char* name, void (MerlinSettingsHandler::*method)(
+                                           const base::ListValue&)) {
       web_ui()->RegisterMessageCallback(
           name, base::BindRepeating(method, base::Unretained(this)));
     };
@@ -639,6 +702,12 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
     on("deleteWorkspace", &MerlinSettingsHandler::OnDeleteWorkspace);
     on("saveConfig", &MerlinSettingsHandler::OnSaveConfig);
     on("openPage", &MerlinSettingsHandler::OnOpenPage);
+    on("setAdblock", &MerlinSettingsHandler::OnSetAdblock);
+    on("setAdblockUpdates", &MerlinSettingsHandler::OnSetAdblockUpdates);
+    on("setAdblockLists", &MerlinSettingsHandler::OnSetAdblockLists);
+    on("refreshAdblock", &MerlinSettingsHandler::OnRefreshAdblock);
+    on("removeAdblockException",
+       &MerlinSettingsHandler::OnRemoveAdblockException);
   }
 
  private:
@@ -662,6 +731,68 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
     SendState();
     SendConfig();
     SendWorkspaces();
+    adblock_timer_.Start(
+        FROM_HERE, base::Seconds(1),
+        base::BindRepeating(&MerlinSettingsHandler::SendAdblockState,
+                            weak_factory_.GetWeakPtr()));
+  }
+
+  base::DictValue AdblockState() {
+    auto* service = merlin_adblock::Service::Get(profile());
+    base::DictValue data;
+    data.Set("available",
+             base::FeatureList::IsEnabled(merlin_adblock::kMerlinAdblock));
+    data.Set("enabled", prefs()->GetBoolean(merlin_adblock::kEnabledPref));
+    data.Set("automatic", prefs()->GetBoolean(merlin_adblock::kUpdatesPref));
+    data.Set("private", profile()->IsOffTheRecord());
+    data.Set("status", service->Status());
+    data.Set("updateStatus", service->UpdateStatus());
+    data.Set("lastUpdate", prefs()->GetDouble(merlin_adblock::kLastUpdatePref));
+    base::ListValue groups, exceptions;
+    for (const auto& group : service->Groups())
+      groups.Append(group);
+    for (const auto& host : service->Exceptions())
+      exceptions.Append(host);
+    data.Set("groups", std::move(groups));
+    data.Set("exceptions", std::move(exceptions));
+    return data;
+  }
+  void SendAdblockState() {
+    if (IsJavascriptAllowed() && web_ui()->GetWebContents()->GetVisibility() !=
+                                     content::Visibility::HIDDEN)
+      CallJavascriptFunction("merlinPage.adblock", AdblockState());
+  }
+  void OnSetAdblock(const base::ListValue& args) {
+    if (auto enabled = BoolArg(args))
+      merlin_adblock::Service::Get(profile())->SetEnabled(*enabled);
+    SendAdblockState();
+  }
+  void OnSetAdblockUpdates(const base::ListValue& args) {
+    if (!profile()->IsOffTheRecord())
+      if (auto enabled = BoolArg(args))
+        prefs()->SetBoolean(merlin_adblock::kUpdatesPref, *enabled);
+    SendAdblockState();
+  }
+  void OnSetAdblockLists(const base::ListValue& args) {
+    if (args.size() != 1 || !args[0].is_list())
+      return;
+    std::vector<std::string> groups;
+    for (const auto& group : args[0].GetList()) {
+      if (!group.is_string())
+        return;
+      groups.push_back(group.GetString());
+    }
+    merlin_adblock::Service::Get(profile())->SetGroups(std::move(groups));
+    SendAdblockState();
+  }
+  void OnRefreshAdblock(const base::ListValue&) {
+    merlin_adblock::Service::Get(profile())->Refresh();
+    SendAdblockState();
+  }
+  void OnRemoveAdblockException(const base::ListValue& args) {
+    if (const auto* host = StringArg(args))
+      merlin_adblock::Service::Get(profile())->SetException(*host, false);
+    SendAdblockState();
   }
 
   void SendState() {
@@ -669,11 +800,12 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
       return;
     }
     base::DictValue data;
+    data.Set("adblock", AdblockState());
     ModalBrowserController* controller = ControllerForWebUI(web_ui());
 
     ThemeService* theme = ThemeServiceFactory::GetForProfile(profile());
-    data.Set("theme", theme ? static_cast<int>(theme->GetBrowserColorScheme())
-                            : 0);
+    data.Set("theme",
+             theme ? static_cast<int>(theme->GetBrowserColorScheme()) : 0);
     data.Set("tabs",
              controller && !controller->TabsInSidebar() ? "top" : "side");
 
@@ -724,42 +856,42 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
 
     const SessionStartupPref startup =
         SessionStartupPref::GetStartupPref(profile());
-    data.Set("startup", startup.type == SessionStartupPref::LAST ||
-                                startup.type == SessionStartupPref::LAST_AND_URLS
-                            ? "last"
-                            : "start");
+    data.Set("startup",
+             startup.type == SessionStartupPref::LAST ||
+                     startup.type == SessionStartupPref::LAST_AND_URLS
+                 ? "last"
+                 : "start");
 
     double level = 0;
     if (ChromeZoomLevelPrefs* zoom = profile()->GetZoomLevelPrefs()) {
       level = zoom->GetDefaultZoomLevelPref();
     }
-    data.Set("zoom",
-             static_cast<int>(std::lround(
-                 blink::ZoomLevelToZoomFactor(level) * 100)));
+    data.Set("zoom", static_cast<int>(std::lround(
+                         blink::ZoomLevelToZoomFactor(level) * 100)));
     base::ListValue zoom_choices;
     for (int z : kZoomChoices) {
       zoom_choices.Append(z);
     }
     data.Set("zoomChoices", std::move(zoom_choices));
 
-    data.Set("downloadDir",
-             prefs()->GetFilePath(prefs::kDownloadDefaultDirectory)
-                 .AsUTF8Unsafe());
+    data.Set(
+        "downloadDir",
+        prefs()->GetFilePath(prefs::kDownloadDefaultDirectory).AsUTF8Unsafe());
     data.Set("askWhere", prefs()->GetBoolean(prefs::kPromptForDownload));
     // Memory and Energy Saver are machine-wide (local state).
     namespace tuning = performance_manager::user_tuning::prefs;
     PrefService* local = g_browser_process->local_state();
-    data.Set("memorySaver",
-             local && local->GetInteger(tuning::kMemorySaverModeState) ==
-                          static_cast<int>(
-                              tuning::MemorySaverModeState::kEnabled));
+    data.Set(
+        "memorySaver",
+        local && local->GetInteger(tuning::kMemorySaverModeState) ==
+                     static_cast<int>(tuning::MemorySaverModeState::kEnabled));
     data.Set("energySaver",
              local && local->GetInteger(tuning::kBatterySaverModeState) !=
                           static_cast<int>(
                               tuning::BatterySaverModeState::kDisabled));
-    data.Set("savePasswords", prefs()->GetBoolean(
-                                  password_manager::prefs::
-                                      kCredentialsEnableService));
+    data.Set("savePasswords",
+             prefs()->GetBoolean(
+                 password_manager::prefs::kCredentialsEnableService));
     data.Set("extensions", Extensions());
 
     base::DictValue about;
@@ -794,11 +926,9 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
       item.Set("name", ext->name());
       item.Set("version", ext->VersionString());
       item.Set("enabled", registry->enabled_extensions().Contains(ext->id()));
-      item.Set("canToggle", !policy ||
-                                (policy->UserMayModifySettings(ext.get(),
-                                                               nullptr) &&
-                                 !policy->MustRemainEnabled(ext.get(),
-                                                            nullptr)));
+      item.Set("canToggle",
+               !policy || (policy->UserMayModifySettings(ext.get(), nullptr) &&
+                           !policy->MustRemainEnabled(ext.get(), nullptr)));
       list.Append(std::move(item));
     }
     return list;
@@ -822,19 +952,18 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
   }
 
   void SendWorkspaces() {
-    workspace_store::List(base::BindOnce(
-        &MerlinSettingsHandler::OnWorkspacesListed,
-        weak_factory_.GetWeakPtr()));
+    workspace_store::List(
+        base::BindOnce(&MerlinSettingsHandler::OnWorkspacesListed,
+                       weak_factory_.GetWeakPtr()));
   }
 
   void OnWorkspacesListed(std::vector<workspace_store::Entry> entries) {
     if (!IsJavascriptAllowed()) {
       return;
     }
-    std::sort(entries.begin(), entries.end(),
-              [](const auto& a, const auto& b) {
-                return a.modified > b.modified;
-              });
+    std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b) {
+      return a.modified > b.modified;
+    });
     base::ListValue list;
     for (const workspace_store::Entry& e : entries) {
       base::DictValue item;
@@ -895,8 +1024,8 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
       return;
     }
     SessionStartupPref pref = SessionStartupPref::GetStartupPref(profile());
-    pref.type =
-        *value == "last" ? SessionStartupPref::LAST : SessionStartupPref::DEFAULT;
+    pref.type = *value == "last" ? SessionStartupPref::LAST
+                                 : SessionStartupPref::DEFAULT;
     SessionStartupPref::SetStartupPref(profile(), pref);
   }
 
@@ -916,9 +1045,9 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
   }
 
   void OnChooseDownloadDir(const base::ListValue& args) {
-    picker_ = std::make_unique<FolderPicker>(base::BindOnce(
-        &MerlinSettingsHandler::OnDownloadDirChosen,
-        weak_factory_.GetWeakPtr()));
+    picker_ = std::make_unique<FolderPicker>(
+        base::BindOnce(&MerlinSettingsHandler::OnDownloadDirChosen,
+                       weak_factory_.GetWeakPtr()));
     picker_->Show(web_ui()->GetWebContents(),
                   prefs()->GetFilePath(prefs::kDownloadDefaultDirectory));
   }
@@ -1024,9 +1153,9 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
     if (!text) {
       return;
     }
-    config_file::Write(*text, base::BindOnce(
-                                  &MerlinSettingsHandler::OnConfigWritten,
-                                  weak_factory_.GetWeakPtr()));
+    config_file::Write(*text,
+                       base::BindOnce(&MerlinSettingsHandler::OnConfigWritten,
+                                      weak_factory_.GetWeakPtr()));
   }
 
   void OnConfigWritten(std::string error) {
@@ -1058,6 +1187,7 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
   }
 
   std::unique_ptr<FolderPicker> picker_;
+  base::RepeatingTimer adblock_timer_;
   base::WeakPtrFactory<MerlinSettingsHandler> weak_factory_{this};
 };
 

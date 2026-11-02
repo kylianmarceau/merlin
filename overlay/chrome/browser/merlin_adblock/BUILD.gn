@@ -1,0 +1,84 @@
+source_set("merlin_adblock") {
+  sources = [
+    "cache.cc",
+    "cache.h",
+    "context.cc",
+    "context.h",
+    "document_host.cc",
+    "document_host.h",
+    "evaluator.cc",
+    "evaluator.h",
+    "handshake.cc",
+    "handshake.h",
+    "integration.cc",
+    "integration.h",
+    "network.cc",
+    "network.h",
+    "popups.cc",
+    "popups.h",
+    "response_throttle.cc",
+    "response_throttle.h",
+    "service.cc",
+    "service.h",
+    "updater.cc",
+    "updater.h",
+    "worker_host.cc",
+    "worker_host.h",
+  ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//components/keyed_service/content",
+    "//components/keyed_service/core",
+    "//components/merlin_adblock/common:mojom",
+    "//content/public/browser",
+  ]
+  deps = [
+    "//chrome/browser/content_settings:content_settings_factory",
+    "//components/content_settings/core/browser",
+    "//components/content_settings/core/common",
+    "//components/merlin_adblock/common:features",
+    "//components/merlin_adblock/common:request_types",
+    "//components/merlin_adblock/ffi:merlin_adblock_ffi",
+    "//components/merlin_adblock/resources",
+    "//components/pref_registry",
+    "//components/prefs",
+    "//components/user_prefs",
+    "//crypto",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//net",
+    "//services/network/public/cpp",
+    "//services/network/public/mojom",
+    "//third_party/blink/public/common:headers",
+    "//url",
+  ]
+}
+
+source_set("browser_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [ "adblock_browsertest.cc" ]
+  deps = [
+    ":merlin_adblock",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser",
+    "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/modal_browser",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/common",
+    "//chrome/test:test_support",
+    "//components/content_settings/core/browser",
+    "//components/content_settings/core/common",
+    "//components/merlin_adblock/common:features",
+    "//components/merlin_adblock/resources",
+    "//content/test:test_support",
+    "//net:test_support",
+    "//testing/gtest",
+    "//ui/menus",
+    "//ui/views",
+  ]
+}

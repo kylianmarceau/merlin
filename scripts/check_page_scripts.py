@@ -114,6 +114,15 @@ assert.equal(write('old', 'stale save'), false);
 assert.equal(active.value, 'draft');
 """
 
+# These scripts are delivered by WebUI or the native isolated-world agent.
+settings = SRC.with_name("merlin_settings_page.cc").read_text()
+match = re.search(r'constexpr char kSettingsJs\[\] = R"JS\((.*?)\)JS";', settings, re.S)
+if not match:
+    sys.exit("kSettingsJs not found")
+cases["Merlin settings"] = match.group(1)
+cosmetics = SRC.parents[3] / "renderer/merlin_adblock/cosmetics.js"
+cases["native cosmetics"] = cosmetics.read_text().replace("MERLIN_PROCEDURAL_RULES", "[]")
+
 failed = False
 with tempfile.TemporaryDirectory() as d:
     for name, js in cases.items():

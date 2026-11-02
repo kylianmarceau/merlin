@@ -2304,7 +2304,12 @@ void MerlinTabBarHost::Update() {
     return;
   }
   views::View* toolbar = browser_view_->toolbar();
-  const bool toolbar_shown = toolbar && toolbar->GetVisible();
+  // During a macOS content-fullscreen transition, the strip may already be
+  // back here while the toolbar still belongs to the overlay widget. Coordinate
+  // conversion is valid only after both views share this hierarchy again.
+  const bool toolbar_shown = toolbar && toolbar->GetVisible() &&
+                             toolbar->parent() &&
+                             browser_view_->Contains(toolbar);
   const int toolbar_top =
       toolbar_shown ? static_cast<int>(views::View::ConvertRectToTarget(
                                            toolbar->parent(), browser_view_,

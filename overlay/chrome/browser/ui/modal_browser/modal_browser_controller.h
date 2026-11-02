@@ -49,6 +49,7 @@ class FocusManager;
 }
 
 namespace modal_browser {
+class MerlinAdblockButton;
 
 // Keeps Chromium's own defaults for the UI the fork changes (tabs on top)
 // and skips the user's config file. For running upstream test suites, which
@@ -244,6 +245,7 @@ class ModalBrowserController : public BrowserOps,
   std::string workspace_for_testing() const { return router_.workspace(); }
   ExternalEditor* field_editor_for_testing() { return field_editor_.get(); }
   MerlinAddressField* address_field_for_testing() { return address_field_; }
+  MerlinAdblockButton* adblock_button_for_testing() { return adblock_button_; }
   MerlinTabBarHost* tab_bar_host_for_testing() { return tab_bar_host_.get(); }
   MerlinNavButton* back_button_for_testing() { return back_button_; }
   // Called after page-side work (hint collection, activation) finishes.
@@ -345,6 +347,7 @@ class ModalBrowserController : public BrowserOps,
   raw_ptr<MerlinNavButton> forward_button_ = nullptr;
   raw_ptr<MerlinNavButton> reload_button_ = nullptr;
   raw_ptr<MerlinAddressField> address_field_ = nullptr;
+  raw_ptr<MerlinAdblockButton> adblock_button_ = nullptr;
   // Swaps Chromium's field in while the address is edited.
   std::unique_ptr<MerlinAddressEditor> address_editor_;
   // Merlin's tab bar over Chromium's, with tabs on top.

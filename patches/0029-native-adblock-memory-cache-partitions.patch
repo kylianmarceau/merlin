@@ -1,0 +1,284 @@
+diff --git a/third_party/blink/public/platform/browser_resource_cache_policy.h b/third_party/blink/public/platform/browser_resource_cache_policy.h
+new file mode 100644
+--- /dev/null
++++ b/third_party/blink/public/platform/browser_resource_cache_policy.h
+@@ -0,0 +1,13 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef THIRD_PARTY_BLINK_PUBLIC_PLATFORM_BROWSER_RESOURCE_CACHE_POLICY_H_
++#define THIRD_PARTY_BLINK_PUBLIC_PLATFORM_BROWSER_RESOURCE_CACHE_POLICY_H_
++#include "third_party/blink/public/platform/web_common.h"
++namespace blink {
++// Optional browser-owned request policies must also partition decoded resource
++// reuse by client context and invalidate it when their settings/rules change.
++BLINK_PLATFORM_EXPORT void SetBrowserResourceCachePolicyEnabled(bool enabled);
++BLINK_PLATFORM_EXPORT void InvalidateBrowserResourceCachePolicy();
++}
++#endif
+diff --git a/third_party/blink/public/web/web_resource_cache_policy.h b/third_party/blink/public/web/web_resource_cache_policy.h
+new file mode 100644
+--- /dev/null
++++ b/third_party/blink/public/web/web_resource_cache_policy.h
+@@ -0,0 +1,13 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_RESOURCE_CACHE_POLICY_H_
++#define THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_RESOURCE_CACHE_POLICY_H_
++#include "third_party/blink/public/platform/web_common.h"
++namespace blink {
++class WebLocalFrame;
++class WebString;
++BLINK_EXPORT void SetBrowserResourceCachePartition(WebLocalFrame& frame,
++                                                  const WebString& partition);
++}
++#endif
+diff --git a/third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.h b/third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.h
+new file mode 100644
+--- /dev/null
++++ b/third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.h
+@@ -0,0 +1,17 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_LOADER_FETCH_BROWSER_RESOURCE_CACHE_POLICY_H_
++#define THIRD_PARTY_BLINK_RENDERER_PLATFORM_LOADER_FETCH_BROWSER_RESOURCE_CACHE_POLICY_H_
++#include "third_party/blink/renderer/platform/platform_export.h"
++#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
++namespace blink {
++class ResourceFetcher;
++class KURL;
++PLATFORM_EXPORT void SetBrowserResourceFetcherPartition(
++    const ResourceFetcher& fetcher, const String& partition);
++String BrowserResourceCacheIdentifier(const ResourceFetcher& fetcher,
++                                      const KURL& url, const String& original);
++void RemoveBrowserResourceCachePartition(const ResourceFetcher& fetcher);
++}
++#endif
+diff --git a/third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.cc b/third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.cc
+new file mode 100644
+--- /dev/null
++++ b/third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.cc
+@@ -0,0 +1,81 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#include "third_party/blink/public/platform/browser_resource_cache_policy.h"
++#include "third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.h"
++#include <atomic>
++#include <cstdint>
++#include "base/no_destructor.h"
++#include "base/synchronization/lock.h"
++#include "third_party/blink/renderer/platform/wtf/hash_map.h"
++#include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
++#include "third_party/blink/renderer/platform/wtf/text/string_hash.h"
++#include "third_party/blink/renderer/platform/weborigin/kurl.h"
++namespace blink {
++namespace {
++std::atomic<bool> enabled{false};
++std::atomic<uint64_t> epoch{0};
++struct Partitions {
++  base::Lock lock;
++  // Address identities never retain or dereference GC objects. Their
++  // destructor removes entries, including during concurrent sweeping.
++  HashMap<uintptr_t, String> clients GUARDED_BY(lock);
++  uint64_t next GUARDED_BY(lock) = 0;
++};
++Partitions& State() {
++  static base::NoDestructor<Partitions> state;
++  return *state;
++}
++}
++void SetBrowserResourceCachePolicyEnabled(bool value) {
++  enabled.store(value, std::memory_order_relaxed);
++  if (!value) {
++    auto& state = State();
++    base::AutoLock guard(state.lock);
++    state.clients.clear();
++  }
++}
++void InvalidateBrowserResourceCachePolicy() {
++  epoch.fetch_add(1, std::memory_order_relaxed);
++}
++void SetBrowserResourceFetcherPartition(const ResourceFetcher& fetcher,
++                                       const String& partition) {
++  if (!enabled.load(std::memory_order_relaxed) || partition.empty() || partition.length() > 256)
++    return;
++  auto& state = State();
++  base::AutoLock guard(state.lock);
++  StringBuilder key;
++  key.Append("context:");
++  key.Append(partition);
++  state.clients.Set(reinterpret_cast<uintptr_t>(&fetcher), key.ToString());
++}
++String BrowserResourceCacheIdentifier(const ResourceFetcher& fetcher,
++                                      const KURL& url, const String& original) {
++  if (!enabled.load(std::memory_order_relaxed) || !url.ProtocolIsInHttpFamily())
++    return original;
++  auto& state = State();
++  base::AutoLock guard(state.lock);
++  auto entry = state.clients.insert(reinterpret_cast<uintptr_t>(&fetcher), String());
++  if (entry.is_new_entry) {
++    StringBuilder client;
++    client.Append("client:");
++    client.AppendNumber(++state.next);
++    entry.stored_value->value = client.ToString();
++  }
++  StringBuilder key;
++  key.Append("BrowserPolicy:");
++  key.Append(entry.stored_value->value);
++  key.Append(":");
++  key.AppendNumber(epoch.load(std::memory_order_relaxed));
++  key.Append(":");
++  key.Append(original);
++  return key.ToString();
++}
++void RemoveBrowserResourceCachePartition(const ResourceFetcher& fetcher) {
++  if (!enabled.load(std::memory_order_relaxed))
++    return;
++  auto& state = State();
++  base::AutoLock guard(state.lock);
++  state.clients.erase(reinterpret_cast<uintptr_t>(&fetcher));
++}
++}
+diff --git a/third_party/blink/renderer/core/frame/web_resource_cache_policy.cc b/third_party/blink/renderer/core/frame/web_resource_cache_policy.cc
+new file mode 100644
+--- /dev/null
++++ b/third_party/blink/renderer/core/frame/web_resource_cache_policy.cc
+@@ -0,0 +1,17 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#include "third_party/blink/public/web/web_resource_cache_policy.h"
++#include "third_party/blink/public/platform/web_string.h"
++#include "third_party/blink/renderer/core/frame/local_dom_window.h"
++#include "third_party/blink/renderer/core/frame/local_frame.h"
++#include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
++#include "third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.h"
++namespace blink {
++void SetBrowserResourceCachePartition(WebLocalFrame& frame,
++                                      const WebString& partition) {
++  auto* local = static_cast<WebLocalFrameImpl&>(frame).GetFrame();
++  if (local && local->DomWindow() && !local->IsDetached())
++    SetBrowserResourceFetcherPartition(*local->DomWindow()->Fetcher(), partition);
++}
++}
+diff --git a/third_party/blink/public/BUILD.gn b/third_party/blink/public/BUILD.gn
+--- a/third_party/blink/public/BUILD.gn
++++ b/third_party/blink/public/BUILD.gn
+@@ -171,6 +171,7 @@
+     "platform/web_background_resource_fetch_assets.h",
+     "platform/web_blob_info.h",
+     "platform/web_cache.h",
++    "platform/browser_resource_cache_policy.h",
+     "platform/web_callbacks.h",
+     "platform/web_common.h",
+     "platform/web_connection_type.h",
+@@ -366,6 +367,7 @@
+     "web/web_scoped_window_focus_allowed_indicator.h",
+     "web/web_script_execution_callback.h",
+     "web/web_script_execution_policy.h",
++    "web/web_resource_cache_policy.h",
+     "web/web_script_forbidden_scope.h",
+     "web/web_script_source.h",
+     "web/web_script_tool_types.h",
+diff --git a/third_party/blink/renderer/core/frame/build.gni b/third_party/blink/renderer/core/frame/build.gni
+--- a/third_party/blink/renderer/core/frame/build.gni
++++ b/third_party/blink/renderer/core/frame/build.gni
+@@ -235,6 +235,7 @@
+   "web_local_frame_client.cc",
+   "web_script_execution_policy.cc",
+   "web_local_frame_impl.cc",
++  "web_resource_cache_policy.cc",
+   "web_local_frame_impl.h",
+   "web_local_frame_observer.cc",
+   "web_remote_frame_impl.cc",
+diff --git a/third_party/blink/renderer/platform/loader/BUILD.gn b/third_party/blink/renderer/platform/loader/BUILD.gn
+--- a/third_party/blink/renderer/platform/loader/BUILD.gn
++++ b/third_party/blink/renderer/platform/loader/BUILD.gn
+@@ -32,6 +32,8 @@
+     "fetch/background_code_cache_host.cc",
+     "fetch/background_code_cache_host.h",
+     "fetch/body_text_decoder.h",
++    "fetch/browser_resource_cache_policy.cc",
++    "fetch/browser_resource_cache_policy.h",
+     "fetch/buffering_bytes_consumer.cc",
+     "fetch/buffering_bytes_consumer.h",
+     "fetch/bytes_consumer.cc",
+diff --git a/third_party/blink/renderer/platform/loader/fetch/resource_fetcher.cc b/third_party/blink/renderer/platform/loader/fetch/resource_fetcher.cc
+--- a/third_party/blink/renderer/platform/loader/fetch/resource_fetcher.cc
++++ b/third_party/blink/renderer/platform/loader/fetch/resource_fetcher.cc
+@@ -45,6 +45,7 @@
+ #include "base/time/time.h"
+ #include "base/timer/elapsed_timer.h"
+ #include "base/unguessable_token.h"
++#include "third_party/blink/renderer/platform/loader/fetch/browser_resource_cache_policy.h"
+ #include "services/network/public/cpp/features.h"
+ #include "services/network/public/cpp/request_mode.h"
+ #include "services/network/public/mojom/link_header.mojom-blink.h"
+@@ -845,6 +846,7 @@
+ }
+ 
+ ResourceFetcher::~ResourceFetcher() {
++  RemoveBrowserResourceCachePartition(*this);
+   InstanceCounters::DecrementCounter(InstanceCounters::kResourceFetcherCounter);
+ }
+ 
+@@ -3083,22 +3085,22 @@
+   if (!skip_service_worker &&
+       properties_->GetControllerServiceWorkerMode() !=
+           mojom::ControllerServiceWorkerMode::kNoController) {
+-    return String::Number(properties_->ServiceWorkerId());
++    return BrowserResourceCacheIdentifier(*this, url, String::Number(properties_->ServiceWorkerId()));
+   }
+ 
+   // Requests that can be satisfied via `archive_` (i.e. MHTML) or
+   // `subresource_web_bundles_` should not participate in the global caching,
+   // but should use a bundle/mhtml-specific cache.
+   if (archive_) {
+-    return archive_->GetCacheIdentifier();
++    return BrowserResourceCacheIdentifier(*this, url, archive_->GetCacheIdentifier());
+   }
+ 
+   SubresourceWebBundle* bundle = GetMatchingBundle(url);
+   if (bundle) {
+-    return bundle->GetCacheIdentifier();
+-  }
+-
+-  return MemoryCache::DefaultCacheIdentifier();
++    return BrowserResourceCacheIdentifier(*this, url, bundle->GetCacheIdentifier());
++  }
++
++  return BrowserResourceCacheIdentifier(*this, url, MemoryCache::DefaultCacheIdentifier());
+ }
+ 
+ String ResourceFetcher::GetCacheIdentifier(ResourceType type,
+@@ -3109,7 +3111,7 @@
+   if (type == ResourceType::kSVGDocument) {
+     String svg_cache_identifier = context_->GetSVGCacheIdentifier();
+     DCHECK(!svg_cache_identifier.empty());
+-    return svg_cache_identifier;
++    return BrowserResourceCacheIdentifier(*this, url, svg_cache_identifier);
+   }
+ 
+   // Fallback to the standard cache identifier logic.
+diff --git a/chrome/renderer/browser_exposed_renderer_interfaces.cc b/chrome/renderer/browser_exposed_renderer_interfaces.cc
+--- a/chrome/renderer/browser_exposed_renderer_interfaces.cc
++++ b/chrome/renderer/browser_exposed_renderer_interfaces.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/renderer/browser_exposed_renderer_interfaces.h"
++#include "chrome/renderer/merlin_adblock/agent.h"
+ 
+ #include <memory>
+ 
+@@ -51,6 +52,7 @@
+ void ExposeChromeRendererInterfacesToBrowser(
+     ChromeContentRendererClient* client,
+     mojo::BinderMap* binders) {
++  merlin_adblock::RegisterProcessBinders(binders);
+   binders->Add<visitedlink::mojom::VisitedLinkNotificationSink>(
+       client->GetChromeObserver()->visited_link_reader()->GetBindCallback(),
+       base::SequencedTaskRunner::GetCurrentDefault());

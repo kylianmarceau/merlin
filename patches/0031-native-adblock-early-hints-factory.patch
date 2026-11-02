@@ -1,0 +1,28 @@
+diff --git a/content/browser/renderer_host/navigation_request.cc b/content/browser/renderer_host/navigation_request.cc
+--- a/content/browser/renderer_host/navigation_request.cc
++++ b/content/browser/renderer_host/navigation_request.cc
+@@ -5753,13 +5753,21 @@
+ 
+   net::IsolationInfo isolation_info = url_loader_factory_params->isolation_info;
+ 
+-  // TODO(crbug.com/40188470): Support DevTools instrumentation and extension's
+-  // WebRequest API.
++  // Apply embedder request policies to speculative loads as well. Keep the
++  // terminal network factory's CORS/ORB checks around response replacements.
++  // DevTools instrumentation remains separate.
+   auto loader_factory = url_loader_factory::CreatePendingRemote(
+       ContentBrowserClient::URLLoaderFactoryType::kEarlyHints,
+       url_loader_factory::TerminalParams::ForNetworkContext(
+           process->GetStoragePartition()->GetNetworkContext(),
+-          std::move(url_loader_factory_params)));
++          std::move(url_loader_factory_params),
++          url_loader_factory::HeaderClientOption::kAllow,
++          url_loader_factory::FactoryOverrideOption::kAllow),
++      url_loader_factory::ContentClientParams(
++          process->GetBrowserContext(), result.value(),
++          process->GetDeprecatedID(), tentative_origin, isolation_info,
++          ukm::SourceIdObj::FromInt64(ukm::kInvalidSourceId),
++          /*bypass_redirect_checks=*/nullptr, GetNavigationId()));
+ 
+   did_create_early_hints_manager_params_ = true;
+   return NavigationEarlyHintsManagerParams(

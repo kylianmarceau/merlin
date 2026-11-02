@@ -14,6 +14,14 @@ cargo test --workspace
 
 echo "==> page scripts parse (needs node; skipped without it)"
 scripts/check_page_scripts.py
+if command -v node >/dev/null 2>&1; then
+  node --check scripts/benchmark_adblock.mjs
+  node --check scripts/lib/cdp.mjs
+  node --check scripts/probe_adblock_youtube.mjs
+fi
+
+echo "==> bundled ad blocker integrity and provenance"
+python3 scripts/prepare_adblock_resources.py
 
 echo "==> patches apply to pinned upstream files (needs network)"
 scripts/verify_patches.sh
