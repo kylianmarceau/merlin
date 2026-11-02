@@ -1,0 +1,52 @@
+{
+  "local_ad_heavy_on": {
+    "unit": "milliseconds",
+    "percentile_method": "R7 linear interpolation",
+    "spans": {
+      "MerlinAdblock.CheckRoundTrip": {
+        "n": 66,
+        "min": 0.253,
+        "median": 3.691,
+        "p95": 4.8945,
+        "max": 5.077
+      },
+      "MerlinAdblock.CosmeticsRoundTrip": {
+        "n": 2,
+        "min": 0.443,
+        "median": 1.08,
+        "p95": 1.6533,
+        "max": 1.717
+      },
+      "MerlinAdblock.CspRoundTrip": {
+        "n": 1,
+        "min": 0.096,
+        "median": 0.096,
+        "p95": 0.096,
+        "max": 0.096
+      },
+      "MerlinAdblock.GenericRoundTrip": {
+        "n": 1,
+        "min": 0.397,
+        "median": 0.397,
+        "p95": 0.397,
+        "max": 0.397
+      },
+      "MerlinAdblock.Match": {
+        "n": 66,
+        "min": 0.011,
+        "median": 0.041,
+        "p95": 0.1295,
+        "max": 1.448
+      },
+      "MerlinAdblock.ServiceWorkerPolicy": {
+        "n": 65,
+        "min": 0.041,
+        "median": 24.96,
+        "p95": 25.1286,
+        "max": 25.144
+      }
+    },
+    "unclosed_blocker_spans": 0
+  },
+  "scope": "Separate local ad-heavy run, including evaluator queue/return, main-thread checks and generic cosmetics"
+}

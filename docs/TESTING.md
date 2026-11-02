@@ -1,5 +1,46 @@
 # Testing
 
+## Results, 2026-11-02: native ad blocking
+
+Branch `feature/native-adblock`, Chromium **157.0.8103.26**, arm64 `out/Modal`
+component development build on the same M2/16 GB host described below.
+The blocker is independent of modal browsing and remains opt-in pending
+performance and remaining manual qualification. Packaging/publication are
+outside this task.
+
+| Check | Result |
+|---|---|
+| Native blocker browser fixtures | **44 distinct cases passed**: complete 43-case checkpoint plus all 13 affected cosmetic/scriptlet/lifecycle cases, including the added batching fixture |
+| Existing Merlin browser suite | **74/74 passed**, including snapshots, Settings and content fullscreen restoration |
+| Loader regression units | **35/35 passed**, including deferred Service Worker response-body preservation |
+| Upstream browser/view/commands and Find | **92/92 + 44/44 passed** |
+| Feature-enabled worker/extension interceptor regression | **21/21 passed** |
+| Workspace formatting, warnings-denied lint, Rust/bridge/host tests, page scripts | Passed; **252 tests** |
+| Bundled sources and resources | Integrity/provenance verification passed; **19 engine fixtures** passed |
+| Pinned patches and installer idempotence | **31/31 passed**, using local pinned Git objects |
+| Browser, renderer and UI GN checks | Passed |
+| Live signed-out YouTube | Protected normal/private playback, nine-minute playback, SPA, playlist/autoplay, Shorts transitions, cross-site embed and foreground captions/fullscreen/PiP passed; unprotected music control showed ads |
+
+Run the independent fixtures explicitly with:
+
+```bash
+scripts/run_browser_tests.sh 'MerlinAdblock*BrowserTest.*'
+scripts/run_browser_tests.sh 'ModalBrowserBrowserTest.*'
+CHROMIUM_SRC="$HOME/chromium/src" scripts/check.sh
+node scripts/benchmark_adblock.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --trace --output /tmp/adblock-benchmark.json
+python3 scripts/analyze_adblock_trace.py /tmp/adblock-benchmark-*.trace.json
+python3 scripts/measure_adblock_heap.py --output /tmp/adblock-heap.json
+node scripts/probe_adblock_youtube.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --mode on --headful --output /tmp/adblock-youtube.json
+```
+
+The browser runner's default includes both Merlin and native blocker suites;
+upstream filters retain upstream UI defaults without disabling the blocker
+when explicitly enabled. Tests use isolated configurations and profiles.
+Live probes never use an everyday profile or account credentials. Retained
+measurements, source audit limitations and the live playback comparison are
+in [the implementation record](ADBLOCK_IMPLEMENTATION.md). A local fixture
+pass does not establish ad eligibility or live YouTube parity.
+
 ## Results, 2026-11-01: Chromium 157 rebase
 
 Chromium **157.0.8103.26**, commit

@@ -1,0 +1,19 @@
+{
+  "after_drop_retained_bytes": 415609,
+  "after_replacement_owned_bytes": 10939286,
+  "build_peak_requested_bytes": 38130213,
+  "cold_owned_bytes": 9878274,
+  "engine": "0.13.3",
+  "exercise_peak_requested_bytes": 38130213,
+  "update_peak_requested_bytes": 48706740,
+  "warm_owned_bytes": 10939286,
+  "limitations": [
+    "Requested live Rust allocation bytes, not allocator-reserved pages or RSS.",
+    "Standalone release probe; excludes C++ buffers, V8 helpers, thread stacks and IPC.",
+    "Peak realloc accounting excludes allocator-internal temporary copies.",
+    "Fixed local request/DOM workload, not every possible regex or visited site."
+  ],
+  "command": "python3 scripts/measure_adblock_heap.py --output /tmp/adblock-heap.json",
+  "date": "2026-11-02",
+  "machine": "Apple M2, arm64, 16 GB; standalone Cargo release build"
+}

@@ -656,3 +656,23 @@ so the window is one surface. Tabs stay reachable from the keyboard
   normal-priority accelerator that runs only when the page leaves the key
   alone. Save Page As moves to Shift-Cmd-S, in the File menu as before.
 
+## Native ad blocker integration (2026-11-02)
+
+Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing
+CXX bridge. Use the compatible audited dependency graph rather than weakening
+Chromium's dependency-age policy for 0.13.5. Keep the feature independent of
+modal browsing and disabled by default until correctness, live playback and
+performance qualification are complete.
+
+A dedicated thread owns each non-Send engine, with a bounded serialized
+builder and atomic generation replacement. Factory composition preserves
+Chromium security/extension policies. Additional pre-Service-Worker checks,
+worker brokers, socket hooks and renderer-cache partitions are necessary:
+factory-only filtering misses synthetic/cache responses and decoded resources.
+Shared/service workers use owning-origin exceptions; attributable dedicated
+workers use their top-level document. Executable resources update with the
+application, while fixed HTTPS list endpoints can refresh without visited URLs,
+cookies or referrers. See [the evidence and limitations](ADBLOCK_IMPLEMENTATION.md).
+
+This task implements and tests the blocker. Packaging and GitHub publication
+are deferred at the maintainer's explicit request.

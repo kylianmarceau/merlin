@@ -1,5 +1,17 @@
 # Beta readiness review — 2026-10-31
 
+Ad blocker implementation update, 2026-11-02: `feature/native-adblock`
+contains the pinned Brave Rust engine, native request/worker/socket and
+scriptlet integration, offline lists, validated updates and independent
+controls. All **44 new blocker fixtures**, **74 Merlin cases**, **35 loader
+units**, **157 upstream browser/worker/extension cases** and **252 workspace
+tests** passed. Signed-out YouTube normal/private playback, SPA, playlist,
+Shorts, embed and player controls passed, including a nine-minute run and an
+ad-eligible unprotected control. The feature remains opt-in: performance and
+remaining manual qualification are open. This work does not package or
+publish the browser.
+See [the implementation evidence](ADBLOCK_IMPLEMENTATION.md).
+
 Follow-up, 2026-11-01: Chromium **157.0.8103.26** now builds, and the complete
 Merlin browser suite passes **67/67**, including the editor and page-colour
 regressions. The four upstream regression suites pass **136/136** with their

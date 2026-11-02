@@ -258,3 +258,40 @@ All compiled and exercised by the browser tests at the pinned tag.
   `passthrough_sites` and `[unmap]` cover those sites today.
 * The overlay surfaces are painted by hand with our own tokens
   (`modal_style.cc`). They follow light/dark but not custom browser themes.
+
+## Native ad blocking
+
+`MerlinAdblock` is independent of modal browsing. The feature remains opt-in
+while qualification is incomplete; see [implementation evidence](ADBLOCK_IMPLEMENTATION.md).
+A profile-keyed browser service owns preferences, exact-host exceptions,
+readiness and document counts. Private profiles have independent in-memory
+changes, no updater and no cache writes. Identical configurations share an
+evaluator through a bounded weak registry.
+
+Each evaluator constructs, accesses and destroys its Rust engine on one
+**dedicated thread**. The upstream `single-thread` engine is not transferable
+between threads, so a migratable sequenced task runner is insufficient.
+A bounded background builder hands over serialized candidate data; publishing
+is atomic and an invalid update retains the previous generation. No parser or
+blocking engine wait runs on the browser UI thread.
+
+Browser factory interception composes with Chromium's security and extension
+policies. Complementary renderer and worker throttles check requests before
+Service Worker synthetic/cache responses; native handshake hooks cover sockets.
+Early Hints factories participate in embedder policies. Navigation CSP is
+additive, including Service Worker responses. Decoded resource caches are
+partitioned by browser-approved policy context and invalidated when settings
+or rule generations change. Downloads and DevTools retain their own policies.
+
+An acknowledged commit message delivers document configuration before the
+first page script. MAIN-world scriptlets run in the actual main context;
+helpers and isolated scriptlets use a reserved isolated world. Sandboxed
+script-disabled and JavaScript-disabled documents receive no executable
+scripts. Cosmetic observers, generic batches, queues and caches have explicit
+bounds; BFCache and prerender preserve document lifetime semantics.
+
+Lists and executable resources are separate trust boundaries. Fixed HTTPS
+list updates use no cookies/referrers, validate complete candidates and keep a
+rollback snapshot. Executable resources update only with the application.
+The manifest records revisions, hashes, trust and licenses. The list audit
+reports unsupported syntax rather than treating it as implemented behavior.

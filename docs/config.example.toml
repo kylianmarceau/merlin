@@ -93,3 +93,8 @@ edit_key = "<C-S-e>"
 # Keys to give back to sites (they reach the page again).
 [unmap]
 # normal = ["d", "u"]
+# Native ad blocking is independent of modal_browsing. Its global toggle,
+# selected lists, automatic updates and exact-host exceptions are stored in
+# each Chromium profile, in Settings > Ad blocking. Commands:
+# :adblock on | off | site toggle | status | update
+# Reload open pages after changing protection to remove/apply page hooks.

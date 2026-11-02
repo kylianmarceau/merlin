@@ -1,0 +1,57 @@
+{
+  "docs/adblock-evidence/2026-11-02-on.trace.json.gz": {
+    "unit": "milliseconds",
+    "percentile_method": "R7 linear interpolation",
+    "spans": {
+      "MerlinAdblock.CheckRoundTrip": {
+        "n": 66,
+        "min": 0.643,
+        "median": 6.1045,
+        "p95": 9.2613,
+        "max": 11.427
+      },
+      "MerlinAdblock.CosmeticsRoundTrip": {
+        "n": 2,
+        "min": 0.475,
+        "median": 0.6015,
+        "p95": 0.7153,
+        "max": 0.728
+      },
+      "MerlinAdblock.CspRoundTrip": {
+        "n": 1,
+        "min": 0.098,
+        "median": 0.098,
+        "p95": 0.098,
+        "max": 0.098
+      },
+      "MerlinAdblock.GenericRoundTrip": {
+        "n": 1,
+        "min": 0.061,
+        "median": 0.061,
+        "p95": 0.061,
+        "max": 0.061
+      },
+      "MerlinAdblock.Match": {
+        "n": 66,
+        "min": 0.026,
+        "median": 0.094,
+        "p95": 0.3782,
+        "max": 2.064
+      },
+      "MerlinAdblock.ServiceWorkerPolicy": {
+        "n": 65,
+        "min": 0.038,
+        "median": 31.153,
+        "p95": 31.661,
+        "max": 31.707
+      }
+    },
+    "unclosed_blocker_spans": 0
+  },
+  "docs/adblock-evidence/2026-11-02-off.trace.json.gz": {
+    "unit": "milliseconds",
+    "percentile_method": "R7 linear interpolation",
+    "spans": {},
+    "unclosed_blocker_spans": 0
+  }
+}
