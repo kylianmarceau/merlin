@@ -204,15 +204,26 @@ void Agent::InheritInitialConfiguration() {
   InsertSelectors(current_->selectors);
 }
 void Agent::InsertSelectors(const std::vector<std::string>& selectors) {
-  std::string css;
+  std::string css, grouped;
   for (const auto& selector : selectors) {
     if (inserted_.size() >= 8192 || css_bytes_ + selector.size() > 1024 * 1024)
       break;
     if (!inserted_.insert(selector).second)
       continue;
     css_bytes_ += selector.size();
-    css += selector + "{display:none!important;}\n";
+    if (selector.find_first_of(":,") == std::string::npos) {
+      if (!grouped.empty())
+        grouped += ",\n";
+      // One argument preserves this selector's specificity. Its forgiving
+      // list also isolates a selector Blink cannot parse from the other arms.
+      // Keep pseudo-elements and existing selector lists outside :is().
+      grouped += ":is(" + selector + ")";
+    } else {
+      css += selector + "{display:none!important;}\n";
+    }
   }
+  if (!grouped.empty())
+    css += grouped + "{display:none!important;}\n";
   if (!css.empty())
     render_frame()->GetWebFrame()->GetDocument().InsertStyleSheet(
         blink::WebString::FromUtf8(css));

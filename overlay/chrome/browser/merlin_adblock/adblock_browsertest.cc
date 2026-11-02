@@ -547,6 +547,35 @@ IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
+                       BatchedCosmeticsPreserveSpecificityAndComplexSelectors) {
+  std::string rules =
+      "news.test##.grouped-ad\nnews.test###grouped-id\n"
+      "news.test##[data-promotion]\nnews.test##.pseudo::before\n"
+      "news.test##.first:first-child\nnews.test##.listed, .listed-other\n"
+      "news.test##missing|div\n";
+  for (unsigned i = 0; i < 512; ++i)
+    rules += "news.test##.batch-" + base::NumberToString(i) + "\n";
+  ASSERT_NO_FATAL_FAILURE(Rules(std::move(rules)));
+  ASSERT_TRUE(content::NavigateToURL(contents(), Url("/early")));
+  EXPECT_EQ("none,none,none,none,none,none,none,block",
+            content::EvalJs(contents(), R"JS((()=>{
+    document.body.innerHTML=`<style>
+      .pseudo::before{content:'Ad';display:block}
+      body .grouped-ad.keep{display:block!important}
+    </style><section><div class="first">First</div></section>
+    <div class="grouped-ad">Ad</div><div id="grouped-id">Ad</div>
+    <div data-promotion>Ad</div><div class="listed">Ad</div>
+    <div class="listed-other">Ad</div><div class="batch-511">Ad</div>
+    <span class="pseudo">Kept text</span><div class="grouped-ad keep">Keep</div>`;
+    const selectors=['.first','.grouped-ad:not(.keep)','#grouped-id',
+      '[data-promotion]','.listed','.listed-other','.batch-511','.keep'];
+    const actual=selectors.map(s=>getComputedStyle(document.querySelector(s)).display);
+    if(getComputedStyle(document.querySelector('.pseudo'),'::before').display!=='none')return 'pseudo-element was not hidden';
+    return actual.join(',');
+  })())JS"));
+}
+
+IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
                        IsolatedScriptletCannotModifyPageGlobals) {
   Rules(
       "news.test##+js(isolated-fixture)",
