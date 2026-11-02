@@ -4,6 +4,7 @@ import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { once } from "node:events";
 import { CDP, deadline } from "./lib/cdp.mjs";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import {
   mkdtemp,
@@ -33,11 +34,12 @@ for (let i = 2; i < process.argv.length; ++i) {
   else if (key === "--smoke")
     Object.assign(options, { runs: 1, idle: 1, tabs: [1, 3] });
   else if (key === "--trace") options.trace = true;
+  else if (key === "--memory-only") options.memoryOnly = true;
   else throw Error("Unknown argument: " + key);
 }
 if (!options.app || !Number.isInteger(options.runs) || options.runs < 1)
   throw Error(
-    "Usage: benchmark_adblock.mjs --app /path/Merlin.app [--output result.json] [--runs 10] [--trace] [--smoke]",
+    "Usage: benchmark_adblock.mjs --app /path/Merlin.app [--output result.json] [--runs 10] [--trace] [--smoke] [--memory-only]",
   );
 const binary = join(
   options.app,
@@ -61,6 +63,16 @@ const data = {
   trials: [],
   memory: [],
   valid: false,
+  harness_sha256: createHash("sha256")
+    .update(await readFile(new URL(import.meta.url)))
+    .digest("hex"),
+  fixture_hostname: "page.fixture.test",
+  measurement_limits: [
+    "Component development build, not a distribution qualification.",
+    "Wall time includes DevTools coordination; Navigation Timing is retained separately.",
+    "Endpoint CPU deltas are unavailable if process membership changes.",
+    "Process-tree RSS includes shared pages and allocator reservation; it is not blocker-owned heap.",
+  ],
 };
 const served = { requests: 0, bytes: 0, ad_requests: 0, ad_bytes: 0 };
 let port;
@@ -113,7 +125,9 @@ const server = createServer((req, res) => {
 server.listen(0, "127.0.0.1");
 await once(server, "listening");
 port = server.address().port;
-const fixture = (kind) => `http://127.0.0.1:${port}/${kind}`;
+// EasyList explicitly exempts loopback URLs from generic cosmetic filtering.
+// Use a locally resolved hostname so the default cosmetic path is measured.
+const fixture = (kind) => `http://page.fixture.test:${port}/${kind}`;
 
 function cpuSeconds(value) {
   const [days, clock] = value.includes("-") ? value.split("-") : ["0", value];
@@ -134,6 +148,7 @@ async function processTree(root) {
   if (!rows.has(root))
     throw Error("Browser exited; refusing an invalid zero-memory sample");
   const stack = [root];
+  const processIds = [];
   let rss = 0,
     cpu = 0,
     count = 0;
@@ -144,10 +159,22 @@ async function processTree(root) {
     rss += row.rss;
     cpu += row.cpu;
     ++count;
+    processIds.push(pid);
     stack.push(...(children.get(pid) || []));
   }
   if (!rss) throw Error("Invalid empty process tree");
-  return { rss_bytes: rss, cpu_seconds: cpu, processes: count };
+  return {
+    rss_bytes: rss,
+    cpu_seconds: cpu,
+    processes: count,
+    process_ids: processIds.sort((a, b) => a - b),
+  };
+}
+function stableCpuInterval(first, last) {
+  return (
+    first.process_ids.join() === last.process_ids.join() &&
+    last.cpu_seconds >= first.cpu_seconds
+  );
 }
 async function stop(browser) {
   if (browser.proc.exitCode === null) {
@@ -225,6 +252,8 @@ async function launch(mode, profile) {
     }
     if (!endpoint) throw Error("DevTools port did not become ready");
     browser.cdp = await CDP.connect(endpoint);
+    const version = await browser.cdp.call("Browser.getVersion");
+    data.browser_version ??= version;
     const { targetInfos } = await browser.cdp.call("Target.getTargets");
     const pages = targetInfos.filter((t) => t.type === "page");
     if (!pages.length) throw Error("No startup page");
@@ -335,7 +364,12 @@ async function page(browser, kind, cache) {
       server_bytes: served.bytes - before.bytes,
       ad_server_requests: served.ad_requests - before.ad_requests,
       ad_server_bytes: served.ad_bytes - before.ad_bytes,
-      cpu_seconds: cpuAfter.cpu_seconds - cpuBefore.cpu_seconds,
+      cpu_seconds: stableCpuInterval(cpuBefore, cpuAfter)
+        ? cpuAfter.cpu_seconds - cpuBefore.cpu_seconds
+        : null,
+      cpu_sample_valid: stableCpuInterval(cpuBefore, cpuAfter),
+      cpu_sample_scope:
+        "Endpoint process-tree CPU; unavailable if process membership changes",
       rss_bytes: cpuAfter.rss_bytes,
     };
   } finally {
@@ -415,7 +449,7 @@ function summarize() {
 }
 try {
   const lastProfiles = {};
-  for (let pair = 0; pair < options.runs; ++pair) {
+  for (let pair = 0; !options.memoryOnly && pair < options.runs; ++pair) {
     for (const mode of pair % 2 ? ["on", "off"] : ["off", "on"]) {
       const profile = join(taskRoot, `pair-${pair}-${mode}`);
       lastProfiles[mode] = profile;
@@ -483,7 +517,7 @@ try {
       );
     }
   }
-  if (options.trace)
+  if (options.trace && !options.memoryOnly)
     for (const mode of ["off", "on"]) {
       const browser = await launch(mode, lastProfiles[mode]);
       try {
@@ -522,25 +556,38 @@ try {
           ++current;
         }
         await sleep(options.idle * 1000);
-        const first = await processTree(browser.proc.pid);
-        await sleep(options.idle * 1000);
-        const last = await processTree(browser.proc.pid);
+        let first = await processTree(browser.proc.pid),
+          last,
+          attempts = 0;
+        do {
+          await sleep(options.idle * 1000);
+          last = await processTree(browser.proc.pid);
+          if (stableCpuInterval(first, last)) break;
+          first = last;
+        } while (++attempts < 5);
+        if (attempts === 5)
+          throw Error(
+            "Idle process tree did not stabilize; refusing invalid CPU sample",
+          );
         const { targetInfos } = await browser.cdp.call("Target.getTargets");
         const pages = targetInfos.filter((t) => t.type === "page");
         if (pages.length !== tabs) throw Error("Invalid live-tab sample");
         data.memory.push({
           mode,
           tabs,
-          ...last,
+          rss_bytes: last.rss_bytes,
+          cpu_seconds: last.cpu_seconds,
+          processes: last.processes,
           idle_cpu_seconds: last.cpu_seconds - first.cpu_seconds,
           idle_interval_seconds: options.idle,
+          stabilization_retries: attempts,
         });
       }
     } finally {
       await stop(browser);
     }
   }
-  data.summary = summarize();
+  data.summary = options.memoryOnly ? {} : summarize();
   data.percentile_method = "R7 linear interpolation";
   data.valid = true;
   data.qualification =

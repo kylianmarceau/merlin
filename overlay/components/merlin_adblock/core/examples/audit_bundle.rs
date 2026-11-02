@@ -59,6 +59,7 @@ fn main() {
     let engine = Generation::build(&lists, &resources).unwrap();
     let build_ms = start.elapsed().as_millis();
     let youtube = engine.cosmetics("https://www.youtube.com/watch?v=local-audit");
+    let clean = engine.cosmetics("http://page.fixture.test/clean");
     println!(
         "{}",
         serde_json::to_string_pretty(&json!({
@@ -78,6 +79,11 @@ fn main() {
             "youtube_isolated_script_bytes": youtube.isolated_script.len(),
             "youtube_specific_selectors": youtube.hide_selectors.len(),
             "youtube_procedural_rules": youtube.procedural_actions.len(),
+            "clean_main_script_bytes": clean.script.len(),
+            "clean_isolated_script_bytes": clean.isolated_script.len(),
+            "clean_specific_selectors": clean.hide_selectors.len(),
+            "clean_procedural_rules": clean.procedural_actions.len(),
+            "clean_generic_filtering_enabled": !clean.generichide,
         }))
         .unwrap()
     );

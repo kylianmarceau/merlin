@@ -2,6 +2,7 @@
 """Summarize native-blocker spans in retained DevTools JSON traces (milliseconds)."""
 import argparse
 from collections import defaultdict
+import gzip
 import json
 import math
 from pathlib import Path
@@ -21,7 +22,11 @@ def percentile(values, q):
 
 output = {}
 for path in args.traces:
-    data = json.loads(path.read_text())
+    if path.suffix == '.gz':
+        with gzip.open(path, 'rt') as source:
+            data = json.load(source)
+    else:
+        data = json.loads(path.read_text())
     events = data.get('traceEvents', []) if isinstance(data, dict) else data
     stacks = defaultdict(list)
     durations = defaultdict(list)
