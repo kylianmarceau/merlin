@@ -1,0 +1,13 @@
+import("//build/rust/rust_static_library.gni")
+
+rust_static_library("merlin_adblock_core") {
+  crate_root = "src/lib.rs"
+  sources = [ "src/lib.rs", "src/popup.rs" ]
+  features = [ "chromium_gn" ]
+  deps = [
+    "//third_party/rust/adblock/v0_13:lib",
+    "//third_party/rust/base64/v0_22:lib",
+    "//third_party/rust/serde_json/v1:lib",
+    "//third_party/rust/sha2/v0_10:lib",
+  ]
+}

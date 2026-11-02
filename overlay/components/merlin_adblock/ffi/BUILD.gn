@@ -1,0 +1,10 @@
+import("//build/rust/rust_static_library.gni")
+
+rust_static_library("merlin_adblock_ffi") {
+  allow_unsafe = true
+  crate_root = "src/lib.rs"
+  sources = [ "src/lib.rs" ]
+  cxx_bindings = [ "src/lib.rs" ]
+  features = [ "chromium_gn" ]
+  deps = [ "//components/merlin_adblock/core:merlin_adblock_core" ]
+}

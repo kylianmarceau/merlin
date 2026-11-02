@@ -1,0 +1,33 @@
+action("embed") {
+  script = "embed.py"
+  sources = [
+    "manifest.json",
+    "resources.json",
+    "easylist.txt",
+    "easyprivacy.txt",
+    "brave-specific.txt",
+    "brave-unbreak.txt",
+    "ublock-filters.txt",
+    "ublock-filters-2020.txt",
+    "ublock-filters-2021.txt",
+    "ublock-filters-2022.txt",
+    "ublock-filters-2023.txt",
+    "ublock-filters-2024.txt",
+    "ublock-filters-2025.txt",
+    "ublock-filters-2026.txt",
+    "ublock-filters-general.txt",
+    "ublock-ubo-link-shorteners.txt",
+    "ublock-unbreak.txt",
+    "ublock-quick-fixes.txt",
+    "ublock-privacy.txt",
+    "ublock-resource-abuse.txt",
+  ]
+  outputs = [ "$target_gen_dir/bundled_data.h", "$target_gen_dir/bundled_data.cc" ]
+  args = [ rebase_path(".", root_build_dir), rebase_path(outputs[0], root_build_dir), rebase_path(outputs[1], root_build_dir) ]
+}
+
+source_set("resources") {
+  sources = get_target_outputs(":embed")
+  public_deps = [ "//base" ]
+  deps = [ ":embed", "//third_party/zlib/google:compression_utils" ]
+}
