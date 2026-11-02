@@ -12,7 +12,7 @@ use adblock::{Engine, request::Request};
 use base64::{Engine as _, prelude::BASE64_STANDARD};
 use sha2::{Digest, Sha256};
 use std::cell::Cell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
 pub const ENGINE_VERSION: &str = "0.13.3";
@@ -111,6 +111,7 @@ pub struct CosmeticData {
 pub struct ListAudit {
     pub rules: usize,
     pub unsupported: usize,
+    pub unsupported_reasons: BTreeMap<String, usize>,
     pub csp: usize,
     pub popup: usize,
 }
@@ -381,6 +382,7 @@ impl Generation {
                 }
                 let adapted = popup::adapt(line);
                 let mut supported = false;
+                let mut failure = None;
                 for (candidate, destination) in [
                     (adapted.network.as_deref(), &mut network_rules),
                     (adapted.popup.as_deref(), &mut popup_rules),
@@ -435,13 +437,17 @@ impl Generation {
                             }
                             supported = true;
                         }
-                        Err(_) => {}
+                        Err(error) => failure = Some(error.to_string()),
                     }
                 }
                 if supported {
                     audit.rules += 1;
                 } else {
                     audit.unsupported += 1;
+                    *audit
+                        .unsupported_reasons
+                        .entry(failure.unwrap_or_else(|| "unsupported window rule".into()))
+                        .or_default() += 1;
                 }
                 if line.contains("$csp=") || line.contains(",csp=") {
                     audit.csp += 1;

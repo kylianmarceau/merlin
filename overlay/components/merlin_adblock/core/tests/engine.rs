@@ -358,6 +358,15 @@ fn bundled_generation_builds_offline() {
         .collect();
     let g = Generation::build(&lists, include_str!("../../resources/resources.json")).unwrap();
     assert!(g.audit.rules > 100_000);
+    assert_eq!(
+        g.audit.unsupported,
+        g.audit.unsupported_reasons.values().sum::<usize>()
+    );
+    assert!(
+        g.audit
+            .unsupported_reasons
+            .contains_key("cosmetic filter error: html filtering is unsupported")
+    );
     assert!(
         !g.cosmetics("https://www.youtube.com/watch?v=fixture")
             .script

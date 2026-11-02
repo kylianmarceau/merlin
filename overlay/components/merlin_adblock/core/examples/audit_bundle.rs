@@ -66,6 +66,7 @@ fn main() {
             "sources": lists.len(),
             "supported_rules": engine.audit.rules,
             "unsupported_rules": engine.audit.unsupported,
+            "unsupported_reasons": engine.audit.unsupported_reasons,
             "csp_rules": engine.audit.csp,
             "popup_rules": engine.audit.popup,
             "resource_count": metadata.as_array().unwrap().len(),
