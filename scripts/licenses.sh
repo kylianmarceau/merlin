@@ -15,10 +15,11 @@ dest="$CHROMIUM_DIR/src/$OUT/credits.html"
 
 (cd "$CHROMIUM_DIR/src" &&
   python3 tools/licenses/licenses.py credits --gn-target //chrome:chrome \
-    --gn-out-dir "$OUT" > "$dest")
+    --gn-out-dir "$OUT" "$dest")
 echo "Chromium credits: $dest"
+python3 scripts/adblock_notices.py --append-to "$dest"
+echo "Native blocker source provenance and notices added."
 
-# Our own crates: the core and bridge have no third-party Rust dependencies
-# except cxx (vendored by Chromium, so already in the credits above);
-# browserctl and the dev tools use only the core.
+# Print the audited Rust graph as a second check. The native blocker's crates
+# are vendored by gnrt and included in Chromium's generated credits above.
 cargo tree --workspace --edges normal --prefix none --format '{p} {l}' | sort -u

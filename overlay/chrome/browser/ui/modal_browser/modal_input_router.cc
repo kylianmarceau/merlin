@@ -196,8 +196,9 @@ void ModalInputRouter::SetEnvironment(std::string_view visual,
   session_->set_environment(ToStr(visual), ToStr(editor));
 }
 
-void ModalInputRouter::SetWorkspace(std::string_view name) {
-  session_->set_workspace(ToStr(name));
+void ModalInputRouter::SetWorkspace(std::string_view name,
+                                    std::string_view project) {
+  session_->set_workspace(ToStr(name), ToStr(project));
 }
 
 std::string ModalInputRouter::workspace() const {
@@ -499,6 +500,7 @@ void ModalInputRouter::Perform(const ffi::Action& action, BrowserOps& ops) {
     case ffi::ActionKind::RestoreWorkspace: {
       WorkspaceRestore restore;
       restore.name = std::string(View(action.name));
+      restore.project = std::string(View(action.workspace_project));
       restore.new_window = action.flag;
       for (const ffi::WorkspaceTab& t : action.workspace_tabs) {
         const int n = static_cast<int>(action.workspace_tabs.size());

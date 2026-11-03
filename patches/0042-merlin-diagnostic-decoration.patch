@@ -1,0 +1,65 @@
+--- a/chrome/browser/ai/ai_manager.cc
++++ b/chrome/browser/ai/ai_manager.cc
+@@ -125,7 +125,7 @@
+     "The 'speed' performance preference utilizes a model with limited support "
+     "for 'markdown' format.";
+ const char kOnDeviceAiSettingsDisabledWarning[] =
+-    "On-device AI is disabled in Chrome settings. To use Built-In AI APIs, "
++    "On-device AI is disabled in Merlin settings. To use Built-In AI APIs, "
+     "enable \"On-device AI\" in chrome://settings/ai.";
+ 
+ const char kModelVersionParam[] = "model_version";
+--- a/chrome/browser/ai/ai_manager_unittest.cc
++++ b/chrome/browser/ai/ai_manager_unittest.cc
+@@ -676,7 +676,7 @@
+   const auto& messages = tester->GetConsoleMessages();
+   ASSERT_EQ(messages.size(), baseline_count + 1);
+   EXPECT_EQ(messages.back(),
+-            "On-device AI is disabled in Chrome settings. To use Built-In AI "
++            "On-device AI is disabled in Merlin settings. To use Built-In AI "
+             "APIs, enable \"On-device AI\" in chrome://settings/ai.");
+ 
+   SetOnDeviceAiUserSetting(true);
+--- a/third_party/devtools-frontend/src/front_end/panels/settings/AISettingsTab.ts
++++ b/third_party/devtools-frontend/src/front_end/panels/settings/AISettingsTab.ts
+@@ -556,7 +556,7 @@
+ 
+     if (!this.#aiAssistanceSetting.unavailable) {
+       const aiAssistanceData: AiSettingParams = {
+-        settingName: i18n.i18n.lockedString(AiAssistanceModel.AiUtils.isGeminiBranding() ? 'Gemini in Chrome DevTools' :
++        settingName: i18n.i18n.lockedString(AiAssistanceModel.AiUtils.isGeminiBranding() ? 'Gemini in Merlin DevTools' :
+                                                                                            'AI assistance'),
+         setting: this.#aiAssistanceSetting,
+         disabledReasons: this.#mapSettingDisabledReasons(this.#aiAssistanceSetting.disabledReasons),
+--- a/third_party/devtools-frontend/src/front_end/Images/src/devtools.svg
++++ b/third_party/devtools-frontend/src/front_end/Images/src/devtools.svg
+@@ -1,13 +1 @@
+-<svg width="20" height="21" viewBox="0 0 20 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+-<mask id="mask0_639_202" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="20" height="21">
+-<circle cx="10" cy="10.1666" r="10" fill="#C4C4C4"/>
+-</mask>
+-<g mask="url(#mask0_639_202)">
+-<circle cx="10" cy="10.1666" r="10" fill="#1A73E8"/>
+-<path d="M9.99974 18.0612C14.3598 18.0612 17.8942 14.5267 17.8942 10.1667C17.8942 5.80668 14.3598 2.27219 9.99974 2.27219C5.63972 2.27219 2.10522 5.80668 2.10522 10.1667C2.10522 14.5267 5.63972 18.0612 9.99974 18.0612Z" stroke="white" stroke-width="1.04167"/>
+-<path d="M9.96587 13.6434C11.9615 13.6434 13.5792 12.0256 13.5792 10.03C13.5792 8.03446 11.9615 6.41672 9.96587 6.41672C7.97028 6.41672 6.35254 8.03446 6.35254 10.03C6.35254 12.0256 7.97028 13.6434 9.96587 13.6434Z" stroke="white" stroke-width="0.833333"/>
+-<path d="M13.1135 11.7946L9.60936 17.864" stroke="white" stroke-width="0.833333"/>
+-<path d="M6.83276 11.8241L3.3286 5.7547" stroke="white" stroke-width="0.833333"/>
+-<path d="M10.0032 6.41672L17.0115 6.41672" stroke="white" stroke-width="0.833333"/>
+-</g>
+-</svg>
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Merlin"><rect width="200" height="200" rx="46" fill="#F2ECE0"/><path d="M85.15 135.77L19.81 102.47A90 90 0 0 1 40.95 75.41L89.07 130.75ZM89.97 130.02L45.84 71.46A90 90 0 0 1 76.71 56.4L95.69 127.23ZM104.31 127.23L123.29 56.4A90 90 0 0 1 154.16 71.46L110.03 130.02ZM110.93 130.75L159.05 75.41A90 90 0 0 1 180.19 102.47L114.85 135.77ZM87.5 143.33A12.5 12.5 0 1 1 112.5 143.33A12.5 12.5 0 1 1 87.5 143.33Z" fill="#12352E"/><path d="M96.82 126.97L82.83 54.99A90 90 0 0 1 117.17 54.99L103.18 126.97Z" fill="#C4552D"/></svg>
+--- a/third_party/devtools-frontend/src/front_end/panels/layer_viewer/Layers3DView.ts
++++ b/third_party/devtools-frontend/src/front_end/panels/layer_viewer/Layers3DView.ts
+@@ -485,9 +485,9 @@
+             image && LayerTextureManager.createTextureForImage(this.gl || null, image) || undefined;
+       });
+     }
+-    loadChromeTexture.call(this, ChromeTexture.LEFT, 'Images/chromeLeft.avif');
+-    loadChromeTexture.call(this, ChromeTexture.MIDDLE, 'Images/chromeMiddle.avif');
+-    loadChromeTexture.call(this, ChromeTexture.RIGHT, 'Images/chromeRight.avif');
++    loadChromeTexture.call(this, ChromeTexture.LEFT, 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22120%22%20height%3D%2272%22%20viewBox%3D%220%200%20120%2072%22%3E%3Crect%20width%3D%22120%22%20height%3D%2272%22%20fill%3D%22%23ECE7DD%22%2F%3E%3Cpath%20d%3D%22M88%2044.2L79.2%2039.72A12.12%2012.12%200%200%201%2082.05%2036.07L88.53%2043.52ZM88.65%2043.43L82.71%2035.54A12.12%2012.12%200%200%201%2086.86%2033.51L89.42%2043.05ZM89.57%2043.02L87.69%2033.32A12.12%2012.12%200%200%201%2092.31%2033.32L90.43%2043.02ZM90.58%2043.05L93.14%2033.51A12.12%2012.12%200%200%201%2097.29%2035.54L91.35%2043.43ZM91.47%2043.52L97.95%2036.07A12.12%2012.12%200%200%201%20100.8%2039.72L92%2044.2ZM88.32%2045.22A1.68%201.68%200%201%201%2091.68%2045.22A1.68%201.68%200%201%201%2088.32%2045.22Z%22%20fill%3D%22%231C1B18%22%2F%3E%3Ccircle%20cx%3D%2218%22%20cy%3D%2218%22%20r%3D%224%22%20fill%3D%22%23CFC7B6%22%2F%3E%3Ccircle%20cx%3D%2234%22%20cy%3D%2218%22%20r%3D%224%22%20fill%3D%22%23CFC7B6%22%2F%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2218%22%20r%3D%224%22%20fill%3D%22%23CFC7B6%22%2F%3E%3Cpath%20d%3D%22M0%2071.5H120%22%20stroke%3D%22%23DDD6C8%22%2F%3E%3C%2Fsvg%3E');
++    loadChromeTexture.call(this, ChromeTexture.MIDDLE, 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2272%22%20viewBox%3D%220%200%2016%2072%22%3E%3Crect%20width%3D%2216%22%20height%3D%2272%22%20fill%3D%22%23ECE7DD%22%2F%3E%3Cpath%20d%3D%22M0%2071.5H16%22%20stroke%3D%22%23DDD6C8%22%2F%3E%3C%2Fsvg%3E');
++    loadChromeTexture.call(this, ChromeTexture.RIGHT, 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2272%22%20height%3D%2272%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20fill%3D%22%23ECE7DD%22%2F%3E%3Cpath%20d%3D%22M0%2071.5H72%22%20stroke%3D%22%23DDD6C8%22%2F%3E%3C%2Fsvg%3E');
+   }
+ 
+   private initGLIfNecessary(): WebGLRenderingContext|null {

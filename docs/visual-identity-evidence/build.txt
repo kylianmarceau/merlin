@@ -1,0 +1,37 @@
+offline mode
+ninja: Entering directory `/Users/kyliandabancourt/chromium/src/out/Modal'
+
+
+workspace=/Users/kyliandabancourt/chromium/src dir=out/Modal
+disable fast local for non-interactive: fastlocal=1->0
+ use `--fast_local` to enable fast local with non-interactive mode
+schedule pending:1+ready:0 (node:87098 edge:2)
+build start: Ready 1 Pending 1
+rebuild manifest finished
+
+loading build.ninja... done 1.21311925s
+load siso config done 21.710041ms
+schedule pending:1+ready:0 (node:436004 edge:2)
+build start: Ready 1 Pending 1
+rebuild manifest finished
+schedule pending:1+ready:0 (node:436004 edge:9)
+build start: Ready 9637 Pending 98743
+[0/6355] 8.19s S CXX obj/chrome/browser/ui/views/global_media_controls/impl/cast_device_selector_view.o
+[0/3085] 8.28s S CXX obj/chrome/browser/ui/modal_browser/browser_tests/merlin_identity_browsertest.o
+[0/971] 11.80s F CXX obj/chrome/browser/ui/views/global_media_controls/impl/cast_device_selector_view.o
+[1/971] 11.86s S SOLINK libchrome_dll.dylib libchrome_dll.dylib.TOC
+[1/971] 23.44s F SOLINK libchrome_dll.dylib libchrome_dll.dylib.TOC
+[2/4] 24.53s F CXX obj/chrome/browser/ui/modal_browser/browser_tests/merlin_identity_browsertest.o
+[3/4] 24.56s S LINK ./browser_tests
+[3/4] 33.04s F LINK ./browser_tests
+build finished
+
+	
+noexec:0 local:4 remote:0 cache:0 skip:108376
+  cache-write:0(err:0) fallback:0 retry:0
+fs: ops: 957(err:5) / r:580(err:0) 525.55MiB / w:2(err:0) 2.15MiB
+
+
+shutdown cloud logging/monitoring done 28.167µs
+
+33.36s Build Succeeded: 4 steps - 0.12/s

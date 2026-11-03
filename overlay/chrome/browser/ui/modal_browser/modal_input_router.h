@@ -74,6 +74,7 @@ struct OpenRequest {
 // A workspace to open, as the core validated it.
 struct WorkspaceRestore {
   std::string name;
+  std::string project;
   struct Tab {
     std::string url;
     std::string title;
@@ -313,7 +314,7 @@ class ModalInputRouter {
   // Window facts the core needs.
   void SetWindow(bool private_window);
   void SetEnvironment(std::string_view visual, std::string_view editor);
-  void SetWorkspace(std::string_view name);
+  void SetWorkspace(std::string_view name, std::string_view project = {});
   std::string workspace() const;
   // Empty when the window's workspace should not be saved automatically.
   std::string autosave_workspace() const;

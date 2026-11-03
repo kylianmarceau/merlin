@@ -302,13 +302,19 @@ caret.
 `gh`/`gb`/`gw`/`:profile` palettes read history, bookmarks, workspaces and
 profiles from their services. Nothing is reimplemented.
 
-## 24. Distribution is prepared, not done
+## 24. GitHub distribution without Developer ID or notarization
 
-`build/args.release.gn` and `scripts/package_mac.sh` describe a signed,
-notarized DMG using Chromium's own signing driver, but nothing has been
-signed: that needs an Apple Developer ID and a real bundle ID (the name and
-icon are Merlin's; see 31). Updates are manual until then (no Sparkle or
-Omaha).
+Updated 2026-11-02: the maintainer chose GitHub Releases without a paid
+Apple Developer account. Skip Developer ID signing, notarization and
+stapling; do not count them as blockers or recommend buying an account in
+readiness reviews. Free ad-hoc signing needed for Apple Silicon is allowed.
+
+Finish implementation, testing and packaging for that scope, including
+installation from a downloaded artifact. `build/args.release.gn` remains the
+distribution configuration; `scripts/package_mac.sh` is an unverified older
+signing prototype and needs adapting or replacing for this path. Updates
+remain manual (no Sparkle or Omaha). See [Release](RELEASE.md) for the
+remaining work and unnotarized installation steps.
 
 ## 25. User-defined commands are aliases, not scripts
 
@@ -656,3 +662,60 @@ so the window is one surface. Tabs stay reachable from the keyboard
   normal-priority accelerator that runs only when the page leaves the key
   alone. Save Page As moves to Shift-Cmd-S, in the File menu as before.
 
+## 42. Safety controls remain available when tabs are hidden
+
+The toolbar has a separate, keyboard-focusable site-controls button on web
+pages, including secure HTTPS pages and while editing the address. It opens
+Chromium's own Page Info UI for permissions, cookies and certificates; a lock
+is not used as a claim that the site is trustworthy. Patch 0013 lets Page Info
+and permission bubbles anchor to a visible replacement location icon when
+the original location bar is hidden, rather than to hidden chips.
+
+Pinned and compact tabs retain camera, microphone and capture badges, and
+their accessible names and tooltips describe the alert. Merlin subscribes to
+Chromium's tab-alert changes rather than waiting for a title change to repaint.
+A toolbar Recording/Sharing control also lists capturing tabs in the current
+window, including background tabs and those hidden in groups or by Cmd-S.
+Users can view a capturing tab or stop its user-media/display-media capture
+through Chromium's existing capture service. Menu actions retain tab handles
+and revalidate window ownership and current capture state. Managed all-screen
+capture remains subject to Chromium's separate policy restrictions.
+
+Private windows show an explicit Private label in both tab layouts and with
+tabs hidden. Page-colour tinting steps aside for high contrast and forced
+colours, without invalidating the document's cached sample.
+
+## 43. Workspace restoration transfers the project as well as the name
+
+The restore action carries the optional project folder through Rust, the cxx
+bridge and the portable router. When opening a new window, its session receives
+both the workspace name and project before later autosaves. Previously only
+the name reached the destination, so autosave could erase the saved project
+association and break `browserctl workspace here`. An absent project clears
+any old association; transferred paths are validated as on initial assignment.
+
+`browserctl workspace here` also rechecks that its destination still accepts
+browserctl after the asynchronous workspace lookup. Disabled and private
+windows are excluded on both sides of that lookup.
+
+
+## Native ad blocker integration (2026-11-02)
+
+Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing
+CXX bridge. Use the compatible audited dependency graph rather than weakening
+Chromium's dependency-age policy for 0.13.5. Keep the feature independent of
+modal browsing and disabled by default until correctness, live playback and
+performance qualification are complete.
+
+A dedicated thread owns each non-Send engine, with a bounded serialized
+builder and atomic generation replacement. Factory composition preserves
+Chromium security/extension policies. Additional pre-Service-Worker checks,
+worker brokers, socket hooks and renderer-cache partitions are necessary:
+factory-only filtering misses synthetic/cache responses and decoded resources.
+Shared/service workers use owning-origin exceptions; attributable dedicated
+workers use their top-level document. Executable resources update with the
+application, while fixed HTTPS list endpoints can refresh without visited URLs,
+cookies or referrers. See [the evidence and limitations](ADBLOCK_IMPLEMENTATION.md).
+
+This task implements and tests the blocker. Packaging and GitHub publication
+are deferred at the maintainer's explicit request.

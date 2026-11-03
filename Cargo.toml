@@ -5,6 +5,8 @@
 [workspace]
 resolver = "3"
 members = [
+  "overlay/components/merlin_adblock/core",
+  "overlay/components/merlin_adblock/ffi",
   "overlay/components/modal_browser/core",
   "overlay/components/modal_browser/ffi",
   "tools/host_harness",

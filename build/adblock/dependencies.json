@@ -1,0 +1,11 @@
+{
+  "chromium_commit": "4c20950d2f187a6976cf5e2a1234ca896dcdfd1c",
+  "baseline_lock_sha256": "f7ee721045551f392256415149d4ae3a0d4a3c97f33c8b5ccdedc7a16a304f4d",
+  "prepared_lock_sha256": "aa3cfec97f2558bf89241e499801a7c6165795801e2931bd905683127c6b1beb",
+  "engine_features": [
+    "embedded-domain-resolver",
+    "full-regex-handling",
+    "single-thread",
+    "css-validation"
+  ]
+}

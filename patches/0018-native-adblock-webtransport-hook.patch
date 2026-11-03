@@ -1,0 +1,36 @@
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -6,6 +6,7 @@
+ 
+ #include "chrome/browser/merlin_adblock/integration.h"
+ #include "chrome/browser/merlin_adblock/network.h"
++#include "chrome/browser/merlin_adblock/handshake.h"
+ 
+ #include <algorithm>
+ #include <iterator>
+@@ -7119,6 +7120,15 @@
+     mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
+         handshake_client,
+     WillCreateWebTransportCallback callback) {
++  auto proceed = base::BindOnce([](int process_id, int frame_routing_id,
++      const GURL& url, const url::Origin& initiator_origin,
++      mojo::PendingRemote<network::mojom::WebTransportHandshakeClient> handshake_client,
++      WillCreateWebTransportCallback callback, int error, const GURL& checked_url) {
++    if (error != net::OK) {
++      std::move(callback).Run(std::move(handshake_client),
++          network::mojom::WebTransportError::New(error, 0, "Connection blocked by browser policy", false));
++      return;
++    }
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+   // TODO(crbug.com/40195467): Add a unit test which calls
+@@ -7146,6 +7156,8 @@
+ #else
+   std::move(callback).Run(std::move(handshake_client), std::nullopt);
+ #endif
++  }, process_id, frame_routing_id, url, initiator_origin, std::move(handshake_client), std::move(callback));
++  merlin_adblock::CheckWebTransport(process_id, frame_routing_id, initiator_origin, url, std::move(proceed));
+ }
+ 
+ bool ChromeContentBrowserClient::WillCreateRestrictedCookieManager(

@@ -1,0 +1,108 @@
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -3,6 +3,9 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/chrome_content_browser_client.h"
++
++#include "chrome/browser/merlin_adblock/integration.h"
++#include "chrome/browser/merlin_adblock/network.h"
+ 
+ #include <algorithm>
+ #include <iterator>
+@@ -5744,6 +5747,9 @@
+     content::NavigationHandle* navigation_handle,
+     content::CommitDeferringCondition::NavigationType navigation_type) {
+   std::vector<std::unique_ptr<content::CommitDeferringCondition>> conditions;
++  if (auto condition = merlin_adblock::PrepareDocument(*navigation_handle, navigation_type)) {
++    conditions.push_back(std::move(condition));
++  }
+ 
+ #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+   MaybeAddCondition(
+@@ -6874,6 +6880,8 @@
+     network::mojom::URLLoaderFactoryOverridePtr* factory_override,
+     scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner,
+     bool is_for_network_service) {
++  merlin_adblock::InstallInterceptor(browser_context, frame, type,
++      request_initiator, isolation_info, navigation_id, factory_builder, factory_override);
+ #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+   auto* web_request_api =
+       extensions::BrowserContextKeyedAPIFactory<extensions::WebRequestAPI>::Get(
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1046,6 +1046,7 @@
+   }
+ 
+   deps = [
++    "//chrome/browser/merlin_adblock",
+     ":active_use_util",
+     ":after_startup_task_utils",
+     ":bad_message",
+diff --git a/chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.cc b/chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.cc
+--- a/chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.cc
++++ b/chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.cc
+@@ -3,6 +3,8 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.h"
++
++#include "chrome/browser/merlin_adblock/service.h"
+ 
+ #include <memory>
+ #include <utility>
+@@ -680,6 +682,7 @@
+ // static
+ void ChromeBrowserMainExtraPartsProfiles::
+     EnsureBrowserContextKeyedServiceFactoriesBuilt() {
++  merlin_adblock::ServiceFactory::GetInstance();
+   // ---------------------------------------------------------------------------
+   // Redirect to those lists for factories that are part of those modules.
+   // Module specific registration functions:
+diff --git a/chrome/browser/profiles/BUILD.gn b/chrome/browser/profiles/BUILD.gn
+--- a/chrome/browser/profiles/BUILD.gn
++++ b/chrome/browser/profiles/BUILD.gn
+@@ -725,6 +725,7 @@
+     ":profile_manager",
+     ":profile_util",
+     ":profiles_extra_parts",
++    "//chrome/browser/merlin_adblock",
+     ":renderer_updater",
+     "//base",
+     "//chrome/browser:browser_process",
+diff --git a/chrome/renderer/chrome_content_renderer_client.cc b/chrome/renderer/chrome_content_renderer_client.cc
+--- a/chrome/renderer/chrome_content_renderer_client.cc
++++ b/chrome/renderer/chrome_content_renderer_client.cc
+@@ -3,6 +3,9 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/renderer/chrome_content_renderer_client.h"
++
++#include "chrome/renderer/merlin_adblock/agent.h"
++#include "components/merlin_adblock/common/features.h"
+ 
+ #include <functional>
+ #include <memory>
+@@ -651,6 +654,9 @@
+ 
+ void ChromeContentRendererClient::RenderFrameCreated(
+     content::RenderFrame* render_frame) {
++  if (base::FeatureList::IsEnabled(merlin_adblock::kMerlinAdblock)) {
++    new merlin_adblock::Agent(render_frame);
++  }
+   ChromeRenderFrameObserver* render_frame_observer =
+       new ChromeRenderFrameObserver(render_frame, web_cache_impl_.get());
+   service_manager::BinderRegistry* registry = render_frame_observer->registry();
+diff --git a/chrome/renderer/BUILD.gn b/chrome/renderer/BUILD.gn
+--- a/chrome/renderer/BUILD.gn
++++ b/chrome/renderer/BUILD.gn
+@@ -127,6 +127,7 @@
+   ]
+ 
+   deps = [
++    "//chrome/renderer/merlin_adblock",
+     ":process_state",
+     "//base/allocator:buildflags",
+     "//build:chromeos_buildflags",

@@ -1,0 +1,20 @@
+diff --git a/chrome/renderer/url_loader_throttle_provider_impl.cc b/chrome/renderer/url_loader_throttle_provider_impl.cc
+--- a/chrome/renderer/url_loader_throttle_provider_impl.cc
++++ b/chrome/renderer/url_loader_throttle_provider_impl.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/renderer/url_loader_throttle_provider_impl.h"
++#include "chrome/renderer/merlin_adblock/request_throttle.h"
+ 
+ #include <memory>
+ #include <utility>
+@@ -183,6 +184,8 @@
+ #endif
+ 
+   std::vector<std::unique_ptr<blink::URLLoaderThrottle>> throttles;
++  if (auto throttle = merlin_adblock::MaybeCreateRequestThrottle(local_frame_token, request, main_thread_task_runner_))
++    throttles.emplace_back(std::move(throttle));
+ 
+   // Some throttles have already been added in the browser for frame resources.
+   // Don't add them for frame requests.

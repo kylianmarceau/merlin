@@ -291,6 +291,26 @@ fn projects_are_saved_and_matched_by_folder() {
 }
 
 #[test]
+fn restored_workspace_context_preserves_and_clears_project() {
+    let tabs = [WindowTab {
+        url: "https://example.com".into(),
+        ..WindowTab::default()
+    }];
+    let mut destination = ModalSession::new();
+    destination.set_workspace("research", Some("/tmp/research/"));
+    assert_eq!(destination.project(), Some("/tmp/research"));
+    let saved = destination.save_workspace("research", true, &tabs, 0);
+    let Action::WriteWorkspace { contents, .. } = &saved.actions[0] else {
+        panic!("{saved:?}")
+    };
+    assert_eq!(project_of(contents).as_deref(), Some("/tmp/research"));
+    destination.set_workspace("unassociated", None);
+    assert_eq!(destination.project(), None);
+    destination.set_workspace("research", Some("relative"));
+    assert_eq!(destination.project(), None);
+}
+
+#[test]
 fn browserctl_workspace_here() {
     let r = Request::Workspace(WorkspaceRequest::Here("/Users/me/code/foo".into()));
     let line = ipc::encode_request(3, &r);

@@ -5,12 +5,18 @@
 #ifndef CHROME_BROWSER_UI_MODAL_BROWSER_MODAL_STYLE_H_
 #define CHROME_BROWSER_UI_MODAL_BROWSER_MODAL_STYLE_H_
 
+#include <optional>
+
 #include "components/modal_browser/ffi/src/lib.rs.h"
+#include "chrome/browser/ui/modal_browser/merlin_design_tokens.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/font_list.h"
 
 namespace views {
 class View;
+}
+namespace ui {
+struct ColorProviderKey;
 }
 
 // The visual language of the modal layer's surfaces (palette, status pill,
@@ -19,22 +25,7 @@ class View;
 // copies another product's artwork.
 namespace modal_browser::style {
 
-struct Colors {
-  SkColor surface;         // card backgrounds
-  SkColor surface_raised;  // selected row, keycaps
-  SkColor border;          // hairline around cards
-  SkColor shadow;          // drop shadow tint
-  SkColor text;            // primary text
-  SkColor text_secondary;  // URLs, summaries
-  SkColor text_tertiary;   // placeholders, footers
-  SkColor accent;          // matched characters, prompt, focus
-  SkColor accent_soft;     // selected-row tint
-  SkColor error;
-  SkColor hint_bg;         // link hint label
-  SkColor hint_text;
-  SkColor hint_typed;      // characters already typed in a label
-  SkColor hint_border;
-};
+using Colors = design::OverlayPalette;
 
 // Light or dark, from the color provider of `view` (or its widget).
 bool IsDark(const views::View* view);
@@ -60,6 +51,11 @@ struct Ink {
 };
 Ink InkOn(SkColor surface);
 
+// Page-derived colours must not override high-contrast or forced-colour UI.
+bool PageColorsAllowed(const ui::ColorProviderKey& key);
+std::optional<SkColor> PageSurface(const views::View* view,
+                                   std::optional<SkColor> surface);
+
 // Fonts. UI text uses the system font; keys and hint labels use a monospaced
 // face so labels line up and are easy to read at a glance.
 const gfx::FontList& UiFont(int size_delta = 0,
@@ -70,7 +66,7 @@ const gfx::FontList& MonoFont(int size_delta = 0,
 // Metrics, in DIPs.
 inline constexpr int kPaletteWidth = 640;
 inline constexpr int kPaletteMinMargin = 24;
-inline constexpr int kPaletteRadius = 14;
+inline constexpr int kPaletteRadius = design::kCardRadius;
 inline constexpr int kPaletteInputHeight = 52;
 inline constexpr int kPaletteRowHeight = 40;
 inline constexpr int kPaletteMaxVisibleRows = 8;

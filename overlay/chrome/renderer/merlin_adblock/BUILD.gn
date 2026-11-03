@@ -1,0 +1,33 @@
+action("embed") {
+  script = "embed.py"
+  sources = [ "cosmetics.js" ]
+  outputs = [ "$target_gen_dir/cosmetics.h" ]
+  args = [
+    rebase_path(sources[0], root_build_dir),
+    rebase_path(outputs[0], root_build_dir),
+  ]
+}
+
+source_set("merlin_adblock") {
+  sources = [
+              "agent.cc",
+              "agent.h",
+              "request_throttle.cc",
+              "request_throttle.h",
+            ] + get_target_outputs(":embed")
+  deps = [
+    ":embed",
+    "//base",
+    "//chrome/common",
+    "//components/merlin_adblock/common:features",
+    "//components/merlin_adblock/common:mojom",
+    "//components/merlin_adblock/common:request_types",
+    "//content/public/renderer",
+    "//mojo/public/cpp/bindings",
+    "//net",
+    "//services/network/public/cpp",
+    "//third_party/blink/public:blink_headers",
+    "//third_party/blink/public/common",
+    "//v8",
+  ]
+}

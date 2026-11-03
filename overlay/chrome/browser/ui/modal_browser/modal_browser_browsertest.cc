@@ -26,85 +26,98 @@
 #include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
-#include "base/files/scoped_temp_dir.h"
 #include "base/files/scoped_file.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
-#include "base/task/thread_pool.h"
 #include "base/run_loop.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/thread_pool.h"
+#include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/test_future.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/extensions/chrome_test_extension_loader.h"
+#include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
+#include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/extensions/chrome_test_extension_loader.h"
+#include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
-#include "ui/views/test/button_test_api.h"
 #include "chrome/browser/ui/modal_browser/config_file.h"
-#include "chrome/browser/ui/modal_browser/workspace_store.h"
+#include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
-#include "chrome/browser/bookmarks/bookmark_model_factory.h"
-#include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/modal_browser/merlin_library_pages.h"
+#include "chrome/browser/ui/modal_browser/merlin_page_color.h"
+#include "chrome/browser/ui/modal_browser/merlin_safety_controls.h"
 #include "chrome/browser/ui/modal_browser/merlin_settings_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
+#include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
 #include "chrome/browser/ui/modal_browser/merlin_toolbar.h"
-#include "chrome/browser/ui/modal_browser/merlin_page_color.h"
-#include "chrome/browser/ui/modal_browser/modal_style.h"
-#include "chrome/browser/ui/modal_browser/external_editor.h"
-#include "ui/gfx/color_utils.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_button.h"
-#include "chrome/browser/ui/views/toolbar/reload_button.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
-#include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
-#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
-#include "components/bookmarks/browser/bookmark_model.h"
-#include "components/history/core/browser/history_service.h"
-#include "components/keyed_service/core/service_access_type.h"
-#include "components/omnibox/browser/omnibox_pref_names.h"
-#include "components/zoom/zoom_controller.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
+#include "chrome/browser/ui/modal_browser/modal_style.h"
 #include "chrome/browser/ui/modal_browser/palette_view.h"
 #include "chrome/browser/ui/modal_browser/status_view.h"
+#include "chrome/browser/ui/modal_browser/workspace_store.h"
+#include "chrome/browser/ui/permission_bubble/permission_bubble_test_util.h"
+#include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
-#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
+#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/common/webui_url_constants.h"
+#include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
+#include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
+#include "chrome/browser/ui/views/permissions/permission_prompt_bubble_view_factory.h"
+#include "chrome/browser/ui/views/permissions/permission_prompt_style.h"
+#include "chrome/browser/ui/views/toolbar/reload_button.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_button.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/theme_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "components/prefs/pref_service.h"
-#include "ui/base/resource/resource_bundle.h"
-#include "ui/gfx/image/image_skia.h"
-#include "ui/gfx/image/image_skia_rep.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/bookmarks/browser/bookmark_model.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/input/native_web_keyboard_event.h"
+#include "components/keyed_service/core/service_access_type.h"
+#include "components/omnibox/browser/omnibox_pref_names.h"
+#include "components/permissions/permission_prompt.h"
+#include "components/permissions/request_type.h"
+#include "components/permissions/test/mock_permission_request.h"
+#include "components/prefs/pref_service.h"
+#include "components/security_state/content/content_utils.h"
+#include "components/security_state/core/security_state.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_interface.h"
-#include "components/input/native_web_keyboard_event.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
+#include "components/zoom/zoom_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/test/browser_test.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_controller.h"
+#include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/common/extension.h"
@@ -115,19 +128,28 @@
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkImage.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/clipboard/test/test_clipboard.h"
+#include "ui/base/resource/resource_bundle.h"
+#include "ui/color/color_provider.h"
+#include "ui/color/color_provider_key.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
-#include "base/strings/string_util.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "ui/gfx/color_utils.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_rep.h"
+#include "ui/native_theme/native_theme.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/test/button_test_api.h"
 #include "ui/views/test/views_drawing_test_utils.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
@@ -339,12 +361,14 @@ class ModalBrowserBrowserTest : public InProcessBrowserTest {
 
   // Runs a command line and waits until the page-side or file work it
   // starts has reported back.
-  void RunAndWait(std::string_view line) {
+  void RunAndWait(std::string_view line) { RunAndWaitOn(controller(), line); }
+
+  void RunAndWaitOn(ModalBrowserController* target, std::string_view line) {
     base::RunLoop loop;
-    controller()->set_page_work_done_callback_for_testing(loop.QuitClosure());
-    EXPECT_EQ(controller()->RunCommandLine(line), "") << line;
+    target->set_page_work_done_callback_for_testing(loop.QuitClosure());
+    EXPECT_EQ(target->RunCommandLine(line), "") << line;
     loop.Run();
-    controller()->set_page_work_done_callback_for_testing({});
+    target->set_page_work_done_callback_for_testing({});
   }
 
   std::u16string StatusMessage() {
@@ -1145,8 +1169,9 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinSettingsReplacesSettings) 
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings")));
   ASSERT_TRUE(contents()->GetWebUI()->GetController()->GetAs<MerlinSettingsUI>());
   ASSERT_TRUE(base::test::RunUntil([&] {
-    return content::EvalJs(contents(), "document.querySelectorAll('section').length")
-               .ExtractInt() == 8;
+    return content::EvalJs(contents(),
+                           "document.querySelectorAll('section').length")
+               .ExtractInt() == 9;
   }));
   // No Google account, sync or AI sections. (The search engine list may
   // name Google: it is the user's choice.)
@@ -1155,6 +1180,7 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinSettingsReplacesSettings) 
   EXPECT_EQ(nav.find("Chrome"), std::string::npos) << nav;
   EXPECT_EQ(nav.find("AI"), std::string::npos) << nav;
   EXPECT_NE(nav.find("About Merlin"), std::string::npos);
+  EXPECT_NE(nav.find("Ad blocking"), std::string::npos);
 
   // chrome://settings/help opens on About; sync goes to Merlin Settings.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("chrome://settings/help")));
@@ -1299,6 +1325,9 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinToolbarFollowsPage) {
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return !state->ShouldDisplayVerticalTabs(); }));
   BrowserView* view = BrowserView::GetBrowserViewForBrowser(browser());
+  // The state changes before the scheduled layout removes the native WebUI
+  // toolbar's width. Measure the completed layout, not its previous bounds.
+  view->GetWidget()->LayoutRootViewIfNecessary();
   EXPECT_FALSE(view->GetLocationBarView()->GetVisible());
   BrowserElementsViews* elements = BrowserElementsViews::From(browser());
   views::View* tab_search = elements->GetView(kTabSearchButtonElementId);
@@ -1537,6 +1566,8 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, GpPinsTheTab) {
 // The Phase 3 gate's "save, relaunch, restore", within one run: save a
 // window with a split, then open the workspace into a new window.
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, WorkspaceSaveAndRestore) {
+  EXPECT_EQ(
+      controller()->RunCommandLine("workspace project /tmp/modal-project"), "");
   const GURL doc = embedded_test_server()->GetURL("/doc");
   content::TestNavigationObserver navigation(doc);
   navigation.StartWatchingNewWebContents();
@@ -1587,6 +1618,20 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, WorkspaceSaveAndRestore) {
   EXPECT_EQ(strip->GetSplitForTab(0), strip->GetSplitForTab(1));
   EXPECT_EQ(ModalBrowserController::From(restored)->workspace_for_testing(),
             "research");
+  // A new window must retain the project through its next save, not just
+  // restore the name and tabs. This is what workspace here matches later.
+  RunAndWaitOn(ModalBrowserController::From(restored),
+               "workspace save research");
+  {
+    base::ScopedAllowBlockingForTesting allow;
+    std::string text;
+    ASSERT_TRUE(
+        base::ReadFileToString(workspace_store::PathFor("research"), &text));
+    auto saved = base::JSONReader::Read(text, base::JSON_PARSE_RFC);
+    ASSERT_TRUE(saved && saved->is_dict());
+    ASSERT_TRUE(saved->GetDict().FindString("project"));
+    EXPECT_EQ(*saved->GetDict().FindString("project"), "/tmp/modal-project");
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, BrowserctlOverTheSocket) {
@@ -1990,6 +2035,275 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NewProfilesReopenTheirSession) {
   ReloadConfig();
   EXPECT_EQ(prefs->GetInteger(prefs::kRestoreOnStartup),
             SessionStartupPref::kPrefValueNewTab);
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       SecureSiteControlsAndPermissionAnchors) {
+  net::EmbeddedTestServer https(net::EmbeddedTestServer::TYPE_HTTPS);
+  https.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+  https.RegisterRequestHandler(base::BindRepeating(&ServePage));
+  ASSERT_TRUE(https.Start());
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), https.GetURL("a.test", "/page")));
+  auto security = security_state::GetVisibleSecurityState(contents());
+  ASSERT_TRUE(security);
+  ASSERT_EQ(security_state::GetSecurityLevel(*security),
+            security_state::SECURE);
+  auto* controls = controller()->safety_controls_for_testing();
+  ASSERT_TRUE(controls);
+  auto* button = controls->site_button_for_testing();
+  EXPECT_EQ(button->GetFocusBehavior(), views::View::FocusBehavior::ALWAYS);
+  for (const char* layout : {"set tabs=top", "set tabs=side", "hide-tabs on"}) {
+    ASSERT_EQ(controller()->RunCommandLine(layout), "");
+    ASSERT_TRUE(base::test::RunUntil(
+        [&] { return button->IsDrawn() && button->width() > 0; }));
+    auto anchor =
+        bubble_anchor_util::GetPermissionPromptBubbleAnchorConfiguration(
+            contents());
+    EXPECT_EQ(anchor.anchor.GetIfView(), button);
+    // Exercise the button's keyboard handler, rather than clicking the
+    // address field's old warning-only hit target.
+    ui::KeyEvent press(ui::EventType::kKeyPressed, ui::VKEY_SPACE, ui::EF_NONE);
+    ui::KeyEvent release(ui::EventType::kKeyReleased, ui::VKEY_SPACE,
+                         ui::EF_NONE);
+    button->OnKeyEvent(&press);
+    button->OnKeyEvent(&release);
+    ASSERT_TRUE(base::test::RunUntil([&] {
+      return PageInfoBubbleViewBase::GetPageInfoBubbleForTesting(contents()) !=
+             nullptr;
+    }));
+    auto* bubble =
+        PageInfoBubbleViewBase::GetPageInfoBubbleForTesting(contents());
+    EXPECT_EQ(bubble->GetAnchorView(), button);
+    bubble->GetWidget()->CloseNow();
+
+    // Headless Chromium intentionally denies queued permission requests.
+    // Exercise its real prompt view with a synthetic delegate instead;
+    // no production permission check or OS permission is bypassed.
+    TestPermissionBubbleViewDelegate delegate;
+    std::vector<std::unique_ptr<permissions::PermissionRequest>> requests;
+    requests.push_back(std::make_unique<permissions::MockPermissionRequest>(
+        contents()->GetLastCommittedURL(), permissions::RequestType::kMicStream,
+        permissions::PermissionRequestGestureType::GESTURE));
+    delegate.set_requests(std::move(requests));
+    auto prompt = CreatePermissionPromptBubbleView(
+        contents(), delegate.GetWeakPtr(), PermissionPromptStyle::kBubbleOnly);
+    ASSERT_TRUE(prompt);
+    prompt->Show();
+    EXPECT_TRUE(prompt->GetWidget()->IsVisible());
+    EXPECT_EQ(prompt->GetAnchorView(), button);
+    prompt->GetWidget()->CloseNow();
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       CaptureControlsSurviveCompactAndHiddenTabs) {
+  auto* controls = controller()->safety_controls_for_testing();
+  ASSERT_TRUE(controls);
+  EXPECT_FALSE(controls->capture_button_for_testing()->GetVisible());
+  auto* first = contents();
+  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
+      browser(), embedded_test_server()->GetURL("b.test", "/form"),
+      WindowOpenDisposition::NEW_BACKGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
+  auto* second = browser()->tab_strip_model()->GetWebContentsAt(1);
+  auto indicator = MediaCaptureDevicesDispatcher::GetInstance()
+                       ->GetMediaStreamCaptureIndicator();
+  blink::mojom::StreamDevices audio_devices;
+  audio_devices.audio_device = blink::MediaStreamDevice(
+      blink::mojom::MediaStreamType::DEVICE_AUDIO_CAPTURE, "test-mic",
+      "Test microphone");
+  auto audio = indicator->RegisterMediaStream(first, audio_devices);
+  audio->OnStarted(base::BindLambdaForTesting([&] { audio.reset(); }), {}, "",
+                   {}, {});
+  blink::mojom::StreamDevices video_devices;
+  video_devices.video_device = blink::MediaStreamDevice(
+      blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE, "test-camera",
+      "Test camera");
+  auto video = indicator->RegisterMediaStream(second, video_devices);
+  video->OnStarted(base::BindLambdaForTesting([&] { video.reset(); }), {}, "",
+                   {}, {});
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return controls->capture_button_for_testing()->GetVisible(); }));
+  EXPECT_EQ(controls->capture_button_for_testing()->GetFocusBehavior(),
+            views::View::FocusBehavior::ALWAYS);
+  EXPECT_EQ(controller()->RunCommandLine("pin on"), "");
+  for (const char* layout : {"set tabs=top", "set tabs=side", "sidebar off"}) {
+    ASSERT_EQ(controller()->RunCommandLine(layout), "");
+    auto* bar = controller()->tab_bar_host_for_testing()->bar();
+    ASSERT_TRUE(
+        base::test::RunUntil([&] { return !bar->tabs_for_testing().empty(); }));
+    auto* pinned = bar->tabs_for_testing()[0].get();
+    ASSERT_TRUE(pinned->data().pinned);
+    ASSERT_TRUE(base::test::RunUntil([&] {
+      return pinned->data().alert == tabs::TabAlert::kAudioRecording;
+    }));
+    EXPECT_FALSE(pinned->AlertBoundsForTesting().IsEmpty());
+    ui::AXNodeData accessible;
+    pinned->GetViewAccessibility().GetAccessibleNodeData(&accessible);
+    EXPECT_NE(accessible.GetString16Attribute(ax::mojom::StringAttribute::kName)
+                  .find(tabs::TabAlertController::GetTabAlertStateText(
+                      tabs::TabAlert::kAudioRecording)),
+              std::u16string::npos);
+  }
+  ASSERT_EQ(controller()->RunCommandLine("hide-tabs on"), "");
+  EXPECT_TRUE(controls->capture_button_for_testing()->IsDrawn());
+  auto* menu = controls->BuildCaptureMenuForTesting();
+  ASSERT_EQ(menu->GetItemCount(), 5u);  // two tabs, with a separator
+  EXPECT_NE(menu->GetLabelAt(0).find(u"Microphone"), std::u16string::npos);
+  EXPECT_NE(menu->GetLabelAt(3).find(u"Camera"), std::u16string::npos);
+  // Stop the first stream; a stale menu still addresses the second tab by
+  // its handle, rather than its changing list position.
+  controls->ExecuteCommand(1, 0);
+  EXPECT_FALSE(audio);
+  EXPECT_TRUE(video);
+  EXPECT_FALSE(controls->IsCommandIdEnabled(1));
+  controls->ExecuteCommand(3, 0);
+  EXPECT_FALSE(video);
+  EXPECT_FALSE(controls->capture_button_for_testing()->GetVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       SharingControlStopsScreenCapture) {
+  auto* controls = controller()->safety_controls_for_testing();
+  ASSERT_TRUE(controls);
+  auto indicator = MediaCaptureDevicesDispatcher::GetInstance()
+                       ->GetMediaStreamCaptureIndicator();
+  blink::mojom::StreamDevices devices;
+  devices.video_device = blink::MediaStreamDevice(
+      blink::mojom::MediaStreamType::GUM_TAB_VIDEO_CAPTURE, "test-tab",
+      "Test tab");
+  auto stream = indicator->RegisterMediaStream(contents(), devices);
+  stream->OnStarted(base::BindLambdaForTesting([&] { stream.reset(); }), {}, "",
+                    {}, {});
+  ASSERT_EQ(controller()->RunCommandLine("hide-tabs on"), "");
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return controls->capture_button_for_testing()->IsDrawn(); }));
+  auto* menu = controls->BuildCaptureMenuForTesting();
+  ASSERT_EQ(menu->GetItemCount(), 2u);
+  EXPECT_NE(menu->GetLabelAt(0).find(u"sharing"), std::u16string::npos);
+  NavigateTo("/doc");
+  // A stale menu must not act on a replacement document in the same tab.
+  EXPECT_FALSE(controls->IsCommandIdEnabled(1));
+  controls->BuildCaptureMenuForTesting();
+  controls->ExecuteCommand(1, 0);
+  EXPECT_FALSE(stream);
+  EXPECT_FALSE(controls->capture_button_for_testing()->GetVisible());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       PrivateWindowsKeepAnExplicitLabel) {
+  EXPECT_FALSE(controller()
+                   ->safety_controls_for_testing()
+                   ->private_badge_for_testing()
+                   ->GetVisible());
+  auto* private_window = CreateIncognitoBrowser();
+  auto* private_controller = ModalBrowserController::From(private_window);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      private_window, embedded_test_server()->GetURL("b.test", "/page")));
+  ASSERT_TRUE(private_controller);
+  auto* controls = private_controller->safety_controls_for_testing();
+  ASSERT_TRUE(controls);
+  for (const char* layout : {"set tabs=top", "set tabs=side", "hide-tabs on"}) {
+    ASSERT_EQ(private_controller->RunCommandLine(layout), "");
+    EXPECT_TRUE(controls->private_badge_for_testing()->IsDrawn());
+    EXPECT_TRUE(controls->site_button_for_testing()->IsDrawn());
+    ui::AXNodeData accessible;
+    controls->private_badge_for_testing()
+        ->GetViewAccessibility()
+        .GetAccessibleNodeData(&accessible);
+    EXPECT_EQ(
+        accessible.GetString16Attribute(ax::mojom::StringAttribute::kName),
+        u"Private browsing");
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       PageTintRespectsAccessibleThemes) {
+  ui::ColorProviderKey key;
+  EXPECT_TRUE(style::PageColorsAllowed(key));
+  key.contrast_mode = ui::ColorProviderKey::ContrastMode::kHigh;
+  EXPECT_FALSE(style::PageColorsAllowed(key));
+  key.contrast_mode = ui::ColorProviderKey::ContrastMode::kNormal;
+  for (auto forced : {ui::ColorProviderKey::ForcedColors::kSystem,
+                      ui::ColorProviderKey::ForcedColors::kDusk,
+                      ui::ColorProviderKey::ForcedColors::kWhite}) {
+    key.forced_colors = forced;
+    EXPECT_FALSE(style::PageColorsAllowed(key));
+  }
+  auto* view = BrowserView::GetBrowserViewForBrowser(browser());
+  auto* theme = view->GetNativeTheme();
+  const auto previous_contrast = theme->preferred_contrast();
+  const auto previous_forced = theme->forced_colors();
+  base::ScopedClosureRunner restore(base::BindLambdaForTesting([&] {
+    theme->set_preferred_contrast(previous_contrast);
+    theme->set_forced_colors(previous_forced);
+    theme->NotifyOnNativeThemeUpdated();
+  }));
+  theme->set_preferred_contrast(ui::NativeTheme::PreferredContrast::kMore);
+  theme->set_forced_colors(ui::ColorProviderKey::ForcedColors::kWhite);
+  theme->NotifyOnNativeThemeUpdated();
+  EXPECT_FALSE(style::PageSurface(view, SK_ColorRED));
+  auto* bar = controller()->tab_bar_host_for_testing()->bar();
+  bar->SetActiveColor(SK_ColorRED);
+  EXPECT_EQ(bar->ActiveFill(),
+            bar->GetColorProvider()->GetColor(kColorToolbar));
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       WorkspaceHereSkipsDisabledWindows) {
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return Browserctl(R"({"cmd":"ping"})").find("protocol") !=
+           std::string::npos;
+  }));
+  EXPECT_EQ(controller()->RunCommandLine("workspace project /tmp/modal-proj"),
+            "");
+  RunAndWait("workspace save proj");
+  auto* disabled = CreateBrowser(browser()->GetProfile());
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(disabled, GURL(chrome::kChromeUINewTabURL)));
+  auto* disabled_controller = ModalBrowserController::From(disabled);
+  ASSERT_TRUE(disabled_controller);
+  {
+    base::ScopedAllowBlockingForTesting allow;
+    ASSERT_TRUE(
+        base::WriteFile(ConfigPath(), "[options]\nbrowserctl = false\n"));
+  }
+  // Deliberately reload only this window; the first still owns the server.
+  RunAndWaitOn(disabled_controller, "config-reload");
+  ASSERT_FALSE(disabled_controller->browserctl_enabled_for_testing());
+  ASSERT_TRUE(controller()->browserctl_enabled_for_testing());
+  ASSERT_EQ(GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser(),
+            disabled);
+  const size_t before = GlobalBrowserCollection::GetInstance()->GetSize();
+  const auto reply = Browserctl(
+      R"({"cmd":"workspace","action":"here","dir":"/tmp/modal-proj/src"})");
+  EXPECT_EQ(reply, "{\"v\":1,\"ok\":true,\"result\":\"proj\"}\n");
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return GlobalBrowserCollection::GetInstance()->GetSize() == before + 1;
+  }));
+  EXPECT_TRUE(disabled_controller->workspace_for_testing().empty());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       ContentFullscreenRestoresToolbarWithoutCrossingWidgets) {
+  auto* view = BrowserView::GetBrowserViewForBrowser(browser());
+  ASSERT_TRUE(view);
+  EXPECT_EQ(true, content::EvalJs(contents(), R"JS((async()=>{
+    await document.documentElement.requestFullscreen();
+    return !!document.fullscreenElement;
+  })())JS"));
+  EXPECT_EQ(true, content::EvalJs(contents(), R"JS((async()=>{
+    await document.exitFullscreen();
+    return !document.fullscreenElement;
+  })())JS"));
+  ASSERT_TRUE(
+      base::test::RunUntil([&] { return !view->GetWidget()->IsFullscreen(); }));
+  view->GetWidget()->LayoutRootViewIfNecessary();
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return view->toolbar()->parent() && view->Contains(view->toolbar());
+  }));
+  EXPECT_TRUE(contents()->GetPrimaryMainFrame()->IsRenderFrameLive());
 }
 
 }  // namespace modal_browser

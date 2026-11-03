@@ -1,0 +1,11 @@
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -5742,6 +5742,7 @@
+ 
+ void ChromeContentBrowserClient::CreateThrottlesForCommitWithoutUrlLoader(
+     content::NavigationThrottleRegistry& registry) {
++  merlin_adblock::AddInheritedDocumentThrottle(registry);
+   CreateAndAddChromeThrottlesForCommitWithoutUrlLoader(registry);
+ }
+ 

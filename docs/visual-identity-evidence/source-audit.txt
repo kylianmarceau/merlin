@@ -1,0 +1,10 @@
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.001s
+
+OK
+DevTools presentation audit passed (56 strings, exact external/compatibility exceptions).
+Diagnostic decoration audit passed.
+DevTools control audit passed.
+Applied desktop name and artwork checks passed (54 explicit name exceptions).
+Visual identity boundary checks passed.

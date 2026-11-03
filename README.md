@@ -97,6 +97,12 @@ that take the color of the page under them, the page on a rounded card,
 and a start page with your workspaces and recently closed tabs one key
 away.
 
+A separate **site-controls button** opens permissions, cookies and certificate
+details on every web page. **Recording/Sharing** stays in the toolbar while
+any tab in the window captures a camera, microphone, screen or tab, even with
+tabs hidden; its menu lets you view the tab or stop capture. Private windows
+keep a visible **Private** label.
+
 ## Keys
 
 Press `?` in the browser to search every command and its current keys. The
@@ -126,6 +132,15 @@ most used ones:
 
 `Esc` returns to Normal mode. In Passthrough, `Shift+Esc` does.
 
+## Install from GitHub Releases
+
+The release target is a GitHub download without Developer ID signing or
+Apple notarization; a paid Apple Developer account is not required. See
+[release policy and installation steps](docs/RELEASE.md), including macOS's
+**Privacy & Security > Open Anyway** approval for the first launch.
+Distribution packaging and downloaded-artifact acceptance still need
+verification; this is not a claim that a release is already available.
+
 ## Build from source
 
 Merlin is built on top of a Chromium checkout. This repository holds only
@@ -151,6 +166,8 @@ scripts/bootstrap_chromium.sh --fetch
 
 # 4. Link Merlin into the checkout and apply its patches
 scripts/apply_overlay.sh
+~/chromium/src/third_party/cpython3/host/bin/python3 scripts/prepare_adblock_deps.py --src ~/chromium/src
+python3 scripts/prepare_adblock_resources.py
 
 # 5. Build (long the first time)
 cd ~/chromium/src
@@ -164,6 +181,25 @@ open out/Modal/Merlin.app
 The Chromium checkout goes to `~/chromium` by default; set `CHROMIUM_DIR`
 to use another folder (no spaces in the path). The Chromium release Merlin
 is built on is pinned in [`UPSTREAM_PIN`](UPSTREAM_PIN).
+
+### Native ad blocking (development)
+
+The native Brave Rust integration includes network filtering, cosmetics,
+scriptlets, popup filtering, offline lists and a background list updater.
+It works independently of modal browsing. It remains opt-in while performance
+and remaining manual qualification are incomplete. Quit any running
+Merlin instance before using the command below:
+
+```bash
+open -n ~/chromium/src/out/Modal/Merlin.app --args --enable-features=MerlinAdblock
+```
+
+The toolbar shield shows this page's blocked count and exact-site exception.
+Settings > Ad blocking controls protection, list groups, updates and exceptions.
+Commands are `:adblock on`, `off`, `site toggle`, `status` and `update`.
+Reload after changing protection to apply scriptlet changes to the page.
+`--disable-features=MerlinAdblock` is the independent kill switch. See
+[test evidence and limitations](docs/ADBLOCK_IMPLEMENTATION.md).
 
 ## Configuration
 
@@ -226,11 +262,14 @@ Turn it off with `browserctl = false` in the config.
 
 ## Privacy
 
-Merlin adds no telemetry, no accounts, no update checks and no AI services:
-its own layer makes no network requests at all. It writes only your
-workspaces and the temporary files used while you edit a field, all
-readable by your user only. [`docs/PRIVACY.md`](docs/PRIVACY.md) lists every
-file, socket and piece of page data it touches.
+Merlin adds no telemetry, accounts or AI services. The native ad blocker,
+when enabled, refreshes selected filter lists over HTTPS from EasyList and
+GitHub's raw-content service. It sends no visited URLs, cookies or referrers.
+Automatic checks are controllable per profile; private windows use existing
+lists and keep their new exceptions and counts in memory. Scriptlet resources
+change only with application releases. There are no browser binary update
+checks. [`docs/PRIVACY.md`](docs/PRIVACY.md) lists the files, sockets and page
+data Merlin touches.
 
 ## What to know
 
@@ -262,6 +301,9 @@ and tests on its own with `cargo`, without a Chromium checkout.
 | Path | What it holds |
 |---|---|
 | `overlay/components/modal_browser/` | The Rust core and its bridge to C++ |
+| `overlay/components/merlin_adblock/` | Native filtering core, bridge, policy messages and pinned offline data |
+| `overlay/chrome/browser/merlin_adblock/` | Profile service, interception, updates and native tests |
+| `overlay/chrome/renderer/merlin_adblock/` | Document-start scriptlets and bounded cosmetic filtering |
 | `overlay/chrome/browser/ui/modal_browser/` | The browser side: input, palette, tab bar, address card, status pill, Merlin's pages |
 | `patches/` | Every edit to Chromium's own files, one small patch each |
 | `tools/` | `browserctl`, `modalctl` and a test harness that fakes the browser |
@@ -273,9 +315,12 @@ and tests on its own with `cargo`, without a Chromium checkout.
 * [Architecture](docs/ARCHITECTURE.md): how the layers fit together and where Merlin hooks into Chromium
 * [Decisions](docs/DECISIONS.md): what was chosen, why, and what it costs
 * [Testing](docs/TESTING.md): test suites, results and the manual test plan
+* [Release](docs/RELEASE.md): GitHub release scope, remaining packaging checks and unnotarized installation
 * [Upstream](docs/UPSTREAM.md): the pinned Chromium release, every patch, and the update process
 * [Privacy](docs/PRIVACY.md): every file, socket and piece of page data Merlin touches
+* [Ad blocking plan](docs/ADBLOCK_PLAN.md) and [implementation evidence](docs/ADBLOCK_IMPLEMENTATION.md): native Brave engine integration, YouTube qualification and performance gates
 * [Branding](branding/README.md): name, logo and palette
+* [Browser UI identity](docs/VISUAL_IDENTITY.md): inventory, changed-file summary, [screenshots and tests](docs/visual-identity-evidence/README.md), and [manual macOS checks](docs/visual-identity-evidence/MANUAL_CHECKS.md)
 
 ## Reporting issues
 

@@ -1,0 +1,136 @@
+diff --git a/content/public/browser/popup_creation_policy.h b/content/public/browser/popup_creation_policy.h
+new file mode 100644
+--- /dev/null
++++ b/content/public/browser/popup_creation_policy.h
+@@ -0,0 +1,22 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef CONTENT_PUBLIC_BROWSER_POPUP_CREATION_POLICY_H_
++#define CONTENT_PUBLIC_BROWSER_POPUP_CREATION_POLICY_H_
++#include "base/functional/callback.h"
++#include "content/common/content_export.h"
++#include "content/public/browser/global_routing_id.h"
++class GURL;
++namespace url { class Origin; }
++namespace content {
++class BrowserContext;
++using PopupPolicyResult = base::OnceCallback<void(int, const GURL&)>;
++using PopupCreationPolicy = base::RepeatingCallback<void(GlobalRenderFrameHostId,
++    const url::Origin&, const GURL&, PopupPolicyResult)>;
++// Called after existing popup permissions and activation consumption. This
++// additional asynchronous policy cannot grant a denied window or activation.
++CONTENT_EXPORT void SetPopupCreationPolicy(BrowserContext*, PopupCreationPolicy);
++CONTENT_EXPORT void CheckPopupCreationPolicy(BrowserContext*, GlobalRenderFrameHostId,
++    const url::Origin&, const GURL&, PopupPolicyResult);
++}
++#endif
+diff --git a/content/public/browser/popup_creation_policy.cc b/content/public/browser/popup_creation_policy.cc
+new file mode 100644
+--- /dev/null
++++ b/content/public/browser/popup_creation_policy.cc
+@@ -0,0 +1,30 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#include "content/public/browser/popup_creation_policy.h"
++#include "base/supports_user_data.h"
++#include "content/public/browser/browser_context.h"
++#include "content/public/browser/browser_thread.h"
++#include "net/base/net_errors.h"
++#include "url/gurl.h"
++namespace content {
++namespace {
++const char kPolicyKey[] = "content.popup_creation_policy";
++struct PolicyData : base::SupportsUserData::Data {
++  explicit PolicyData(PopupCreationPolicy value) : policy(std::move(value)) {}
++  PopupCreationPolicy policy;
++};
++}
++void SetPopupCreationPolicy(BrowserContext* context, PopupCreationPolicy policy) {
++  DCHECK_CURRENTLY_ON(BrowserThread::UI);
++  if (policy) context->SetUserData(kPolicyKey, std::make_unique<PolicyData>(std::move(policy)));
++  else context->RemoveUserData(kPolicyKey);
++}
++void CheckPopupCreationPolicy(BrowserContext* context, GlobalRenderFrameHostId frame,
++    const url::Origin& origin, const GURL& url, PopupPolicyResult done) {
++  DCHECK_CURRENTLY_ON(BrowserThread::UI);
++  auto* data = static_cast<PolicyData*>(context->GetUserData(kPolicyKey));
++  if (data) data->policy.Run(frame, origin, url, std::move(done));
++  else std::move(done).Run(net::OK, url);
++}
++}
+diff --git a/content/public/browser/BUILD.gn b/content/public/browser/BUILD.gn
+--- a/content/public/browser/BUILD.gn
++++ b/content/public/browser/BUILD.gn
+@@ -296,6 +296,8 @@
+     "overlay_window.h",
+     "overscroll_configuration.h",
+     "page.h",
++    "popup_creation_policy.cc",
++    "popup_creation_policy.h",
+     "page_manifest_manager.h",
+     "page_navigator.cc",
+     "page_navigator.h",
+diff --git a/content/browser/renderer_host/render_frame_host_impl.cc b/content/browser/renderer_host/render_frame_host_impl.cc
+--- a/content/browser/renderer_host/render_frame_host_impl.cc
++++ b/content/browser/renderer_host/render_frame_host_impl.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "content/browser/renderer_host/render_frame_host_impl.h"
++#include "content/public/browser/popup_creation_policy.h"
+ 
+ #include <algorithm>
+ #include <cstdint>
+@@ -10711,6 +10712,26 @@
+     return;
+   }
+ 
++  // Activation has already been consumed, so concurrent policy checks cannot
++  // multiply windows permitted by a single activation. No window exists yet.
++  const GURL popup_target = params->target_url;
++  CheckPopupCreationPolicy(GetBrowserContext(), GetGlobalId(), GetLastCommittedOrigin(), popup_target,
++      base::BindOnce(&RenderFrameHostImpl::ContinueCreateNewWindow, GetWeakPtr(),
++          std::move(params), std::move(callback), std::move(cloned_namespace),
++          no_javascript_access, was_consumed, GetWeakDocumentPtr()));
++}
++
++void RenderFrameHostImpl::ContinueCreateNewWindow(
++    mojom::CreateNewWindowParamsPtr params, CreateNewWindowCallback callback,
++    scoped_refptr<SessionStorageNamespaceHandleImpl> cloned_namespace,
++    bool no_javascript_access, bool was_consumed, WeakDocumentPtr document,
++    int error, const GURL& checked_url) {
++  if (error != net::OK || !document.AsRenderFrameHostIfValid() || !IsActive() || !IsRenderFrameLive()) {
++    std::move(callback).Run(mojom::CreateNewWindowStatus::kBlocked, nullptr);
++    return;
++  }
++  auto* dom_storage_context = static_cast<DOMStorageContextWrapper*>(
++      GetStoragePartition()->GetDOMStorageContext());
+   // Windows opened with noopener have nothing to clone, so their namespace is
+   // created from scratch here. The clone case is handled above, before the
+   // checks that can refuse the window.
+diff --git a/content/browser/renderer_host/render_frame_host_impl.h b/content/browser/renderer_host/render_frame_host_impl.h
+--- a/content/browser/renderer_host/render_frame_host_impl.h
++++ b/content/browser/renderer_host/render_frame_host_impl.h
+@@ -286,6 +286,8 @@
+ }
+ 
+ namespace content {
++class SessionStorageNamespaceHandleImpl;
++
+ 
+ class AgentSchedulingGroupHost;
+ class BrowsingContextState;
+@@ -3465,6 +3467,11 @@
+       bool is_credentialless,
+       std::optional<base::UnguessableToken> fenced_frame_nonce_for_navigation);
+ 
++  void ContinueCreateNewWindow(mojom::CreateNewWindowParamsPtr params,
++      CreateNewWindowCallback callback, scoped_refptr<SessionStorageNamespaceHandleImpl> cloned_namespace,
++      bool no_javascript_access, bool was_consumed, WeakDocumentPtr document,
++      int error, const GURL& checked_url);
++
+   // mojom::FrameHost:
+   void CreateNewWindow(mojom::CreateNewWindowParamsPtr params,
+                        CreateNewWindowCallback callback) override;

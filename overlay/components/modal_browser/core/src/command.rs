@@ -555,10 +555,29 @@ impl CommandRegistry {
                         .collect();
                 }
                 if rest.contains(char::is_whitespace) && !rest.trim_end().is_empty() {
+                    if spec.name == "adblock"
+                        && rest.trim_start().starts_with("site ")
+                        && "toggle".starts_with(rest.trim_start()[5..].trim_start())
+                    {
+                        return vec![Completion {
+                            text: "adblock site toggle".into(),
+                            summary: "toggle protection for this exact site".into(),
+                        }];
+                    }
                     return Vec::new(); // only the first argument is completed
                 }
                 let partial = rest.trim_start();
                 let words: Vec<(String, String)> = match spec.name {
+                    "adblock" => [
+                        ("on", "enable native protection"),
+                        ("off", "disable native protection"),
+                        ("site toggle", "toggle protection for this exact site"),
+                        ("status", "show protection status"),
+                        ("update", "refresh filter lists"),
+                    ]
+                    .iter()
+                    .map(|(n, d)| ((*n).into(), (*d).into()))
+                    .collect(),
                     "scroll" => Scroll::ALL
                         .iter()
                         .map(|(_, n)| ((*n).to_string(), format!("scroll {n}")))
@@ -906,6 +925,7 @@ const SETTINGS_USAGE: &str = ":settings";
 const EXTENSIONS_USAGE: &str = ":extensions";
 const DEVTOOLS_USAGE: &str = ":devtools";
 const BROWSER_USAGE: &str = ":browser <action> [download id]";
+const ADBLOCK_USAGE: &str = ":adblock [on|off|site toggle|status|update]";
 
 /// What `:browser` runs: the window actions Chromium's ⋮ menu offered that
 /// have no command of their own. Merlin's menu (`:palette menu`) lists
@@ -1372,6 +1392,19 @@ fn cmd_window(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
 fn cmd_private(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
     no_args(inv, PRIVATE_USAGE)?;
     Ok(Effects::action(Action::NewWindow { private: true }))
+}
+
+fn cmd_adblock(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
+    let arg = match inv.args.as_slice() {
+        [] => "status".to_string(),
+        [verb] if matches!(verb.as_str(), "on" | "off" | "status" | "update") => verb.clone(),
+        [site, toggle] if site == "site" && toggle == "toggle" => "site toggle".into(),
+        _ => return Err(invalid(inv, &inv.args.join(" "), ADBLOCK_USAGE)),
+    };
+    Ok(Effects::action(Action::BrowserCommand {
+        name: "adblock".into(),
+        arg,
+    }))
 }
 
 fn workspace_name<'a>(inv: &Invocation, name: &'a str) -> Result<&'a str, CommandError> {
@@ -1958,6 +1991,13 @@ fn builtin_specs() -> Vec<CommandSpec> {
             CONFIG_RELOAD_USAGE,
             "reload the configuration file",
             cmd_config_reload,
+        ),
+        available(
+            "adblock",
+            &[],
+            ADBLOCK_USAGE,
+            "control native ad blocking and filter updates",
+            cmd_adblock,
         ),
         available(
             "set",

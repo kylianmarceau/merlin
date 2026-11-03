@@ -531,6 +531,8 @@ mod ffi {
         unit: SelectUnit,
         argv: Vec<String>,
         workspace_tabs: Vec<WorkspaceTab>,
+        /// RestoreWorkspace: project folder, empty when unassociated.
+        workspace_project: String,
         /// GoToMark: scroll position.
         x: i64,
         y: i64,
@@ -677,7 +679,7 @@ mod ffi {
         ) -> Outcome;
         fn set_window(self: &mut Session, private_window: bool);
         fn set_environment(self: &mut Session, visual: &str, editor: &str);
-        fn set_workspace(self: &mut Session, name: &str);
+        fn set_workspace(self: &mut Session, name: &str, project: &str);
         /// Empty when the window has no workspace.
         fn workspace(self: &Session) -> String;
         /// The workspace to keep saved as tabs change; empty for none.
@@ -987,8 +989,9 @@ impl Session {
         self.inner.set_environment(visual, editor);
     }
 
-    fn set_workspace(&mut self, name: &str) {
-        self.inner.set_workspace(name);
+    fn set_workspace(&mut self, name: &str, project: &str) {
+        self.inner
+            .set_workspace(name, (!project.is_empty()).then_some(project));
     }
 
     fn workspace(&self) -> String {
@@ -1573,6 +1576,7 @@ impl Action {
             unit: SelectUnit::Character,
             argv: Vec::new(),
             workspace_tabs: Vec::new(),
+            workspace_project: String::new(),
             x: 0,
             y: 0,
         }
@@ -1770,6 +1774,7 @@ impl From<CoreAction> for Action {
                     index: workspace.active as u32,
                     flag: new_window,
                     workspace_tabs: tabs,
+                    workspace_project: workspace.project.unwrap_or_default(),
                     ..Action::named(K::RestoreWorkspace, workspace.name)
                 }
             }

@@ -1,0 +1,136 @@
+diff --git a/content/public/browser/websocket_connection_policy.h b/content/public/browser/websocket_connection_policy.h
+new file mode 100644
+--- /dev/null
++++ b/content/public/browser/websocket_connection_policy.h
+@@ -0,0 +1,23 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef CONTENT_PUBLIC_BROWSER_WEBSOCKET_CONNECTION_POLICY_H_
++#define CONTENT_PUBLIC_BROWSER_WEBSOCKET_CONNECTION_POLICY_H_
++#include "base/functional/callback.h"
++#include "content/common/content_export.h"
++#include "content/public/browser/global_routing_id.h"
++class GURL;
++namespace url { class Origin; }
++namespace content {
++class BrowserContext;
++// Browser-owned context and origin for frame and worker connections. Policy
++// completion runs on UI; permitted connections retain all normal security and
++// embedder interception. A context may install one policy, or clear it.
++using WebSocketPolicyResult = base::OnceCallback<void(int, const GURL&)>;
++using WebSocketConnectionPolicy = base::RepeatingCallback<void(
++    GlobalRenderFrameHostId, const url::Origin&, const GURL&, WebSocketPolicyResult)>;
++CONTENT_EXPORT void SetWebSocketConnectionPolicy(BrowserContext*, WebSocketConnectionPolicy);
++CONTENT_EXPORT void CheckWebSocketConnectionPolicy(BrowserContext*, GlobalRenderFrameHostId,
++    const url::Origin&, const GURL&, WebSocketPolicyResult);
++}
++#endif
+diff --git a/content/public/browser/websocket_connection_policy.cc b/content/public/browser/websocket_connection_policy.cc
+new file mode 100644
+--- /dev/null
++++ b/content/public/browser/websocket_connection_policy.cc
+@@ -0,0 +1,30 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#include "content/public/browser/websocket_connection_policy.h"
++#include "base/supports_user_data.h"
++#include "content/public/browser/browser_context.h"
++#include "content/public/browser/browser_thread.h"
++#include "net/base/net_errors.h"
++#include "url/gurl.h"
++namespace content {
++namespace {
++const char kPolicyKey[] = "content.websocket_connection_policy";
++struct PolicyData : base::SupportsUserData::Data {
++  explicit PolicyData(WebSocketConnectionPolicy value) : policy(std::move(value)) {}
++  WebSocketConnectionPolicy policy;
++};
++}
++void SetWebSocketConnectionPolicy(BrowserContext* context, WebSocketConnectionPolicy policy) {
++  DCHECK_CURRENTLY_ON(BrowserThread::UI);
++  if (policy) context->SetUserData(kPolicyKey, std::make_unique<PolicyData>(std::move(policy)));
++  else context->RemoveUserData(kPolicyKey);
++}
++void CheckWebSocketConnectionPolicy(BrowserContext* context, GlobalRenderFrameHostId frame,
++    const url::Origin& origin, const GURL& url, WebSocketPolicyResult done) {
++  DCHECK_CURRENTLY_ON(BrowserThread::UI);
++  auto* data = static_cast<PolicyData*>(context->GetUserData(kPolicyKey));
++  if (data) data->policy.Run(frame, origin, url, std::move(done));
++  else std::move(done).Run(net::OK, url);
++}
++}
+diff --git a/content/public/browser/BUILD.gn b/content/public/browser/BUILD.gn
+--- a/content/public/browser/BUILD.gn
++++ b/content/public/browser/BUILD.gn
+@@ -547,6 +547,8 @@
+     "webrtc_event_logger.h",
+     "webrtc_log.cc",
+     "webrtc_log.h",
++    "websocket_connection_policy.cc",
++    "websocket_connection_policy.h",
+     "websocket_handshake_request_info.h",
+     "webui_config.cc",
+     "webui_config.h",
+diff --git a/content/browser/websockets/websocket_connector_impl.h b/content/browser/websockets/websocket_connector_impl.h
+--- a/content/browser/websockets/websocket_connector_impl.h
++++ b/content/browser/websockets/websocket_connector_impl.h
+@@ -59,6 +59,12 @@
+       network::mojom::IPAddressSpace target_address_space) override;
+ 
+  private:
++  void ContinueConnect(
++      const std::vector<std::string>& requested_protocols,
++      const std::optional<std::string>& user_agent,
++      mojo::PendingRemote<network::mojom::WebSocketHandshakeClient> handshake_client,
++      const std::optional<base::UnguessableToken>& throttling_profile_id,
++      network::mojom::IPAddressSpace target_address_space, int error, const GURL& url);
+   static void ConnectCalledByContentBrowserClient(
+       const std::vector<std::string>& requested_protocols,
+       net::StorageAccessApiStatus storage_access_api_status,
+diff --git a/content/browser/websockets/websocket_connector_impl.cc b/content/browser/websockets/websocket_connector_impl.cc
+--- a/content/browser/websockets/websocket_connector_impl.cc
++++ b/content/browser/websockets/websocket_connector_impl.cc
+@@ -15,6 +15,9 @@
+ #include "content/public/browser/render_process_host.h"
+ #include "content/public/browser/storage_partition.h"
+ #include "content/public/browser/web_contents.h"
++#include "content/public/browser/websocket_connection_policy.h"
++#include "mojo/public/cpp/bindings/remote.h"
++#include "net/base/net_errors.h"
+ #include "content/public/common/child_process_id_util.h"
+ #include "content/public/common/content_client.h"
+ #include "content/public/common/content_switches.h"
+@@ -124,6 +127,31 @@
+     return;
+   }
+ 
++  // Blink closes its one-shot connector pipe after Connect returns. Keep the
++  // immutable connection state alive independently while an asynchronous policy
++  // runs; document/process lifetime is checked again before network access.
++  auto pending = std::make_unique<WebSocketConnectorImpl>(frame_id_, weak_document_,
++      origin_, isolation_info_, client_security_state_->Clone(), storage_access_api_status_,
++      network_restrictions_id_, devtools_worker_token_);
++  CheckWebSocketConnectionPolicy(process->GetBrowserContext(), frame_id_, origin_, url,
++      base::BindOnce(&WebSocketConnectorImpl::ContinueConnect, std::move(pending),
++          requested_protocols, user_agent, std::move(handshake_client), throttling_profile_id, target_address_space));
++}
++
++void WebSocketConnectorImpl::ContinueConnect(
++    const std::vector<std::string>& requested_protocols,
++    const std::optional<std::string>& user_agent,
++    mojo::PendingRemote<network::mojom::WebSocketHandshakeClient> handshake_client,
++    const std::optional<base::UnguessableToken>& throttling_profile_id,
++    network::mojom::IPAddressSpace target_address_space, int error, const GURL& url) {
++  if (frame_id_.frame_routing_id != IPC::mojom::kRoutingIdNone &&
++      !weak_document_.AsRenderFrameHostIfValid()) return;
++  if (!RenderProcessHost::FromID(frame_id_.child_id)) return;
++  if (error != net::OK) {
++    mojo::Remote<network::mojom::WebSocketHandshakeClient> client(std::move(handshake_client));
++    client->OnFailure("Connection blocked by browser policy", error, -1);
++    return;
++  }
+   RenderFrameHost* frame = RenderFrameHost::FromID(frame_id_);
+   net::handles::NetworkHandle target_network =
+       net::handles::kInvalidNetworkHandle;

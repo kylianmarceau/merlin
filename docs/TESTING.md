@@ -1,5 +1,83 @@
 # Testing
 
+## Results, 2026-11-02: native ad blocking
+
+Branch `feature/native-adblock`, Chromium **157.0.8103.26**, arm64 `out/Modal`
+component development build on the same M2/16 GB host described below.
+The blocker is independent of modal browsing and remains opt-in pending
+performance and remaining manual qualification. Packaging/publication are
+outside this task.
+
+| Check | Result |
+|---|---|
+| Native blocker browser fixtures | **44 distinct cases passed**: complete 43-case checkpoint plus all 13 affected cosmetic/scriptlet/lifecycle cases, including the added batching fixture |
+| Existing Merlin browser suite | **74/74 passed**, including snapshots, Settings and content fullscreen restoration |
+| Loader regression units | **35/35 passed**, including deferred Service Worker response-body preservation |
+| Upstream browser/view/commands and Find | **92/92 + 44/44 passed** |
+| Feature-enabled worker/extension interceptor regression | **21/21 passed** |
+| Workspace formatting, warnings-denied lint, Rust/bridge/host tests, page scripts | Passed; **252 tests** |
+| Bundled sources and resources | Integrity/provenance verification passed; **19 engine fixtures** passed |
+| Pinned patches and installer idempotence | **31/31 passed**, using local pinned Git objects |
+| Browser, renderer and UI GN checks | Passed |
+| Live signed-out YouTube | Protected normal/private playback, nine-minute playback, SPA, playlist/autoplay, Shorts transitions, cross-site embed and foreground captions/fullscreen/PiP passed; unprotected music control showed ads |
+
+Run the independent fixtures explicitly with:
+
+```bash
+scripts/run_browser_tests.sh 'MerlinAdblock*BrowserTest.*'
+scripts/run_browser_tests.sh 'ModalBrowserBrowserTest.*'
+CHROMIUM_SRC="$HOME/chromium/src" scripts/check.sh
+node scripts/benchmark_adblock.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --trace --output /tmp/adblock-benchmark.json
+python3 scripts/analyze_adblock_trace.py /tmp/adblock-benchmark-*.trace.json
+python3 scripts/measure_adblock_heap.py --output /tmp/adblock-heap.json
+node scripts/probe_adblock_youtube.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --mode on --headful --output /tmp/adblock-youtube.json
+```
+
+The browser runner's default includes both Merlin and native blocker suites;
+upstream filters retain upstream UI defaults without disabling the blocker
+when explicitly enabled. Tests use isolated configurations and profiles.
+Live probes never use an everyday profile or account credentials. Retained
+measurements, source audit limitations and the live playback comparison are
+in [the implementation record](ADBLOCK_IMPLEMENTATION.md). A local fixture
+pass does not establish ad eligibility or live YouTube parity.
+
+## Results, 2026-11-01: safety controls and workspace context
+
+Same Chromium **157.0.8103.26** pin and arm64 `out/Modal` configuration as the
+rebase below; overlay changes based on `ea82179`, including patch 0013.
+
+| Check | Result |
+|---|---|
+| `gn gen`, overlay `gn check`, incremental `chrome browser_tests` build | Passed |
+| Rust formatting, Clippy with warnings denied, workspace tests | Passed; **232 tests**, including the portable C++ restore/save handoff |
+| Page-script syntax and field-safety checks | Passed |
+| Strict sequential patch application from the pinned commit's local Git objects | **13/13 passed** |
+| Merlin browser tests | **73 distinct cases passed**: 72 in the full run, plus the snapshot case rerun after creating its output directory |
+| Upstream `BrowserViewTest`, `BrowserCommandsTest`, `BrowserCommandControllerBrowserTest` | **92/92 passed**, default/restored window bounds |
+| Upstream `FindInPageControllerTest.*` | **44/44 passed**, 1280x900 window; upstream total **136/136** |
+
+The new cases cover HTTPS site controls activated by keyboard; the Page Info
+and real permission-prompt view anchors in top/sidebar/hidden-tab layouts;
+live changes from Chromium's capture-state service; pinned-tab alerts and
+their accessible text; capture-stop callbacks for multiple/background tabs;
+stale menu rejection after navigation; explicit Private labels; actual
+high-contrast/forced-colour tint suppression; and `workspace here` skipping a
+disabled front window. `WorkspaceSaveAndRestore` additionally saves the
+restored new window and verifies that its project folder survives.
+
+The first full run's snapshot case failed only because the requested output
+directory did not exist. After creating it, the case passed and saved 14 PNGs;
+representative light/dark captures were inspected. No product change was
+needed for that rerun.
+
+Permission requests are intentionally denied by Chromium's headless request
+manager. The prompt-view regression uses Chromium's synthetic test delegate
+and its real bubble factory; production permission checks remain intact.
+Capture tests register synthetic streams with Chromium's real indicator and
+stop callbacks, without using hardware or requesting OS authorization. Real
+camera/microphone/display permission journeys, VoiceOver and active-window
+keyboard/IME acceptance remain manual release checks.
+
 ## Results, 2026-11-01: Chromium 157 rebase
 
 Chromium **157.0.8103.26**, commit
@@ -52,9 +130,12 @@ scripts/run_browser_tests.sh 'FindInPageControllerTest.*'
 
 This validates the component development build. It emitted Objective-C
 duplicate-class warnings for ANGLE/Crashpad and headless display fallback logs.
-A non-component release build, signing/notarization, real keyboard/IME and
+A non-component GitHub release build and unnotarized installation, real keyboard/IME and
 VoiceOver, permission/capture UI, the extension matrix, and upgrade/recovery
 acceptance still need their release checks. See `BETA_REVIEW.md`.
+
+Developer ID signing and notarization are intentionally out of scope under
+[the release policy](RELEASE.md), not pending tests or release blockers.
 
 ## 2026-10-31 safety and colour regression additions
 
@@ -88,7 +169,7 @@ Not part of `check.sh` (they answer different questions):
 |---|---|
 | `scripts/check_upstream.py` | whether a newer Mac Stable (security fixes) is out; exit 1 when a rebase is due |
 | `scripts/licenses.sh` | third-party credits for the built browser |
-| `scripts/package_mac.sh` | the signing and notarization steps (dry run unless `MODAL_SIGN=1`) |
+| `scripts/package_mac.sh` | historical signing/notarization prototype; dry run only, not the chosen GitHub packaging path (see [Release](RELEASE.md)) |
 
 ## Results, 2026-10-28
 
@@ -412,5 +493,10 @@ Tab bar and page color (decision 38):
 | 57 | Tabs hidden: drag the empty toolbar space or the space under the traffic lights | The window moves |
 | 58 | Cmd-S in Google Docs or in the Settings config editor | The page saves; the tabs stay. Shift-Cmd-S opens Save Page As |
 | 59 | Settings > Appearance > Hide tabs on; open a new window | Every window hides its tabs; the new one starts hidden. Off brings them back |
+| 60 | Open HTTPS; use F6/Tab to reach Site controls and press Space, in both layouts and with tabs hidden; also open the address card | Site controls stays available, opens Page Info at its own button, and shows permissions/cookies/certificate details; address editing does not hide it |
+| 61 | Start microphone/camera capture in two tabs, then pin, compact, group-collapse and hide tabs | Sensitive tab badges remain where tabs are visible; Recording/Sharing stays in the toolbar, identifies capturing origins, and stops only the selected tab's user capture |
+| 62 | Start screen/window/tab sharing, navigate or move/close a capturing tab with the capture menu open | The indicator follows Chromium's capture state; stale menu entries cannot operate on replacement documents or tabs moved to another window; the current stream can be stopped |
+| 63 | Open a private window, switch tab layouts and hide tabs; enable high contrast/forced colours | Private stays explicit; page tint does not override the accessibility theme |
+| 64 | Save a project workspace, restore into a new window, change its tabs and wait for autosave, then run `browserctl workspace here` | The saved project association survives and the folder still matches; a front window with browserctl disabled is skipped |
 
 Record results with build args, commit and date in this file.

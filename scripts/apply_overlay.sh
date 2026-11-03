@@ -18,7 +18,8 @@ head_tag="$(git -C "$SRC" describe --tags --exact-match 2>/dev/null || true)"
 
 # Merlin's own folders, plus the logo folders grit reads when
 # branding_path_component = "merlin" (args.modal.gn).
-for dir in components/modal_browser chrome/browser/ui/modal_browser chrome/app/theme/merlin \
+for dir in components/modal_browser components/merlin_adblock chrome/browser/ui/modal_browser \
+    chrome/browser/merlin_adblock chrome/renderer/merlin_adblock chrome/app/theme/merlin \
     chrome/app/theme/default_100_percent/merlin chrome/app/theme/default_200_percent/merlin \
     components/resources/default_100_percent/merlin components/resources/default_200_percent/merlin \
     components/vector_icons/merlin; do
@@ -34,14 +35,7 @@ for dir in components/modal_browser chrome/browser/ui/modal_browser chrome/app/t
   echo "linked  $dir"
 done
 
-for p in "$ROOT"/patches/*.patch; do
-  if git -C "$SRC" apply --reverse --check "$p" 2>/dev/null; then
-    echo "applied $(basename "$p") (already)"
-  else
-    git -C "$SRC" apply "$p"
-    echo "applied $(basename "$p")"
-  fi
-done
+python3 "$ROOT/scripts/apply_patches.py" --src "$SRC"
 
 mkdir -p "$SRC/out/Modal"
 if [[ ! -f "$SRC/out/Modal/args.gn" ]]; then
@@ -56,6 +50,9 @@ fi
 
 cat <<EOF
 Next:
+  cd $ROOT
+  "$SRC/third_party/cpython3/host/bin/python3" scripts/prepare_adblock_deps.py --src "$SRC"
+  python3 scripts/prepare_adblock_resources.py
   cd $SRC
   gn gen out/Modal && gn check out/Modal '//chrome/browser/ui/modal_browser/*'
   autoninja -C out/Modal chrome browser_tests

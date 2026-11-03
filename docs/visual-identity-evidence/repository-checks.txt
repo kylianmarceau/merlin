@@ -1,0 +1,518 @@
+==> cargo fmt --check
+==> cargo clippy (warnings are errors)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.31s
+==> cargo test (Rust core, bridge, C++ host harness)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests src/main.rs (target/debug/deps/browserctl-e4ef8d4ed8741a02)
+
+running 3 tests
+test tests::parses_the_plan_examples ... ok
+test tests::usage_errors ... ok
+test tests::talks_to_a_socket ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/host_harness-d399f79875f825c4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scenarios.rs (target/debug/deps/scenarios-30fe838087e71a5d)
+
+running 1 test
+host harness: 30 scenarios, 0 failed checks
+test cpp_host_scenarios_pass ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (target/debug/deps/merlin_adblock_core-c86d720fe2d085c5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/engine.rs (target/debug/deps/engine-b6584618979b4605)
+
+running 19 tests
+test malformed_bundles_and_dependency_cycles_are_rejected ... ok
+test exceptions_important_and_internal_pages ... ok
+test mixed_and_negated_popup_types_do_not_broaden_normal_rules ... ok
+test list_preprocessing_keeps_only_the_native_chromium_branch ... ok
+test inputs_are_bounded_and_bad_enums_are_rejected ... ok
+test csp_is_additive_and_typed ... ok
+test corrupt_and_incompatible_caches_are_rejected_without_losing_rules ... ok
+test popunder_uses_its_own_rule_set_and_survives_cache_loading ... ok
+test popup_rules_keep_their_type_domains_exceptions_and_priority ... ok
+test redirect_rule_alone_does_not_block ... ok
+test replacements_and_rewrites_are_distinct ... ok
+test procedural_selectors_require_and_use_css_validation ... ok
+test scriptlet_permissions_are_not_granted_to_untrusted_rules ... ok
+test source_domain_type_method_and_public_suffix ... ok
+test cosmetics_respect_domain_generic_exceptions_and_generichide ... ok
+test websocket_rules_do_not_block_unrelated_endpoints ... ok
+test packaged_resources_validate_and_preserve_trust_metadata ... ok
+test packaged_function_scriptlets_keep_their_execution_world ... ok
+test bundled_generation_builds_offline ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.47s
+
+     Running unittests src/lib.rs (target/debug/deps/merlin_adblock_ffi-406e3cd1550efc5f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/modal_browser_core-ac8150c97ac219a9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/commands.rs (target/debug/deps/commands-d1829af14e3c14dd)
+
+running 20 tests
+test cmdline_prefill ... ok
+test every_vision_command_is_registered ... ok
+test completion_of_arguments ... ok
+test completion_of_names ... ok
+test colon_and_whitespace_are_optional ... ok
+test bang ... ok
+test counts_from_arguments_and_bindings ... ok
+test malformed_lines ... ok
+test help_overview_and_topics ... ok
+test mode_command ... ok
+test open_requires_a_target_and_rejects_script_urls ... ok
+test adblock_commands_use_the_browser_action_path ... ok
+test planned_commands_say_so ... ok
+test no_argument_commands_reject_arguments ... ok
+test open_url_and_search ... ok
+test registry_rejects_conflicts_and_bad_specs ... ok
+test quoting ... ok
+test tabnew_with_and_without_target ... ok
+test scroll ... ok
+test unknown_commands_suggest_close_names ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/config.rs (target/debug/deps/config-3736df055fa02731)
+
+running 16 tests
+test modal_browsing_must_be_a_boolean ... ok
+test hint_chars_from_config_label_hints ... ok
+test bad_bindings_report_lines_and_good_ones_apply ... ok
+test load_config_applies_options_maps_and_unmaps ... ok
+test page_change_ends_insert_and_hints ... ok
+test passthrough_sites_start_and_end_passthrough ... ok
+test modal_browsing_off_gives_every_key_to_the_page ... ok
+test schema_collects_every_error_and_keeps_the_rest ... ok
+test site_patterns ... ok
+test toml_input_is_bounded ... ok
+test toml_unsupported_features_fail_with_line_numbers ... ok
+test manual_passthrough_survives_navigation_and_exit_sticks_on_the_site ... ok
+test toml_values_tables_and_comments ... ok
+test syntax_error_keeps_defaults ... ok
+test reloading_starts_from_defaults ... ok
+test turning_modal_browsing_off_leaves_the_current_mode_and_on_restores_keys ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/document.rs (target/debug/deps/document-e0a7470ef212fc9c)
+
+running 8 tests
+test outline_has_depths_relative_to_the_top_heading ... ok
+test overlapping_spans_are_dropped_not_garbled ... ok
+test paragraph_starts_that_look_like_syntax_are_escaped ... ok
+test utf16_offsets_from_javascript ... ok
+test other_renderings ... ok
+test markdown_rendering ... ok
+test script_links_never_become_links ... ok
+test limits_and_bad_spans ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/editor.rs (target/debug/deps/editor-5cabb18c823eee8f)
+
+running 4 tests
+test text_fields_are_allowed ... ok
+test sensitive_looking_names_need_a_bang ... ok
+test secrets_never_leave_even_with_force ... ok
+test editor_command_resolution ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/extras.rs (target/debug/deps/extras-66eacb227df5e224)
+
+running 8 tests
+test browserctl_workspace_here ... ok
+test a_macro_cannot_play_itself ... ok
+test restored_workspace_context_preserves_and_clears_project ... ok
+test marks_record_and_jump ... ok
+test macros_record_play_and_repeat ... ok
+test edit_key_opens_the_focused_field ... ok
+test projects_are_saved_and_matched_by_folder ... ok
+test aliases_expand_complete_and_bind ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/fuzzy.rs (target/debug/deps/fuzzy-37841d6a8c815981)
+
+running 8 tests
+test positions_point_at_matched_characters ... ok
+test word_starts_and_runs_rank_higher ... ok
+test long_text_is_bounded ... ok
+test unicode_is_matched_by_character ... ok
+test empty_pattern_matches_everything ... ok
+test smart_case ... ok
+test subsequence_required ... ok
+test fields_every_term_must_match_somewhere ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/hints.rs (target/debug/deps/hints-35459bbed2f9d521)
+
+running 9 tests
+test action_names_round_trip ... ok
+test alphabet_validation ... ok
+test custom_alphabet ... ok
+test few_targets_get_home_row_keys_in_order ... ok
+test rejected_and_backspace ... ok
+test typing_narrows_then_chooses ... ok
+test uppercase_typing_matches_lowercase_labels ... ok
+test set_filters_by_kind_and_caps_targets ... ok
+test labels_are_unique_prefix_free_and_short ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/ipc.rs (target/debug/deps/ipc-a913ac2608a6203b)
+
+running 4 tests
+test defaults_and_minimal_requests ... ok
+test replies ... ok
+test bad_requests_say_why_and_keep_the_id ... ok
+test every_request_round_trips ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/json.rs (target/debug/deps/json-4a4c06eedb76e238)
+
+running 5 tests
+test string_escapes_round_trip ... ok
+test parses_every_value_kind ... ok
+test pretty_output_parses_back ... ok
+test numbers_are_written_as_integers_when_whole ... ok
+test rejects_malformed_and_hostile_input ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/keymap.rs (target/debug/deps/keymap-78a41310583c13c7)
+
+running 8 tests
+test prefix_detection_is_not_fooled_by_neighbours ... ok
+test prefix_lookup ... ok
+test config_errors ... ok
+test defaults_load_and_resolve ... ok
+test error_messages_are_readable ... ok
+test exact_and_prefix ... ok
+test rebinding_returns_previous_and_unbind_removes ... ok
+test visual_mode_has_its_own_map ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/keys.rs (target/debug/deps/keys-bbc51e657dbb200a)
+
+running 11 tests
+test digits ... ok
+test dash_and_bracket_keys ... ok
+test display_round_trips ... ok
+test from_dom_key_refuses_keys_that_must_reach_the_page ... ok
+test from_dom_key_values ... ok
+test mixed_sequence ... ok
+test modifiers ... ok
+test named_keys_are_case_insensitive ... ok
+test plain_characters ... ok
+test parse_errors ... ok
+test shift_normalisation ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/palette.rs (target/debug/deps/palette-bd212e13dfb2d5db)
+
+running 20 tests
+test clicking_rows ... ok
+test buffer_by_number_and_query ... ok
+test colon_opens_an_empty_command_line_listing_commands ... ok
+test command_list_shows_bindings_with_keys ... ok
+test clicking_back_into_the_page_closes_any_palette ... ok
+test buffer_argument_completes_with_tab_titles ... ok
+test refreshing_tabs_keeps_the_selected_tab_selected ... ok
+test command_list_runs_the_choice ... ok
+test command_needing_an_argument_opens_the_command_line_prefilled ... ok
+test tab_cycles_completions_into_the_text_and_wraps ... ok
+test escape_closes ... ok
+test errors_stay_in_the_palette_until_the_text_changes ... ok
+test tab_switcher_filters_by_title_or_url ... ok
+test pointer_activity_dismisses_hints_only ... ok
+test tab_switcher_lists_recent_first_and_current_last ... ok
+test tab_text_is_bounded ... ok
+test tab_switcher_arrows_move_and_wrap ... ok
+test up_and_down_browse_history_and_restore_the_draft ... ok
+test tab_switcher_follows_strip_changes ... ok
+test typing_updates_completions_with_marks ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/phase3.rs (target/debug/deps/phase3-a4edeaf7627c576f)
+
+running 21 tests
+test bookmarklets_from_lists_are_refused ... ok
+test edit_hint_focuses_then_inspects ... ok
+test extract_to_clipboard_or_editor ... ok
+test edit_flow_checks_the_field_then_the_editor ... ok
+test browser_command_checks_its_arguments ... ok
+test code_hint_with_one_block_copies_at_once ... ok
+test downloads_palette_opens_finished_files_and_shows_running_ones ... ok
+test links_palette_and_navigation_drop_the_document ... ok
+test merlin_menu_lists_window_actions_with_their_keys ... ok
+test history_palette_loads_then_filters_and_opens ... ok
+test new_config_options ... ok
+test key_bindings_list_bound_commands_for_settings ... ok
+test split_keys_and_commands ... ok
+test private_windows_never_save ... ok
+test windows_profiles_and_browser_pages ... ok
+test select_hint_enters_visual_and_y_copies ... ok
+test outline_palette_jumps_and_folds ... ok
+test workspace_save_needs_a_name_until_it_has_one ... ok
+test structural_jumps_take_counts ... ok
+test workspace_and_profile_lists ... ok
+test workspace_open_restores_in_place_or_in_a_new_window ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/session.rs (target/debug/deps/session-f58b0eaa5a2df339)
+
+running 58 tests
+test ambiguous_sequence_waits_then_runs_on_timeout ... ok
+test bare_escape_in_normal_reaches_the_page ... ok
+test ambiguous_sequence_runs_shorter_binding_when_next_key_diverges ... ok
+test cancel_command_line ... ok
+test broken_sequence_is_dropped ... ok
+test ambiguous_sequence_completes_longer_binding ... ok
+test auto_insert_can_be_disabled_but_typing_is_still_safe ... ok
+test browser_ui_and_ime_keys_are_untouchable_in_every_mode ... ok
+test clicking_back_into_page_closes_command_line ... ok
+test clicking_into_a_text_field_closes_command_line_without_hijacking ... ok
+test clipboard_text_is_classified_like_the_command_line ... ok
+test command_can_switch_mode ... ok
+test colon_opens_command_line_and_tabnew_submits ... ok
+test command_key_chords_survive_a_broken_sequence ... ok
+test completion_passthrough ... ok
+test command_key_in_hint_mode_cancels_and_forwards ... ok
+test count_then_unbound_key_is_dropped ... ok
+test counts_prefix_bindings ... ok
+test escape_cancels_count_and_sequence_without_reaching_page ... ok
+test escape_in_insert_returns_to_normal_and_blurs ... ok
+test failed_command_keeps_command_line_open ... ok
+test focus_change_clears_pending_keys ... ok
+test focus_change_enters_and_leaves_insert ... ok
+test focus_moving_to_browser_ui_keeps_auto_insert ... ok
+test gi_with_one_field_focuses_it_directly ... ok
+test help_from_command_line ... ok
+test hide_tabs_command_and_config ... ok
+test hint_actions_filter_target_kinds ... ok
+test hint_escape_cancels_and_state_does_not_leak ... ok
+test hint_rejects_characters_no_label_starts_with ... ok
+test history_and_tab_keys ... ok
+test huge_counts_saturate ... ok
+test manual_insert_survives_focus_changes ... ok
+test hint_flow_collects_labels_filters_and_activates ... ok
+test history_dedupes_and_is_bounded ... ok
+test late_or_stale_hint_results_are_ignored ... ok
+test map_and_unmap_at_runtime ... ok
+test o_prefills_open ... ok
+test new_default_motions ... ok
+test no_targets_says_so_and_returns_to_normal ... ok
+test passthrough_exit_key_is_configurable ... ok
+test passthrough_forwards_everything_including_escape ... ok
+test rich_text_editors_count_as_editable ... ok
+test selecting_a_text_field_hint_starts_insert ... ok
+test shell_commands ... ok
+test single_key_binding ... ok
+test spurious_timeout_is_harmless ... ok
+test starts_in_normal ... ok
+test timeout_on_prefix_only_clears ... ok
+test two_key_sequence ... ok
+test tabs_layout_setting ... ok
+test typing_in_a_text_field_is_never_hijacked ... ok
+test unbound_keys_reach_the_page ... ok
+test user_binding_errors_surface_as_messages_at_runtime ... ok
+test vertical_tabs_default_comes_from_config ... ok
+test visual_enter_and_escape ... ok
+test which_key_lists_continuations_after_a_prefix ... ok
+test zero_only_continues_a_count ... ok
+
+test result: ok. 58 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/target.rs (target/debug/deps/target-7412c70f71df729e)
+
+running 8 tests
+test unknown_schemes_are_errors_not_guesses ... ok
+test bad_input ... ok
+test searches ... ok
+test dangerous_schemes_are_refused ... ok
+test merlin_pages_open_their_chrome_urls ... ok
+test bare_hostnames_get_https ... ok
+test explicit_urls_pass_through ... ok
+test local_hosts_get_http ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workspace.rs (target/debug/deps/workspace-f97dab15711dbaa8)
+
+running 5 tests
+test names_become_safe_file_names ... ok
+test from_window_keeps_pins_splits_and_the_active_tab ... ok
+test only_reopenable_urls_are_kept ... ok
+test encode_decode_round_trip ... ok
+test decode_is_forgiving_per_tab_and_strict_per_file ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/modal_browser_ffi-9c80b6da5b89100f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/bridge.rs (target/debug/deps/bridge-d32caf748b21f3fa)
+
+running 16 tests
+test out_of_range_hint_kinds_are_treated_as_plain_clickables ... ok
+test config_errors_cross_as_lines ... ok
+test key_maps_to_flat_action ... ok
+test errors_are_strings ... ok
+test out_of_range_focus_from_cpp_is_treated_as_browser_ui ... ok
+test out_of_range_mode_from_cpp_is_rejected ... ok
+test out_of_range_palette_key_cancels ... ok
+test hint_flow_crosses_the_bridge ... ok
+test palette_state_with_utf16_marks ... ok
+test pending_sequence_reports_timeout ... ok
+test shell_actions_cross_the_bridge ... ok
+test search_is_a_separate_kind ... ok
+test unknown_dom_keys_are_forwarded_untouched ... ok
+test utf16_offsets_skip_missing_indices ... ok
+test tabnew_url_flattens_with_disposition ... ok
+test which_key_crosses_the_bridge ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/main.rs (target/debug/deps/modalctl-184b0691840df7a8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests host_harness
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests merlin_adblock_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests merlin_adblock_ffi
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests modal_browser_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests modal_browser_ffi
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+==> page scripts parse (needs node; skipped without it)
+collect: ok
+activation: ok
+scroll: ok
+document: ok
+reveal: ok
+jump: ok
+extend selection: ok
+clear selection: ok
+selection text: ok
+mark position: ok
+scroll to: ok
+field info: ok
+field value: ok
+field write: ok
+every script in one scope: ok
+Merlin settings: ok
+native cosmetics: ok
+field safety: ok
+==> visual identity boundaries and generated tokens
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.001s
+
+OK
+Visual identity boundary checks passed.
+==> bundled ad blocker integrity and provenance
+Verified 18 lists and the executable resource bundle
+==> patches apply to pinned upstream files (needs network)
+ok   patches/0001-embedder-window-features-own-modal-browser.patch
+ok   patches/0002-browser-view-offers-keys-to-modal-browser.patch
+ok   patches/0003-browser-tests-include-modal-browser.patch
+ok   patches/0004-merlin-name-and-icon.patch
+ok   patches/0005-multi-contents-card-insets.patch
+ok   patches/0006-detached-active-tab.patch
+ok   patches/0007-merlin-strings.patch
+ok   patches/0008-version-logo-follows-branding.patch
+ok   patches/0009-merlin-product-icons.patch
+ok   patches/0010-merlin-page-urls.patch
+ok   patches/0011-merlin-tab-bar-hit-test.patch
+ok   patches/0012-hide-tab-strip.patch
+ok   patches/0013-visible-site-controls-anchor.patch
+ok   patches/0014-native-adblock-hooks.patch
+ok   patches/0015-native-adblock-tests.patch
+ok   patches/0016-native-adblock-document-hooks.patch
+ok   patches/0017-native-adblock-websocket-hook.patch
+ok   patches/0018-native-adblock-webtransport-hook.patch
+ok   patches/0019-native-adblock-deferred-request-hook.patch
+ok   patches/0020-native-adblock-service-worker-throttle.patch
+ok   patches/0021-native-adblock-deferred-request-tests.patch
+ok   patches/0022-native-adblock-popup-creation-hook.patch
+ok   patches/0023-native-adblock-window-navigation-hooks.patch
+ok   patches/0024-native-adblock-script-policy-query.patch
+ok   patches/0025-native-adblock-inherited-commit-hook.patch
+ok   patches/0026-native-adblock-worker-broker-hook.patch
+ok   patches/0027-native-adblock-worker-throttle-hook.patch
+ok   patches/0028-native-adblock-worker-response-csp.patch
+ok   patches/0029-native-adblock-memory-cache-partitions.patch
+ok   patches/0030-native-adblock-cache-namespace-pruning.patch
+ok   patches/0031-native-adblock-early-hints-factory.patch
+ok   patches/0032-merlin-shared-presentation.patch
+ok   patches/0033-merlin-visible-product-names.patch
+ok   patches/0034-merlin-presentation-artwork.patch
+ok   patches/0035-merlin-media-print-private-details.patch
+ok   patches/0036-merlin-private-identity.patch
+ok   patches/0037-merlin-password-status-headers.patch
+ok   patches/0038-merlin-theme-before-profile-ui.patch
+ok   patches/0039-merlin-devtools-presentation.patch
+ok   patches/0040-merlin-component-fallbacks.patch
+ok   patches/0041-merlin-autofill-passkey-headers.patch
+ok   patches/0042-merlin-diagnostic-decoration.patch
+42 patches verified; 42 already applied; 0 files would change
+All patches apply to 157.0.8103.26.
+All checks passed.

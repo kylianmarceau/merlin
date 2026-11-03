@@ -5,11 +5,13 @@
 #ifndef CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_TAB_BAR_H_
 #define CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_TAB_BAR_H_
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
@@ -122,6 +124,7 @@ class MerlinTab : public views::View, public views::AnimationDelegateViews {
   void AnimationProgressed(const gfx::Animation* animation) override;
 
   gfx::Rect CloseButtonBoundsForTesting() const { return CloseBounds(); }
+  gfx::Rect AlertBoundsForTesting() const { return AlertBounds(); }
 
  private:
   // The tab's body inside the view's bounds (on top, the view is as tall
@@ -333,6 +336,7 @@ class MerlinTabBar : public views::View,
   // animates removed ones out, then lays everything out.
   void Rebuild();
   void UpdateTab(tabs::TabInterface* tab);
+  void ObserveAlerts(tabs::TabInterface* tab);
   MerlinTabData DataFor(tabs::TabInterface* tab, int index) const;
   // Target bounds for every live tab (model order), every group header
   // (headers_ order) and the + button. In the sidebar, also how many rows
@@ -378,6 +382,7 @@ class MerlinTabBar : public views::View,
   const raw_ptr<TabStripModel> model_;
   // Live tabs in model order; closing ones are only children.
   std::vector<raw_ptr<MerlinTab>> tabs_;
+  std::map<int32_t, base::CallbackListSubscription> alert_subscriptions_;
   std::vector<raw_ptr<MerlinGroupHeader>> headers_;
   raw_ptr<views::ResizeArea> resize_area_ = nullptr;
   raw_ptr<views::ResizeAreaDelegate> resize_target_ = nullptr;

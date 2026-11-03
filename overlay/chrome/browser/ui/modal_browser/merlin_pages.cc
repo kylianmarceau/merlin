@@ -11,7 +11,9 @@
 
 #include "base/functional/bind.h"
 #include "base/memory/ref_counted_memory.h"
+#include "base/no_destructor.h"
 #include "chrome/browser/ui/modal_browser/merlin_library_pages.h"
+#include "chrome/browser/ui/modal_browser/merlin_design_tokens.h"
 #include "chrome/browser/ui/modal_browser/merlin_settings_page.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "components/tabs/public/tab_interface.h"
@@ -25,57 +27,15 @@ namespace modal_browser {
 
 namespace {
 
-// The Merlin tile (branding/merlin-favicon.svg), as the tab icon.
-constexpr char kIconSvg[] =
-    R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Merlin"><rect width="200" height="200" rx="46" fill="#F2ECE0"/><path d="M85.15 135.77L19.81 102.47A90 90 0 0 1 40.95 75.41L89.07 130.75ZM89.97 130.02L45.84 71.46A90 90 0 0 1 76.71 56.4L95.69 127.23ZM104.31 127.23L123.29 56.4A90 90 0 0 1 154.16 71.46L110.03 130.02ZM110.93 130.75L159.05 75.41A90 90 0 0 1 180.19 102.47L114.85 135.77ZM87.5 143.33A12.5 12.5 0 1 1 112.5 143.33A12.5 12.5 0 1 1 87.5 143.33Z" fill="#12352E"/><path d="M96.82 126.97L82.83 54.99A90 90 0 0 1 117.17 54.99L103.18 126.97Z" fill="#C4552D"/></svg>)SVG";
-
 // Tokens follow the start page (merlin_start_page.cc): warm paper and
 // charcoal, one yellow accent, hairlines instead of boxes.
-constexpr char kSharedCss[] = R"CSS(:root {
-  color-scheme: light dark;
-  --bg: #FDFCF8;
-  --panel: #FFFFFF;
-  --sunk: #F6F3EC;
-  --text: #1C1B18;
-  --text2: #615C51;
-  --text3: #857F70;
-  --hair: rgba(40, 30, 10, 0.09);
-  --kbd: rgba(40, 30, 10, 0.06);
-  --hover: rgba(40, 30, 10, 0.04);
-  --select: rgba(246, 212, 74, 0.28);
-  --shadow: 0 0 0 1px rgba(40, 30, 10, 0.08), 0 10px 28px rgba(40, 30, 10, 0.06);
-  --focus: #B8920E;
-  --accent: #F6D44A;
-  --on-accent: #1A1A1A;
-  --danger: #B3261E;
-  --ok: #3F7A3A;
-  --mono: ui-monospace, "SF Mono", Menlo, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161512;
-    --panel: #1E1D19;
-    --sunk: #12110F;
-    --text: #ECE8DD;
-    --text2: #A6A194;
-    --text3: #7C776A;
-    --hair: rgba(255, 255, 255, 0.07);
-    --kbd: rgba(255, 255, 255, 0.08);
-    --hover: rgba(255, 255, 255, 0.04);
-    --select: rgba(246, 212, 74, 0.16);
-    --shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 10px 28px rgba(0, 0, 0, 0.3);
-    --focus: #F6D44A;
-    --danger: #FF8A80;
-    --ok: #8BC48A;
-  }
-}
-* { box-sizing: border-box; }
+constexpr char kSharedCss[] = R"CSS(* { box-sizing: border-box; }
 html, body {
   margin: 0;
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  font: 14px/1.45 var(--font);
   -webkit-font-smoothing: antialiased;
 }
 [hidden] { display: none !important; }
@@ -115,7 +75,7 @@ h1 { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 650; letter-spac
 /* Groups of rows. */
 h2 { margin: 32px 0 10px; font-size: 13px; font-weight: 600; color: var(--text2); }
 h2:first-child { margin-top: 0; }
-.group { background: var(--panel); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+.group { background: var(--panel); border-radius: var(--card-radius); box-shadow: var(--shadow); overflow: hidden; }
 .row {
   display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 10px 16px;
   border-top: 1px solid var(--hair);
@@ -134,7 +94,7 @@ h2:first-child { margin-top: 0; }
 /* Controls. */
 button, select, input, textarea { font: inherit; color: inherit; }
 .btn {
-  height: 30px; padding: 0 12px; border-radius: 8px; border: 0; cursor: pointer;
+  height: 30px; padding: 0 12px; border-radius: var(--control-radius); border: 0; cursor: pointer;
   background: var(--kbd); color: var(--text); font-size: 13px; font-weight: 500; white-space: nowrap;
 }
 .btn:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
@@ -148,14 +108,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
 }
 .icon-btn:hover { background: var(--kbd); color: var(--text); }
 select {
-  height: 30px; padding: 0 28px 0 10px; border-radius: 8px; border: 0; background: var(--kbd);
+  height: 30px; padding: 0 28px 0 10px; border-radius: var(--control-radius); border: 0; background: var(--kbd);
   appearance: none; cursor: pointer;
   background-image: linear-gradient(45deg, transparent 50%, var(--text2) 50%), linear-gradient(135deg, var(--text2) 50%, transparent 50%);
   background-position: calc(100% - 14px) 13px, calc(100% - 10px) 13px;
   background-size: 4px 4px, 4px 4px; background-repeat: no-repeat;
 }
 .field {
-  height: 30px; padding: 0 10px; border-radius: 8px; border: 0; background: var(--kbd); outline: 0;
+  height: 30px; padding: 0 10px; border-radius: var(--control-radius); border: 0; background: var(--kbd); outline: 0;
 }
 .field:focus { box-shadow: 0 0 0 2px var(--focus); }
 .seg { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--kbd); }
@@ -385,14 +345,22 @@ window.K = (() => {
 }  // namespace
 
 const char* MerlinSharedFile(const std::string& path) {
+  if (path == "merlin-tokens.css") {
+    return design::kPageTokensCss;
+  }
+  if (path == "start-tokens.css") {
+    return design::kStartTokensCss;
+  }
   if (path == "merlin.css") {
-    return kSharedCss;
+    static const base::NoDestructor<std::string> css(
+        std::string(design::kPageTokensCss) + kSharedCss);
+    return css->c_str();
   }
   if (path == "merlin.js") {
     return kSharedJs;
   }
   if (path == "icon.svg") {
-    return kIconSvg;
+    return design::kProductIconSvg;
   }
   return nullptr;
 }

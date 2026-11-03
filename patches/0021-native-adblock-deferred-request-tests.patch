@@ -1,0 +1,76 @@
+diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b/third_party/blink/common/loader/throttling_url_loader_unittest.cc
+--- a/third_party/blink/common/loader/throttling_url_loader_unittest.cc
++++ b/third_party/blink/common/loader/throttling_url_loader_unittest.cc
+@@ -470,6 +470,72 @@
+   EXPECT_EQ(0u, client_.on_complete_called());
+ }
+ 
++TEST_F(ThrottlingURLLoaderTest, DeferredPolicyBypassPreservesRequest) {
++  throttle_->set_will_start_request_callback(base::BindLambdaForTesting(
++      [](URLLoaderThrottle::Delegate*, bool* defer) { *defer = true; }));
++  factory_.set_on_create_loader_and_start(base::BindLambdaForTesting(
++      [](const network::ResourceRequest& request) {
++        EXPECT_EQ(request_url, request.url);
++        EXPECT_TRUE(request.skip_service_worker);
++        EXPECT_EQ("GET", request.method);
++        EXPECT_FALSE(request.trusted_params.has_value());
++      }));
++  CreateLoaderAndStart();
++  EXPECT_EQ(0u, factory_.create_loader_and_start_called());
++  EXPECT_FALSE(throttle_->delegate()->UpdateDeferredRequest(GURL("https://unrelated.test/"), true));
++  EXPECT_TRUE(throttle_->delegate()->UpdateDeferredRequest(request_url, true));
++  throttle_->delegate()->Resume();
++  factory_.factory_remote().FlushForTesting();
++  EXPECT_EQ(1u, factory_.create_loader_and_start_called());
++  EXPECT_FALSE(throttle_->delegate()->UpdateDeferredRequest(request_url, true));
++}
++
++TEST_F(ThrottlingURLLoaderTest, DeferredPolicyRewriteStaysWithinOrigin) {
++  throttle_->set_will_start_request_callback(base::BindLambdaForTesting(
++      [](URLLoaderThrottle::Delegate*, bool* defer) { *defer = true; }));
++  const GURL target = request_url.Resolve("/rewritten?keep=1");
++  factory_.set_on_create_loader_and_start(base::BindLambdaForTesting(
++      [&](const network::ResourceRequest& request) {
++        EXPECT_EQ(target, request.url);
++        EXPECT_FALSE(request.skip_service_worker);
++        EXPECT_EQ("GET", request.method);
++      }));
++  CreateLoaderAndStart();
++  EXPECT_FALSE(throttle_->delegate()->UpdateDeferredRequest(GURL("data:text/plain,bypass"), false));
++  EXPECT_FALSE(throttle_->delegate()->UpdateDeferredRequest(redirect_url, false));
++  EXPECT_TRUE(throttle_->delegate()->UpdateDeferredRequest(target, false));
++  throttle_->delegate()->Resume();
++  task_environment_.RunUntilIdle();
++  EXPECT_EQ(1u, client_.on_received_redirect_called());
++  EXPECT_EQ(0u, factory_.create_loader_and_start_called());
++  loader_->FollowRedirect({});
++  factory_.factory_remote().FlushForTesting();
++  EXPECT_EQ(1u, factory_.create_loader_and_start_called());
++}
++
++TEST_F(ThrottlingURLLoaderTest, DeferredPolicyRedirectBypassRestartsFactory) {
++  throttle_->set_will_redirect_request_callback(base::BindLambdaForTesting(
++      [](URLLoaderThrottle::Delegate*, bool* defer, network::HttpRequestHeadersUpdateParams*) { *defer = true; }));
++  CreateLoaderAndStart();
++  factory_.NotifyClientOnReceiveRedirect();
++  task_environment_.RunUntilIdle();
++  const GURL target = redirect_url.Resolve("/replacement");
++  EXPECT_FALSE(throttle_->delegate()->UpdateDeferredRequest(request_url, true));
++  EXPECT_TRUE(throttle_->delegate()->UpdateDeferredRequest(target, true));
++  factory_.set_on_create_loader_and_start(base::BindLambdaForTesting(
++      [&](const network::ResourceRequest& request) {
++        EXPECT_EQ(target, request.url);
++        EXPECT_TRUE(request.skip_service_worker);
++        EXPECT_FALSE(request.trusted_params.has_value());
++      }));
++  throttle_->delegate()->Resume();
++  task_environment_.RunUntilIdle();
++  EXPECT_EQ(1u, client_.on_received_redirect_called());
++  loader_->FollowRedirect({});
++  factory_.factory_remote().FlushForTesting();
++  EXPECT_EQ(2u, factory_.create_loader_and_start_called());
++}
++
+ TEST_F(ThrottlingURLLoaderTest, DeferBeforeStart) {
+   throttle_->set_will_start_request_callback(base::BindLambdaForTesting(
+       [](blink::URLLoaderThrottle::Delegate* delegate, bool* defer) {

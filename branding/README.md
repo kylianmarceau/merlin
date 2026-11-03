@@ -70,10 +70,26 @@ press. Keep it off the icon and the wordmark.
 ## Type
 
 * Wordmark: **Syne Bold**, "Merlin", tracking −2%, in Forest (white on dark).
-* Interface and docs: Inter.
+* Browser interface: the macOS system UI family, following Merlin Settings.
+* Documentation typography: Inter.
 * Code, keys and hint labels: JetBrains Mono.
 
-All three are on Google Fonts under the SIL Open Font License.
+The wordmark, documentation and code fonts are on Google Fonts under the SIL
+Open Font License. Browser UI uses the installed system fonts.
+
+## Shared browser UI design
+
+`design_tokens.json` is the canonical palette and geometry for native Views,
+Merlin pages, inherited WebUI components and DevTools. Run
+`python3 scripts/generate_design_tokens.py` to generate the native header and
+CSS in `generated/`. The narrow upstream patch generators consume those tokens;
+regenerate and verify the corresponding patches after changing them. Do not
+edit generated bindings by hand.
+
+The [surface inventory and batch summary](../docs/VISUAL_IDENTITY.md) records
+coverage, exact name/artwork exceptions and Chromium-update checks. The
+[rendered evidence](../docs/visual-identity-evidence/README.md) separates sampled
+UI states from the remaining manual qualification matrix.
 
 ## Still open
 
@@ -84,6 +100,8 @@ All three are on Google Fonts under the SIL Open Font License.
   (Cornell's Merlin Bird ID app, Merlin Project); use "Merlin Browser"
   where a store or domain needs it unique.
 * A tagline.
-* "Chrome" and "Google" still appear in some Chromium strings (sign-in,
-  sync, Google services); `scripts/rebrand_strings.py --report` lists them.
-  They go with the surfaces that show them.
+* Complete the manual UI state matrix. Actual external services, compatibility
+  names, trust policies and open-source credits retain truthful names. Exact
+  exceptions live in `product_name_exceptions.json`, `devtools_strings.json`
+  and `artwork_exceptions.json`; use `scripts/check_visual_identity.py --src`
+  against the applied Chromium tree to reject unreviewed changes.

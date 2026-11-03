@@ -20,6 +20,34 @@ fn err(line: &str) -> CommandError {
 }
 
 #[test]
+fn adblock_commands_use_the_browser_action_path() {
+    for operation in ["on", "off", "site toggle", "status", "update"] {
+        assert_eq!(
+            actions(&format!("adblock {operation}")),
+            vec![Action::BrowserCommand {
+                name: "adblock".into(),
+                arg: operation.into()
+            }]
+        );
+    }
+    assert_eq!(actions("adblock"), actions("adblock status"));
+    for invalid in [
+        "adblock site",
+        "adblock site off",
+        "adblock on extra",
+        "adblock arbitrary-url",
+    ] {
+        reg().execute(invalid, None).unwrap_err();
+    }
+    assert!(
+        reg()
+            .complete("adblock site ")
+            .iter()
+            .any(|c| c.text == "adblock site toggle")
+    );
+}
+
+#[test]
 fn open_url_and_search() {
     assert_eq!(
         actions(":open https://example.com"),

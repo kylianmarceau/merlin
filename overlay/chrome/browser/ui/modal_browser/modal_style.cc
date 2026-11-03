@@ -10,7 +10,9 @@
 #include "base/no_destructor.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
+#include "ui/color/color_provider_key.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
@@ -21,39 +23,8 @@ namespace {
 // Merlin's palette (branding/README.md): warm stone and
 // charcoal neutrals with one accent, Hint yellow #F6D44A. On light surfaces
 // accent text uses Ochre, since yellow text on white is unreadable.
-constexpr Colors kLight = {
-    .surface = SkColorSetARGB(0xFA, 0xFD, 0xFC, 0xF8),
-    .surface_raised = SkColorSetRGB(0xF3, 0xEF, 0xE6),
-    .border = SkColorSetARGB(0x1F, 0x28, 0x1E, 0x0A),
-    .shadow = SkColorSetARGB(0x33, 0x28, 0x1E, 0x0A),
-    .text = SkColorSetRGB(0x1C, 0x1B, 0x18),
-    .text_secondary = SkColorSetRGB(0x61, 0x5C, 0x51),
-    .text_tertiary = SkColorSetRGB(0x85, 0x7F, 0x70),
-    .accent = SkColorSetRGB(0x7A, 0x60, 0x00),
-    .accent_soft = SkColorSetARGB(0x5C, 0xF6, 0xD4, 0x4A),
-    .error = SkColorSetRGB(0xB3, 0x26, 0x1E),
-    .hint_bg = SkColorSetRGB(0xF6, 0xD4, 0x4A),
-    .hint_text = SkColorSetRGB(0x1A, 0x1A, 0x1A),
-    .hint_typed = SkColorSetARGB(0x66, 0x1A, 0x1A, 0x1A),
-    .hint_border = SkColorSetARGB(0x59, 0x78, 0x5A, 0x00),
-};
-
-constexpr Colors kDark = {
-    .surface = SkColorSetARGB(0xF5, 0x1C, 0x1B, 0x18),
-    .surface_raised = SkColorSetRGB(0x2A, 0x28, 0x22),
-    .border = SkColorSetARGB(0x24, 0xFF, 0xFF, 0xFF),
-    .shadow = SkColorSetARGB(0x80, 0x00, 0x00, 0x00),
-    .text = SkColorSetRGB(0xEC, 0xE8, 0xDD),
-    .text_secondary = SkColorSetRGB(0xA6, 0xA1, 0x94),
-    .text_tertiary = SkColorSetRGB(0x7C, 0x77, 0x6A),
-    .accent = SkColorSetRGB(0xF6, 0xD4, 0x4A),
-    .accent_soft = SkColorSetARGB(0x2E, 0xF6, 0xD4, 0x4A),
-    .error = SkColorSetRGB(0xFF, 0x7A, 0x7A),
-    .hint_bg = SkColorSetRGB(0xF6, 0xD4, 0x4A),
-    .hint_text = SkColorSetRGB(0x1A, 0x1A, 0x1A),
-    .hint_typed = SkColorSetARGB(0x66, 0x1A, 0x1A, 0x1A),
-    .hint_border = SkColorSetARGB(0x66, 0x00, 0x00, 0x00),
-};
+constexpr auto& kLight = design::kLightOverlay;
+constexpr auto& kDark = design::kDarkOverlay;
 
 }  // namespace
 
@@ -110,6 +81,20 @@ Ink InkOn(SkColor surface) {
       .hover = SkColorSetARGB(0x12, 0x28, 0x1E, 0x0A),
       .pressed = SkColorSetARGB(0x1F, 0x28, 0x1E, 0x0A),
   };
+}
+
+bool PageColorsAllowed(const ui::ColorProviderKey& key) {
+  return key.contrast_mode != ui::ColorProviderKey::ContrastMode::kHigh &&
+         key.forced_colors == ui::ColorProviderKey::ForcedColors::kNone;
+}
+
+std::optional<SkColor> PageSurface(const views::View* view,
+                                   std::optional<SkColor> surface) {
+  return view && view->GetWidget() &&
+                 !PageColorsAllowed(
+                     view->GetNativeTheme()->GetColorProviderKey(nullptr))
+             ? std::nullopt
+             : surface;
 }
 
 const gfx::FontList& UiFont(int size_delta, gfx::Font::Weight weight) {

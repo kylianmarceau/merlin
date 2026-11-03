@@ -1,0 +1,21 @@
+diff --git a/third_party/blink/renderer/platform/loader/fetch/memory_cache.cc b/third_party/blink/renderer/platform/loader/fetch/memory_cache.cc
+--- a/third_party/blink/renderer/platform/loader/fetch/memory_cache.cc
++++ b/third_party/blink/renderer/platform/loader/fetch/memory_cache.cc
+@@ -235,6 +235,17 @@
+ MemoryCache::ResourceMap* MemoryCache::EnsureResourceMap(
+     const String& cache_identifier) {
+   if (!resource_maps_.Contains(cache_identifier)) {
++    // Browser request policies can partition reuse across client contexts.
++    // Bound empty namespace metadata left after resources were evicted.
++    if (resource_maps_.size() >= 128) {
++      Vector<String> empty_identifiers;
++      for (const auto& entry : resource_maps_) {
++        if (entry.value->empty())
++          empty_identifiers.push_back(entry.key);
++      }
++      for (const auto& identifier : empty_identifiers)
++        resource_maps_.erase(identifier);
++    }
+     ResourceMapIndex::AddResult result = resource_maps_.insert(
+         cache_identifier, MakeGarbageCollected<ResourceMap>());
+     CHECK(result.is_new_entry);

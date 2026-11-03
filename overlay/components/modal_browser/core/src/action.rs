@@ -354,7 +354,8 @@ pub enum Action {
     RequestItems(ItemSource),
     ShowBrowserPage(BrowserPage),
     /// One of [`crate::command::BROWSER_COMMANDS`], with its argument (a
-    /// download id for the `download-*` ones, else empty).
+    /// download id for the `download-*` ones, else empty), or a native service
+    /// command such as `adblock` with its validated operation.
     BrowserCommand {
         name: String,
         arg: String,
