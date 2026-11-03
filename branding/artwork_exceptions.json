@@ -1,0 +1,26 @@
+{
+  "chrome/browser/resources/new_tab_page/icons/google_logo.svg": {
+    "reason": "Logo of the actual Google search provider on the upstream compatibility new-tab surface; not the Merlin product logo.",
+    "sha256": "4009201fda0627c5b9c89d3a2707c59d78be57fe75f8c60f37ca9766d078a3c1"
+  },
+  "chrome/browser/resources/side_panel/customize_chrome/icons/chrome_web_store.svg": {
+    "reason": "Logo of the actual third-party extension marketplace, linked as an external destination; not the Merlin product logo.",
+    "sha256": "0b74b2552a2ab9fc647c35aecc5867cc3a099f33e1374ea7fc9a46d5e38337a0"
+  },
+  "chrome/browser/resources/webauthn/hybrid_connecting_light.json": {
+    "reason": "Instructional device/connection animation, not a product promotion. Preserve phone/laptop, connection progress and authentication guidance. The surrounding browser view uses Merlin tokens.",
+    "sha256": "d00079f21fc7636a463a437c74c4385c1d6c41f1218cf9ee8af5ac7bbc21dbb4"
+  },
+  "chrome/browser/resources/webauthn/hybrid_connecting_dark.json": {
+    "reason": "Instructional device/connection animation, not a product promotion. Preserve phone/laptop, connection progress and authentication guidance. The surrounding browser view uses Merlin tokens.",
+    "sha256": "9fb85e5274cfb1f594a56a7deb5233de29f9bc60d9ada2a9a124ae0803371c46"
+  },
+  "chrome/browser/resources/webauthn/laptop_light.json": {
+    "reason": "Instructional device/connection animation, not a product promotion. Preserve phone/laptop, connection progress and authentication guidance. The surrounding browser view uses Merlin tokens.",
+    "sha256": "15dd84063ae9d1f4be17743576d47fdd0981402a1b7fd141ef32dda838aa5b27"
+  },
+  "chrome/browser/resources/webauthn/laptop_dark.json": {
+    "reason": "Instructional device/connection animation, not a product promotion. Preserve phone/laptop, connection progress and authentication guidance. The surrounding browser view uses Merlin tokens.",
+    "sha256": "0162afc82b94d723192d8ee4a9fae863037a62b80c64b18a5879bf876646e4fa"
+  }
+}

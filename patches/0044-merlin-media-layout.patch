@@ -1,0 +1,296 @@
+--- a/components/global_media_controls/public/views/media_item_ui_updated_view.h
++++ b/components/global_media_controls/public/views/media_item_ui_updated_view.h
+@@ -6,6 +6,8 @@
+ #define COMPONENTS_GLOBAL_MEDIA_CONTROLS_PUBLIC_VIEWS_MEDIA_ITEM_UI_UPDATED_VIEW_H_
+ 
+ #include <vector>
++
++#include "base/functional/callback.h"
+ 
+ #include "base/memory/raw_ptr.h"
+ #include "components/global_media_controls/public/media_item_ui.h"
+@@ -30,6 +32,38 @@
+ namespace global_media_controls {
+ 
+ class MediaItemUIObserver;
++
++// Optional presentation-only customization. Defaults retain the upstream
++// layout. All controls continue to be owned and updated by this media item.
++struct MediaItemUIPresentationViews {
++  raw_ptr<views::View> card;
++  raw_ptr<views::ImageView> artwork;
++  raw_ptr<views::ImageView> favicon;
++  raw_ptr<views::ImageView> casting_indicator;
++  raw_ptr<views::Label> source;
++  raw_ptr<views::Label> title;
++  raw_ptr<views::Label> artist;
++  raw_ptr<views::Label> elapsed;
++  raw_ptr<views::Label> duration;
++  raw_ptr<MediaProgressView> progress;
++  raw_ptr<MediaLiveStatusView> live_status;
++  std::vector<raw_ptr<MediaActionButton>> actions;
++  raw_ptr<MediaActionButton> save_frame;
++  raw_ptr<MediaActionButton> picture_in_picture;
++  raw_ptr<MediaActionButton> cast;
++};
++
++struct MediaItemUIPresentation {
++  int width = 400;
++  gfx::Size artwork_size = gfx::Size(80, 80);
++  int artwork_radius = 8;
++  gfx::Size primary_action_size = gfx::Size(48, 48);
++  int primary_action_icon_size = 24;
++  int primary_action_radius = 24;
++  bool persistent_timestamps = false;
++  bool hide_empty_artist = false;
++  base::OnceCallback<void(MediaItemUIPresentationViews)> layout;
++};
+ 
+ // These values are persisted to logs. Entries should not be renumbered and
+ // numeric values should never be reused.
+@@ -72,7 +106,8 @@
+       base::WeakPtr<media_message_center::MediaNotificationItem> item,
+       media_message_center::MediaColorTheme media_color_theme,
+       std::unique_ptr<MediaItemUIDeviceSelector> device_selector_view,
+-      std::unique_ptr<MediaItemUIFooter> footer_view);
++      std::unique_ptr<MediaItemUIFooter> footer_view,
++      MediaItemUIPresentation presentation = {});
+   MediaItemUIUpdatedView(const MediaItemUIUpdatedView&) = delete;
+   MediaItemUIUpdatedView& operator=(const MediaItemUIUpdatedView&) = delete;
+   ~MediaItemUIUpdatedView() override;
+@@ -222,6 +257,8 @@
+   raw_ptr<MediaActionButton> picture_in_picture_button_ = nullptr;
+   raw_ptr<MediaActionButton> play_pause_button_ = nullptr;
+ 
++  MediaItemUIPresentation presentation_;
++
+   // Init parameters.
+   const std::string id_;
+   base::WeakPtr<media_message_center::MediaNotificationItem> item_;
+--- a/components/global_media_controls/public/views/media_item_ui_updated_view.cc
++++ b/components/global_media_controls/public/views/media_item_ui_updated_view.cc
+@@ -34,14 +34,12 @@
+ 
+ namespace {
+ 
+-constexpr int kFixedWidth = 400;
+ 
+ constexpr gfx::Insets kBackgroundInsets = gfx::Insets::VH(16, 12);
+ constexpr gfx::Insets kArtworkRowInsets = gfx::Insets::TLBR(0, 4, 0, 0);
+ constexpr gfx::Insets kMetadataRowInsets = gfx::Insets::TLBR(0, 0, 0, 4);
+ 
+ constexpr int kBackgroundCornerRadius = 8;
+-constexpr int kArtworkCornerRadius = 8;
+ constexpr int kFaviconCornerRadius = 2;
+ 
+ constexpr int kBackgroundSeparator = 12;
+@@ -51,14 +49,11 @@
+ constexpr int kMetadataRowSeparator = 16;
+ constexpr int kMetadataColumnSeparator = 4;
+ 
+-constexpr int kPlayPauseButtonIconSize = 24;
+ constexpr int kMediaActionButtonIconSize = 20;
+ 
+ constexpr float kFocusRingHaloInset = -3.0f;
+ 
+-constexpr gfx::Size kArtworkSize = gfx::Size(80, 80);
+ constexpr gfx::Size kFaviconSize = gfx::Size(14, 14);
+-constexpr gfx::Size kPlayPauseButtonSize = gfx::Size(48, 48);
+ constexpr gfx::Size kMediaActionButtonSize = gfx::Size(28, 28);
+ 
+ // Buttons with the following media actions are in the progress row, on the two
+@@ -78,8 +73,10 @@
+     base::WeakPtr<media_message_center::MediaNotificationItem> item,
+     media_message_center::MediaColorTheme media_color_theme,
+     std::unique_ptr<MediaItemUIDeviceSelector> device_selector_view,
+-    std::unique_ptr<MediaItemUIFooter> footer_view)
+-    : id_(id), item_(std::move(item)), media_color_theme_(media_color_theme) {
++    std::unique_ptr<MediaItemUIFooter> footer_view,
++    MediaItemUIPresentation presentation)
++    : presentation_(std::move(presentation)),
++      id_(id), item_(std::move(item)), media_color_theme_(media_color_theme) {
+   CHECK(item_);
+ 
+   SetBackground(views::CreateRoundedRectBackground(
+@@ -103,10 +100,10 @@
+ 
+   artwork_view_ =
+       artwork_row->AddChildView(std::make_unique<views::ImageView>());
+-  artwork_view_->SetPreferredSize(kArtworkSize);
++  artwork_view_->SetPreferredSize(presentation_.artwork_size);
+   artwork_view_->SetClipPath(SkPath::RRect(
+-      SkRRect::MakeRectXY(RectToSkRect(gfx::Rect(kArtworkSize)),
+-                          kArtworkCornerRadius, kArtworkCornerRadius)));
++      SkRRect::MakeRectXY(RectToSkRect(gfx::Rect(presentation_.artwork_size)),
++                          presentation_.artwork_radius, presentation_.artwork_radius)));
+   artwork_view_->SetVisible(false);
+ 
+   // |info_column| inside |artwork_row| right to the |artwork_view| holds the
+@@ -226,8 +223,8 @@
+           ? vector_icons::kPlayArrowFilledFlippableIcon
+           : vector_icons::kPlayArrowOldIcon,
+       IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_PLAY);
+-  play_pause_button_->SetBackground(views::CreatePillBackground(
+-      media_color_theme_.play_button_container_color_id));
++  play_pause_button_->SetBackground(views::CreateRoundedRectBackground(
++      media_color_theme_.play_button_container_color_id, presentation_.primary_action_radius));
+ 
+   // |progress_row| holds some media action buttons, the progress view and the
+   // progress timestamp views.
+@@ -335,6 +332,14 @@
+ 
+   // Always register for media callbacks in the end after all the components are
+   // initialized.
++  if (presentation_.layout) {
++    std::move(presentation_.layout).Run({
++        this, artwork_view_, favicon_view_, casting_indicator_view_,
++        source_label_, title_label_, artist_label_,
++        current_timestamp_label_, duration_timestamp_label_, progress_view_,
++        live_status_view_, media_action_buttons_, save_video_frame_button_,
++        picture_in_picture_button_, start_casting_button_});
++  }
+   item_->SetView(this);
+ }
+ 
+@@ -353,8 +358,8 @@
+ 
+ gfx::Size MediaItemUIUpdatedView::CalculatePreferredSize(
+     const views::SizeBounds& available_size) const {
+-  auto size = GetLayoutManager()->GetPreferredSize(this, {kFixedWidth, {}});
+-  return gfx::Size(kFixedWidth, size.height());
++  auto size = GetLayoutManager()->GetPreferredSize(this, {presentation_.width, {}});
++  return gfx::Size(presentation_.width, size.height());
+ }
+ 
+ void MediaItemUIUpdatedView::AddedToWidget() {
+@@ -415,8 +420,8 @@
+                                           : vector_icons::kPauseOldIcon,
+         IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_PAUSE,
+         media_color_theme_.pause_button_foreground_color_id);
+-    play_pause_button_->SetBackground(views::CreatePillBackground(
+-        media_color_theme_.pause_button_container_color_id));
++    play_pause_button_->SetBackground(views::CreateRoundedRectBackground(
++        media_color_theme_.pause_button_container_color_id, presentation_.primary_action_radius));
+   } else {
+     play_pause_button_->Update(
+         static_cast<int>(MediaSessionAction::kPlay),
+@@ -425,8 +430,8 @@
+             : vector_icons::kPlayArrowOldIcon,
+         IDS_MEDIA_MESSAGE_CENTER_MEDIA_NOTIFICATION_ACTION_PLAY,
+         media_color_theme_.play_button_foreground_color_id);
+-    play_pause_button_->SetBackground(views::CreatePillBackground(
+-        media_color_theme_.play_button_container_color_id));
++    play_pause_button_->SetBackground(views::CreateRoundedRectBackground(
++        media_color_theme_.play_button_container_color_id, presentation_.primary_action_radius));
+   }
+ 
+   in_picture_in_picture_ =
+@@ -458,6 +463,9 @@
+   source_label_->SetText(metadata.source_title);
+   title_label_->SetText(metadata.title);
+   artist_label_->SetText(metadata.artist);
++  if (presentation_.hide_empty_artist) {
++    artist_label_->SetVisible(!metadata.artist.empty());
++  }
+   for (auto& observer : observers_) {
+     observer.OnMediaItemUIMetadataChanged();
+   }
+@@ -482,6 +490,9 @@
+   // media is live. The media action buttons in the progress row may also change
+   // their visibility.
+   is_live_ = position.duration().is_max();
++  if (presentation_.persistent_timestamps) {
++    UpdateTimestampLabelsVisibility();
++  }
+   live_status_view_->SetVisible(is_live_);
+   progress_view_->SetVisible(!is_live_);
+   UpdateMediaActionButtonsVisibility();
+@@ -495,7 +506,7 @@
+   } else {
+     artwork_view_->SetVisible(true);
+     artwork_view_->SetImageSize(
+-        ScaleImageSizeToFitView(image.size(), kArtworkSize));
++        ScaleImageSizeToFitView(image.size(), presentation_.artwork_size));
+     artwork_view_->SetImage(ui::ImageModel::FromImageSkia(image));
+   }
+ }
+@@ -582,11 +593,11 @@
+   auto button = std::make_unique<MediaActionButton>(
+       views::Button::PressedCallback(), button_id, tooltip_text_id,
+       (button_id == static_cast<int>(MediaSessionAction::kPlay)
+-           ? kPlayPauseButtonIconSize
++           ? presentation_.primary_action_icon_size
+            : kMediaActionButtonIconSize),
+       vector_icon,
+       (button_id == static_cast<int>(MediaSessionAction::kPlay)
+-           ? kPlayPauseButtonSize
++           ? presentation_.primary_action_size
+            : kMediaActionButtonSize),
+       media_color_theme_.secondary_foreground_color_id,
+       media_color_theme_.paused_progress_foreground_color_id,
+@@ -700,8 +711,8 @@
+ }
+ 
+ void MediaItemUIUpdatedView::UpdateTimestampLabelsVisibility() {
+-  current_timestamp_label_->SetVisible(drag_state_ == DragState::kDragStarted);
+-  duration_timestamp_label_->SetVisible(drag_state_ == DragState::kDragStarted);
++  current_timestamp_label_->SetVisible(presentation_.persistent_timestamps ? !is_live_ : drag_state_ == DragState::kDragStarted);
++  duration_timestamp_label_->SetVisible(presentation_.persistent_timestamps ? !is_live_ : drag_state_ == DragState::kDragStarted);
+ }
+ 
+ void MediaItemUIUpdatedView::OnProgressDragStateChange(DragState drag_state) {
+--- a/chrome/browser/ui/views/global_media_controls/media_dialog_view.cc
++++ b/chrome/browser/ui/views/global_media_controls/media_dialog_view.cc
+@@ -15,6 +15,7 @@
+ #include "chrome/browser/browser_process.h"
+ #include "chrome/browser/media/router/media_router_feature.h"
+ #include "chrome/browser/profiles/profile.h"
++#include "chrome/browser/ui/modal_browser/merlin_media_controls.h"
+ #include "chrome/browser/ui/browser_element_identifiers.h"
+ #include "chrome/browser/ui/global_media_controls/media_notification_service.h"
+ #include "chrome/browser/ui/navigator/browser_navigator.h"
+@@ -413,6 +414,9 @@
+   set_margins(gfx::Insets());
+   if (!captions::IsLiveCaptionFeatureSupported()) {
+     SetLayoutManager(std::make_unique<views::FillLayout>());
++    modal_browser::ApplyMerlinMediaDialog(
++        {this, active_sessions_view_, nullptr, nullptr, nullptr, nullptr,
++         nullptr, nullptr, nullptr});
+     return;
+   }
+   SetLayoutManager(std::make_unique<views::BoxLayout>(
+@@ -427,6 +431,10 @@
+     separator_->SetOrientation(views::Separator::Orientation::kHorizontal);
+     InitializeCaptionSettingsSection();
+   }
++  modal_browser::ApplyMerlinMediaDialog(
++      {this, active_sessions_view_, live_caption_container_, live_caption_title_,
++       live_translate_container_, live_translate_title_,
++       caption_settings_container_, caption_settings_button_, separator_});
+ }
+ 
+ void MediaDialogView::WindowClosing() {
+@@ -689,10 +697,11 @@
+   bool show_devices =
+       entry_point_ == GlobalMediaControlsEntryPoint::kPresentation;
+   return std::make_unique<global_media_controls::MediaItemUIUpdatedView>(
+-      id, item, media_color_theme_,
++      id, item, modal_browser::MerlinMediaColors(media_color_theme_),
+       BuildDeviceSelector(id, item, service_, service_, profile_, entry_point_,
+                           media_color_theme_, show_devices),
+-      BuildFooter(id, item, profile_, media_color_theme_));
++      BuildFooter(id, item, profile_, media_color_theme_),
++      modal_browser::MerlinMediaItemPresentation());
+ }
+ 
+ BEGIN_METADATA(MediaDialogView)
+--- a/chrome/browser/ui/views/global_media_controls/BUILD.gn
++++ b/chrome/browser/ui/views/global_media_controls/BUILD.gn
+@@ -47,6 +47,7 @@
+ }
+ 
+ source_set("impl") {
++  public_deps = [ "//chrome/browser/ui/modal_browser:media_presentation" ]
+   sources = [
+     "cast_device_footer_view.cc",
+     "cast_device_selector_view.cc",

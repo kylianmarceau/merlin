@@ -28,7 +28,7 @@ shift || true
 extra=()
 IFS=: read -r -a suites <<< "$filter"
 for suite in "${suites[@]}"; do
-  if [[ "$suite" != ModalBrowserBrowserTest.* && "$suite" != MerlinAdblock* ]]; then
+  if [[ "$suite" != ModalBrowserBrowserTest.* && "$suite" != MerlinAdblock* && "$suite" != MerlinIdentityBrowserTest.* ]]; then
     extra+=(--modal-browser-upstream-defaults)
     break
   fi

@@ -1325,6 +1325,9 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinToolbarFollowsPage) {
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return !state->ShouldDisplayVerticalTabs(); }));
   BrowserView* view = BrowserView::GetBrowserViewForBrowser(browser());
+  // The state changes before the scheduled layout removes the native WebUI
+  // toolbar's width. Measure the completed layout, not its previous bounds.
+  view->GetWidget()->LayoutRootViewIfNecessary();
   EXPECT_FALSE(view->GetLocationBarView()->GetVisible());
   BrowserElementsViews* elements = BrowserElementsViews::From(browser());
   views::View* tab_search = elements->GetView(kTabSearchButtonElementId);

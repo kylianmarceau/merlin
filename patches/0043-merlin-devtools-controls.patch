@@ -1,0 +1,29 @@
+--- a/third_party/devtools-frontend/src/front_end/application_tokens.css
++++ b/third_party/devtools-frontend/src/front_end/application_tokens.css
+@@ -416,3 +416,15 @@
+ 
+   /* Colors end */
+ }
++
++/* Merlin's browser theme also covers application-level component tokens. */
++@media (forced-colors: none) and (prefers-contrast: no-preference) {
++  :root.merlin-default-theme,
++  :root.merlin-default-theme.theme-with-dark-background {
++    --sys-color-primary-bright: var(--sys-color-primary);
++    --sys-color-state-focus-ring: var(--sys-color-primary);
++    --sys-color-state-header-hover: var(--sys-color-neutral-container);
++    --app-color-navigation-drawer-label-selected: var(--sys-color-on-tonal-container);
++    --app-color-navigation-drawer-background-selected: var(--sys-color-tonal-container);
++  }
++}
+--- a/third_party/devtools-frontend/src/front_end/ui/components/buttons/button.css
++++ b/third_party/devtools-frontend/src/front_end/ui/components/buttons/button.css
+@@ -40,7 +40,7 @@
+ 
+   align-items: center;
+   background: transparent;
+-  border-radius: var(--sys-shape-corner-full);
++  border-radius: var(--sys-shape-corner-small);
+   cursor: inherit;
+   display: inline-flex;
+   position: relative;

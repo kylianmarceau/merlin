@@ -32,6 +32,57 @@ source_set("url_rewrite") {
   ]
 }
 
+source_set("design_tokens") {
+  sources = [ "merlin_design_tokens.h" ]
+  public_deps = [ "//skia" ]
+}
+
+source_set("theme") {
+  public = [ "merlin_theme.h" ]
+  sources = [
+    "merlin_theme.cc",
+    "merlin_theme.h",
+  ]
+  deps = [
+    ":design_tokens",
+    "//base",
+    "//ui/color",
+  ]
+}
+
+source_set("presentation") {
+  sources = [ "merlin_bubble_header.h" ]
+  public_deps = [
+    ":design_tokens",
+    "//components/vector_icons",
+    "//ui/base",
+    "//ui/color:color_headers",
+    "//ui/views",
+  ]
+}
+
+source_set("media_presentation") {
+  sources = [
+    "merlin_media_controls.cc",
+    "merlin_media_controls.h",
+  ]
+  public_deps = [
+    "//base",
+    "//components/global_media_controls",
+    "//ui/views",
+  ]
+  deps = [
+    ":design_tokens",
+    "//chrome/browser/ui/views/controls",
+    "//components/vector_icons",
+    "//services/media_session/public/mojom",
+    "//ui/base",
+    "//ui/color",
+    "//ui/gfx",
+    "//ui/strings",
+  ]
+}
+
 source_set("modal_browser") {
   sources = [
     "browserctl_server.cc",
@@ -42,10 +93,10 @@ source_set("modal_browser") {
     "external_editor.h",
     "hint_overlay_view.cc",
     "hint_overlay_view.h",
-    "merlin_address_editor.cc",
-    "merlin_address_editor.h",
     "merlin_adblock_button.cc",
     "merlin_adblock_button.h",
+    "merlin_address_editor.cc",
+    "merlin_address_editor.h",
     "merlin_downloads.cc",
     "merlin_downloads.h",
     "merlin_library_pages.cc",
@@ -66,8 +117,6 @@ source_set("modal_browser") {
     "merlin_suggestions.h",
     "merlin_tab_bar.cc",
     "merlin_tab_bar.h",
-    "merlin_theme.cc",
-    "merlin_theme.h",
     "merlin_toolbar.cc",
     "merlin_toolbar.h",
     "merlin_urls.cc",
@@ -90,7 +139,9 @@ source_set("modal_browser") {
     "workspace_store.h",
   ]
   public_deps = [
+    ":design_tokens",
     ":router",
+    ":theme",
     ":url_rewrite",
     "//base",
     "//chrome/browser/ui/tabs:tab_strip",
@@ -98,8 +149,6 @@ source_set("modal_browser") {
     "//ui/views",
   ]
   deps = [
-    "//chrome/browser/media/webrtc",
-    "//ui/native_theme",
     "//base/version_info",
     "//cc/paint",
     "//chrome/app:command_ids",
@@ -108,6 +157,7 @@ source_set("modal_browser") {
     "//chrome/browser/bookmarks",
     "//chrome/browser/favicon",
     "//chrome/browser/history",
+    "//chrome/browser/media/webrtc",
     "//chrome/browser/merlin_adblock",
     "//chrome/browser/prefs:util",
     "//chrome/browser/profiles:profile",
@@ -179,6 +229,7 @@ source_set("modal_browser") {
     "//ui/events",
     "//ui/gfx",
     "//ui/menus",
+    "//ui/native_theme",
     "//ui/shell_dialogs",
     "//url",
   ]
@@ -188,7 +239,10 @@ source_set("modal_browser") {
 source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-  sources = [ "modal_browser_browsertest.cc" ]
+  sources = [
+    "merlin_identity_browsertest.cc",
+    "modal_browser_browsertest.cc",
+  ]
   if (is_mac) {
     sources += [ "background_test_process_mac.mm" ]
     frameworks = [
@@ -197,43 +251,58 @@ source_set("browser_tests") {
     ]
   }
   deps = [
-    "//chrome/browser/media/webrtc",
-    "//chrome/browser/ui/permission_bubble:test_support",
-    "//chrome/browser/ui/tabs/alert:tab_alert",
-    "//chrome/browser/ui/views:bubble_anchor_util_views",
-    "//chrome/browser/ui/views/permissions",
-    "//components/permissions",
-    "//components/permissions:test_support",
-    "//components/security_state/content",
-    "//components/security_state/core",
-    "//ui/color",
-    "//ui/native_theme",
     ":modal_browser",
     "//base",
     "//base/test:test_support",
     "//chrome/app/theme:theme_resources",
     "//chrome/browser",
     "//chrome/browser/extensions:test_support",
+    "//chrome/browser/devtools:test_support",
+    "//chrome/browser/ui/autofill/payments:impl",
+    "//chrome/browser/ui/views/autofill/payments:save_card_offer_bubble_views",
+    "//chrome/browser/ui/views/webauthn",
+    "//chrome/browser/webauthn",
+    "//components/autofill/core/browser",
+    "//chrome/browser/media/webrtc",
     "//chrome/browser/prefs:util",
+    "//chrome/browser/printing",
+    "//chrome/browser/printing:test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/themes",
     "//chrome/browser/ui:browser_commands",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/global_media_controls",
+    "//chrome/browser/ui/passwords",
+    "//chrome/browser/ui/passwords:test_support",
+    "//chrome/browser/ui/permission_bubble:test_support",
     "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/tabs/alert:tab_alert",
+    "//chrome/browser/ui/views:bubble_anchor_util_views",
+    "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:multi_contents_view",
+    "//chrome/browser/ui/views/global_media_controls",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/page_info",
+    "//chrome/browser/ui/views/passwords",
+    "//chrome/browser/ui/views/passwords:password_bubble_view_base",
+    "//chrome/browser/ui/views/permissions",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/common",
     "//chrome/test:test_support",
     "//components/bookmarks/browser",
+    "//components/global_media_controls",
     "//components/history/core/browser",
     "//components/input",
     "//components/omnibox/browser",
+    "//components/password_manager/core/common",
+    "//components/permissions",
+    "//components/permissions:test_support",
     "//components/prefs",
+    "//components/security_state/content",
+    "//components/security_state/core",
     "//components/split_tabs",
     "//components/tabs:public",
     "//components/viz/common",
@@ -242,14 +311,18 @@ source_set("browser_tests") {
     "//content/test:test_support",
     "//extensions/common",
     "//net:test_support",
+    "//services/media_session/public/mojom",
     "//testing/gtest",
     "//third_party/blink/public/common:headers",
     "//ui/base",
     "//ui/base/clipboard",
     "//ui/base/clipboard:clipboard_test_support",
+    "//ui/color",
+    "//ui/compositor",
     "//ui/events",
     "//ui/gfx",
     "//ui/gfx:test_support",
+    "//ui/native_theme",
     "//ui/views",
     "//ui/views:test_support",
   ]

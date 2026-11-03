@@ -1,0 +1,31 @@
+--- a/chrome/browser/chrome_browser_main.cc
++++ b/chrome/browser/chrome_browser_main.cc
+@@ -312,6 +312,7 @@
+ 
+ #if defined(TOOLKIT_VIEWS)
+ #include "chrome/browser/ui/views/chrome_browser_main_extra_parts_views.h"
++#include "chrome/browser/ui/modal_browser/merlin_theme.h"
+ #endif
+ 
+ #if defined(USE_AURA)
+@@ -1055,6 +1056,10 @@
+       base::BindRepeating(color::AddComponentsColorMixers));
+   ui::ColorProviderManager::Get().AppendColorProviderInitializer(
+       base::BindRepeating(AddChromeColorMixers));
++#if defined(TOOLKIT_VIEWS)
++  // Register last, before first-run/profile-picker UI can request colors.
++  modal_browser::InstallMerlinTheme();
++#endif
+ 
+   InitializeActionIdStringMapping();
+ }
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1563,6 +1563,7 @@
+ 
+       # Merlin: chrome://settings and friends open Merlin's pages.
+       "//chrome/browser/ui/modal_browser:url_rewrite",
++      "//chrome/browser/ui/modal_browser:theme",
+     ]
+   }
+ 

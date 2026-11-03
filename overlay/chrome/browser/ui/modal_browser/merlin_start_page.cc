@@ -66,6 +66,8 @@ constexpr char kIndexHtml[] = R"HTML(<!doctype html>
 <meta name="color-scheme" content="light dark">
 <title>Start</title>
 <link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="merlin-tokens.css">
+<link rel="stylesheet" href="start-tokens.css">
 <link rel="stylesheet" href="start.css">
 <script src="start.js" defer></script>
 </head>
@@ -101,43 +103,12 @@ constexpr char kIndexHtml[] = R"HTML(<!doctype html>
 </html>
 )HTML";
 
-constexpr char kStartCss[] = R"CSS(:root {
-  color-scheme: light dark;
-  --bg: #FDFCF8;
-  --text: #1C1B18;
-  --text3: #A39D90;
-  --hair: rgba(40, 30, 10, 0.11);
-  --hair-strong: rgba(40, 30, 10, 0.22);
-  --field: #FFFFFF;
-  --hover: rgba(40, 30, 10, 0.045);
-  --selected: rgba(40, 30, 10, 0.075);
-  --shadow: 0 14px 36px rgba(40, 30, 10, 0.14);
-  --feather: #12352E;
-  --caret: #B8920E;
-  --error: #B3261E;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161512;
-    --text: #ECE8DD;
-    --text3: #6E695E;
-    --hair: rgba(255, 255, 255, 0.09);
-    --hair-strong: rgba(255, 255, 255, 0.2);
-    --field: #1E1D19;
-    --hover: rgba(255, 255, 255, 0.045);
-    --selected: rgba(255, 255, 255, 0.085);
-    --shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
-    --feather: #E9E3D6;
-    --caret: #F6D44A;
-    --error: #FF8A80;
-  }
-}
-html, body {
+constexpr char kStartCss[] = R"CSS(html, body {
   margin: 0;
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  font: 14px/1.45 var(--font);
   -webkit-font-smoothing: antialiased;
 }
 .start {
@@ -157,10 +128,10 @@ html, body {
   background: var(--field); box-shadow: 0 0 0 1px var(--hair);
 }
 .field:focus-within { box-shadow: 0 0 0 1px var(--hair-strong); }
-.prompt { font: 500 16px ui-monospace, "SF Mono", Menlo, monospace; color: var(--text3); }
+.prompt { font: 500 16px var(--mono); color: var(--text3); }
 #q {
   flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; caret-color: var(--caret);
-  font: 400 15.5px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: var(--text);
+  font: 400 15.5px var(--font); color: var(--text);
 }
 #q::placeholder { color: var(--text3); }
 .omni { position: relative; }
@@ -194,7 +165,7 @@ h2 { margin: 0 0 8px; font-size: 12px; font-weight: 500; color: var(--text3); }
 .label {
   min-width: 17px; height: 17px; box-sizing: border-box; padding: 0 4px; border-radius: 4px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  background: #F6D44A; color: #1A1A1A; font: 700 10.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  background: #F6D44A; color: #1A1A1A; font: 700 10.5px/1 var(--mono);
 }
 .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .when { font-size: 12px; color: var(--text3); flex-shrink: 0; }
@@ -803,10 +774,7 @@ const char* MerlinStartUI::FileForPath(const std::string& path) {
   if (path == "start.js") {
     return kStartJs;
   }
-  if (path == "icon.svg") {
-    return MerlinSharedFile(path);
-  }
-  return nullptr;
+  return MerlinSharedFile(path);
 }
 
 MerlinStartUI::MerlinStartUI(content::WebUI* web_ui)

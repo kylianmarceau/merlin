@@ -27,7 +27,24 @@ PY
 )
 for f in $files; do
   mkdir -p "$work/$(dirname "$f")"
-  if [[ -n "${CHROMIUM_SRC:-}" ]]; then
+  if [[ "$f" == third_party/devtools-frontend/src/* ]]; then
+    dependency="third_party/devtools-frontend/src"
+    relative="${f#"$dependency/"}"
+    if [[ -n "${CHROMIUM_SRC:-}" ]]; then
+      revision="$(git -C "$CHROMIUM_SRC" rev-parse "$TAG:$dependency")"
+      git -C "$CHROMIUM_SRC/$dependency" show "$revision:$relative" > "$work/$f"
+    else
+      if [[ -z "${devtools_revision:-}" ]]; then
+        devtools_revision="$(curl -sf --max-time 60 \
+          "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/DEPS?format=TEXT" |
+          base64 --decode | sed -n "s/.*'devtools_frontend_revision': '\([a-f0-9]*\)'.*/\1/p")"
+        [[ "$devtools_revision" =~ ^[a-f0-9]{40}$ ]] || { echo 'Missing pinned DevTools revision'; exit 1; }
+      fi
+      curl -sf --max-time 60 \
+        "https://chromium.googlesource.com/devtools/devtools-frontend/+/$devtools_revision/$relative?format=TEXT" |
+        base64 --decode > "$work/$f"
+    fi
+  elif [[ -n "${CHROMIUM_SRC:-}" ]]; then
     git -C "$CHROMIUM_SRC" show "$TAG:$f" > "$work/$f"
   else
     curl -sf --max-time 60 \

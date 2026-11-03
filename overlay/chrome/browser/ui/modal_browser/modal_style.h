@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "components/modal_browser/ffi/src/lib.rs.h"
+#include "chrome/browser/ui/modal_browser/merlin_design_tokens.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/font_list.h"
 
@@ -24,22 +25,7 @@ struct ColorProviderKey;
 // copies another product's artwork.
 namespace modal_browser::style {
 
-struct Colors {
-  SkColor surface;         // card backgrounds
-  SkColor surface_raised;  // selected row, keycaps
-  SkColor border;          // hairline around cards
-  SkColor shadow;          // drop shadow tint
-  SkColor text;            // primary text
-  SkColor text_secondary;  // URLs, summaries
-  SkColor text_tertiary;   // placeholders, footers
-  SkColor accent;          // matched characters, prompt, focus
-  SkColor accent_soft;     // selected-row tint
-  SkColor error;
-  SkColor hint_bg;         // link hint label
-  SkColor hint_text;
-  SkColor hint_typed;      // characters already typed in a label
-  SkColor hint_border;
-};
+using Colors = design::OverlayPalette;
 
 // Light or dark, from the color provider of `view` (or its widget).
 bool IsDark(const views::View* view);
@@ -80,7 +66,7 @@ const gfx::FontList& MonoFont(int size_delta = 0,
 // Metrics, in DIPs.
 inline constexpr int kPaletteWidth = 640;
 inline constexpr int kPaletteMinMargin = 24;
-inline constexpr int kPaletteRadius = 14;
+inline constexpr int kPaletteRadius = design::kCardRadius;
 inline constexpr int kPaletteInputHeight = 52;
 inline constexpr int kPaletteRowHeight = 40;
 inline constexpr int kPaletteMaxVisibleRows = 8;

@@ -18,7 +18,11 @@ if command -v node >/dev/null 2>&1; then
   node --check scripts/benchmark_adblock.mjs
   node --check scripts/lib/cdp.mjs
   node --check scripts/probe_adblock_youtube.mjs
+  node --check scripts/audit_devtools_strings.cjs
 fi
+
+echo "==> visual identity boundaries and generated tokens"
+python3 scripts/check_visual_identity.py
 
 echo "==> bundled ad blocker integrity and provenance"
 python3 scripts/prepare_adblock_resources.py

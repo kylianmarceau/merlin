@@ -310,6 +310,7 @@ and tests on its own with `cargo`, without a Chromium checkout.
 * [Privacy](docs/PRIVACY.md): every file, socket and piece of page data Merlin touches
 * [Ad blocking plan](docs/ADBLOCK_PLAN.md) and [implementation evidence](docs/ADBLOCK_IMPLEMENTATION.md): native Brave engine integration, YouTube qualification and performance gates
 * [Branding](branding/README.md): name, logo and palette
+* [Browser UI identity](docs/VISUAL_IDENTITY.md): inventory, changed-file summary, [screenshots and tests](docs/visual-identity-evidence/README.md), and [manual macOS checks](docs/visual-identity-evidence/MANUAL_CHECKS.md)
 
 ## Reporting issues
 

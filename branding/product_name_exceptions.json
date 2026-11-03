@@ -1,0 +1,218 @@
+{
+  "IDS_APP_PAUSE_HEADING_FOR_WEB_APPS": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "b51b9d154100550ef861b3ab129d3f492d04b5ea2b632b27fc1fd49c1eea1635"
+  },
+  "IDS_CHROME_ENTERPRISE_RELEASE_NOTES": {
+    "reason": "External Chrome Enterprise service/product name; preserve the real destination and administrator disclosure.",
+    "text_sha256": "63f7609eff82b0e81686d644adc7ddbbf762cc28f7567b9e36febc4c520e3e6b"
+  },
+  "IDS_CHROME_FOR_TESTING_DISCLAIMER": {
+    "reason": "Names the separate Chrome for Testing product in a diagnostic build disclaimer.",
+    "text_sha256": "1b402db584269fbed88e574a70b7440a94b6aaec85a883da9b611320fb632fa9"
+  },
+  "IDS_DEPRECATED_APPS_LEARN_MORE_AX_LABEL": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "c992f3f589bea5962c304326c17d372666f29461252d9894c3d4f7ff1ddbde8a"
+  },
+  "IDS_DEPRECATED_APPS_MONITOR_RENDERER": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "50adf0fe4f898e6c9081d569742c09fd5a5eded95197248b6f65dffdbe8dd479"
+  },
+  "IDS_DOWNLOAD_CHROME": {
+    "reason": "External help/download destination names the actual third-party product; no Merlin release or updater is implied.",
+    "text_sha256": "f73703f7abb923cebb426b7c927da222153937d816aaeb0350d629ee6f5f5982"
+  },
+  "IDS_EXTENSIONS_APPS_TITLE": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "a18fdf45abcef2a23f132a173ef6690f97e9e3ae2d3515cd519fccbb9212f3f8"
+  },
+  "IDS_EXTENSIONS_DISABLED_PUBLISHED_IN_STORE_REQUIRED_BY_POLICY": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "32713c11268054ccecbd62e9543eceaca9e26df9f7189c942efe87a0bf7f5a4b"
+  },
+  "IDS_EXTENSIONS_DISABLED_UNSUPPORTED_DEVELOPER_MODE": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "ae86b9b898c23a89ea6ae1bb717097a25405c3a71786f91d8229a373cb7acc73"
+  },
+  "IDS_EXTENSIONS_DISABLED_UNSUPPORTED_DEVELOPER_MODE_DETAILS": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "35d373986bc02650fbc5a0e8ca893d684a3db2443dcdb5ee3ba442089e0d03c2"
+  },
+  "IDS_EXTENSIONS_ITEM_CHROME_WEB_STORE": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "2b692dbc688929d31c59fc67ac5639924f325d494623d94812902bd7946826cd"
+  },
+  "IDS_EXTENSIONS_ITEM_SOURCE_WEBSTORE": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "2b96646cfbc6ae7d1de1a356ebbec0e8802212b48d9f0393d5c93840fc71984a"
+  },
+  "IDS_EXTENSIONS_MODERN_WEB_GUIDANCE_PROMO": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "442d6f3e7ab4d383b7c1c6904d58871951e436cbd4e4a2df82b1031dff1f07af"
+  },
+  "IDS_EXTENSIONS_MV2_DEPRECATION_MESSAGE_WARNING_SUBTITLE": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "be0a008111e4f37b60ed49fbe8ea6315a5770a904a45b524ca8170c6116952ac"
+  },
+  "IDS_EXTENSIONS_MV2_DEPRECATION_PANEL_WARNING_SUBTITLE": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "929e0b3815acb9dda57fe87e823dbc696485004a40b2f47cc725c5d9b70ceb0f"
+  },
+  "IDS_EXTENSIONS_NO_INSTALLED_ITEMS": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "80b22c1c6dcc7dbaf1ec432993f2ac245bf44f4e60e1de5c8956af2a6e3eafe3"
+  },
+  "IDS_EXTENSIONS_SC_POLICY_VIOLATION_OFF": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "5a527e1d8305d4bbed31d2903f4f9b72c593eaea1f89c3c62b89743d39245e96"
+  },
+  "IDS_EXTENSIONS_SC_POLICY_VIOLATION_ON": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "6f952bad476d9a9791e90f6dbc453a095b7cddfcbb829eca4a688c4c186c42cc"
+  },
+  "IDS_EXTENSIONS_SIDEBAR_DISCOVER_MORE": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "c547f48dc388da3bdcf82583fb1935b78674fdf5778473040ffe9651b35b6cb3"
+  },
+  "IDS_EXTENSION_WEB_STORE_TITLE": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "2b96646cfbc6ae7d1de1a356ebbec0e8802212b48d9f0393d5c93840fc71984a"
+  },
+  "IDS_FORCE_INSTALLED_DEPRECATED_APPS_CONTENT": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "6b60485ed0f40687dafb22b953f9cdcb3e18b1440eaf8410ffe45b95b35abefb"
+  },
+  "IDS_FORCE_INSTALLED_PREINSTALLED_DEPRECATED_APPS_CONTENT": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "3ff2e7321418883138801ef1a66b77bc8ad56cd9844a70b4dfaf730102713ea3"
+  },
+  "IDS_IOS_DESKTOP_ADDRESS_PROMO_BUBBLE_FOOTER_DESCRIPTION_QR": {
+    "reason": "External help/download destination names the actual third-party product; no Merlin release or updater is implied.",
+    "text_sha256": "8c6592215864bf6564f178e42b561011f33543d784810df10b923485fa038f41"
+  },
+  "IDS_IOS_DESKTOP_PAYMENT_PROMO_BUBBLE_FOOTER_DESCRIPTION_QR": {
+    "reason": "External help/download destination names the actual third-party product; no Merlin release or updater is implied.",
+    "text_sha256": "8c6592215864bf6564f178e42b561011f33543d784810df10b923485fa038f41"
+  },
+  "IDS_MANAGEMENT_BANNER_PROMOTION_BTN": {
+    "reason": "External Chrome Enterprise service/product name; preserve the real destination and administrator disclosure.",
+    "text_sha256": "429aa7649a92f48d5ee857eb5e3e927301c4526f1f612fa135346f58ca6883bc"
+  },
+  "IDS_MANAGEMENT_BANNER_PROMOTION_DESC": {
+    "reason": "External Chrome Enterprise service/product name; preserve the real destination and administrator disclosure.",
+    "text_sha256": "e09b8bd7c6edae264eacdaa4ee95073294691be6d14a3cb0891e917c2c09af56"
+  },
+  "IDS_MANAGEMENT_THREAT_PROTECTION": {
+    "reason": "External Chrome Enterprise service/product name; preserve the real destination and administrator disclosure.",
+    "text_sha256": "30d6b9e998549992848e5114041da68e471def5ed921d8c6525d07a3e5d9a7ae"
+  },
+  "IDS_MANAGEMENT_THREAT_PROTECTION_DESCRIPTION": {
+    "reason": "External Chrome Enterprise service/product name; preserve the real destination and administrator disclosure.",
+    "text_sha256": "6c3b031f8bf6a294e5eb060b15ed479f18cdfb7eea88392c4c530ce0bb945594"
+  },
+  "IDS_MANAGEMENT_THREAT_PROTECTION_DESCRIPTION_BY": {
+    "reason": "External Chrome Enterprise service/product name; preserve the real destination and administrator disclosure.",
+    "text_sha256": "8e1a0b7e389ff3b05f8201f1e803ffcc45b4c5645cb0c0ff3a414f11b8c3f328"
+  },
+  "IDS_MANAGEMENT_THREAT_PROTECTION_MORE": {
+    "reason": "External Chrome Enterprise service/product name; preserve the real destination and administrator disclosure.",
+    "text_sha256": "b34d26c45428aa23d56106cd7c19cc774c149afec9787c7c19620de36755621c"
+  },
+  "IDS_NTP_MOBILE_PROMO_DESCRIPTION": {
+    "reason": "External help/download destination names the actual third-party product; no Merlin release or updater is implied.",
+    "text_sha256": "7f6a0a4b8ced9e1aea39486b1ecf379f51c4c74cc02ae6d2fd9caa4fa12a1dcf"
+  },
+  "IDS_NTP_MOBILE_PROMO_HEADER": {
+    "reason": "External help/download destination names the actual third-party product; no Merlin release or updater is implied.",
+    "text_sha256": "e419b8a2101d45bc092db455fc6373b58fe9498f405c18f8858ef09e52320f61"
+  },
+  "IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_MEMBER_UNAVAILABLE": {
+    "reason": "Describes a separate Chrome client or Family Link setting on another device; no Merlin mobile client is implied.",
+    "text_sha256": "308d289df9ac99a40a5e6a0efae2601a3c786de505982b29c04cbd340359821f"
+  },
+  "IDS_POLICY_BANNER_PROMOTION_BTN": {
+    "reason": "Names the actual third-party enterprise service; Merlin does not operate a replacement cloud management service.",
+    "text_sha256": "429aa7649a92f48d5ee857eb5e3e927301c4526f1f612fa135346f58ca6883bc"
+  },
+  "IDS_POLICY_BANNER_PROMOTION_DESC": {
+    "reason": "Names the actual third-party enterprise service; Merlin does not operate a replacement cloud management service.",
+    "text_sha256": "d494bd601039d95edf3af086fcd2c1e2e172091f30e603f265389c4151dd18a9"
+  },
+  "IDS_POLICY_CLOUD_MANAGEMENT_ENROLLMENT_ONLY_ERROR": {
+    "reason": "Names the actual third-party enterprise service; Merlin does not operate a replacement cloud management service.",
+    "text_sha256": "6af85413a2ec0ec9b93389f014adfb2bf990fb7909c6eecbea72326683dc222e"
+  },
+  "IDS_POLICY_OFF_CWS_URL_ERROR": {
+    "reason": "Names the actual extension marketplace/compatibility product and its policy or skill; preserve the third-party destination.",
+    "text_sha256": "174579f3bc4c00bbc82d594eca776983058c6a04196d47e2fb4d1d11dd182e93"
+  },
+  "IDS_QUIT_WITH_APPS_EXPLANATION": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "94dd1bbec90323a52327b73b98960da29a2e47b3ff98883ea2262dcbeeb73019"
+  },
+  "IDS_QUIT_WITH_APPS_QUIT_LABEL": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "5b9e5eea535fa9c35d22648475d5437a4ed850880d2fa1cc789dd6ab8c4a84c4"
+  },
+  "IDS_SEND_TAB_TO_SELF_POST_SEND_SUCCESS_TOAST": {
+    "reason": "Names the receiving Chrome client on another device. Do not imply that Merlin has a mobile client.",
+    "text_sha256": "54675899c0dc07c2aabbee12982e74c89dc4de53fb817489a60479e443f6adbf"
+  },
+  "IDS_SEND_TAB_TO_SELF_POST_SEND_SUCCESS_TOAST_ANDROID": {
+    "reason": "Names the receiving Chrome client on another device. Do not imply that Merlin has a mobile client.",
+    "text_sha256": "595e22447d09c216a9b8c4c2a0f2fbd0b1562da122ee2967b8fc1bdc4187644f"
+  },
+  "IDS_SEND_TAB_TO_SELF_POST_SEND_SUCCESS_TOAST_NO_EMAIL_ANDROID": {
+    "reason": "Names the receiving Chrome client on another device. Do not imply that Merlin has a mobile client.",
+    "text_sha256": "cc6cddb7b0072ae1d5848c496190023aa7abdd80cb5d503dfd8c45b8b139868d"
+  },
+  "IDS_SEND_TAB_TO_SELF_POST_SEND_THROTTLED_TOAST": {
+    "reason": "Names the receiving Chrome client on another device. Do not imply that Merlin has a mobile client.",
+    "text_sha256": "cf596b04ee1f4de30e9a2e3ed7f28f6bbaf356c60838212a8d53a1a88145dcec"
+  },
+  "IDS_SEND_TAB_TO_SELF_POST_SEND_THROTTLED_TOAST_ANDROID": {
+    "reason": "Names the receiving Chrome client on another device. Do not imply that Merlin has a mobile client.",
+    "text_sha256": "0fcca7917a3691244f6b6a4aaab0cb4dd7f6a88c111ca73c154364ee8196b05c"
+  },
+  "IDS_SETTINGS_CERTIFICATE_MANAGER_V2_CRS_CERTIFICATES": {
+    "reason": "Chrome Root Store/Root Program names the actual certificate trust source; Merlin does not operate a separate root program. Security/compatibility attribution is retained.",
+    "text_sha256": "50d00a4620ddf8624956b0c9ef1ebb29609c0ab0644e05a9a704f38cd558e731"
+  },
+  "IDS_SETTINGS_CERTIFICATE_MANAGER_V2_CRS_CERTIFICATES_DESCRIPTION": {
+    "reason": "Chrome Root Store/Root Program names the actual certificate trust source; Merlin does not operate a separate root program. Security/compatibility attribution is retained.",
+    "text_sha256": "9f54aa4c6ab41130ea4c10f4e5c4ef6b7b6c437bcc281dffe9bbdd8b63cc516d"
+  },
+  "IDS_SETTINGS_CERTIFICATE_MANAGER_V2_CRS_LEARN_MORE_LINK_ARIA_LABEL": {
+    "reason": "Chrome Root Store/Root Program names the actual certificate trust source; Merlin does not operate a separate root program. Security/compatibility attribution is retained.",
+    "text_sha256": "ca792a88a16ef55cca1d1726852667dd6846978ce50ef8f2c32881cb4923089a"
+  },
+  "IDS_SETTINGS_CERTIFICATE_MANAGER_V2_DELETE_SERVER_CERT_DESCRIPTION": {
+    "reason": "Chrome Root Store/Root Program names the actual certificate trust source; Merlin does not operate a separate root program. Security/compatibility attribution is retained.",
+    "text_sha256": "678a84aa2a355ec5eab87ac2c4f8ff15cdb84f0a58ae86a018fc9d6da97ef1d8"
+  },
+  "IDS_SETTINGS_SEARCH_NO_RESULTS_HELP": {
+    "reason": "External help/download destination names the actual third-party product; no Merlin release or updater is implied.",
+    "text_sha256": "ac613df3c65753e13e3f9f9d96ab3925328c0576b6cbbe17250b97c5b8c33d6f"
+  },
+  "IDS_SKIP_PARENT_PERMISSION_EXTENSION_INFORMATION": {
+    "reason": "Describes a separate Chrome client or Family Link setting on another device; no Merlin mobile client is implied.",
+    "text_sha256": "e78ff18df08fe4cefa444a9ffb2019d158ca1c0f0cb1016e853ac0aed06a0789"
+  },
+  "IDS_SUPPORT_TOOL_CHROMEOS_CHROME_USER_LOGS": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "ab36b3ef885dcf15d3a8af909b972cdf5fa41de35eac09e078847f09020ad8a1"
+  },
+  "IDS_TOOLBAR_BUTTON_SEND_TAB_TO_SELF_BUTTON_HINT_TEXT": {
+    "reason": "Describes a separate Chrome client or Family Link setting on another device; no Merlin mobile client is implied.",
+    "text_sha256": "7aeac5344ff67c00ef77613e482b6323c9c31d6bb3a8706645b6471cec48c55a"
+  },
+  "IDS_UPDATER_HELP_CENTER_TOOLTIP": {
+    "reason": "External help/download destination names the actual third-party product; no Merlin release or updater is implied.",
+    "text_sha256": "c0202aa21e698952c795d53fafd5f2169c77b2921915ebe4869a8bc7592a523c"
+  },
+  "IDS_WEB_APP_INSTALL_CHROME_APPS_LOCATION": {
+    "reason": "Names Chrome Apps compatibility or ChromeOS diagnostic data, rather than this browser product. Preserve the precise platform/product identifier.",
+    "text_sha256": "055b594ae3e6996e48aa9242285ea63178a7ffaaf3bcce65f5e63bc3a5c9d3cf"
+  }
+}

@@ -74,6 +74,40 @@ application to the exact pinned commit's files extracted from the local Git
 object database. All **31/31** now pass strict sequential application and installer idempotence
 against the pinned files (2026-11-02). They are installed in the development checkout.
 
+## Visual identity patch batches (2026-11-03)
+
+The series now contains **45 patches**. All pass strict sequential application
+against the pinned Chromium/dependency files and installer idempotence. This
+supersedes the older patch-count observations above. The full development
+`chrome browser_tests` build and GN dependency checks pass. Runtime sample
+results and remaining qualification are recorded in
+[the visual identity report](VISUAL_IDENTITY.md).
+
+| Patch | Presentation boundary |
+| --- | --- |
+| 0032 | Shared WebUI tokens/controls, native dialog geometry, password presentation |
+| 0033 | Desktop visible product names with exact external/compatibility exceptions |
+| 0034 | Browser-owned password/profile/settings/bookmark promotional artwork |
+| 0035 | Media controls, print surroundings, private-page styles, searchbox marks |
+| 0036 | Private-window product/mode artwork |
+| 0037 | Password authentication and semantic status headers |
+| 0038 | Theme registration before first-run/profile UI |
+| 0039 | DevTools tokens and localizable labels; stale-key translation fallback |
+| 0040 | WebUI component fallback roles and prominent-action colours |
+| 0041 | Autofill/payment and static passkey/PIN decorative headers |
+| 0042 | DevTools product/frame art and diagnostic labels |
+| 0043 | DevTools navigation, checkbox/focus roles and button geometry |
+| 0044 | Opt-in media geometry/layout hook; Merlin-owned media cards, header, transport/caption rows |
+| 0045 | Responsive cast-permission notice for compact media cards; original text/link/actions preserved |
+
+DevTools is Chromium's pinned nested Git dependency, currently
+`0311dec3524b324bb252276824dd291e356f289d`. Patch verification reads that
+revision from the pinned Chromium tree (or DEPS when fetching). Do not verify
+these files against an unrelated DevTools HEAD. Internal identifiers, protocol
+handling, engine deprecation history and external trust-policy names remain
+intact. The source generators and exact exceptions are listed in the identity
+report; repeat both source audits and rendered checks after updating Chromium.
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before

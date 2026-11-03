@@ -118,7 +118,7 @@ constexpr char kIndexHtml[] = R"HTML(<!doctype html>
 <div class="frame">
   <nav class="side" aria-label="Sections">
     <div class="brand">
-      <span class="mark" aria-hidden="true"><svg width="26" height="26" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" rx="46" fill="#F2ECE0"/><path d="M85.15 135.77L19.81 102.47A90 90 0 0 1 40.95 75.41L89.07 130.75ZM89.97 130.02L45.84 71.46A90 90 0 0 1 76.71 56.4L95.69 127.23ZM104.31 127.23L123.29 56.4A90 90 0 0 1 154.16 71.46L110.03 130.02ZM110.93 130.75L159.05 75.41A90 90 0 0 1 180.19 102.47L114.85 135.77ZM87.5 143.33A12.5 12.5 0 1 1 112.5 143.33A12.5 12.5 0 1 1 87.5 143.33Z" fill="#12352E"/><path d="M96.82 126.97L82.83 54.99A90 90 0 0 1 117.17 54.99L103.18 126.97Z" fill="#C4552D"/></svg></span>
+      <img class="mark" src="icon.svg" alt="" aria-hidden="true" width="26" height="26">
       <span class="word">Settings</span>
     </div>
     <ol id="nav"></ol>
@@ -148,7 +148,7 @@ constexpr char kSettingsCss[] =
 .word { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
 #nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
 #nav button {
-  width: 100%; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent;
+  width: 100%; height: 32px; padding: 0 10px; border: 0; border-radius: var(--control-radius); background: transparent;
   color: var(--text2); text-align: left; cursor: pointer; font-size: 13.5px;
 }
 #nav button:hover { background: var(--hover); color: var(--text); }

@@ -70,11 +70,14 @@ with tempfile.TemporaryDirectory(prefix='merlin-patch-apply-') as directory:
             changes.append('new file mode 100644\n')
         if after is None:
             changes.append('deleted file mode 100644\n')
-        changes.extend(difflib.unified_diff(
+        file_diff = difflib.unified_diff(
             (old or b'').decode('utf-8', errors='surrogateescape').splitlines(True),
             (after or b'').decode('utf-8', errors='surrogateescape').splitlines(True),
             fromfile='a/' + path if old is not None else '/dev/null',
-            tofile='b/' + path if after is not None else '/dev/null'))
+            tofile='b/' + path if after is not None else '/dev/null')
+        for line in file_diff:
+            changes.append(line if line.endswith('\n') else
+                           line + '\n\\ No newline at end of file\n')
     patch_bytes = ''.join(changes).encode('utf-8', errors='surrogateescape')
     if patch_bytes:
         if apply(args.src, '--check', input_bytes=patch_bytes).returncode:
