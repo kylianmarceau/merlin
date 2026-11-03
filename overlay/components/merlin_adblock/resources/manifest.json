@@ -272,7 +272,7 @@
       "sha256": "63a1fdc6aeebbb93b8c15602b6180c85f9aadfddfab200b7c8f4e0cc8ee76159",
       "permissions": 2,
       "license": "MPL-2.0",
-      "minimum_rules": 1,
+      "minimum_rules": 0,
       "expires_hours": 6,
       "retrieved_at": 1793546300.8958888
     }

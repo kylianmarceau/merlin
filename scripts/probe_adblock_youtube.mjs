@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Live, signed-out smoke probe. Results do not establish ad eligibility alone.
+// Live playback probe. Results do not establish ad eligibility alone.
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve, basename } from "node:path";
 import { createServer } from "node:net";
@@ -19,13 +19,22 @@ const options = {
 for (let i = 2; i < process.argv.length; ++i) {
   const key = process.argv[i];
   if (
-    ["--app", "--mode", "--route", "--url", "--output", "--seconds"].includes(
-      key,
-    )
+    [
+      "--app",
+      "--mode",
+      "--route",
+      "--url",
+      "--output",
+      "--seconds",
+      "--profile",
+    ].includes(key)
   )
     options[key.slice(2)] = process.argv[++i];
   else if (key === "--private") options.private = true;
   else if (key === "--headful") options.headful = true;
+  else if (key === "--wait-for-signin") options.waitForSignin = true;
+  else if (key === "--no-controls") options.noControls = true;
+  else if (key === "--stop-after-midroll") options.stopAfterMidroll = true;
   else if (key === "--autoplay") options.autoplay = true;
   else if (key === "--shorts-steps")
     options.shortsSteps = Number(process.argv[++i]);
@@ -45,7 +54,21 @@ if (
   options.shortsSteps > 10
 )
   throw Error(
-    "Usage: probe_adblock_youtube.mjs --app /path/Browser.app [--mode on|off] [--route direct|spa|shorts|playlist|embed] [--autoplay] [--shorts-steps 3] [--private] [--headful] [--reference] [--url URL] [--seconds 90] [--output file.json]",
+    "Usage: probe_adblock_youtube.mjs --app /path/Browser.app [--mode on|off] [--route direct|spa|shorts|playlist|embed] [--autoplay] [--shorts-steps 3] [--private] [--headful] [--reference] [--url URL] [--seconds 90] [--output file.json] [--profile /isolated/test/profile --wait-for-signin]",
+  );
+if (
+  options.waitForSignin &&
+  (!options.headful || options.private || !options.profile)
+)
+  throw Error(
+    "Interactive sign-in needs --headful --profile /isolated/test/profile and normal mode",
+  );
+if (
+  options.stopAfterMidroll &&
+  (options.mode !== "off" || options.route !== "direct")
+)
+  throw Error(
+    "--stop-after-midroll requires an unprotected direct-watch control",
   );
 const url = new URL(options.url);
 if (
@@ -73,9 +96,13 @@ if (options.route === "embed") {
   await once(embedServer, "listening");
   navigationUrl = `http://127.0.0.1:${embedServer.address().port}/`;
 }
-const profile = join(root, "profile"),
+const profile = options.profile
+    ? resolve(options.profile)
+    : join(root, "profile"),
   config = join(root, "config/modal_browser");
 await mkdir(config, { recursive: true });
+await mkdir(profile, { recursive: true, mode: 0o700 });
+await chmod(profile, 0o700);
 await mkdir(join(profile, "Default"), { recursive: true });
 await writeFile(
   join(config, "config.toml"),
@@ -87,7 +114,10 @@ await writeFile(
     merlin: { adblock: { updates: false } },
     session: { restore_on_startup: 5 },
   }),
-);
+  { flag: "wx" },
+).catch((error) => {
+  if (error.code !== "EEXIST") throw error;
+});
 // Chromium treats port 0 as ChromeDriver-style automation. A windowed probe
 // uses ordinary debugger attachment, without changing browser runtime features.
 const debugPort = options.headful
@@ -178,7 +208,7 @@ function serializedResult() {
     ) + "\n"
   );
 }
-let cdp, session, pageSession;
+let cdp, session, pageSession, schedulingWatch;
 async function evaluate(expression) {
   // Shorts can retain an inactive watch-page video. Inspect the visible player.
   expression = expression.replaceAll(
@@ -322,6 +352,32 @@ try {
     )
       ++result.network.ad_responses;
   });
+  if (options.waitForSignin) {
+    await cdp.call(
+      "Page.navigate",
+      { url: "https://www.youtube.com/" },
+      session,
+    );
+    process.stdout.write(
+      "Sign in yourself in the isolated YouTube window. Do not send credentials to the assistant.\n",
+    );
+    const end = performance.now() + 60 * 60 * 1000;
+    let loggedIn = false;
+    while (performance.now() < end) {
+      loggedIn = await evaluate(
+        "globalThis.ytcfg?.get?.('LOGGED_IN') === true",
+      ).catch(() => false);
+      if (loggedIn) break;
+      await sleep(1000);
+    }
+    if (!loggedIn)
+      throw Error(
+        "No signed-in YouTube session became available in the test window",
+      );
+    result.signed_in = true;
+    result.account_condition =
+      "User supplied isolated signed-in session; no credentials, identity or cookies collected. Non-Premium status must be confirmed by the user.";
+  }
   await cdp.call("Page.navigate", { url: navigationUrl }, session);
   if (options.route === "embed") {
     const ready = await deadline(
@@ -408,6 +464,16 @@ try {
     result.route_navigation.clicked_url = point.href;
     await startPlayback().catch(() => {});
   }
+  let lastTick = Date.now();
+  schedulingWatch = setInterval(() => {
+    const now = Date.now();
+    if (now - lastTick > 15000)
+      (result.scheduling_gaps ??= []).push({
+        at: new Date(now).toISOString(),
+        gap_ms: now - lastTick,
+      });
+    lastTick = now;
+  }, 1000);
   for (let elapsed = 0; elapsed < Number(options.seconds); elapsed += 5) {
     await sleep(5000);
     if (elapsed > 0 && elapsed % 15 === 0)
@@ -416,7 +482,33 @@ try {
       elapsed: elapsed + 5,
       ...JSON.parse(await evaluate(snapshot)),
     });
+    const current = result.samples.at(-1);
+    if (current.ad_showing && !result.midroll_observed) {
+      let watched;
+      const video = new URL(current.url).searchParams.get("v");
+      for (let i = result.samples.length - 2; video && i >= 0; --i) {
+        const sample = result.samples[i];
+        if (new URL(sample.url).searchParams.get("v") !== video) break;
+        if (
+          !sample.ad_showing &&
+          !sample.warning &&
+          sample.video?.time >= 120
+        ) {
+          watched = sample;
+          break;
+        }
+      }
+      if (watched)
+        result.midroll_observed = {
+          elapsed_seconds: current.elapsed,
+          content_time_before_ad: watched.video.time,
+          watch_url: current.url,
+          criterion:
+            "Ad-showing sample after >=120 seconds of content in the same watch URL, without an intervening navigation",
+        };
+    }
     await writeFile(options.output, serializedResult());
+    if (options.stopAfterMidroll && result.midroll_observed) break;
   }
   if (options.route === "shorts" && options.shortsSteps) {
     result.shorts_steps = [];
@@ -449,21 +541,25 @@ try {
       if (!entry.passed) break;
     }
   }
-  result.seek = await evaluate(
-    `(async()=>{const v=document.querySelector('video');if(!v||!Number.isFinite(v.duration)||document.querySelector('.ad-showing'))return 'unavailable';const before=v.currentTime;v.currentTime=Math.min(before+10,v.duration-1);return {before,target:v.currentTime};})()`,
-  );
-  await sleep(3000);
-  result.after_seek = JSON.parse(await evaluate(snapshot));
-  result.captions = await evaluate(
-    `(async()=>{const v=document.querySelector('video'),p=v?.closest('.html5-video-player'),b=p?.querySelector('.ytp-subtitles-button');if(!b)return 'unavailable';const before=b.getAttribute('aria-pressed');b.click();await new Promise(r=>setTimeout(r,1000));const toggled=b.getAttribute('aria-pressed')!==before,tracks=(p?.getOption?.('captions','tracklist')||[]).slice(0,50).map(t=>({language:t.languageCode,kind:t.kind}));if(tracks.length&&b.getAttribute('aria-pressed')!=='true'){b.click();await new Promise(r=>setTimeout(r,1000));}return {before,toggled,pressed:b.getAttribute('aria-pressed'),disabled:b.disabled||b.getAttribute('aria-disabled')==='true',tracks,selected_language:p?.getOption?.('captions','track')?.languageCode||null,captions_rendered:!!document.querySelector('.caption-window .ytp-caption-segment')?.textContent.trim()};})()`,
-  );
-  if (options.headful) await cdp.call("Target.activateTarget", { targetId });
-  result.fullscreen = await evaluate(
-    `(async()=>{const v=document.querySelector('video');if(!v)return 'unavailable';try{await v.requestFullscreen();const active=!!document.fullscreenElement;await document.exitFullscreen();return active;}catch(e){return e.name+': '+e.message;}})()`,
-  );
-  result.picture_in_picture = await evaluate(
-    `(async()=>{const v=document.querySelector('video');if(!v)return 'unavailable';try{await v.requestPictureInPicture();await document.exitPictureInPicture();return true;}catch(e){return e.name+': '+e.message;}})()`,
-  );
+  if (!options.noControls) {
+    result.seek = await evaluate(
+      `(async()=>{const v=document.querySelector('video');if(!v||!Number.isFinite(v.duration)||document.querySelector('.ad-showing'))return 'unavailable';const before=v.currentTime;v.currentTime=Math.min(before+10,v.duration-1);return {before,target:v.currentTime};})()`,
+    );
+    await sleep(3000);
+    result.after_seek = JSON.parse(await evaluate(snapshot));
+    result.captions = await evaluate(
+      `(async()=>{const v=document.querySelector('video'),p=v?.closest('.html5-video-player'),b=p?.querySelector('.ytp-subtitles-button');if(!b)return 'unavailable';const before=b.getAttribute('aria-pressed');b.click();await new Promise(r=>setTimeout(r,1000));const toggled=b.getAttribute('aria-pressed')!==before,tracks=(p?.getOption?.('captions','tracklist')||[]).slice(0,50).map(t=>({language:t.languageCode,kind:t.kind}));if(tracks.length&&b.getAttribute('aria-pressed')!=='true'){b.click();await new Promise(r=>setTimeout(r,1000));}return {before,toggled,pressed:b.getAttribute('aria-pressed'),disabled:b.disabled||b.getAttribute('aria-disabled')==='true',tracks,selected_language:p?.getOption?.('captions','track')?.languageCode||null,captions_rendered:!!document.querySelector('.caption-window .ytp-caption-segment')?.textContent.trim()};})()`,
+    );
+    if (options.headful) await cdp.call("Target.activateTarget", { targetId });
+    result.fullscreen = await evaluate(
+      `(async()=>{const v=document.querySelector('video');if(!v)return 'unavailable';try{await v.requestFullscreen();const active=!!document.fullscreenElement;await document.exitFullscreen();return active;}catch(e){return e.name+': '+e.message;}})()`,
+    );
+    result.picture_in_picture = await evaluate(
+      `(async()=>{const v=document.querySelector('video');if(!v)return 'unavailable';try{await v.requestPictureInPicture();await document.exitPictureInPicture();return true;}catch(e){return e.name+': '+e.message;}})()`,
+    );
+  } else
+    result.player_controls =
+      "Skipped explicitly; covered by a separate foreground controls case";
   if (options.autoplay) {
     const before = JSON.parse(await evaluate(snapshot));
     const attempted = await evaluate(
@@ -557,12 +653,17 @@ try {
       (result.shorts_steps?.length === options.shortsSteps &&
         result.shorts_steps.every((step) => step.passed))) &&
     (!options.autoplay || result.autoplay?.passed) &&
+    (!options.stopAfterMidroll || !!result.midroll_observed) &&
     (options.mode === "off" || result.ad_free_observed);
 
+  if (result.scheduling_gaps?.length)
+    throw Error(
+      "Playback observation interrupted by system suspension or a >15 s host scheduling gap",
+    );
   result.valid = true;
   if (!result.acceptance_passed) process.exitCode = 2;
   result.limitations = [
-    `Signed-out ${options.headful ? "windowed" : "headless"} smoke probe; ad eligibility requires an observed unblocked control.`,
+    `${result.signed_in ? "Signed-in" : "Signed-out"} ${options.headful ? "windowed" : "headless"} smoke probe; ad eligibility requires an observed unblocked control.`,
     "Fullscreen/PiP API results do not establish native window UI acceptance.",
     "Only the selected route/observation duration is covered; signed-in sessions and observed mid-roll eligibility need separate evidence.",
   ];
@@ -582,6 +683,7 @@ try {
   }
   process.exitCode = 1;
 } finally {
+  clearInterval(schedulingWatch);
   result.finished = new Date().toISOString();
   await writeFile(options.output, serializedResult());
   await writeFile(join(root, "browser-stderr.log"), stderr);

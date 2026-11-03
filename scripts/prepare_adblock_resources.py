@@ -32,7 +32,14 @@ def verify():
         data = (DATA / file).read_bytes()
         if hashlib.sha256(data).hexdigest() != item['sha256']:
             raise ValueError('bundled digest mismatch: ' + file)
-        data.decode('utf-8')
+        text = data.decode('utf-8')
+        if item is not manifest['resources']:
+            minimum = item.get('minimum_rules', 1)
+            count = sum(bool(line) and not line.startswith(('!', '['))
+                        for raw in text.splitlines()
+                        if (line := raw.strip(' \t\r\n\f\v')))
+            if type(minimum) is not int or minimum < 0 or count < minimum:
+                raise ValueError('bundled list violates its rule minimum: ' + file)
         if len(data) > 16 * 1024 * 1024:
             raise ValueError('oversize asset: ' + file)
     print(f"Verified {len(manifest['sources'])} lists and the executable resource bundle")

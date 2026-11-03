@@ -1,10 +1,14 @@
 #include "chrome/renderer/merlin_adblock/agent.h"
 
+#include <string_view>
+
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/trace_event/trace_event.h"
 #include "base/unguessable_token.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/renderer/merlin_adblock/cosmetics.h"
@@ -29,6 +33,107 @@
 
 namespace merlin_adblock {
 namespace {
+// Colons/commas in quoted attribute values (for example an https: URL) are
+// not pseudo-selectors or selector lists. Keep those selectors in the batch
+// too, while preserving independent rules for actual pseudos and lists.
+bool CanBatchSelector(std::string_view selector) {
+  unsigned brackets = 0;
+  char quote = 0;
+  bool escaped = false;
+  for (char c : selector) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (c == '\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (c == quote)
+        quote = 0;
+      continue;
+    }
+    if (c == '\'' || c == '"') {
+      quote = c;
+    } else if (c == '[') {
+      ++brackets;
+    } else if (c == ']') {
+      if (!brackets)
+        return false;
+      --brackets;
+    } else if (!brackets && (c == ':' || c == ',')) {
+      return false;
+    }
+  }
+  return !quote && !brackets && !escaped;
+}
+
+// Recognize only a small, unambiguous CSS subset: an ASCII type selector
+// followed by zero or more attribute selectors. These dominate the default
+// generic rules. They can share a normal selector list without the recursive
+// :is() match on every element. Everything else keeps forgiving isolation.
+bool IsSimpleAttributeSelector(std::string_view text) {
+  size_t at = 0;
+  const auto identifier = [&] {
+    const size_t start = at;
+    if (at == text.size() || (!base::IsAsciiAlpha(text[at]) && text[at] != '_'))
+      return false;
+    while (at < text.size() &&
+           (base::IsAsciiAlpha(text[at]) || base::IsAsciiDigit(text[at]) ||
+            text[at] == '_' || text[at] == '-'))
+      ++at;
+    return at > start;
+  };
+  const auto space = [&] {
+    while (at < text.size() && std::string_view(" \t\n\r\f").find(text[at]) !=
+                                   std::string_view::npos)
+      ++at;
+  };
+  bool any = identifier();
+  while (at < text.size()) {
+    if (text[at++] != '[')
+      return false;
+    space();
+    if (!identifier())
+      return false;
+    space();
+    if (at == text.size())
+      return false;
+    if (text[at] != ']') {
+      if (text[at] != '=') {
+        if (std::string_view("~|^$*").find(text[at]) == std::string_view::npos)
+          return false;
+        ++at;
+      }
+      if (at == text.size() || text[at++] != '=')
+        return false;
+      space();
+      if (at == text.size())
+        return false;
+      if (text[at] == '\'' || text[at] == '"') {
+        const char quote = text[at++];
+        while (at < text.size() && text[at] != quote) {
+          if (text[at] == '\\' || static_cast<unsigned char>(text[at]) < 0x20 ||
+              text[at] == 0x7f)
+            return false;
+          ++at;
+        }
+        if (at == text.size())
+          return false;
+        ++at;
+      } else if (!identifier()) {
+        return false;
+      }
+      space();
+    }
+    if (at == text.size() || text[at++] != ']')
+      return false;
+    any = true;
+  }
+  return any;
+}
+
 class ProcessHost : public mojom::AdblockProcess {
  public:
   void InvalidateResourceCache(InvalidateResourceCacheCallback done) override {
@@ -69,6 +174,7 @@ void Agent::Prepare(mojom::DocumentConfigPtr config, PrepareCallback done) {
   std::move(done).Run();
 }
 void Agent::DidCreateNewDocument() {
+  TRACE_EVENT("loading", "MerlinAdblock.NewDocument");
   cosmetic_timer_.Stop();
   host_.reset();
   generic_pending_ = false;
@@ -99,6 +205,7 @@ void Agent::DidCreateScriptContext(v8::Local<v8::Context> context, int world) {
   InheritInitialConfiguration();
   if (!current_ || !current_->enabled || !current_->scripts_allowed)
     return;
+  TRACE_EVENT("loading", "MerlinAdblock.DocumentScripts");
   if (!blink::IsScriptExecutionAllowed(*render_frame()->GetWebFrame()))
     return;
   const GURL url(render_frame()->GetWebFrame()->GetDocument().Url());
@@ -204,6 +311,7 @@ void Agent::InheritInitialConfiguration() {
   InsertSelectors(current_->selectors);
 }
 void Agent::InsertSelectors(const std::vector<std::string>& selectors) {
+  TRACE_EVENT("loading", "MerlinAdblock.InsertSelectors");
   std::string css, grouped;
   for (const auto& selector : selectors) {
     if (inserted_.size() >= 8192 || css_bytes_ + selector.size() > 1024 * 1024)
@@ -211,13 +319,15 @@ void Agent::InsertSelectors(const std::vector<std::string>& selectors) {
     if (!inserted_.insert(selector).second)
       continue;
     css_bytes_ += selector.size();
-    if (selector.find_first_of(":,") == std::string::npos) {
+    if (CanBatchSelector(selector)) {
       if (!grouped.empty())
         grouped += ",\n";
-      // One argument preserves this selector's specificity. Its forgiving
-      // list also isolates a selector Blink cannot parse from the other arms.
+      // Known-valid simple selectors preserve their own specificity in the
+      // normal list. A single-argument :is() preserves specificity and
+      // forgiving isolation for everything outside the recognized subset.
       // Keep pseudo-elements and existing selector lists outside :is().
-      grouped += ":is(" + selector + ")";
+      grouped += IsSimpleAttributeSelector(selector) ? selector
+                                                     : ":is(" + selector + ")";
     } else {
       css += selector + "{display:none!important;}\n";
     }

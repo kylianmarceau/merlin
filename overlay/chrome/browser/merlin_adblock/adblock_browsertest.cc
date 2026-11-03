@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -44,9 +45,11 @@ namespace merlin_adblock {
 class MerlinAdblockBrowserTest : public InProcessBrowserTest {
  public:
   MerlinAdblockBrowserTest() {
+    // Merlin uses its native replacement toolbar. Chromium's generic browser
+    // test setup must not wait for the hidden stock WebUI toolbar to paint.
     features_.InitWithFeatures({kMerlinAdblock, features::kBackForwardCache,
                                 net::features::kEnableEarlyHintsOnHttp11},
-                               {});
+                               {features::kWebUIToolbar});
     prerender_ = std::make_unique<content::test::PrerenderTestHelper>(
         base::BindRepeating(&MerlinAdblockBrowserTest::contents,
                             base::Unretained(this)));
@@ -255,6 +258,10 @@ class MerlinAdblockBrowserTest : public InProcessBrowserTest {
           response->set_content("||ads.test^$script");
           break;
       }
+    } else if (request.relative_url == "/empty-rules") {
+      ++optional_update_hits_;
+      response->set_content_type("text/plain");
+      response->set_content("! Brave desktop filters\n");
     } else if (request.relative_url == "/blocked.js") {
       ++blocked_hits_;
       response->set_content_type("application/javascript");
@@ -304,11 +311,12 @@ class MerlinAdblockBrowserTest : public InProcessBrowserTest {
   std::atomic<int> blocked_hits_{0};
   std::atomic<int> allowed_hits_{0};
   std::atomic<int> update_hits_{0};
+  std::atomic<int> optional_update_hits_{0};
   std::atomic<int> websocket_hits_{0};
   std::atomic<int> update_mode_{0};
   std::atomic<bool> update_sent_cookie_{false};
   std::atomic<bool> update_sent_referrer_{false};
-  void UpdateFixture(int mode) {
+  void UpdateFixture(int mode, bool with_optional_source = false) {
     update_mode_ = mode;
     Bundle bundle;
     Source source;
@@ -316,6 +324,19 @@ class MerlinAdblockBrowserTest : public InProcessBrowserTest {
     source.text = "||old.test^$script";
     source.update_url = embedded_test_server()->GetURL("/rules");
     bundle.sources.push_back(std::move(source));
+    if (with_optional_source) {
+      base::ScopedAllowBlockingForTesting allow;
+      auto catalog = LoadBundle({}, {}, {"brave"});
+      for (auto& optional : catalog.sources) {
+        if (optional.id == "brave-unbreak") {
+          optional.update_url = embedded_test_server()->GetURL("/empty-rules");
+          bundle.sources.push_back(std::move(optional));
+          break;
+        }
+      }
+      ASSERT_EQ(2u, bundle.sources.size());
+      ASSERT_EQ(0u, bundle.sources.back().minimum_rules);
+    }
     bundle.resources = "[]";
     service()->updater_for_testing()->SetBundleForTesting(std::move(bundle));
     service()->Refresh();
@@ -576,6 +597,34 @@ IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
+                       BatchedAttributeValuesPreserveSyntaxAndSpecificity) {
+  Rules(
+      "news.test##a[href^=\"https://ads.test/\"]\n"
+      "news.test##[data-campaign=\"summer:2026,launch\"]\n"
+      "news.test##.escaped\\:ad\nnews.test##.escaped\\,ad\n"
+      "news.test##[data-campaign=\"quoted\\\"value:ad\"]\n"
+      "news.test##[data-note=\"colon:comma,value\"]::before\n"
+      "news.test##[data-state=\"ad:active\"]:not(.allowed)\n");
+  ASSERT_TRUE(content::NavigateToURL(contents(), Url("/early")));
+  EXPECT_EQ("none,none,none,none,none,none,inline,block",
+            content::EvalJs(contents(), R"JS((()=>{
+    document.body.innerHTML=`<style>
+      a.keep[href]{display:inline!important}
+      [data-note]::before{content:'Ad';display:block}
+    </style><a href="https://ads.test/a">Ad</a>
+    <div data-campaign="summer:2026,launch">Ad</div>
+    <div class="escaped:ad">Ad</div><div class="escaped,ad">Ad</div>
+    <div id="quoted">Ad</div><div data-state="ad:active">Ad</div>
+    <a class="keep" href="https://ads.test/keep">Keep</a>
+    <div class="allowed" data-state="ad:active">Keep</div>
+    <span data-note="colon:comma,value">Keep text</span>`;
+    document.querySelector('#quoted').setAttribute('data-campaign','quoted"value:ad');
+    if(getComputedStyle(document.querySelector('[data-note]'),'::before').display!=='none')return 'pseudo-element not hidden';
+    return [...document.querySelectorAll('a,div')].map(e=>getComputedStyle(e).display).join(',');
+  })())JS"));
+}
+
+IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
                        IsolatedScriptletCannotModifyPageGlobals) {
   Rules(
       "news.test##+js(isolated-fixture)",
@@ -663,6 +712,18 @@ IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
   EXPECT_EQ(1, update_hits_.load());
   EXPECT_FALSE(update_sent_cookie_.load());
   EXPECT_FALSE(update_sent_referrer_.load());
+  ASSERT_TRUE(content::NavigateToURL(contents(), Url("/page")));
+  EXPECT_EQ(0, blocked_hits_.load());
+}
+
+IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
+                       CommentOnlyCatalogSourceDoesNotAbortTheRefresh) {
+  Rules("||old.test^$script");
+  const auto generation = service()->generation();
+  UpdateFixture(0, true);
+  EXPECT_EQ("Filter lists updated", service()->UpdateStatus());
+  EXPECT_EQ(generation + 1, service()->generation());
+  EXPECT_EQ(1, optional_update_hits_.load());
   ASSERT_TRUE(content::NavigateToURL(contents(), Url("/page")));
   EXPECT_EQ(0, blocked_hits_.load());
 }
