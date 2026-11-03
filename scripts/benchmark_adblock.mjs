@@ -17,6 +17,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir, cpus, totalmem, release } from "node:os";
 import { resolve, join, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const exec = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -48,7 +49,10 @@ for (let i = 2; i < process.argv.length; ++i) {
     options.timingOnly = true;
   } else if (key === "--paint") options.paint = true;
   else if (key === "--network-update") options.networkUpdate = true;
-  else if (key === "--update-only")
+  else if (key === "--physical-memory") {
+    options.physicalMemory = true;
+    options.memoryOnly = true;
+  } else if (key === "--update-only")
     Object.assign(options, {
       nativeMemory: true,
       memoryOnly: true,
@@ -74,6 +78,13 @@ if (
 if (options.networkUpdate && !options.nativeMemory)
   throw Error(
     "--network-update requires --native-memory and an isolated profile",
+  );
+if (
+  options.physicalMemory &&
+  (options.nativeMemory || process.platform !== "darwin")
+)
+  throw Error(
+    "--physical-memory requires macOS and must run without heap sampling",
   );
 const binary = join(
   options.app,
@@ -279,7 +290,7 @@ async function launch(mode, profile) {
       `--modal-browser-socket=${join(taskRoot, "control.sock")}`,
       "--host-resolver-rules=MAP page.fixture.test 127.0.0.1, MAP ad.doubleclick.net 127.0.0.1",
       `--enable-features=${[mode === "on" ? "MerlinAdblock" : "", options.nativeMemory ? heapFeature : ""].filter(Boolean).join(",")}`,
-      ...(mode === "off" ? ["--disable-features=MerlinAdblock"] : []),
+      `--disable-features=${[mode === "off" ? "MerlinAdblock" : "", options.physicalMemory ? "HeapProfilerReporting" : ""].filter(Boolean).join(",")}`,
       "about:blank",
     ],
     {
@@ -739,6 +750,18 @@ try {
         const { targetInfos } = await browser.cdp.call("Target.getTargets");
         const pages = targetInfos.filter((t) => t.type === "page");
         if (pages.length !== tabs) throw Error("Invalid live-tab sample");
+        let physical;
+        if (options.physicalMemory) {
+          const { stdout } = await exec("python3", [
+            fileURLToPath(
+              new URL("./lib/process_footprint.py", import.meta.url),
+            ),
+            ...last.process_ids.map(String),
+          ]);
+          physical = JSON.parse(stdout);
+          if (physical.processes.length !== last.processes)
+            throw Error("Invalid physical-footprint process sample");
+        }
         data.memory.push({
           mode,
           tabs,
@@ -748,6 +771,12 @@ try {
           idle_cpu_seconds: last.cpu_seconds - first.cpu_seconds,
           idle_interval_seconds: options.idle,
           stabilization_retries: attempts,
+          ...(physical
+            ? {
+                physical_footprint_bytes: physical.total_bytes,
+                physical_processes: physical.processes,
+              }
+            : {}),
         });
         if (native) await native.steady(`steady_${tabs}_tabs`);
       }
