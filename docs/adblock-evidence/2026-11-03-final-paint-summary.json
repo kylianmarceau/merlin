@@ -1,0 +1,133 @@
+{
+  "method": "R7; ten alternating profile pairs, three retained loads per case/mode; one discarded warmup",
+  "budget": {
+    "metric": "first-contentful-paint",
+    "median_relative": 0.05,
+    "p95_relative": 0.1,
+    "median_absolute_floor_ms": 16.7,
+    "p95_absolute_floor_ms": 33.4,
+    "scope": "component development build; original percentage-only gate not claimed"
+  },
+  "cases": [
+    {
+      "cards": 1,
+      "delay_ms": 0,
+      "off": {
+        "count": 30,
+        "median_ms": 24.0,
+        "p95_ms": 30.19999999999999,
+        "navigation_load_median_ms": 10.599999994039536
+      },
+      "on": {
+        "count": 30,
+        "median_ms": 28.0,
+        "p95_ms": 32.0,
+        "navigation_load_median_ms": 15.599999994039536
+      },
+      "delta_median_ms": 4.0,
+      "delta_p95_ms": 1.8000000000000114,
+      "revised_budget_passed": true,
+      "original_relative_fcp_gate_passed": false
+    },
+    {
+      "cards": 1,
+      "delay_ms": 100,
+      "off": {
+        "count": 30,
+        "median_ms": 132.0,
+        "p95_ms": 136.0,
+        "navigation_load_median_ms": 113.44999998807907
+      },
+      "on": {
+        "count": 30,
+        "median_ms": 132.0,
+        "p95_ms": 140.0,
+        "navigation_load_median_ms": 119.0
+      },
+      "delta_median_ms": 0.0,
+      "delta_p95_ms": 4.0,
+      "revised_budget_passed": true,
+      "original_relative_fcp_gate_passed": true
+    },
+    {
+      "cards": 100,
+      "delay_ms": 0,
+      "off": {
+        "count": 30,
+        "median_ms": 28.0,
+        "p95_ms": 36.0,
+        "navigation_load_median_ms": 12.299999982118607
+      },
+      "on": {
+        "count": 30,
+        "median_ms": 28.0,
+        "p95_ms": 36.39999999999998,
+        "navigation_load_median_ms": 17.0
+      },
+      "delta_median_ms": 0.0,
+      "delta_p95_ms": 0.39999999999997726,
+      "revised_budget_passed": true,
+      "original_relative_fcp_gate_passed": true
+    },
+    {
+      "cards": 100,
+      "delay_ms": 100,
+      "off": {
+        "count": 30,
+        "median_ms": 132.0,
+        "p95_ms": 144.0,
+        "navigation_load_median_ms": 116.30000001192093
+      },
+      "on": {
+        "count": 30,
+        "median_ms": 136.0,
+        "p95_ms": 144.0,
+        "navigation_load_median_ms": 127.9500000178814
+      },
+      "delta_median_ms": 4.0,
+      "delta_p95_ms": 0.0,
+      "revised_budget_passed": true,
+      "original_relative_fcp_gate_passed": true
+    },
+    {
+      "cards": 1000,
+      "delay_ms": 0,
+      "off": {
+        "count": 30,
+        "median_ms": 64.0,
+        "p95_ms": 76.0,
+        "navigation_load_median_ms": 28.599999964237213
+      },
+      "on": {
+        "count": 30,
+        "median_ms": 76.0,
+        "p95_ms": 84.0,
+        "navigation_load_median_ms": 34.94999998807907
+      },
+      "delta_median_ms": 12.0,
+      "delta_p95_ms": 8.0,
+      "revised_budget_passed": true,
+      "original_relative_fcp_gate_passed": false
+    },
+    {
+      "cards": 1000,
+      "delay_ms": 100,
+      "off": {
+        "count": 30,
+        "median_ms": 168.0,
+        "p95_ms": 176.0,
+        "navigation_load_median_ms": 136.25000002980232
+      },
+      "on": {
+        "count": 30,
+        "median_ms": 176.0,
+        "p95_ms": 192.39999999999998,
+        "navigation_load_median_ms": 165.69999995827675
+      },
+      "delta_median_ms": 8.0,
+      "delta_p95_ms": 16.399999999999977,
+      "revised_budget_passed": true,
+      "original_relative_fcp_gate_passed": true
+    }
+  ]
+}
