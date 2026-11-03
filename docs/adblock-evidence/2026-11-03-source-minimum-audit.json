@@ -1,0 +1,204 @@
+{
+  "before_catalog_fix": true,
+  "sources": [
+    {
+      "id": "easylist",
+      "old_rules": 76757,
+      "minimum_rules": 1000,
+      "downloaded": true,
+      "bytes": 2053194,
+      "utf8": true,
+      "rules": 77409,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "easyprivacy",
+      "old_rules": 56450,
+      "minimum_rules": 1000,
+      "downloaded": true,
+      "bytes": 1512589,
+      "utf8": true,
+      "rules": 56462,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters.txt",
+      "old_rules": 6078,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 471564,
+      "utf8": true,
+      "rules": 6076,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters-2020.txt",
+      "old_rules": 1696,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 133261,
+      "utf8": true,
+      "rules": 1696,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters-2021.txt",
+      "old_rules": 2253,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 166671,
+      "utf8": true,
+      "rules": 2253,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters-2022.txt",
+      "old_rules": 1942,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 157001,
+      "utf8": true,
+      "rules": 1942,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters-2023.txt",
+      "old_rules": 2415,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 213992,
+      "utf8": true,
+      "rules": 2415,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters-2024.txt",
+      "old_rules": 2182,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 231305,
+      "utf8": true,
+      "rules": 2182,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters-2025.txt",
+      "old_rules": 1902,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 169581,
+      "utf8": true,
+      "rules": 1908,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters-2026.txt",
+      "old_rules": 1227,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 103461,
+      "utf8": true,
+      "rules": 1240,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/filters-general.txt",
+      "old_rules": 2852,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 708149,
+      "utf8": true,
+      "rules": 2850,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/ubo-link-shorteners.txt",
+      "old_rules": 1330,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 123001,
+      "utf8": true,
+      "rules": 1350,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/unbreak.txt",
+      "old_rules": 2574,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 281805,
+      "utf8": true,
+      "rules": 2572,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/quick-fixes.txt",
+      "old_rules": 515,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 85548,
+      "utf8": true,
+      "rules": 445,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/privacy.txt",
+      "old_rules": 1785,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 184832,
+      "utf8": true,
+      "rules": 1786,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "uassets/resource-abuse.txt",
+      "old_rules": 78,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 9223,
+      "utf8": true,
+      "rules": 78,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "brave-specific",
+      "old_rules": 81,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 10831,
+      "utf8": true,
+      "rules": 81,
+      "html": false,
+      "valid_by_current_guard": true
+    },
+    {
+      "id": "brave-unbreak",
+      "old_rules": 0,
+      "minimum_rules": 1,
+      "downloaded": true,
+      "bytes": 24,
+      "utf8": true,
+      "rules": 0,
+      "html": false,
+      "valid_by_current_guard": false
+    }
+  ],
+  "fix": "The approved comment-only brave-unbreak source now has minimum_rules=0; populated-source limits, nonempty response, UTF-8 and HTML checks are retained."
+}

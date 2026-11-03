@@ -1,9 +1,13 @@
 # Native ad blocking implementation plan
 
-Status: native implementation and deterministic tests are present on
-`feature/native-adblock`; signed-out live routes passed, while performance
-and remaining manual qualification remain open. See
-[implementation evidence and remaining checks](ADBLOCK_IMPLEMENTATION.md).
+Status: native implementation is present; follow-up qualification on
+`feature/adblock-qualification` passed 46 native tests, measured full browser
+live allocations, physical footprint and real online-update peaks, and covered
+signed-in playback, observed mid-roll conditions and maintainer-confirmed player
+controls. Clean-page overhead is bounded under an explicitly revised development
+paint budget; the original percentage-only gate did not pass. The feature
+remains opt-in. See the [current qualification record](ADBLOCK_QUALIFICATION.md)
+and [implementation evidence](ADBLOCK_IMPLEMENTATION.md).
 The maintainer clarified on 2026-11-02 that packaging and publication are
 outside this task; the implementation and tests remain in scope.
 Written 2026-11-01 against the repository's current overlay architecture.
@@ -310,21 +314,25 @@ timing and permissions, unwanted window prevention and allowed login windows.
   exact top-level hostname, not unrelated subdomains. Private windows may
   read existing settings but keep their new exceptions/counts in memory and
   never expose their activity through browserctl or logs.
-- [ ] Run the YouTube matrix below and fix gaps in resource support, timing
+- [x] Run the YouTube matrix below and fix gaps in resource support, timing
   or lists. Keep temporary site fixes in versioned data where possible,
   rather than scattering hard-coded YouTube branches through C++.
-- [ ] Record dated manual results against current Brave with its version and
+- [x] Record dated manual results against current Brave with its version and
   list state. Do not infer parity from sharing a library or seeing one video
   play without an ad.
 
-Dated signed-out evidence now covers protected normal/private playback, an
-ad-eligible unprotected music control, nine-minute playback, SPA navigation,
-playlist/autoplay, Shorts transitions, third-party embeds and foreground
-captions/fullscreen/PiP. Official Brave version and end-of-session component
-state are retained. The two checklist gates above remain open for the remaining
-manual conditions: signed-in sessions when an account is available, observed
-mid-roll eligibility and native UI acceptance. See the implementation record
-for limitations; no distribution work was performed.
+Dated evidence covers protected normal/private playback, an ad-eligible
+unprotected control, longer playback, SPA navigation, playlist/autoplay, Shorts
+transitions, permitted embeds and foreground controls. Official Brave version
+and end-of-session component state are retained from November 2. The
+[November 3 follow-up](ADBLOCK_QUALIFICATION.md) adds a maintainer-controlled
+non-Premium signed-in comparison, an actually observed mid-roll opportunity,
+a completed 15-minute protected run and maintainer-confirmed seeking, captions,
+fullscreen/exit and Picture-in-Picture/return. The supported test conditions are
+qualified, not every route/account combination. Shorts-specific ad eligibility
+and general Brave parity are not established; interrupted and no-mid-roll
+controls are explicitly distinguished from completed accepted runs. No
+distribution work was performed.
 
 YouTube qualification covers signed-out and signed-in non-Premium sessions
 (using a maintainer-controlled account when available), normal and private
@@ -351,7 +359,7 @@ tested ad blocking, not a guarantee of permanently zero ads.
 - [x] Run at least ten paired trials for startup and page loading; record
   median/p95, blocked/transferred bytes, CPU and process-tree memory. Trace
   hot paths so IPC/queue delay is included, not only Rust matching time.
-- [ ] Measure incremental idle memory and 1/10/30-tab totals, update peak
+- [x] Measure incremental idle memory and 1/10/30-tab totals, update peak
   memory, repeated navigations, DOM observation and evaluator contention.
   Verify full rulesets are not duplicated per tab and caches stop growing.
 - [ ] Use provisional performance gates: no more than 5% median or 10% p95
@@ -360,6 +368,15 @@ tested ad blocking, not a guarantee of permanently zero ads.
   evaluator configuration. These are engineering targets, not current results.
   Establish measurement noise in milestone 0 and record any justified budget
   changes before enabling the default. Report update peaks separately.
+  Follow-up result: the original percentage-only target did not pass. The
+  documented component-build budget uses a one-frame median / two-frame p95
+  absolute floor (16.7 / 33.4 ms) alongside 5% / 10%; all six final clean-page
+  cases passed that revision. At 30 tabs, the conservative live allocation
+  estimate is 27.415 MiB. Unprofiled physical overhead is higher (37.84–57.50 MiB
+  across the measured checkpoints), so this is not a 32 MiB total-RAM pass.
+  Real online update observed 60.28 MiB live-attributed peak and 10.07 MiB after.
+  Keep this combined release/default-enablement gate open; the follow-up is
+  local qualification, not release-build or broad real-site acceptance.
 - [x] Run Rust/bridge tests, new deterministic browser/renderer tests, Merlin's
   existing suite and relevant upstream navigation/worker/extension tests.
   Test engine failure, profile shutdown and Network Service restart.

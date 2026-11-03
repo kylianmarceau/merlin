@@ -1,9 +1,14 @@
 # Native blocker implementation and qualification
 
-Branch: `feature/native-adblock`. Native integration is implemented;
-qualification is incomplete. The
-`MerlinAdblock` feature is **disabled by default** until the qualification gates in
-[the plan](ADBLOCK_PLAN.md) have evidence. Development builds opt in with
+Native integration is implemented. Follow-up work on
+`feature/adblock-qualification` completes the requested local memory/update-peak,
+signed-in YouTube and observed-mid-roll measurements, fixes cosmetic batching and
+a real filter-refresh failure, and records the justified development latency
+budget. Read the [November 3 qualification record](ADBLOCK_QUALIFICATION.md) for
+current results, limitations and the final 46/46 native-test pass. The original
+percentage-only latency target did not pass; broader release-build qualification
+remains separate. The `MerlinAdblock` feature is **disabled by default** pending
+the remaining default-enablement gates in [the plan](ADBLOCK_PLAN.md). Development builds opt in with
 `--enable-features=MerlinAdblock`; `--disable-features=MerlinAdblock` is the
 independent kill switch. Modal browsing does not control this feature.
 
@@ -150,7 +155,9 @@ security bypass. The earlier stall did not recur in the final conditions; its
 exact cause remains unestablished. The probe distinguishes setup failures from
 playback/route acceptance failures and retains diagnostic screenshots locally.
 
-Signed-in playback and an observed mid-roll opportunity remain untested.
+At this November 2 checkpoint, signed-in playback and an observed mid-roll
+opportunity were untested. Both were subsequently measured in the
+[November 3 follow-up](ADBLOCK_QUALIFICATION.md).
 Shorts-specific ad eligibility was not established. The chosen music embed was
 unavailable with protection both off and on; a permitted Blender embed passed.
 Background fullscreen was denied in the long parallel run; the final foreground
@@ -158,7 +165,7 @@ control passed. Native UI/accessibility acceptance and broader real-site
 journeys remain manual qualification work. These results describe the tested
 conditions, not a guarantee of permanently zero ads.
 
-## Outstanding qualification
+## November 2 qualification checkpoint (superseded in part)
 
 Ten-pair development measurements, stable 1/10/30-tab memory samples and
 retained traces have completed. The repeated hide declarations in the default
@@ -168,9 +175,12 @@ and existing selector lists retain separate rules. The new regression covers
 specificity, pseudo-elements, selector lists and a large selector batch. See
 [Selectors Level 4](https://www.w3.org/TR/selectors-4/#matches) for the `:is()` semantics.
 
-The feature remains disabled by default. Broader real-site performance,
-full browser-owned heap/update peaks and comparable build qualification
-remain open. No distribution build, packaging or GitHub publication was done.
+At this checkpoint, full browser-owned heap/update peaks remained open; the
+[November 3 follow-up](ADBLOCK_QUALIFICATION.md) supplies those measurements,
+independent physical footprint and additional live checks. The feature remains
+disabled by default. Broader real-site performance and comparable release-build
+qualification remain separate. No distribution build, packaging or GitHub
+publication was done.
 
 ## Scope and measurements
 
@@ -203,7 +213,9 @@ clean uncached median is **19.60 → 25.70 ms** and cached is **18.25 → 24.45 
 Do not treat the wall-clock result or a negative startup delta as proof that
 all performance gates pass. Earlier runs show substantial host/startup noise;
 raw pre-batching and loopback diagnostics are retained with their limitations.
-Further latency profiling and comparable release-build measurements are needed.
+Further latency profiling is recorded in the
+[November 3 follow-up](ADBLOCK_QUALIFICATION.md); comparable release-build
+measurements remain separate.
 
 | Clean tabs | Off process-tree RSS, MiB | On RSS, MiB | Delta, MiB | Off / on idle CPU seconds per 15 s |
 | ---------- | ------------------------: | ----------: | ---------: | ---------------------------------: |

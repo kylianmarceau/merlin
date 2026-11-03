@@ -1,0 +1,1152 @@
+{
+  "sampling_interval_bytes": 4096,
+  "modes": {
+    "on": {
+      "snapshots": [
+        {
+          "label": "steady_1_tabs",
+          "elapsed_ms": 46573.050416000005,
+          "browser": {
+            "total_native_estimated_bytes": 53211136,
+            "feature_native_estimated_bytes": 10207232,
+            "feature_sampled_allocation_bytes": 9482941,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::mojom::AdblockAgent_Prepare_ForwardToCallback::Accept(mojo::Message*) (in libchrome_dll.dylib) + 100",
+                163840
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                81920
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                65536
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "merlin_adblock::BindDocumentHost(content::RenderFrameHost*, mojo::PendingReceiver<merlin_adblock::mojom::AdblockHost>) (in libchrome_dll.dylib) + 116",
+                8192
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          },
+          "renderers": {
+            "targets": 1,
+            "unique_module_layouts": 1,
+            "feature_native_estimated_bytes": 241664,
+            "total_native_estimated_bytes": 8368128,
+            "javascript_used_bytes": 758432,
+            "javascript_total_bytes": 2097152,
+            "dom_nodes": 214
+          },
+          "memory_dump": {
+            "dumpGuid": "0x4",
+            "success": true
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 50942.314999999995,
+          "browser": {
+            "total_native_estimated_bytes": 53919744,
+            "feature_native_estimated_bytes": 10104832,
+            "feature_sampled_allocation_bytes": 9467021,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                106496
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                98304
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 52049.073165999995,
+          "browser": {
+            "total_native_estimated_bytes": 54374400,
+            "feature_native_estimated_bytes": 10104832,
+            "feature_sampled_allocation_bytes": 9467021,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                106496
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                98304
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 53075.18749999999,
+          "browser": {
+            "total_native_estimated_bytes": 56139776,
+            "feature_native_estimated_bytes": 12185600,
+            "feature_sampled_allocation_bytes": 11515845,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                2080768
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                106496
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                98304
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 54221.127541,
+          "browser": {
+            "total_native_estimated_bytes": 56143872,
+            "feature_native_estimated_bytes": 12185600,
+            "feature_sampled_allocation_bytes": 11515845,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                2080768
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                106496
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                98304
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 55951.799708,
+          "browser": {
+            "total_native_estimated_bytes": 57663488,
+            "feature_native_estimated_bytes": 13697024,
+            "feature_sampled_allocation_bytes": 13028149,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                3592192
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                106496
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                98304
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 58517.160541,
+          "browser": {
+            "total_native_estimated_bytes": 79986688,
+            "feature_native_estimated_bytes": 32821248,
+            "feature_sampled_allocation_bytes": 32124077,
+            "feature_allocation_sites": [
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                22712320
+              ],
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                106496
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                98304
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<std::__Cr::optional<merlin_adblock::Source>>, std::__Cr::optional<merlin_adblock::Source>>(base::OnceCallback<std::__Cr::optional<merlin_adblock::Source> ()>, std::__Cr::unique_ptr<std::__Cr::tuple<std::__Cr::optional<merlin_adblock::Source>>, std::__Cr::default_delete<std::__Cr::tuple<std::__Cr::optional<merlin_adblock::Source>>>>*) (in libchrome_dll.dylib) + 36",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 60265.691125000005,
+          "browser": {
+            "total_native_estimated_bytes": 78254080,
+            "feature_native_estimated_bytes": 26898432,
+            "feature_sampled_allocation_bytes": 26220677,
+            "feature_allocation_sites": [
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                16773120
+              ],
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                106496
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                98304
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "void base::internal::ReplyAdapter<std::__Cr::tuple<std::__Cr::optional<merlin_adblock::Source>>, std::__Cr::optional<merlin_adblock::Source>>(base::OnceCallback<void (std::__Cr::optional<merlin_adblock::Source>)>, std::__Cr::unique_ptr<std::__Cr::tuple<std::__Cr::optional<merlin_adblock::Source>>, std::__Cr::default_delete<std::__Cr::tuple<std::__Cr::optional<merlin_adblock::Source>>>>*) (in libchrome_dll.dylib) + 280",
+                16384
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "merlin_adblock::Updater::Downloaded(std::__Cr::optional<std::__Cr::basic_string<char, std::__Cr::char_traits<char>, std::__Cr::allocator<char>>>) (in libchrome_dll.dylib) + 428",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 61759.223416,
+          "browser": {
+            "total_native_estimated_bytes": 89243648,
+            "feature_native_estimated_bytes": 37867520,
+            "feature_sampled_allocation_bytes": 36929757,
+            "feature_allocation_sites": [
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                27783168
+              ],
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                94208
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                77824
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "merlin_adblock::Updater::Downloaded(std::__Cr::optional<std::__Cr::basic_string<char, std::__Cr::char_traits<char>, std::__Cr::allocator<char>>>) (in libchrome_dll.dylib) + 428",
+                8192
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "void base::internal::ReplyAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<void (merlin_adblock::Bundle)>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 248",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1592",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 63023.501583,
+          "browser": {
+            "total_native_estimated_bytes": 113811456,
+            "feature_native_estimated_bytes": 63205376,
+            "feature_sampled_allocation_bytes": 61955775,
+            "feature_allocation_sites": [
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                53145600
+              ],
+              [
+                "merlin_adblock::EngineState::InstallCached(std::__Cr::shared_ptr<merlin_adblock::Bundle>) (in libchrome_dll.dylib) + 28",
+                9572352
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                253952
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                81920
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                69632
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "merlin_adblock::Updater::Downloaded(std::__Cr::optional<std::__Cr::basic_string<char, std::__Cr::char_traits<char>, std::__Cr::allocator<char>>>) (in libchrome_dll.dylib) + 428",
+                8192
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "void base::internal::ReplyAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<void (merlin_adblock::Bundle)>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 248",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 63954.5765,
+          "browser": {
+            "total_native_estimated_bytes": 52670464,
+            "feature_native_estimated_bytes": 10186752,
+            "feature_sampled_allocation_bytes": 9634525,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::Install(merlin_adblock::Bundle const&) (in libchrome_dll.dylib) + 180",
+                9551872
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                368640
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                81920
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                69632
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                40960
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "void base::internal::ReplyAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<void (merlin_adblock::Bundle)>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 248",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "network_refresh",
+          "elapsed_ms": 64865.844332999994,
+          "browser": {
+            "total_native_estimated_bytes": 52740096,
+            "feature_native_estimated_bytes": 10186752,
+            "feature_sampled_allocation_bytes": 9634525,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::Install(merlin_adblock::Bundle const&) (in libchrome_dll.dylib) + 180",
+                9551872
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                368640
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                81920
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                69632
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                40960
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "void base::internal::ReplyAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<void (merlin_adblock::Bundle)>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 248",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1308",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 952",
+                4096
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 408",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          }
+        },
+        {
+          "label": "after_network_refresh",
+          "elapsed_ms": 70853.92087500001,
+          "browser": {
+            "total_native_estimated_bytes": 53276672,
+            "feature_native_estimated_bytes": 10555392,
+            "feature_sampled_allocation_bytes": 9806877,
+            "feature_allocation_sites": [
+              [
+                "merlin_adblock::EngineState::Install(merlin_adblock::Bundle const&) (in libchrome_dll.dylib) + 180",
+                9551872
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<merlin_adblock::Bundle ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 40",
+                368640
+              ],
+              [
+                "void base::internal::ReturnAsParamAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<merlin_adblock::Decision ()>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 40",
+                249856
+              ],
+              [
+                "merlin_adblock::mojom::AdblockAgent_Prepare_ForwardToCallback::Accept(mojo::Message*) (in libchrome_dll.dylib) + 100",
+                159744
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1176",
+                57344
+              ],
+              [
+                "merlin_adblock::(anonymous namespace)::Factory::CreateLoaderAndStart(mojo::PendingReceiver<network::mojom::URLLoader>, int, unsigned int, network::ResourceRequest const&, mojo::PendingRemote<network::mojom::URLLoaderClient>, net::MutableNetworkTrafficAnnotationTag const&) (in libchrome_dll.dylib) + 1832",
+                40960
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 1112",
+                36864
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 200",
+                20480
+              ],
+              [
+                "void base::internal::ReplyAdapter<std::__Cr::tuple<merlin_adblock::Decision>, merlin_adblock::Decision>(base::OnceCallback<void (merlin_adblock::Decision)>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Decision>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Decision>>>*) (in libchrome_dll.dylib) + 96",
+                12288
+              ],
+              [
+                "merlin_adblock::InstallInterceptor(content::BrowserContext*, content::RenderFrameHost*, content::ContentBrowserClient::URLLoaderFactoryType, url::Origin const&, net::IsolationInfo const&, std::__Cr::optional<long long>, network::URLLoaderFactoryBuilder&, mojo::StructPtr<network::mojom::URLLoaderFactoryOverride>*) (in libchrome_dll.dylib) + 904",
+                12288
+              ],
+              [
+                "merlin_adblock::Service::Service(Profile*) (in libchrome_dll.dylib) + 920",
+                12288
+              ],
+              [
+                "merlin_adblock::BindDocumentHost(content::RenderFrameHost*, mojo::PendingReceiver<merlin_adblock::mojom::AdblockHost>) (in libchrome_dll.dylib) + 116",
+                8192
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::CalculatePreferredSize(views::SizeBounds const&) const (in libchrome_dll.dylib) + 60",
+                8192
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::Update() (in libchrome_dll.dylib) + 1136",
+                4096
+              ],
+              [
+                "void mojo::BinderMapWithContext<content::RenderFrameHost*>::Add<merlin_adblock::mojom::AdblockHost>(std::__Cr::type_identity<void (content::RenderFrameHost*, mojo::PendingReceiver<merlin_adblock::mojom::AdblockHost>)>::type*) (in libchrome_dll.dylib) + 44",
+                4096
+              ],
+              [
+                "void base::internal::ReplyAdapter<std::__Cr::tuple<merlin_adblock::Bundle>, merlin_adblock::Bundle>(base::OnceCallback<void (merlin_adblock::Bundle)>, std::__Cr::unique_ptr<std::__Cr::tuple<merlin_adblock::Bundle>, std::__Cr::default_delete<std::__Cr::tuple<merlin_adblock::Bundle>>>*) (in libchrome_dll.dylib) + 248",
+                4096
+              ],
+              [
+                "modal_browser::MerlinAdblockButton::MerlinAdblockButton(BrowserWindowInterface*, base::RepeatingCallback<void ()>) (in libchrome_dll.dylib) + 448",
+                4096
+              ]
+            ]
+          },
+          "renderers": {
+            "targets": 1,
+            "unique_module_layouts": 1,
+            "feature_native_estimated_bytes": 262144,
+            "total_native_estimated_bytes": 9027584,
+            "javascript_used_bytes": 765188,
+            "javascript_total_bytes": 1572864,
+            "dom_nodes": 214
+          },
+          "memory_dump": {
+            "dumpGuid": "0x8",
+            "success": true
+          }
+        }
+      ],
+      "observed_peak_feature_browser_bytes": 63205376,
+      "process_memory_dump_totals": [
+        {
+          "pid": 99390,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "96e4800"
+          }
+        },
+        {
+          "pid": 99434,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "259c800"
+          }
+        },
+        {
+          "pid": 99427,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "3710400"
+          }
+        },
+        {
+          "pid": 99416,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "1fcc400"
+          }
+        },
+        {
+          "pid": 99418,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "bbc400"
+          }
+        },
+        {
+          "pid": 99440,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "16e4400"
+          }
+        },
+        {
+          "pid": 99441,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "1a60400"
+          }
+        },
+        {
+          "pid": 99471,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "fc4400"
+          }
+        },
+        {
+          "pid": 99417,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "1158400"
+          }
+        },
+        {
+          "pid": 99442,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "1d40400"
+          }
+        },
+        {
+          "pid": 99478,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "1674400"
+          }
+        },
+        {
+          "pid": 99552,
+          "id": "0x0",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "0"
+          }
+        },
+        {
+          "pid": 99390,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "13f5cc00"
+          }
+        },
+        {
+          "pid": 99434,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "3d1c800"
+          }
+        },
+        {
+          "pid": 99427,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "47a0400"
+          }
+        },
+        {
+          "pid": 99416,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "3fd4400"
+          }
+        },
+        {
+          "pid": 99418,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "2004400"
+          }
+        },
+        {
+          "pid": 99440,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "4188400"
+          }
+        },
+        {
+          "pid": 99441,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "0"
+          }
+        },
+        {
+          "pid": 99471,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "3c20400"
+          }
+        },
+        {
+          "pid": 99417,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "2630400"
+          }
+        },
+        {
+          "pid": 99442,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "0"
+          }
+        },
+        {
+          "pid": 99478,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "2a80400"
+          }
+        },
+        {
+          "pid": 99552,
+          "id": "0x1",
+          "process_totals": {
+            "is_peak_rss_resettable": false,
+            "peak_resident_set_size": "0",
+            "private_footprint_bytes": "1720400"
+          }
+        }
+      ]
+    }
+  },
+  "limits": [
+    "Poisson-sampled live allocation estimates, not exact owned-byte accounting.",
+    "Feature attribution includes stacks with merlin_adblock or MerlinAdblock; asynchronous V8/DOM work is also covered by whole-renderer totals.",
+    "Replacement peaks are observed lower bounds at approximately 100 ms intervals.",
+    "RSS and private footprint include mappings and allocator reservation and are reported separately from sampled ownership."
+  ],
+  "implementation_commit": "caccd9437d8785814cf17b62c283a7c948d5d0ec"
+}

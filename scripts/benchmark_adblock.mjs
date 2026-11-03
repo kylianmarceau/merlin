@@ -4,6 +4,7 @@ import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { once } from "node:events";
 import { CDP, deadline } from "./lib/cdp.mjs";
+import { NativeMemory, heapFeature } from "./lib/adblock_memory.mjs";
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import {
@@ -16,6 +17,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir, cpus, totalmem, release } from "node:os";
 import { resolve, join, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const exec = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -34,12 +36,55 @@ for (let i = 2; i < process.argv.length; ++i) {
   else if (key === "--smoke")
     Object.assign(options, { runs: 1, idle: 1, tabs: [1, 3] });
   else if (key === "--trace") options.trace = true;
+  else if (key === "--trace-clean") {
+    options.trace = true;
+    options.traceClean = true;
+  } else if (key === "--timing-only") options.timingOnly = true;
   else if (key === "--memory-only") options.memoryOnly = true;
+  else if (key === "--native-memory") {
+    options.nativeMemory = true;
+    options.memoryOnly = true;
+  } else if (key === "--navigation-sweep") {
+    options.sweep = true;
+    options.timingOnly = true;
+  } else if (key === "--paint") options.paint = true;
+  else if (key === "--network-update") options.networkUpdate = true;
+  else if (key === "--physical-memory") {
+    options.physicalMemory = true;
+    options.memoryOnly = true;
+  } else if (key === "--update-only")
+    Object.assign(options, {
+      nativeMemory: true,
+      memoryOnly: true,
+      networkUpdate: true,
+      updateOnly: true,
+      tabs: [1],
+      idle: 3,
+    });
   else throw Error("Unknown argument: " + key);
 }
 if (!options.app || !Number.isInteger(options.runs) || options.runs < 1)
   throw Error(
-    "Usage: benchmark_adblock.mjs --app /path/Merlin.app [--output result.json] [--runs 10] [--trace] [--smoke] [--memory-only]",
+    "Usage: benchmark_adblock.mjs --app /path/Merlin.app [--output result.json] [--runs 10] [--trace|--trace-clean] [--smoke] [--timing-only|--memory-only|--native-memory|--navigation-sweep]",
+  );
+if (
+  (options.timingOnly && options.memoryOnly) ||
+  (options.sweep && options.trace) ||
+  (options.memoryOnly && options.trace)
+)
+  throw Error(
+    "Timing, memory, and navigation sweep modes must be run separately; tracing needs ordinary timing trials",
+  );
+if (options.networkUpdate && !options.nativeMemory)
+  throw Error(
+    "--network-update requires --native-memory and an isolated profile",
+  );
+if (
+  options.physicalMemory &&
+  (options.nativeMemory || process.platform !== "darwin")
+)
+  throw Error(
+    "--physical-memory requires macOS and must run without heap sampling",
   );
 const binary = join(
   options.app,
@@ -75,6 +120,17 @@ const data = {
   ],
 };
 const served = { requests: 0, bytes: 0, ad_requests: 0, ad_bytes: 0 };
+let lastTick = Date.now();
+const schedulingWatch = setInterval(() => {
+  const now = Date.now();
+  const gap = now - lastTick;
+  if (gap > 15000)
+    (data.scheduling_gaps ??= []).push({
+      at: new Date(now).toISOString(),
+      gap_ms: gap,
+    });
+  lastTick = now;
+}, 1000);
 let port;
 const gif = Buffer.concat([
   Buffer.from(
@@ -99,6 +155,10 @@ const server = createServer((req, res) => {
     served.ad_bytes += body.length;
   } else {
     const heavy = url.pathname === "/heavy";
+    const cards = Math.min(
+      1000,
+      Math.max(1, Number(url.searchParams.get("cards") || 100)),
+    );
     const ads = heavy
       ? Array.from(
           { length: 32 },
@@ -107,7 +167,7 @@ const server = createServer((req, res) => {
         ).join("")
       : "";
     body = Buffer.from(
-      `<!doctype html><meta charset="utf-8"><title>${heavy ? "Ad-heavy" : "Clean"} fixture</title><style>body{font:16px system-ui;margin:32px}.card{display:inline-block;padding:12px;border:1px solid #aaa}</style><h1>Local browser fixture</h1>${Array.from({ length: 100 }, (_, i) => '<div class="card">Content ' + i + "</div>").join("")}${ads}<script>window.fixtureComplete=new Promise(resolve=>addEventListener('load',()=>resolve(true),{once:true}));</script>`,
+      `<!doctype html><meta charset="utf-8"><title>${heavy ? "Ad-heavy" : "Clean"} fixture</title><style>body{font:16px system-ui;margin:32px}.card{display:inline-block;padding:12px;border:1px solid #aaa}</style><h1>Local browser fixture</h1>${Array.from({ length: cards }, (_, i) => '<div class="card">Content ' + i + "</div>").join("")}${ads}<script>window.fixtureComplete=new Promise(resolve=>addEventListener('load',()=>resolve(true),{once:true}));</script>`,
     );
   }
   ++served.requests;
@@ -120,7 +180,14 @@ const server = createServer((req, res) => {
       : "no-store",
   });
   if (url.pathname.startsWith("/ad/")) setTimeout(() => res.end(body), 15);
-  else res.end(body);
+  else {
+    const delay = Math.min(
+      1000,
+      Math.max(0, Number(url.searchParams.get("delay") || 0)),
+    );
+    if (delay) setTimeout(() => res.end(body), delay);
+    else res.end(body);
+  }
 });
 server.listen(0, "127.0.0.1");
 await once(server, "listening");
@@ -217,11 +284,13 @@ async function launch(mode, profile) {
       "--disable-background-networking",
       "--disable-component-update",
       "--disable-sync",
+      ...(options.nativeMemory ? ["--metrics-recording-only"] : []),
       "--no-proxy-server",
       "--remote-debugging-port=0",
       `--modal-browser-socket=${join(taskRoot, "control.sock")}`,
       "--host-resolver-rules=MAP page.fixture.test 127.0.0.1, MAP ad.doubleclick.net 127.0.0.1",
-      `--${mode === "on" ? "enable" : "disable"}-features=MerlinAdblock`,
+      `--enable-features=${[mode === "on" ? "MerlinAdblock" : "", options.nativeMemory ? heapFeature : ""].filter(Boolean).join(",")}`,
+      `--disable-features=${[mode === "off" ? "MerlinAdblock" : "", options.physicalMemory ? "HeapProfilerReporting" : ""].filter(Boolean).join(",")}`,
       "about:blank",
     ],
     {
@@ -289,7 +358,7 @@ async function launch(mode, profile) {
     throw error;
   }
 }
-async function page(browser, kind, cache) {
+async function page(browser, kind, cache, parameters = {}) {
   const { cdp, session: sessionId } = browser;
   await cdp.call(
     "Network.setCacheDisabled",
@@ -315,9 +384,13 @@ async function page(browser, kind, cache) {
   cdp.on("Network.loadingFailed", failed);
   const started = performance.now();
   try {
+    const url = new URL(fixture(kind));
+    url.searchParams.set("run", String(Date.now()));
+    for (const [key, value] of Object.entries(parameters))
+      url.searchParams.set(key, String(value));
     const result = await cdp.call(
       "Page.navigate",
-      { url: fixture(kind) + "?run=" + Date.now() },
+      { url: url.href },
       sessionId,
     );
     if (result.errorText) throw Error(result.errorText);
@@ -342,6 +415,32 @@ async function page(browser, kind, cache) {
     }
     if (!ready) throw Error("Fixture never became ready");
     const wall = performance.now() - started;
+    // Load can precede or follow layout. Keep Navigation Timing intact and
+    // separately wait for observed pixels before navigating away again.
+    let paint;
+    if (options.paint) {
+      paint = await cdp.call(
+        "Runtime.evaluate",
+        {
+          expression: `new Promise(resolve=>{
+          const values=()=>Object.fromEntries(performance.getEntriesByType('paint').map(e=>[e.name,e.startTime]));
+          const initial=values();if(initial['first-contentful-paint']!==undefined){resolve(initial);return;}
+          let timer;const observer=new PerformanceObserver(()=>{const current=values();if(current['first-contentful-paint']!==undefined){observer.disconnect();clearTimeout(timer);resolve(current);}});
+          observer.observe({type:'paint',buffered:true});timer=setTimeout(()=>{observer.disconnect();resolve(values());},5000);
+        })`,
+          awaitPromise: true,
+          returnByValue: true,
+        },
+        sessionId,
+      );
+      if (
+        paint.exceptionDetails ||
+        !Number.isFinite(paint.result.value?.["first-contentful-paint"])
+      )
+        throw Error(
+          "Fixture did not produce an observed first contentful paint",
+        );
+    }
     const metrics = await cdp.call(
       "Runtime.evaluate",
       {
@@ -356,6 +455,7 @@ async function page(browser, kind, cache) {
       kind,
       cache,
       wall_ms: wall,
+      ...(paint ? { paint: paint.result.value } : {}),
       navigation: JSON.parse(metrics.result.value),
       transferred_bytes: transferred,
       blocked_requests: blocked,
@@ -380,10 +480,12 @@ async function page(browser, kind, cache) {
 async function recordTrace(browser, mode) {
   const { cdp } = browser;
   await cdp.call("Tracing.start", {
-    categories: "loading",
+    categories: options.traceClean
+      ? "loading,navigation,devtools.timeline,v8,blink,blink.user_timing"
+      : "loading",
     transferMode: "ReturnAsStream",
   });
-  await page(browser, "heavy", false);
+  await page(browser, options.traceClean ? "clean" : "heavy", false);
   // Include the first bounded cosmetic scan and idle ticks. Traces are kept
   // separate from page-load timing and memory samples.
   await sleep(1500);
@@ -403,8 +505,7 @@ async function recordTrace(browser, mode) {
   (data.traces ??= []).push({
     mode,
     path,
-    scope:
-      "Separate local ad-heavy run; excluded from timing and memory trials",
+    scope: `Separate local ${options.traceClean ? "clean" : "ad-heavy"} run; excluded from timing and memory trials`,
   });
 }
 const percentile = (values, q) => {
@@ -449,7 +550,73 @@ function summarize() {
 }
 try {
   const lastProfiles = {};
-  for (let pair = 0; !options.memoryOnly && pair < options.runs; ++pair) {
+  if (options.sweep) {
+    data.sweep = [];
+    for (let pair = 0; pair < options.runs; ++pair) {
+      for (const mode of pair % 2 ? ["on", "off"] : ["off", "on"]) {
+        const profile = join(taskRoot, `sweep-${pair}-${mode}`);
+        await mkdir(join(profile, "Default"), { recursive: true });
+        await writeFile(
+          join(profile, "Default", "Preferences"),
+          JSON.stringify({
+            merlin: { adblock: { updates: false } },
+            session: { restore_on_startup: 5 },
+          }),
+        );
+        const browser = await launch(mode, profile);
+        try {
+          await page(browser, "clean", true);
+          await sleep(2000);
+          if (options.paint) {
+            const cadence = await browser.cdp.call(
+              "Runtime.evaluate",
+              {
+                expression: `new Promise(resolve=>{const ticks=[];const next=t=>{ticks.push(t);if(ticks.length<25)requestAnimationFrame(next);else resolve(ticks.slice(1).map((t,i)=>t-ticks[i]));};requestAnimationFrame(next);})`,
+                awaitPromise: true,
+                returnByValue: true,
+              },
+              browser.session,
+            );
+            if (cadence.exceptionDetails || cadence.result.value?.length !== 24)
+              throw Error("Could not measure the fixture frame cadence");
+            (data.frame_cadence ??= []).push({
+              pair,
+              mode,
+              intervals_ms: cadence.result.value,
+            });
+          }
+          const cases = [1, 100, 1000].flatMap((cards) =>
+            [0, 100].map((delay) => ({ cards, delay })),
+          );
+          if (pair % 2) cases.reverse();
+          for (const parameters of cases) {
+            // Discard one warmup per case; retain three observations per pair.
+            await page(browser, "clean", false, parameters);
+            for (let repeat = 0; repeat < 3; ++repeat) {
+              data.sweep.push({
+                pair,
+                mode,
+                repeat,
+                ...parameters,
+                measurement: await page(browser, "clean", false, parameters),
+              });
+            }
+          }
+        } finally {
+          await stop(browser);
+        }
+        await writeFile(options.output, JSON.stringify(data, null, 2) + "\n");
+        process.stdout.write(
+          `Navigation sweep ${pair + 1}/${options.runs}, ${mode} complete\n`,
+        );
+      }
+    }
+  }
+  for (
+    let pair = 0;
+    !options.sweep && !options.memoryOnly && pair < options.runs;
+    ++pair
+  ) {
     for (const mode of pair % 2 ? ["on", "off"] : ["off", "on"]) {
       const profile = join(taskRoot, `pair-${pair}-${mode}`);
       lastProfiles[mode] = profile;
@@ -526,7 +693,11 @@ try {
         await stop(browser);
       }
     }
-  for (const mode of ["off", "on"]) {
+  for (const mode of options.timingOnly
+    ? []
+    : options.updateOnly
+      ? ["on"]
+      : ["off", "on"]) {
     // Memory uses a clean-only profile, so restored ad-heavy pages and their
     // decoded resources cannot contaminate the blocker overhead comparison.
     const profile = join(taskRoot, `memory-${mode}`);
@@ -545,7 +716,14 @@ try {
       await stop(primer);
     }
     const browser = await launch(mode, profile);
+    const native = options.nativeMemory
+      ? new NativeMemory(
+          browser,
+          options.output.replace(/\.json$/, "") + "-" + mode,
+        )
+      : null;
     try {
+      if (native) await native.startTrace();
       await page(browser, "clean", true);
       let current = 1;
       for (const tabs of options.tabs) {
@@ -572,6 +750,18 @@ try {
         const { targetInfos } = await browser.cdp.call("Target.getTargets");
         const pages = targetInfos.filter((t) => t.type === "page");
         if (pages.length !== tabs) throw Error("Invalid live-tab sample");
+        let physical;
+        if (options.physicalMemory) {
+          const { stdout } = await exec("python3", [
+            fileURLToPath(
+              new URL("./lib/process_footprint.py", import.meta.url),
+            ),
+            ...last.process_ids.map(String),
+          ]);
+          physical = JSON.parse(stdout);
+          if (physical.processes.length !== last.processes)
+            throw Error("Invalid physical-footprint process sample");
+        }
         data.memory.push({
           mode,
           tabs,
@@ -581,13 +771,31 @@ try {
           idle_cpu_seconds: last.cpu_seconds - first.cpu_seconds,
           idle_interval_seconds: options.idle,
           stabilization_retries: attempts,
+          ...(physical
+            ? {
+                physical_footprint_bytes: physical.total_bytes,
+                physical_processes: physical.processes,
+              }
+            : {}),
         });
+        if (native) await native.steady(`steady_${tabs}_tabs`);
+      }
+      if (native) {
+        if (mode === "on" && !options.updateOnly)
+          await native.replacements(page);
+        if (mode === "on" && options.networkUpdate) await native.refresh(page);
+        (data.native_memory ??= []).push({ mode, ...(await native.finish()) });
+        await writeFile(options.output, JSON.stringify(data, null, 2) + "\n");
       }
     } finally {
       await stop(browser);
     }
   }
-  data.summary = options.memoryOnly ? {} : summarize();
+  data.summary = options.memoryOnly || options.sweep ? {} : summarize();
+  if (data.scheduling_gaps?.length)
+    throw Error(
+      "Run interrupted by system suspension or a >15 s host scheduling gap; refusing qualification",
+    );
   data.percentile_method = "R7 linear interpolation";
   data.valid = true;
   data.qualification =
@@ -604,6 +812,7 @@ try {
   );
   process.exitCode = 1;
 } finally {
+  clearInterval(schedulingWatch);
   await new Promise((r) => server.close(r));
   if (data.valid) await rm(taskRoot, { recursive: true, force: true });
 }

@@ -1,8 +1,104 @@
-# Native blocker evidence, 2026-11-02
+# Native blocker evidence
 
-These are development observations from the pinned Chromium 157.0.8103.26
-arm64 component build on an Apple M2 with 16 GB RAM. They do not establish
-live YouTube parity, a release performance pass or distribution readiness.
+## Follow-up qualification, 2026-11-03
+
+Read the [current qualification record](../ADBLOCK_QUALIFICATION.md) for methods,
+results and limitations. This is an arm64 component development build on Apple
+M2 / 16 GB / macOS 27, Chromium 157.0.8103.26. The original percentage-only
+clean-page target did not pass; a documented frame-aware development paint
+budget is evaluated separately. The feature remains opt-in and no distribution
+packaging or publication was performed.
+
+- [Final clean-page paint sweep](2026-11-03-final-paint.json.gz) and
+  [calculated summary](2026-11-03-final-paint-summary.json): 360 retained loads,
+  ten independent profile pairs, 1/100/1,000 cards and zero/100 ms response
+  delays. All six cases pass the explicitly revised 16.7/33.4 ms floor budget;
+  unfavorable load-event results and relative-gate failures are retained.
+- [Earlier pre-fix navigation](2026-11-03-pre-fix-navigation.json.gz),
+  [quoted-attribute batching navigation](2026-11-03-quoted-batching-navigation.json.gz)
+  and [intermediate paint sweep](2026-11-03-quoted-batching-paint.json.gz):
+  diagnostic progression, including measurements that failed earlier budgets.
+- [Clean trace diagnostics](2026-11-03-clean-trace-diagnostics.json), with
+  [repeated off](2026-11-03-repeated-clean-off.trace.json.gz) /
+  [on](2026-11-03-repeated-clean-on.trace.json.gz) traces and
+  [single off](2026-11-03-single-clean-off.trace.json.gz) /
+  [on](2026-11-03-single-clean-on.trace.json.gz) traces: separate instrumented
+  paint/load investigations. Both the favorable repeated and unfavorable
+  single-pair paint results are retained; these are not final sweep trials.
+- [Browser/renderer native capture](2026-11-03-native-memory.json.gz),
+  [symbolized summary](2026-11-03-native-memory-summary.json),
+  [off dump trace](2026-11-03-native-memory-off.memory.trace.json.gz) and
+  [on dump trace](2026-11-03-native-memory-on.memory.trace.json.gz): 4 KiB
+  Poisson samples, 1/10/30 tabs, close-to-one, six complete configuration
+  replacements and 30 later navigations. The conservative 30-tab live
+  allocation estimate is 27.415 MiB; this does not establish 32 MiB total RAM.
+  The attempted online refresh in this initial capture failed the source
+  minimum guard; the separate corrected refresh below supersedes that attempt.
+- [Unprofiled macOS physical footprint](2026-11-03-physical-memory.json):
+  `proc_pid_rusage` process-ledger statistics with heap reporting disabled,
+  matching stable process counts and whole-tree RSS/idle CPU. Physical
+  on-minus-off deltas are 57.50 / 43.95 / 37.84 MiB at 1/10/30 tabs. This is
+  one paired observation, not exact attribution or a confidence interval.
+- [Actual successful online refresh](2026-11-03-online-update.json.gz),
+  [summary](2026-11-03-online-update-summary.json) and
+  [dump trace](2026-11-03-online-update-on.memory.trace.json.gz): all 18 approved
+  sources installed after fixing the comment-only companion's minimum; 64/64
+  fixture ad requests remained blocked. At 100 ms intervals, browser
+  feature-attributed live allocations peaked at an observed 60.28 MiB and
+  settled to 10.07 MiB. Shorter transient peaks may be missed.
+- [Source minimum audit](2026-11-03-source-minimum-audit.json): public endpoint
+  status and size/rule counts before the catalog-only fix. It contains no
+  downloaded list bodies or profile data.
+- [YouTube qualification](2026-11-03-youtube-qualification.json): signed-in
+  non-Premium 690-second off/on comparison (32/0 ad-showing samples), actual
+  mid-roll observations, separate completed 900-second follow-ups and
+  maintainer-confirmed seeking/captions/fullscreen/PiP. The interrupted long
+  runs and the awake control without an observed mid-roll are not passed off
+  as accepted mid-roll runs. Account identity, credentials, cookies, profile
+  contents and screenshots are excluded.
+- [Complete native-test log](2026-11-03-native-tests.log.gz): **46/46 passed**.
+  [Workspace-check log](2026-11-03-workspace-check.log.gz): **253 Rust/bridge/host
+  tests**, **15 Python tests**, resource/format/lint checks and **45 patches**.
+  The owner's local home path is replaced with `/Users/TEST_OWNER` in these logs.
+
+The full native capture preceded only the catalog minimum correction; evaluator
+and selector code are the same. Profiles retain their original Mach-O UUIDs.
+The successful online-refresh capture matches the corrected binary. Symbolized
+summaries are included; reanalysis of raw allocation stacks needs the exact
+matching local Mach-O binary and rejects UUID mismatches. Memory traces retain
+allocator/process dumps and process/thread names; duplicate `heaps_v2` payloads
+are removed because allocation samples already live in the paired JSON report.
+Detailed memory-infra tracing and sampler serialization can inflate process
+memory; use the independent unprofiled ledger for physical-footprint observations.
+
+Reproduce separately, with Node 22+, the built component app and the laptop awake:
+
+```bash
+caffeinate -i node scripts/benchmark_adblock.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --navigation-sweep --paint --output /tmp/adblock-paint.json
+caffeinate -i node scripts/benchmark_adblock.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --native-memory --output /tmp/adblock-native.json
+python3 scripts/analyze_adblock_memory.py /tmp/adblock-native.json --build "$HOME/chromium/src/out/Modal" --output /tmp/adblock-native-summary.json
+caffeinate -i node scripts/benchmark_adblock.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --physical-memory --output /tmp/adblock-physical.json
+caffeinate -i node scripts/benchmark_adblock.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --update-only --output /tmp/adblock-update.json
+caffeinate -i scripts/run_browser_tests.sh 'MerlinAdblock*'
+scripts/check.sh
+```
+
+Run playback separately from timing/profiling work. For signed-in tests, use a
+new dedicated test profile with `--profile /tmp/merlin-adblock-test-account
+--wait-for-signin --headful --no-controls`; the owner signs in themselves.
+Do not use an ordinary personal browsing profile. Use `--stop-after-midroll`
+with an off-mode direct route when requiring observed mid-roll eligibility;
+a completed video without that observation intentionally fails that criterion.
+A hardware sleep or scheduling gap is a diagnostic, not a valid completed run.
+The helper's interactive sign-in wait is excluded from playback gap checking.
+
+## Initial qualification, 2026-11-02
+
+These historical development observations use the same pinned Chromium
+157.0.8103.26 arm64 component build on Apple M2 / 16 GB. Their outstanding
+account/memory follow-ups are superseded by the November 3 record. They do not
+establish general Brave parity, a release performance pass or distribution
+readiness.
 
 - [Primary paired benchmark](2026-11-02-benchmark.json): ten alternating
   on/off pairs after cosmetic declaration batching, 120 raw timing/CPU trials,

@@ -1,0 +1,766 @@
+{
+  "started": "2026-11-03T17:35:20.721Z",
+  "binary": "/Users/kyliandabancourt/chromium/src/out/Modal/Merlin.app/Contents/MacOS/Merlin",
+  "options": {
+    "runs": 10,
+    "output": "/tmp/merlin-adblock-physical-memory.json",
+    "idle": 15,
+    "tabs": [
+      1,
+      10,
+      30
+    ],
+    "trace": false,
+    "app": "/Users/kyliandabancourt/chromium/src/out/Modal/Merlin.app",
+    "physicalMemory": true,
+    "memoryOnly": true
+  },
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "os": "27.0.0",
+    "cpu": "Apple M2",
+    "memory_bytes": 17179869184
+  },
+  "trials": [],
+  "memory": [
+    {
+      "mode": "off",
+      "tabs": 1,
+      "rss_bytes": 1421197312,
+      "cpu_seconds": 18.22,
+      "processes": 8,
+      "idle_cpu_seconds": 0.25,
+      "idle_interval_seconds": 15,
+      "stabilization_retries": 1,
+      "physical_footprint_bytes": 276558352,
+      "physical_processes": [
+        {
+          "pid": 11818,
+          "physical_footprint_bytes": 77448968,
+          "resident_bytes": 305725440
+        },
+        {
+          "pid": 11824,
+          "physical_footprint_bytes": 43451784,
+          "resident_bytes": 154042368
+        },
+        {
+          "pid": 11825,
+          "physical_footprint_bytes": 15648064,
+          "resident_bytes": 118833152
+        },
+        {
+          "pid": 11826,
+          "physical_footprint_bytes": 12043536,
+          "resident_bytes": 96813056
+        },
+        {
+          "pid": 11829,
+          "physical_footprint_bytes": 51398408,
+          "resident_bytes": 245055488
+        },
+        {
+          "pid": 11830,
+          "physical_footprint_bytes": 30885592,
+          "resident_bytes": 208535552
+        },
+        {
+          "pid": 11832,
+          "physical_footprint_bytes": 22939304,
+          "resident_bytes": 146407424
+        },
+        {
+          "pid": 11855,
+          "physical_footprint_bytes": 22742696,
+          "resident_bytes": 145784832
+        }
+      ]
+    },
+    {
+      "mode": "off",
+      "tabs": 10,
+      "rss_bytes": 3148824576,
+      "cpu_seconds": 39.05,
+      "processes": 17,
+      "idle_cpu_seconds": 0.36999999999999744,
+      "idle_interval_seconds": 15,
+      "stabilization_retries": 0,
+      "physical_footprint_bytes": 575484080,
+      "physical_processes": [
+        {
+          "pid": 11818,
+          "physical_footprint_bytes": 102500128,
+          "resident_bytes": 315719680
+        },
+        {
+          "pid": 11824,
+          "physical_footprint_bytes": 48661896,
+          "resident_bytes": 142753792
+        },
+        {
+          "pid": 11825,
+          "physical_footprint_bytes": 18285888,
+          "resident_bytes": 114032640
+        },
+        {
+          "pid": 11826,
+          "physical_footprint_bytes": 13026576,
+          "resident_bytes": 91996160
+        },
+        {
+          "pid": 11829,
+          "physical_footprint_bytes": 52676360,
+          "resident_bytes": 221839360
+        },
+        {
+          "pid": 11830,
+          "physical_footprint_bytes": 31295216,
+          "resident_bytes": 196329472
+        },
+        {
+          "pid": 11832,
+          "physical_footprint_bytes": 30033672,
+          "resident_bytes": 193789952
+        },
+        {
+          "pid": 11855,
+          "physical_footprint_bytes": 30033648,
+          "resident_bytes": 193134592
+        },
+        {
+          "pid": 11948,
+          "physical_footprint_bytes": 28591832,
+          "resident_bytes": 196100096
+        },
+        {
+          "pid": 11949,
+          "physical_footprint_bytes": 28641008,
+          "resident_bytes": 196182016
+        },
+        {
+          "pid": 11950,
+          "physical_footprint_bytes": 28706496,
+          "resident_bytes": 196231168
+        },
+        {
+          "pid": 11951,
+          "physical_footprint_bytes": 28641008,
+          "resident_bytes": 196149248
+        },
+        {
+          "pid": 11952,
+          "physical_footprint_bytes": 28903176,
+          "resident_bytes": 201097216
+        },
+        {
+          "pid": 11953,
+          "physical_footprint_bytes": 28935944,
+          "resident_bytes": 201129984
+        },
+        {
+          "pid": 11954,
+          "physical_footprint_bytes": 30263000,
+          "resident_bytes": 203259904
+        },
+        {
+          "pid": 11955,
+          "physical_footprint_bytes": 23103144,
+          "resident_bytes": 144523264
+        },
+        {
+          "pid": 11962,
+          "physical_footprint_bytes": 23185088,
+          "resident_bytes": 144588800
+        }
+      ]
+    },
+    {
+      "mode": "off",
+      "tabs": 30,
+      "rss_bytes": 7083819008,
+      "cpu_seconds": 85.66000000000003,
+      "processes": 37,
+      "idle_cpu_seconds": 0.5100000000000051,
+      "idle_interval_seconds": 15,
+      "stabilization_retries": 0,
+      "physical_footprint_bytes": 1226619256,
+      "physical_processes": [
+        {
+          "pid": 11818,
+          "physical_footprint_bytes": 166020944,
+          "resident_bytes": 375291904
+        },
+        {
+          "pid": 11824,
+          "physical_footprint_bytes": 52020616,
+          "resident_bytes": 146440192
+        },
+        {
+          "pid": 11825,
+          "physical_footprint_bytes": 23725400,
+          "resident_bytes": 118784000
+        },
+        {
+          "pid": 11826,
+          "physical_footprint_bytes": 15205648,
+          "resident_bytes": 93683712
+        },
+        {
+          "pid": 11829,
+          "physical_footprint_bytes": 52561672,
+          "resident_bytes": 222412800
+        },
+        {
+          "pid": 11830,
+          "physical_footprint_bytes": 31295216,
+          "resident_bytes": 195772416
+        },
+        {
+          "pid": 11832,
+          "physical_footprint_bytes": 30050056,
+          "resident_bytes": 189448192
+        },
+        {
+          "pid": 11855,
+          "physical_footprint_bytes": 30050032,
+          "resident_bytes": 188481536
+        },
+        {
+          "pid": 11948,
+          "physical_footprint_bytes": 28739288,
+          "resident_bytes": 184975360
+        },
+        {
+          "pid": 11949,
+          "physical_footprint_bytes": 28772080,
+          "resident_bytes": 185237504
+        },
+        {
+          "pid": 11950,
+          "physical_footprint_bytes": 28853952,
+          "resident_bytes": 186499072
+        },
+        {
+          "pid": 11951,
+          "physical_footprint_bytes": 28772080,
+          "resident_bytes": 187957248
+        },
+        {
+          "pid": 11952,
+          "physical_footprint_bytes": 29034248,
+          "resident_bytes": 192053248
+        },
+        {
+          "pid": 11953,
+          "physical_footprint_bytes": 29099784,
+          "resident_bytes": 190611456
+        },
+        {
+          "pid": 11954,
+          "physical_footprint_bytes": 30033624,
+          "resident_bytes": 194936832
+        },
+        {
+          "pid": 11955,
+          "physical_footprint_bytes": 29099784,
+          "resident_bytes": 192249856
+        },
+        {
+          "pid": 11962,
+          "physical_footprint_bytes": 30017312,
+          "resident_bytes": 195837952
+        },
+        {
+          "pid": 12022,
+          "physical_footprint_bytes": 28493504,
+          "resident_bytes": 196067328
+        },
+        {
+          "pid": 12023,
+          "physical_footprint_bytes": 28526272,
+          "resident_bytes": 196050944
+        },
+        {
+          "pid": 12024,
+          "physical_footprint_bytes": 28690112,
+          "resident_bytes": 196214784
+        },
+        {
+          "pid": 12025,
+          "physical_footprint_bytes": 28624624,
+          "resident_bytes": 196116480
+        },
+        {
+          "pid": 12026,
+          "physical_footprint_bytes": 28591784,
+          "resident_bytes": 196149248
+        },
+        {
+          "pid": 12027,
+          "physical_footprint_bytes": 28575424,
+          "resident_bytes": 196100096
+        },
+        {
+          "pid": 12028,
+          "physical_footprint_bytes": 28673752,
+          "resident_bytes": 196182016
+        },
+        {
+          "pid": 12029,
+          "physical_footprint_bytes": 28788488,
+          "resident_bytes": 203063296
+        },
+        {
+          "pid": 12030,
+          "physical_footprint_bytes": 28690160,
+          "resident_bytes": 196182016
+        },
+        {
+          "pid": 12032,
+          "physical_footprint_bytes": 28640960,
+          "resident_bytes": 196165632
+        },
+        {
+          "pid": 12033,
+          "physical_footprint_bytes": 28673776,
+          "resident_bytes": 196165632
+        },
+        {
+          "pid": 12034,
+          "physical_footprint_bytes": 28641008,
+          "resident_bytes": 196182016
+        },
+        {
+          "pid": 12036,
+          "physical_footprint_bytes": 28657368,
+          "resident_bytes": 196165632
+        },
+        {
+          "pid": 12037,
+          "physical_footprint_bytes": 28886744,
+          "resident_bytes": 201162752
+        },
+        {
+          "pid": 12038,
+          "physical_footprint_bytes": 28690136,
+          "resident_bytes": 196198400
+        },
+        {
+          "pid": 12039,
+          "physical_footprint_bytes": 28559064,
+          "resident_bytes": 196116480
+        },
+        {
+          "pid": 12040,
+          "physical_footprint_bytes": 28772056,
+          "resident_bytes": 200884224
+        },
+        {
+          "pid": 12041,
+          "physical_footprint_bytes": 30312128,
+          "resident_bytes": 203407360
+        },
+        {
+          "pid": 12042,
+          "physical_footprint_bytes": 22922848,
+          "resident_bytes": 144392192
+        },
+        {
+          "pid": 12049,
+          "physical_footprint_bytes": 22857312,
+          "resident_bytes": 144211968
+        }
+      ]
+    },
+    {
+      "mode": "on",
+      "tabs": 1,
+      "rss_bytes": 1498071040,
+      "cpu_seconds": 19.23,
+      "processes": 8,
+      "idle_cpu_seconds": 0.3000000000000007,
+      "idle_interval_seconds": 15,
+      "stabilization_retries": 1,
+      "physical_footprint_bytes": 336851592,
+      "physical_processes": [
+        {
+          "pid": 12148,
+          "physical_footprint_bytes": 133302000,
+          "resident_bytes": 366641152
+        },
+        {
+          "pid": 12160,
+          "physical_footprint_bytes": 42976672,
+          "resident_bytes": 153419776
+        },
+        {
+          "pid": 12161,
+          "physical_footprint_bytes": 18302272,
+          "resident_bytes": 119504896
+        },
+        {
+          "pid": 12162,
+          "physical_footprint_bytes": 12158248,
+          "resident_bytes": 96911360
+        },
+        {
+          "pid": 12165,
+          "physical_footprint_bytes": 52610920,
+          "resident_bytes": 256868352
+        },
+        {
+          "pid": 12166,
+          "physical_footprint_bytes": 31999752,
+          "resident_bytes": 212451328
+        },
+        {
+          "pid": 12168,
+          "physical_footprint_bytes": 22808184,
+          "resident_bytes": 146505728
+        },
+        {
+          "pid": 12194,
+          "physical_footprint_bytes": 22693544,
+          "resident_bytes": 145768448
+        }
+      ]
+    },
+    {
+      "mode": "on",
+      "tabs": 10,
+      "rss_bytes": 3352969216,
+      "cpu_seconds": 41.16,
+      "processes": 17,
+      "idle_cpu_seconds": 0.9299999999999926,
+      "idle_interval_seconds": 15,
+      "stabilization_retries": 0,
+      "physical_footprint_bytes": 621572344,
+      "physical_processes": [
+        {
+          "pid": 12148,
+          "physical_footprint_bytes": 134563592,
+          "resident_bytes": 385974272
+        },
+        {
+          "pid": 12160,
+          "physical_footprint_bytes": 46564768,
+          "resident_bytes": 155795456
+        },
+        {
+          "pid": 12161,
+          "physical_footprint_bytes": 20088128,
+          "resident_bytes": 121290752
+        },
+        {
+          "pid": 12162,
+          "physical_footprint_bytes": 13141288,
+          "resident_bytes": 97976320
+        },
+        {
+          "pid": 12165,
+          "physical_footprint_bytes": 53380968,
+          "resident_bytes": 258244608
+        },
+        {
+          "pid": 12166,
+          "physical_footprint_bytes": 33015584,
+          "resident_bytes": 213598208
+        },
+        {
+          "pid": 12168,
+          "physical_footprint_bytes": 30279384,
+          "resident_bytes": 200736768
+        },
+        {
+          "pid": 12194,
+          "physical_footprint_bytes": 30263048,
+          "resident_bytes": 200622080
+        },
+        {
+          "pid": 12410,
+          "physical_footprint_bytes": 30050008,
+          "resident_bytes": 197771264
+        },
+        {
+          "pid": 12424,
+          "physical_footprint_bytes": 30148336,
+          "resident_bytes": 197853184
+        },
+        {
+          "pid": 12428,
+          "physical_footprint_bytes": 30164672,
+          "resident_bytes": 197902336
+        },
+        {
+          "pid": 12429,
+          "physical_footprint_bytes": 30541552,
+          "resident_bytes": 209272832
+        },
+        {
+          "pid": 12431,
+          "physical_footprint_bytes": 30426864,
+          "resident_bytes": 211173376
+        },
+        {
+          "pid": 12433,
+          "physical_footprint_bytes": 30131928,
+          "resident_bytes": 197853184
+        },
+        {
+          "pid": 12434,
+          "physical_footprint_bytes": 32442144,
+          "resident_bytes": 212860928
+        },
+        {
+          "pid": 12435,
+          "physical_footprint_bytes": 22939256,
+          "resident_bytes": 144424960
+        },
+        {
+          "pid": 12442,
+          "physical_footprint_bytes": 23430824,
+          "resident_bytes": 149635072
+        }
+      ]
+    },
+    {
+      "mode": "on",
+      "tabs": 30,
+      "rss_bytes": 7433715712,
+      "cpu_seconds": 89.85999999999999,
+      "processes": 37,
+      "idle_cpu_seconds": 1.549999999999983,
+      "idle_interval_seconds": 15,
+      "stabilization_retries": 0,
+      "physical_footprint_bytes": 1266301760,
+      "physical_processes": [
+        {
+          "pid": 12148,
+          "physical_footprint_bytes": 169035528,
+          "resident_bytes": 429408256
+        },
+        {
+          "pid": 12160,
+          "physical_footprint_bytes": 49087904,
+          "resident_bytes": 159662080
+        },
+        {
+          "pid": 12161,
+          "physical_footprint_bytes": 25920832,
+          "resident_bytes": 127139840
+        },
+        {
+          "pid": 12162,
+          "physical_footprint_bytes": 15287592,
+          "resident_bytes": 100122624
+        },
+        {
+          "pid": 12165,
+          "physical_footprint_bytes": 49104744,
+          "resident_bytes": 258932736
+        },
+        {
+          "pid": 12166,
+          "physical_footprint_bytes": 32687904,
+          "resident_bytes": 213630976
+        },
+        {
+          "pid": 12168,
+          "physical_footprint_bytes": 30344920,
+          "resident_bytes": 200802304
+        },
+        {
+          "pid": 12194,
+          "physical_footprint_bytes": 30361376,
+          "resident_bytes": 200704000
+        },
+        {
+          "pid": 12410,
+          "physical_footprint_bytes": 29820656,
+          "resident_bytes": 200376320
+        },
+        {
+          "pid": 12424,
+          "physical_footprint_bytes": 29984520,
+          "resident_bytes": 200523776
+        },
+        {
+          "pid": 12428,
+          "physical_footprint_bytes": 30000856,
+          "resident_bytes": 200572928
+        },
+        {
+          "pid": 12429,
+          "physical_footprint_bytes": 30279432,
+          "resident_bytes": 212025344
+        },
+        {
+          "pid": 12431,
+          "physical_footprint_bytes": 30164720,
+          "resident_bytes": 213942272
+        },
+        {
+          "pid": 12433,
+          "physical_footprint_bytes": 29984496,
+          "resident_bytes": 200540160
+        },
+        {
+          "pid": 12434,
+          "physical_footprint_bytes": 31557408,
+          "resident_bytes": 218972160
+        },
+        {
+          "pid": 12435,
+          "physical_footprint_bytes": 30246664,
+          "resident_bytes": 202506240
+        },
+        {
+          "pid": 12442,
+          "physical_footprint_bytes": 30754616,
+          "resident_bytes": 213303296
+        },
+        {
+          "pid": 12517,
+          "physical_footprint_bytes": 30082776,
+          "resident_bytes": 197738496
+        },
+        {
+          "pid": 12518,
+          "physical_footprint_bytes": 30131928,
+          "resident_bytes": 197853184
+        },
+        {
+          "pid": 12519,
+          "physical_footprint_bytes": 30099112,
+          "resident_bytes": 197820416
+        },
+        {
+          "pid": 12520,
+          "physical_footprint_bytes": 30131928,
+          "resident_bytes": 197787648
+        },
+        {
+          "pid": 12521,
+          "physical_footprint_bytes": 30164672,
+          "resident_bytes": 197853184
+        },
+        {
+          "pid": 12522,
+          "physical_footprint_bytes": 30181104,
+          "resident_bytes": 197820416
+        },
+        {
+          "pid": 12523,
+          "physical_footprint_bytes": 30099136,
+          "resident_bytes": 197787648
+        },
+        {
+          "pid": 12524,
+          "physical_footprint_bytes": 30197440,
+          "resident_bytes": 197869568
+        },
+        {
+          "pid": 12525,
+          "physical_footprint_bytes": 30099160,
+          "resident_bytes": 197754880
+        },
+        {
+          "pid": 12526,
+          "physical_footprint_bytes": 30230280,
+          "resident_bytes": 197885952
+        },
+        {
+          "pid": 12527,
+          "physical_footprint_bytes": 30197512,
+          "resident_bytes": 197820416
+        },
+        {
+          "pid": 12531,
+          "physical_footprint_bytes": 30410504,
+          "resident_bytes": 198033408
+        },
+        {
+          "pid": 12535,
+          "physical_footprint_bytes": 30492424,
+          "resident_bytes": 202866688
+        },
+        {
+          "pid": 12536,
+          "physical_footprint_bytes": 30033600,
+          "resident_bytes": 197705728
+        },
+        {
+          "pid": 12537,
+          "physical_footprint_bytes": 30607088,
+          "resident_bytes": 208683008
+        },
+        {
+          "pid": 12538,
+          "physical_footprint_bytes": 30099184,
+          "resident_bytes": 197771264
+        },
+        {
+          "pid": 12539,
+          "physical_footprint_bytes": 30115520,
+          "resident_bytes": 197787648
+        },
+        {
+          "pid": 12540,
+          "physical_footprint_bytes": 32409328,
+          "resident_bytes": 212992000
+        },
+        {
+          "pid": 12541,
+          "physical_footprint_bytes": 22955640,
+          "resident_bytes": 144441344
+        },
+        {
+          "pid": 12548,
+          "physical_footprint_bytes": 22939256,
+          "resident_bytes": 144310272
+        }
+      ]
+    }
+  ],
+  "valid": true,
+  "harness_sha256": "779ad6eff77010567336d4046b092bdedae87482afc547ff05e8ff7181f9e794",
+  "fixture_hostname": "page.fixture.test",
+  "measurement_limits": [
+    "Component development build, not a distribution qualification.",
+    "Wall time includes DevTools coordination; Navigation Timing is retained separately.",
+    "Endpoint CPU deltas are unavailable if process membership changes.",
+    "Process-tree RSS includes shared pages and allocator reservation; it is not blocker-owned heap.",
+    "Physical footprint comes from macOS proc_pid_rusage RUSAGE_INFO_V2 with heap reporting disabled. This is one isolated paired process-tree observation, not exact blocker attribution or a confidence interval."
+  ],
+  "browser_version": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/157.0.8103.26",
+    "revision": "@0000000000000000000000000000000000000000",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+    "jsVersion": "15.7.112.12"
+  },
+  "startup_pages": [
+    {
+      "mode": "off",
+      "count": 1
+    },
+    {
+      "mode": "off",
+      "count": 2
+    },
+    {
+      "mode": "on",
+      "count": 1
+    },
+    {
+      "mode": "on",
+      "count": 2
+    }
+  ],
+  "summary": {},
+  "percentile_method": "R7 linear interpolation",
+  "qualification": "Development measurement until explicitly run against the distribution build and all gates reviewed",
+  "finished": "2026-11-03T17:39:17.634Z",
+  "implementation_commit": "caccd9437d8785814cf17b62c283a7c948d5d0ec"
+}
