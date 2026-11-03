@@ -20,9 +20,8 @@
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
-#include "base/task/sequenced_task_runner.h"
-#include "components/download/public/common/download_item.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -38,72 +37,67 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabrestore.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/bubble_anchor_util.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
 #include "chrome/browser/ui/modal_browser/merlin_adblock_button.h"
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
-#include "chrome/browser/ui/modal_browser/merlin_start_page.h"
-#include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/modal_browser/merlin_downloads.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
+#include "chrome/browser/ui/modal_browser/merlin_pages.h"
+#include "chrome/browser/ui/modal_browser/merlin_restyle.h"
+#include "chrome/browser/ui/modal_browser/merlin_safety_controls.h"
+#include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
-// Part of //chrome/browser/ui/views/toolbar, which depends on this target.
-#include "chrome/browser/ui/views/toolbar/toolbar_view.h"  // nogncheck
-#include "ui/views/background.h"
 #include "chrome/browser/ui/modal_browser/merlin_theme.h"
+#include "chrome/browser/ui/modal_browser/merlin_toolbar.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/status_view.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
+#include "chrome/browser/ui/page_info/page_info_dialog.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
-#include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
-#include "components/bookmarks/browser/bookmark_model.h"
-#include "components/bookmarks/browser/bookmark_node.h"
-#include "components/history/core/browser/history_service.h"
-#include "components/history/core/browser/history_types.h"
-#include "components/keyed_service/core/service_access_type.h"
-#include "components/sessions/core/serialized_navigation_entry.h"
-#include "components/sessions/core/serialized_user_agent_override.h"
-#include "ui/base/page_transition_types.h"
-#include "components/tabs/public/split_tab_data.h"
-#include "components/split_tabs/split_tab_id.h"
-#include "components/split_tabs/split_tab_visual_data.h"
-#include "ui/base/base_window.h"
-#include "ui/base/models/tree_node_iterator.h"
 #include "chrome/browser/ui/tabs/tab_change_type.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/common/chrome_isolated_world_ids.h"
-#include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/modal_browser/merlin_downloads.h"
-#include "chrome/browser/ui/modal_browser/merlin_pages.h"
-#include "chrome/browser/ui/modal_browser/merlin_restyle.h"
-#include "chrome/browser/ui/modal_browser/merlin_toolbar.h"
-#include "chrome/browser/ui/page_info/page_info_dialog.h"
-#include "chrome/browser/ui/bubble_anchor_util.h"
-#include "ui/compositor/layer.h"
-#include "ui/views/layout/box_layout_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
-#include "components/omnibox/browser/omnibox_pref_names.h"
-#include "content/public/browser/browser_task_traits.h"
-#include "content/public/browser/browser_thread.h"
-#include "content/public/browser/download_manager.h"
+#include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+#include "components/download/public/common/download_item.h"
+// Part of //chrome/browser/ui/views/toolbar, which depends on this target.
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"  // nogncheck
+#include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/common/pref_names.h"
+#include "components/bookmarks/browser/bookmark_model.h"
+#include "components/bookmarks/browser/bookmark_node.h"
 #include "components/favicon/content/content_favicon_driver.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/history/core/browser/history_types.h"
 #include "components/input/native_web_keyboard_event.h"
+#include "components/keyed_service/core/service_access_type.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
+#include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/core/serialized_navigation_entry.h"
+#include "components/sessions/core/serialized_user_agent_override.h"
+#include "components/split_tabs/split_tab_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
+#include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_formatter/url_fixer.h"
 #include "components/url_formatter/url_formatter.h"
-#include "content/public/common/url_constants.h"
+#include "content/public/browser/browser_task_traits.h"
+#include "content/public/browser/browser_thread.h"
+#include "content/public/browser/download_manager.h"
 #include "content/public/browser/focused_node_details.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/page.h"
@@ -111,21 +105,28 @@
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/url_constants.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
+#include "ui/base/accelerators/accelerator_manager.h"
+#include "ui/base/base_window.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/models/tree_node_iterator.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/compositor/layer.h"
 #include "ui/events/base_event_utils.h"
-#include "ui/views/view_class_properties.h"
-#include "ui/views/layout/flex_layout_types.h"
+#include "ui/events/event_constants.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
-#include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
-#include "ui/base/accelerators/accelerator_manager.h"
+#include "ui/views/background.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/layout/box_layout_view.h"
+#include "ui/views/layout/flex_layout_types.h"
+#include "ui/views/view_class_properties.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -452,6 +453,11 @@ ModalBrowserController::~ModalBrowserController() {
     auto removed =
         adblock_button_->parent()->RemoveChildViewT(adblock_button_.get());
     adblock_button_ = nullptr;
+  }
+  if (safety_controls_) {
+    auto removed =
+        safety_controls_->parent()->RemoveChildViewT(safety_controls_.get());
+    safety_controls_ = nullptr;
   }
   // Before the tab strip model and the window go.
   page_color_.reset();
@@ -881,6 +887,12 @@ void ModalBrowserController::InstallMerlinToolbar(
   // [spacer][field][spacer] after Chromium's (hidden) field: the field is
   // at most its preferred width and sits centered in the space left.
   size_t index = *row->GetIndexOf(location_bar) + 1;
+  safety_controls_ = row->AddChildViewAt(
+      std::make_unique<MerlinSafetyControls>(
+          browser_.get(),
+          base::BindRepeating(&ModalBrowserController::ShowSiteInfo,
+                              weak_factory_.GetWeakPtr())),
+      index++);
   // Left-aligned after the buttons, as in Dia; the right spacer takes what
   // the field does not need.
   auto gap = std::make_unique<views::View>();
@@ -927,6 +939,9 @@ void ModalBrowserController::InstallMerlinToolbar(
 void ModalBrowserController::UpdateMerlinToolbar(
     content::WebContents* contents,
     bool start_page) {
+  if (safety_controls_) {
+    safety_controls_->UpdateSiteInfo();
+  }
   if (adblock_button_)
     adblock_button_->Update();
   if (!address_field_) {
@@ -1858,7 +1873,7 @@ void ModalBrowserController::RestoreWorkspace(
   }
   if (workspace.new_window) {
     if (ModalBrowserController* other = From(target)) {
-      other->router_.SetWorkspace(workspace.name);
+      other->router_.SetWorkspace(workspace.name, workspace.project);
     }
   }
 }
@@ -2663,7 +2678,9 @@ void ModalBrowserController::HandleBrowserctlRequest(
             std::vector<BrowserWindowInterface*> front;
             GlobalBrowserCollection::GetInstance()->ForEach(
                 [&front](BrowserWindowInterface* b) {
-                  if (From(b) && !b->GetProfile()->IsOffTheRecord()) {
+                  ModalBrowserController* controller = From(b);
+                  if (controller && !b->GetProfile()->IsOffTheRecord() &&
+                      BrowserctlService::Get().Wants(controller)) {
                     front.push_back(b);
                     return false;
                   }
@@ -2941,6 +2958,9 @@ void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
   }
   if (address_field_) {
     address_field_->SetSurface(color);
+  }
+  if (safety_controls_) {
+    safety_controls_->SetSurface(color);
   }
   if (adblock_button_)
     adblock_button_->SetSurface(color);

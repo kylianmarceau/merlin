@@ -338,8 +338,11 @@ impl ModalSession {
     }
 
     /// Associates the window with a workspace (it was opened from one).
-    pub fn set_workspace(&mut self, name: &str) {
+    pub fn set_workspace(&mut self, name: &str, project: Option<&str>) {
         self.workspace = workspace::validate_name(name).ok().map(str::to_string);
+        self.project = project
+            .filter(|_| self.workspace.is_some())
+            .and_then(|p| workspace::validate_project(p).ok());
     }
 
     /// The window's workspace, if it should be saved automatically as it

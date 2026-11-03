@@ -423,10 +423,22 @@ gfx::Rect MerlinTab::CloseBounds() const {
 
 gfx::Rect MerlinTab::AlertBounds() const {
   // After the favicon, before the title, as in Dia.
-  if (!data_.alert || !ShowsTitle()) {
+  if (!data_.alert) {
     return gfx::Rect();
   }
   const gfx::Rect body = PillBounds();
+  if (!ShowsTitle()) {
+    switch (*data_.alert) {
+      case tabs::TabAlert::kMediaRecording:
+      case tabs::TabAlert::kAudioRecording:
+      case tabs::TabAlert::kVideoRecording:
+      case tabs::TabAlert::kTabCapturing:
+      case tabs::TabAlert::kDesktopCapturing:
+        return gfx::Rect(body.right() - 12, body.y() + 2, 10, 10);
+      default:
+        return gfx::Rect();
+    }
+  }
   return gfx::Rect(body.x() + kTabPadding + kIconSize + kIconGap,
                    body.y() + (body.height() - kAlertSize) / 2, kAlertSize,
                    kAlertSize);
@@ -475,14 +487,16 @@ void MerlinTab::PaintTab(gfx::Canvas* canvas) {
   if (has_icon) {
     PaintIcon(canvas, icon);
   }
+  const gfx::Rect alert = AlertBounds();
+  if (!alert.IsEmpty()) {
+    PaintAlert(canvas, alert);
+  }
   if (!ShowsTitle()) {
     return;
   }
 
   int title_x = has_icon ? icon.right() + kIconGap : body.x() + kTabPadding;
-  const gfx::Rect alert = AlertBounds();
   if (!alert.IsEmpty()) {
-    PaintAlert(canvas, alert);
     title_x = alert.right() + kIconGap;
   }
   const int title_right =
@@ -615,6 +629,7 @@ void MerlinTab::PaintAlert(gfx::Canvas* canvas, const gfx::Rect& alert) {
     case tabs::TabAlert::kVideoRecording:
     case tabs::TabAlert::kTabCapturing:
     case tabs::TabAlert::kDesktopCapturing:
+      canvas->DrawCircle(gfx::RectF(alert).CenterPoint(), 5, Fill(TextColor()));
       canvas->DrawCircle(gfx::RectF(alert).CenterPoint(), 3.5f,
                          Fill(c.recording));
       return;
@@ -723,7 +738,10 @@ std::u16string MerlinTab::GetRenderedTooltipText(const gfx::Point& p) const {
   if (ShowsClose() && CloseBounds().Contains(p)) {
     return u"Close tab";
   }
-  return data_.title;
+  return data_.alert
+             ? data_.title + u" — " +
+                   tabs::TabAlertController::GetTabAlertStateText(*data_.alert)
+             : data_.title;
 }
 
 void MerlinTab::OnBoundsChanged(const gfx::Rect& previous_bounds) {
@@ -743,8 +761,12 @@ void MerlinTab::AnimationProgressed(const gfx::Animation* animation) {
 }
 
 void MerlinTab::UpdateAccessibleName() {
-  GetViewAccessibility().SetName(data_.title.empty() ? std::u16string(u"Tab")
-                                                     : data_.title);
+  std::u16string name = data_.title.empty() ? u"Tab" : data_.title;
+  if (data_.alert) {
+    name +=
+        u" — " + tabs::TabAlertController::GetTabAlertStateText(*data_.alert);
+  }
+  GetViewAccessibility().SetName(name);
 }
 
 BEGIN_METADATA(MerlinTab)
@@ -1006,6 +1028,7 @@ MerlinTabBar::MerlinTabBar(BrowserWindowInterface* browser)
 }
 
 MerlinTabBar::~MerlinTabBar() {
+  alert_subscriptions_.clear();
   group_editor_.reset();
   model_->RemoveObserver(this);
   loading_timer_.Stop();
@@ -1026,7 +1049,7 @@ void MerlinTabBar::SetActiveColor(std::optional<SkColor> color) {
 }
 
 SkColor MerlinTabBar::ActiveFill() const {
-  return active_color_ ? *active_color_ : ToolbarColor(this);
+  return style::PageSurface(this, active_color_).value_or(ToolbarColor(this));
 }
 
 void MerlinTabBar::SetVertical(bool vertical, int top_inset) {
@@ -1114,6 +1137,10 @@ MerlinTabData MerlinTabBar::DataFor(tabs::TabInterface* tab, int index) const {
 }
 
 void MerlinTabBar::Rebuild() {
+  std::erase_if(alert_subscriptions_, [this](const auto& entry) {
+    auto* tab = tabs::TabHandle(entry.first).Get();
+    return !tab || model_->GetIndexOfTab(tab) == TabStripModel::kNoTab;
+  });
   // A model change ends any drag; the mouse-up is then ignored.
   if (drag_tab_) {
     drag_tab_->SetDragging(false);
@@ -1124,6 +1151,7 @@ void MerlinTabBar::Rebuild() {
   for (int i = 0; i < model_->count(); ++i) {
     tabs::TabInterface* tab = model_->GetTabAtIndex(i);
     const tabs::TabHandle handle = tab->GetHandle();
+    ObserveAlerts(tab);
     MerlinTab* view = nullptr;
     for (MerlinTab* existing : tabs_) {
       if (existing->handle() == handle) {
@@ -1197,6 +1225,7 @@ void MerlinTabBar::Rebuild() {
 }
 
 void MerlinTabBar::UpdateTab(tabs::TabInterface* tab) {
+  ObserveAlerts(tab);
   const int index = model_->GetIndexOfTab(tab);
   if (index == TabStripModel::kNoTab) {
     return;
@@ -1209,6 +1238,25 @@ void MerlinTabBar::UpdateTab(tabs::TabInterface* tab) {
     }
   }
   UpdateLoadingTimer();
+}
+
+void MerlinTabBar::ObserveAlerts(tabs::TabInterface* tab) {
+  const auto handle = tab->GetHandle();
+  if (alert_subscriptions_.contains(handle.raw_value())) {
+    return;
+  }
+  if (auto* alerts = tabs::TabAlertController::From(tab)) {
+    alert_subscriptions_.emplace(
+        handle.raw_value(),
+        alerts->AddAlertToShowChangedCallback(base::BindRepeating(
+            [](base::WeakPtr<MerlinTabBar> bar, tabs::TabHandle handle,
+               std::optional<tabs::TabAlert>) {
+              if (bar && handle.Get()) {
+                bar->UpdateTab(handle.Get());
+              }
+            },
+            weak_factory_.GetWeakPtr(), handle)));
+  }
 }
 
 MerlinTabBar::Slots::Slots() = default;
@@ -2169,7 +2217,8 @@ void MerlinCaptionFill::SetColor(std::optional<SkColor> color) {
 }
 
 void MerlinCaptionFill::OnPaint(gfx::Canvas* canvas) {
-  canvas->DrawColor(color_ ? *color_ : ToolbarColor(this));
+  canvas->DrawColor(
+      style::PageSurface(this, color_).value_or(ToolbarColor(this)));
 }
 
 BEGIN_METADATA(MerlinCaptionFill)

@@ -10,7 +10,9 @@
 #include "base/no_destructor.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
+#include "ui/color/color_provider_key.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
@@ -110,6 +112,20 @@ Ink InkOn(SkColor surface) {
       .hover = SkColorSetARGB(0x12, 0x28, 0x1E, 0x0A),
       .pressed = SkColorSetARGB(0x1F, 0x28, 0x1E, 0x0A),
   };
+}
+
+bool PageColorsAllowed(const ui::ColorProviderKey& key) {
+  return key.contrast_mode != ui::ColorProviderKey::ContrastMode::kHigh &&
+         key.forced_colors == ui::ColorProviderKey::ForcedColors::kNone;
+}
+
+std::optional<SkColor> PageSurface(const views::View* view,
+                                   std::optional<SkColor> surface) {
+  return view && view->GetWidget() &&
+                 !PageColorsAllowed(
+                     view->GetNativeTheme()->GetColorProviderKey(nullptr))
+             ? std::nullopt
+             : surface;
 }
 
 const gfx::FontList& UiFont(int size_delta, gfx::Font::Weight weight) {

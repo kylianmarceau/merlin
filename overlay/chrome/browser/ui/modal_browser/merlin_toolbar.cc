@@ -123,6 +123,7 @@ SkColor Color(const views::View* view, ui::ColorId id) {
 // Ink for what is drawn on the toolbar: on the page's color when there is
 // one, else on the toolbar's own.
 style::Ink InkFor(const views::View* view, std::optional<SkColor> surface) {
+  surface = style::PageSurface(view, surface);
   return style::InkOn(surface ? *surface : Color(view, kColorToolbar));
 }
 
@@ -406,8 +407,10 @@ void MerlinAddressField::PaintButtonContents(gfx::Canvas* canvas) {
   const gfx::Rect info = SiteInfoBounds();
   if (!info.IsEmpty()) {
     const SkColor warn = color_utils::BlendForMinContrast(
-        Color(this, kColorOmniboxSecurityChipDangerous),
-        surface_.value_or(Color(this, kColorToolbar))).color;
+                             Color(this, kColorOmniboxSecurityChipDangerous),
+                             style::PageSurface(this, surface_)
+                                 .value_or(Color(this, kColorToolbar)))
+                             .color;
     canvas->sk_canvas()->drawRoundRect(
         gfx::RectToSkRect(info), 6, 6,
         FillFlags(SkColorSetA(warn, security_ == Security::kDangerous ? 0x2E
@@ -454,11 +457,13 @@ void MerlinAddressField::PaintButtonContents(gfx::Canvas* canvas) {
 void MerlinAddressField::OnPressed(const ui::Event& event) {
   if (event.IsLocatedEvent()) {
     gfx::Rect info = SiteInfoBounds();
-    info.Inset(-4);
-    if (!info.IsEmpty() &&
-        info.Contains(gfx::ToFlooredPoint(event.AsLocatedEvent()->location_f()))) {
-      show_site_info_.Run();
-      return;
+    if (!info.IsEmpty()) {
+      info.Outset(4);
+      if (info.Contains(
+              gfx::ToFlooredPoint(event.AsLocatedEvent()->location_f()))) {
+        show_site_info_.Run();
+        return;
+      }
     }
   }
   edit_address_.Run();
@@ -525,14 +530,15 @@ void MerlinToolbarBackdrop::OnViewBoundsChanged(views::View* observed_view) {
 }
 
 void MerlinToolbarBackdrop::OnPaint(gfx::Canvas* canvas) {
-  if (!color_ || !parent()) {
+  const auto color = style::PageSurface(this, color_);
+  if (!color || !parent()) {
     return;
   }
   // The top of the page card: as wide as the page under it, with the card's
   // top corners, so toolbar and page read as one surface. The sides show
   // the toolbar's own color, the same color as around the card.
   if (full_bleed_) {
-    canvas->DrawColor(*color_);
+    canvas->DrawColor(*color);
     return;
   }
   gfx::Rect card = GetLocalBounds();
@@ -541,7 +547,7 @@ void MerlinToolbarBackdrop::OnPaint(gfx::Canvas* canvas) {
   const SkVector radii[4] = {{r, r}, {r, r}, {0, 0}, {0, 0}};
   SkRRect rrect;
   rrect.setRectRadii(gfx::RectToSkRect(card), radii);
-  canvas->sk_canvas()->drawRRect(rrect, FillFlags(*color_));
+  canvas->sk_canvas()->drawRRect(rrect, FillFlags(*color));
 }
 
 BEGIN_METADATA(MerlinToolbarBackdrop)

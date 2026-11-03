@@ -193,7 +193,7 @@ fn private_windows_never_save() {
             .unwrap()
             .contains("private")
     );
-    s.set_workspace("x");
+    s.set_workspace("x", None);
     assert_eq!(s.autosave_workspace(), None);
     let tabs = [WindowTab {
         url: "https://a.b".into(),
@@ -375,7 +375,7 @@ fn bookmarklets_from_lists_are_refused() {
 #[test]
 fn workspace_and_profile_lists() {
     let mut s = ModalSession::new();
-    s.set_workspace("research");
+    s.set_workspace("research", None);
     let o = last(&mut s, "gw");
     assert!(
         o.actions
@@ -761,7 +761,7 @@ fn new_config_options() {
     assert!(report.errors[0].message.contains("needs a program"));
     let c = s.config();
     assert!(!c.restore_session && !c.workspace_autosave && !c.browserctl);
-    s.set_workspace("w");
+    s.set_workspace("w", None);
     assert_eq!(s.autosave_workspace(), None);
 }
 

@@ -38,7 +38,7 @@ qualification; see [the implementation record](ADBLOCK_IMPLEMENTATION.md).
 
 | What | Where | Mode | When |
 |---|---|---|---|
-| Workspaces: URLs, titles, pins, split pairs | `$XDG_DATA_HOME/modal_browser/workspaces/*.json` | 0600, directory 0700 | `:workspace save`, and autosave for windows opened from a workspace |
+| Workspaces: URLs, titles, pins, split pairs and optional project folder | `$XDG_DATA_HOME/modal_browser/workspaces/*.json` | 0600, directory 0700 | `:workspace save`, and autosave for windows opened from a workspace |
 | Field text for `:edit` | a fresh `modal_browser_edit_*` directory in `$TMPDIR` | 0600, directory 0700 | while editing; deleted after normal editor exit and successful write-back; kept for recovery, with its path shown, when an established session is replaced, navigation cancels it, or write-back fails |
 | Exports (`:extract ... editor`) | same as above | 0400 | deleted when the editor exits |
 | browserctl socket | `$TMPDIR/modal_browser/browserctl.sock` | directory 0700 | while a normal window is open and `browserctl = true` |
@@ -93,6 +93,12 @@ The modal layer's scripts run in Chrome's isolated world and return:
   and scaled down to at most 96 by 96 pixels, reduced to one colour (or a
   neutral fallback) in memory and cached on that document. Switching tabs
   reuses the cached result; navigation invalidates it. No page script runs and nothing is written or sent.
+
+* for recording/sharing controls: Chromium's current camera, microphone and
+  capture state and the capturing tabs' top-level origins, used for the current
+  window's indicator and menu. This state stays in memory, including in private
+  windows; it is not logged, persisted or added to browserctl replies. Stopping
+  capture uses Chromium's existing user-media/display-media stop callbacks.
 
 ## Clipboard
 

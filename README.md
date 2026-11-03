@@ -97,6 +97,12 @@ that take the color of the page under them, the page on a rounded card,
 and a start page with your workspaces and recently closed tabs one key
 away.
 
+A separate **site-controls button** opens permissions, cookies and certificate
+details on every web page. **Recording/Sharing** stays in the toolbar while
+any tab in the window captures a camera, microphone, screen or tab, even with
+tabs hidden; its menu lets you view the tab or stop capture. Private windows
+keep a visible **Private** label.
+
 ## Keys
 
 Press `?` in the browser to search every command and its current keys. The

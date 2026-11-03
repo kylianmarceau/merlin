@@ -56,6 +56,8 @@ source_set("modal_browser") {
     "merlin_pages.h",
     "merlin_restyle.cc",
     "merlin_restyle.h",
+    "merlin_safety_controls.cc",
+    "merlin_safety_controls.h",
     "merlin_settings_page.cc",
     "merlin_settings_page.h",
     "merlin_start_page.cc",
@@ -96,6 +98,8 @@ source_set("modal_browser") {
     "//ui/views",
   ]
   deps = [
+    "//chrome/browser/media/webrtc",
+    "//ui/native_theme",
     "//base/version_info",
     "//cc/paint",
     "//chrome/app:command_ids",
@@ -193,6 +197,17 @@ source_set("browser_tests") {
     ]
   }
   deps = [
+    "//chrome/browser/media/webrtc",
+    "//chrome/browser/ui/permission_bubble:test_support",
+    "//chrome/browser/ui/tabs/alert:tab_alert",
+    "//chrome/browser/ui/views:bubble_anchor_util_views",
+    "//chrome/browser/ui/views/permissions",
+    "//components/permissions",
+    "//components/permissions:test_support",
+    "//components/security_state/content",
+    "//components/security_state/core",
+    "//ui/color",
+    "//ui/native_theme",
     ":modal_browser",
     "//base",
     "//base/test:test_support",

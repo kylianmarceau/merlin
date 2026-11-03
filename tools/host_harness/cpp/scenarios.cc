@@ -641,6 +641,7 @@ void Workspaces() {
   w.browser.AddTab("https://docs.rs", "Docs", /*background=*/false);
   w.Run("vsplit github.com");
   w.browser.tabs[0].pinned = true;
+  CHECK_EQ_STR(w.Run("workspace project /tmp/research-project"), "");
   CHECK_EQ_STR(w.Run("workspace save research"), "");
   CHECK_EQ_STR(w.browser.snapshot_request, "research");
   w.AnswerSnapshot();
@@ -668,6 +669,7 @@ void Workspaces() {
   CHECK_TRUE(other.browser.restored);
   const WorkspaceRestore& r = other.browser.last_restore;
   CHECK_TRUE(!r.new_window);
+  CHECK_EQ_STR(r.project, "/tmp/research-project");
   CHECK_EQ_INT(r.tabs.size(), 3);
   CHECK_TRUE(r.tabs[0].pinned);
   CHECK_EQ_INT(r.tabs[1].split_with, 2);
@@ -675,6 +677,24 @@ void Workspaces() {
   CHECK_EQ_INT(r.active, 2);
   CHECK_EQ_STR(other.router.workspace(), "research");
   CHECK_EQ_STR(other.browser.message, "Opened workspace research (3 tabs)");
+
+  // Project metadata survives the real bridge/router and the new-window
+  // handoff, then remains in the destination's next autosave.
+  Window occupied;
+  occupied.browser.tabs[0].history = {"https://example.com/"};
+  occupied.router.OnWorkspaceRead("research", true,
+                                  w.browser.workspace_files["research"],
+                                  occupied.browser);
+  const WorkspaceRestore& fresh = occupied.browser.last_restore;
+  CHECK_TRUE(fresh.new_window);
+  CHECK_EQ_STR(fresh.project, "/tmp/research-project");
+  Window destination;
+  destination.router.SetWorkspace(fresh.name, fresh.project);
+  destination.Run("workspace save research");
+  destination.AnswerSnapshot();
+  CHECK_TRUE(destination.browser.workspace_files["research"].find(
+                 "\"project\": \"/tmp/research-project\"") !=
+             std::string::npos);
 
   other.router.OnWorkspaceRead("nope", false, "", other.browser);
   CHECK_EQ_STR(other.browser.message,

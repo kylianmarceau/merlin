@@ -102,6 +102,14 @@ Chromium-side files: `modal_browser_controller` (BrowserOps, observers),
 (temporary file, editor process, save watching), `browserctl_server`
 (Unix socket on the IO thread).
 
+`merlin_safety_controls` supplies the independent site-controls button,
+private-window label and per-window capture menu. It observes Chromium's media
+capture service and the tab model; the tab bar separately subscribes to tab-alert
+changes. Neither control depends on modal keys or the tab strip being visible.
+Patch 0013 routes Page Info and permission anchors to the visible site control
+when Chromium's location bar is hidden. Capture actions use validated tab
+handles and Chromium's stop callbacks.
+
 `overlay/` mirrors Chromium's `src/` layout. `scripts/apply_overlay.sh`
 symlinks the two directories into a checkout, so our code never mixes with
 upstream files.

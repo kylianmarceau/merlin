@@ -64,6 +64,7 @@ class MerlinTabBarHost;
 class PageColorSampler;
 class MerlinAddressField;
 class MerlinNavButton;
+class MerlinSafetyControls;
 class StatusHost;
 
 // Per-window owner of the modal layer. Created and destroyed by
@@ -248,6 +249,12 @@ class ModalBrowserController : public BrowserOps,
   MerlinAdblockButton* adblock_button_for_testing() { return adblock_button_; }
   MerlinTabBarHost* tab_bar_host_for_testing() { return tab_bar_host_.get(); }
   MerlinNavButton* back_button_for_testing() { return back_button_; }
+  MerlinSafetyControls* safety_controls_for_testing() {
+    return safety_controls_;
+  }
+  bool browserctl_enabled_for_testing() const {
+    return router_.browserctl_enabled();
+  }
   // Called after page-side work (hint collection, activation) finishes.
   void set_page_work_done_callback_for_testing(base::RepeatingClosure cb) {
     page_work_done_for_testing_ = std::move(cb);
@@ -348,6 +355,7 @@ class ModalBrowserController : public BrowserOps,
   raw_ptr<MerlinNavButton> reload_button_ = nullptr;
   raw_ptr<MerlinAddressField> address_field_ = nullptr;
   raw_ptr<MerlinAdblockButton> adblock_button_ = nullptr;
+  raw_ptr<MerlinSafetyControls> safety_controls_ = nullptr;
   // Swaps Chromium's field in while the address is edited.
   std::unique_ptr<MerlinAddressEditor> address_editor_;
   // Merlin's tab bar over Chromium's, with tabs on top.

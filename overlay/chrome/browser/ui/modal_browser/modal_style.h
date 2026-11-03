@@ -5,12 +5,17 @@
 #ifndef CHROME_BROWSER_UI_MODAL_BROWSER_MODAL_STYLE_H_
 #define CHROME_BROWSER_UI_MODAL_BROWSER_MODAL_STYLE_H_
 
+#include <optional>
+
 #include "components/modal_browser/ffi/src/lib.rs.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/font_list.h"
 
 namespace views {
 class View;
+}
+namespace ui {
+struct ColorProviderKey;
 }
 
 // The visual language of the modal layer's surfaces (palette, status pill,
@@ -59,6 +64,11 @@ struct Ink {
   SkColor pressed;
 };
 Ink InkOn(SkColor surface);
+
+// Page-derived colours must not override high-contrast or forced-colour UI.
+bool PageColorsAllowed(const ui::ColorProviderKey& key);
+std::optional<SkColor> PageSurface(const views::View* view,
+                                   std::optional<SkColor> surface);
 
 // Fonts. UI text uses the system font; keys and hint labels use a monospaced
 // face so labels line up and are easy to read at a glance.
