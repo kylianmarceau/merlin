@@ -4,8 +4,9 @@ Branch: `feature/merlin-visual-identity`. macOS 27.0.1 (26A434), Apple Silicon.
 Chromium: `157.0.8103.26`. This is a development component build, with isolated
 synthetic browser-test profiles. Evidence was captured from the development
 tree before the merge. Existing browser-safety/workspace prerequisites were
-subsequently recorded separately; unrelated release-policy and review edits
-remain uncommitted. This report does not certify every inventoried UI state.
+subsequently recorded separately; release-policy and review documentation was
+also committed at the maintainer's request before merging. This report does
+not certify every inventoried UI state.
 
 ## Automated results
 

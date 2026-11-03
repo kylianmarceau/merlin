@@ -132,6 +132,15 @@ most used ones:
 
 `Esc` returns to Normal mode. In Passthrough, `Shift+Esc` does.
 
+## Install from GitHub Releases
+
+The release target is a GitHub download without Developer ID signing or
+Apple notarization; a paid Apple Developer account is not required. See
+[release policy and installation steps](docs/RELEASE.md), including macOS's
+**Privacy & Security > Open Anyway** approval for the first launch.
+Distribution packaging and downloaded-artifact acceptance still need
+verification; this is not a claim that a release is already available.
+
 ## Build from source
 
 Merlin is built on top of a Chromium checkout. This repository holds only
@@ -306,6 +315,7 @@ and tests on its own with `cargo`, without a Chromium checkout.
 * [Architecture](docs/ARCHITECTURE.md): how the layers fit together and where Merlin hooks into Chromium
 * [Decisions](docs/DECISIONS.md): what was chosen, why, and what it costs
 * [Testing](docs/TESTING.md): test suites, results and the manual test plan
+* [Release](docs/RELEASE.md): GitHub release scope, remaining packaging checks and unnotarized installation
 * [Upstream](docs/UPSTREAM.md): the pinned Chromium release, every patch, and the update process
 * [Privacy](docs/PRIVACY.md): every file, socket and piece of page data Merlin touches
 * [Ad blocking plan](docs/ADBLOCK_PLAN.md) and [implementation evidence](docs/ADBLOCK_IMPLEMENTATION.md): native Brave engine integration, YouTube qualification and performance gates

@@ -113,9 +113,10 @@ Merlin-owned media components correct that structural gap.
 
 Existing uncommitted work was present when the branch was created. For the merge,
 the browser-safety and workspace prerequisites were recorded in a separate
-commit, retaining the code used by the tested build. Unrelated release-policy
-and review edits remain uncommitted. The pre-existing site-controls, workspace
-and ad-blocking work is not claimed as new identity implementation.
+commit, retaining the code used by the tested build. The release-policy and
+review documentation was subsequently committed at the maintainer's request
+before merging. The pre-existing site-controls, workspace and ad-blocking work
+is not claimed as new identity implementation.
 
 ## Commands and update procedure
 

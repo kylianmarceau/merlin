@@ -163,4 +163,6 @@ and preservation of the old file after cancellation. Test permissions,
 private windows, recovery and extensions as listed in `BETA_REVIEW.md`.
 Record the new pin/build and results in `TESTING.md` and `UPSTREAM.md`, and
 commit the pin plus any patch/API refreshes. This development build still
-needs the separate release/signing work before beta distribution.
+needs the separate GitHub packaging and unnotarized installation checks in
+[Release](RELEASE.md) before beta distribution; Developer ID signing and
+notarization are intentionally out of scope.

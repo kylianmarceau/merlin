@@ -12,6 +12,12 @@ remaining manual qualification are open. This work does not package or
 publish the browser.
 See [the implementation evidence](ADBLOCK_IMPLEMENTATION.md).
 
+Release scope update, 2026-11-02: the maintainer chose GitHub Releases
+without a paid Apple account. Developer ID signing and notarization are
+intentionally excluded, not release blockers. Finish implementation,
+testing and packaging under [the release policy](RELEASE.md), which also
+documents unnotarized installation and supersedes older signing requirements.
+
 Follow-up, 2026-11-01: Chromium **157.0.8103.26** now builds, and the complete
 Merlin browser suite passes **67/67**, including the editor and page-colour
 regressions. The four upstream regression suites pass **136/136** with their
@@ -20,9 +26,22 @@ sensitive-field revalidation, private-window export restrictions,
 document-scoped colour caching and contrast fixes. See `TESTING.md` for the
 build, upstream regression results and validation limits.
 
+Later November 1 implementation: the toolbar now has a separate site-controls
+button, recording/sharing menu with stop actions, and explicit Private label.
+Pinned and compact tabs retain sensitive capture alerts; Page Info and
+permission prompts use the visible replacement anchor (patch 0013), and page
+tints respect high contrast and forced colours. Project metadata survives a
+new-window workspace restore and subsequent save; `workspace here` rechecks
+browserctl eligibility after its asynchronous lookup. All **73 distinct Merlin
+cases** and **136 upstream cases** pass; see `TESTING.md` for the snapshot
+output-directory rerun and suite settings. Permission UI is exercised with a synthetic delegate because
+headless Chromium intentionally denies queued permission requests; actual OS
+permission/device acceptance remains separate.
+
 The review below records the October 31 source state. Remaining external-beta
-work includes dependable site controls and recording indicators, permission/
-accessibility/extension acceptance, a working signed and notarized release,
+work includes the final real-device permission/
+accessibility/extension acceptance, a working GitHub release with verified
+unnotarized installation,
 security delivery, and privacy/license review and notices. Updating Chromium
 and passing the automated suites does not close those gates.
 
@@ -75,7 +94,7 @@ acknowledge a rebase overdue as of October 28.
 
 Rebase, rebuild and retest against the current Stable before distribution.
 Operationalize `scripts/check_upstream.py` and the turnaround targets in
-`docs/UPSTREAM.md`. A small invited beta can use manual signed updates, but
+`docs/UPSTREAM.md`. A small invited beta can use manual GitHub updates, but
 needs a download location, versioned releases, a way to notify every tester,
 and an owner for security fixes. An automatic updater can follow; an absent
 security delivery process cannot.
@@ -132,22 +151,24 @@ replacement controls are confirmed in source; whether every upstream prompt
 still presents correctly is an acceptance-test gap, not a proven universal
 failure. Also verify that private windows remain unmistakably identifiable.
 
-### 4. Finish and exercise the release pipeline
+### 4. Finish and exercise the GitHub release pipeline
 
 `build/args.release.gn` explicitly says it has not been built. The branding
 still uses `MAC_BUNDLE_ID=local.merlin.Merlin` and an empty team ID.
 
-There is also a concrete script defect: `scripts/package_mac.sh:52` executes
+The older signing prototype has a concrete defect: `scripts/package_mac.sh:52` executes
 `chrome/installer/mac/signing/driver.py` directly. In the pinned checkout this
 is a non-executable Python module, with no shebang or top-level entry-point
 call. Chromium documents using the generated Packaging `sign_chrome.py`
-entry point, after building the installer target. Merely obtaining a
-Developer ID will not make the current command work.
+entry point, after building the installer target. This is historical context
+for the prototype, not a requirement to implement Developer ID signing.
 
 Choose the permanent application identity before tester profiles depend on
-it; build the non-component app and packaging target; use the generated
-signing entry point; require an explicit, fresh output artifact; notarize and
-verify the result. Test installation from a downloaded/quarantined artifact
+it; build the non-component app; adapt or replace the packaging prototype
+for the unsigned/unnotarized GitHub path; require an explicit, fresh output
+artifact and verify the result. Skip Developer ID signing and notarization;
+free ad-hoc signing where required is allowed. Test the documented per-app
+approval and installation from a downloaded/quarantined artifact
 on another Mac, launch, renderer processes, permissions, relaunch, update
 replacement and profile retention. Preserve matching symbols/build IDs for
 diagnosing tester crashes.
@@ -251,4 +272,4 @@ Refresh `notes/BETA.md`, the contradictory old testing sections and
 
 Suggested order: editor isolation and browser safety controls; Chromium
 rebase; colour correctness/contrast; fresh build and acceptance tests;
-release signing/distribution and truthful documentation; then aesthetic work.
+GitHub packaging/distribution and truthful documentation; then aesthetic work.

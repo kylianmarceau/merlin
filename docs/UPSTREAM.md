@@ -153,12 +153,14 @@ Before any public build:
   builds reach testers by hand, for now.
 * Never ship with sandbox, site isolation, Safe Browsing interstitials or
   permission checks weakened.
-* Own branding, bundle ID and signing identity; no Google Chrome trademarks
+* Own branding and bundle ID; no Google Chrome trademarks
   or assets. Both build configs set `branding_file_path` to Merlin's
   `BRANDING` (overlay/chrome/app/theme/merlin) and build without
   proprietary codecs or Widevine. Patch 0004 makes the Mac icon follow that
   file, names the product in `chromium_strings.grd` and gives the profile
   its own folder (`CrProductDirName`); patch 0007 renames the product in
   the remaining desktop string files (see the inventory).
+  [Release policy](RELEASE.md): GitHub Releases without Developer ID signing
+  or Apple notarization; neither is a release blocker.
 * Google APIs and Chrome Sync are not available to forks by default
   (chromium.org/developers/how-tos/api-keys); nothing here depends on them.
