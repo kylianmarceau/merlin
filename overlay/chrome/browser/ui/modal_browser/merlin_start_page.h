@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_START_PAGE_H_
 #define CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_START_PAGE_H_
 
+#include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
 #include "content/public/browser/web_ui_controller.h"
 
 class Profile;
@@ -23,8 +24,9 @@ namespace modal_browser {
 // Keys: the page labels items with letters that Merlin leaves unbound in
 // Normal mode (a s w e c x z), and unbound keys already reach the page, so
 // the labels work like link hints without new routing.
-inline constexpr char kMerlinStartHost[] = "merlin-start";
-inline constexpr char kMerlinStartURL[] = "chrome://merlin-start/";
+//
+// Its host and URL (kMerlinStartHost, kMerlinStartURL) live in
+// merlin_process_policy.h, which Chromium's process rules also read.
 
 // Registers the WebUI once per process.
 void InstallMerlinStartPage();

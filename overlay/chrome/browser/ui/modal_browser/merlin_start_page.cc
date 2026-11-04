@@ -608,8 +608,9 @@ class MerlinStartHandler : public content::WebUIMessageHandler {
     }
   }
 
-  // Typed text: ":" runs a command, anything else is opened like `:open`,
-  // which decides between an address and a search.
+  // Typed text: ":" runs a command; the top suggestion opens when the field
+  // still shows it; anything else is opened like `:open`, which decides
+  // between an address and a search.
   void OnGo(const base::ListValue& args) {
     if (args.empty() || !args[0].is_string()) {
       return;
@@ -621,9 +622,25 @@ class MerlinStartHandler : public content::WebUIMessageHandler {
     }
     if (text.front() == ':') {
       RunLine(text.substr(1));
-    } else {
-      RunLine("open " + text);
+      return;
     }
+    // The field still shows the top suggestion: open it, as Chromium's
+    // address bar does on Enter, so a page readied for it is used.
+    if (suggestions_) {
+      // Anything else, `:open` explains why it cannot open.
+      const MerlinSuggestions::Suggestion* top =
+          suggestions_->DefaultFor(base::UTF8ToUTF16(text));
+      if (top && MerlinSuggestions::IsOpenable(top->destination)) {
+        MerlinSuggestions::Suggestion go = *top;
+        // Enter goes there in this tab, even if another tab shows it.
+        if (go.kind == MerlinSuggestions::Kind::kTab) {
+          go.kind = MerlinSuggestions::Kind::kUrl;
+        }
+        OpenHere(go);
+        return;
+      }
+    }
+    RunLine("open " + text);
   }
 
   void OnOpenWorkspace(const base::ListValue& args) {
@@ -691,6 +708,8 @@ class MerlinStartHandler : public content::WebUIMessageHandler {
       suggestions_ = std::make_unique<MerlinSuggestions>(
           profile(), base::BindRepeating(&MerlinStartHandler::OnSuggestions,
                                          base::Unretained(this)));
+      // Suggestions open in this tab, so the likely page is readied here.
+      suggestions_->SetTarget(web_ui()->GetWebContents());
     }
     suggest_id_ = *id;
     suggestions_->Query(base::UTF8ToUTF16(args[0].GetString()),
@@ -733,11 +752,18 @@ class MerlinStartHandler : public content::WebUIMessageHandler {
         static_cast<size_t>(*index) >= suggestions_->results().size()) {
       return;
     }
-    const MerlinSuggestions::Suggestion s = suggestions_->results()[*index];
+    OpenHere(suggestions_->results()[*index]);
+  }
+
+  // An open tab is switched to (Chromium closes this start page when it
+  // does); anything else opens here. Nothing may use `this` after OpenURL,
+  // which can close the tab and so this handler.
+  void OpenHere(MerlinSuggestions::Suggestion s) {
+    if (!MerlinSuggestions::IsOpenable(s.destination)) {
+      return;
+    }
+    suggestions_->Opened(s.destination);
     suggestions_->Stop();
-    // An open tab is switched to (Chromium closes this start page when it
-    // does); anything else opens here. Nothing may use `this` after
-    // OpenURL, which can close the tab and so this handler.
     content::OpenURLParams params(
         s.destination, content::Referrer(),
         s.kind == MerlinSuggestions::Kind::kTab

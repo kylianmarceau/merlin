@@ -86,6 +86,7 @@
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
+#include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
 #include "components/sessions/core/serialized_user_agent_override.h"
@@ -242,6 +243,18 @@ WindowOpenDisposition ToWindowOpenDisposition(ffi::OpenDisposition d) {
 
 // Defence in depth: Rust already refuses these, but the browser side never
 // navigates to script or embedded-content URLs from a command.
+// Memory Saver unloads tabs left alone for a while and reloads them when
+// shown. A default only: the Settings switch stores the user's choice,
+// which wins.
+void SetMemorySaverDefault(PrefService* local_state) {
+  namespace tuning = performance_manager::user_tuning::prefs;
+  if (local_state) {
+    local_state->SetDefaultPrefValue(
+        tuning::kMemorySaverModeState,
+        base::Value(static_cast<int>(tuning::MemorySaverModeState::kEnabled)));
+  }
+}
+
 bool IsAllowedCommandUrl(const GURL& url) {
   return url.is_valid() && !url.SchemeIs(url::kJavaScriptScheme) &&
          !url.SchemeIs(url::kDataScheme) && !url.SchemeIs(url::kBlobScheme) &&
@@ -400,6 +413,7 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
     // Merlin draws its own forward button; Chromium's stays unpinned.
     prefs->SetDefaultPrefValue(prefs::kShowForwardButton, base::Value(false));
   }
+  SetMemorySaverDefault(g_browser_process->local_state());
   // The download count needs the download manager; start it after the
   // window is up instead of during startup.
   content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})

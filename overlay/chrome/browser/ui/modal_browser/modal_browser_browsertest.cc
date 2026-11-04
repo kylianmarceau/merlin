@@ -41,10 +41,13 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
+#include "chrome/browser/predictors/autocomplete_action_predictor.h"
+#include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -61,9 +64,11 @@
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_library_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
+#include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
 #include "chrome/browser/ui/modal_browser/merlin_safety_controls.h"
 #include "chrome/browser/ui/modal_browser/merlin_settings_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
+#include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
 #include "chrome/browser/ui/modal_browser/merlin_toolbar.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
@@ -78,6 +83,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
+#include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
@@ -99,6 +105,7 @@
 #include "components/input/native_web_keyboard_event.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
+#include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/permissions/permission_prompt.h"
 #include "components/permissions/request_type.h"
 #include "components/permissions/test/mock_permission_request.h"
@@ -112,6 +119,7 @@
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -120,6 +128,7 @@
 #include "content/public/browser/web_ui_controller.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/common/extension.h"
 #include "net/dns/mock_host_resolver.h"
@@ -1236,6 +1245,147 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
   EXPECT_NE(results.front().kind, MerlinSuggestions::Kind::kSearch);
   EXPECT_EQ(results.front().detail, u"merlin://version");
   EXPECT_TRUE(results.front().inline_completion.empty());
+}
+
+// -- Speed and memory -------------------------------------------------------
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, StartPagesShareOneProcess) {
+  auto open_start_page = [&] {
+    ui_test_utils::NavigateToURLWithDisposition(
+        browser(), GURL(chrome::kChromeUINewTabURL),
+        WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+    EXPECT_EQ(content::EvalJs(contents(), "document.title"), "Start");
+    return contents()->GetPrimaryMainFrame()->GetProcess();
+  };
+  content::RenderProcessHost* first = open_start_page();
+  content::RenderProcessHost* second = open_start_page();
+  EXPECT_EQ(first, second) << "a second start page started a process";
+  EXPECT_TRUE(ShouldShareMerlinPageProcess(kMerlinStartHost));
+  EXPECT_FALSE(ShouldShareMerlinPageProcess("merlin-settings"));
+
+  // Web pages keep their own processes.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), embedded_test_server()->GetURL("/page"),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  EXPECT_NE(contents()->GetPrimaryMainFrame()->GetProcess(), first);
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NoHiddenTabSearchPage) {
+  EXPECT_FALSE(ShouldPreloadTopChromeWebUI());
+  base::RunLoop().RunUntilIdle();
+  EXPECT_FALSE(
+      WebUIContentsPreloadManager::GetInstance()->preloaded_web_contents());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MemorySaverOnByDefault) {
+  namespace tuning = performance_manager::user_tuning::prefs;
+  PrefService* local = g_browser_process->local_state();
+  EXPECT_TRUE(local->FindPreference(tuning::kMemorySaverModeState)
+                  ->IsDefaultValue());
+  EXPECT_EQ(tuning::GetCurrentMemorySaverModeState(local),
+            tuning::MemorySaverModeState::kEnabled);
+  // Turning it off in Settings is kept.
+  local->SetInteger(tuning::kMemorySaverModeState,
+                    static_cast<int>(tuning::MemorySaverModeState::kDisabled));
+  EXPECT_EQ(tuning::GetCurrentMemorySaverModeState(local),
+            tuning::MemorySaverModeState::kDisabled);
+  local->ClearPref(tuning::kMemorySaverModeState);
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       SuggestionsOpenFromTheAddressBar) {
+  std::vector<MerlinSuggestions::Suggestion> results;
+  MerlinSuggestions suggestions(
+      browser()->GetProfile(),
+      base::BindRepeating(
+          [](std::vector<MerlinSuggestions::Suggestion>* output,
+             const std::vector<MerlinSuggestions::Suggestion>& incoming) {
+            *output = incoming;
+          },
+          &results));
+  suggestions.SetTarget(contents());
+  const GURL target = embedded_test_server()->GetURL("/target");
+  const std::u16string typed = base::UTF8ToUTF16(target.spec());
+  suggestions.Query(typed, false);
+  ASSERT_TRUE(base::test::RunUntil([&] { return !results.empty(); }));
+  const MerlinSuggestions::Suggestion& top = results.front();
+  EXPECT_EQ(top.destination, target);
+  EXPECT_TRUE(top.is_default);
+  EXPECT_TRUE(top.transition & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
+  EXPECT_TRUE(ui::PageTransitionCoreTypeIs(top.transition,
+                                           ui::PAGE_TRANSITION_TYPED));
+  // Enter opens it only while the field shows what was typed.
+  const MerlinSuggestions::Suggestion* shown =
+      suggestions.DefaultFor(u"  " + typed + u" ");
+  ASSERT_TRUE(shown);
+  EXPECT_EQ(shown->destination, target);
+  EXPECT_EQ(suggestions.DefaultFor(u"something else"), nullptr);
+  suggestions.Opened(target);
+
+  EXPECT_FALSE(MerlinSuggestions::IsOpenable(GURL("javascript:alert(1)")));
+  EXPECT_FALSE(MerlinSuggestions::IsOpenable(GURL("data:text/html,x")));
+  EXPECT_TRUE(MerlinSuggestions::IsOpenable(target));
+}
+
+// A page loaded ahead for the address card is the one Enter shows.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       AddressCardUsesThePageLoadedAhead) {
+  NavigateTo("/page");
+  const GURL target = embedded_test_server()->GetURL("/target");
+  // What the predictor does once it is confident the user goes there.
+  predictors::AutocompleteActionPredictorFactory::GetForProfile(
+      browser()->GetProfile())
+      ->StartPrerendering(target, *contents());
+  content::test::PrerenderTestHelper::WaitForPrerenderLoadCompletion(
+      *contents(), target);
+  content::test::PrerenderHostObserver prerender(*contents(), target);
+
+  auto* editor = controller()->address_editor_for_testing();
+  ASSERT_TRUE(editor);
+  controller()->FocusAddressBar();
+  views::Textfield* input = editor->textfield_for_testing();
+  ASSERT_TRUE(input);
+  input->SelectAll(false);
+  input->InsertOrReplaceText(base::UTF8ToUTF16(target.spec()));
+  ui::KeyEvent enter(ui::EventType::kKeyPressed, ui::VKEY_RETURN, ui::EF_NONE);
+  input->OnKeyEvent(&enter);
+  prerender.WaitForActivation();
+  EXPECT_TRUE(prerender.was_activated());
+  EXPECT_EQ(contents()->GetLastCommittedURL(), target);
+}
+
+// Enter on the start page opens the suggestion the field shows, from the
+// address bar, so a page loaded ahead for it can be used.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, StartPageEnterOpensTopMatch) {
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL(chrome::kChromeUINewTabURL),
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return content::EvalJs(contents(), "document.activeElement.id") == "q";
+  }));
+  const GURL target = embedded_test_server()->GetURL("/target");
+  ASSERT_TRUE(content::ExecJs(
+      contents(), content::JsReplace("const q = document.getElementById('q');"
+                                     "q.value = $1;"
+                                     "q.dispatchEvent(new Event('input'));",
+                                     target.spec())));
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return content::EvalJs(contents(),
+                           "!document.getElementById('sug').hidden") == true;
+  }));
+  content::TestNavigationObserver navigation(contents());
+  ASSERT_TRUE(content::ExecJs(contents(),
+                              "document.getElementById('go').requestSubmit()"));
+  navigation.Wait();
+  EXPECT_EQ(contents()->GetLastCommittedURL(), target);
+  const ui::PageTransition transition =
+      contents()->GetController().GetLastCommittedEntry()->GetTransitionType();
+  EXPECT_TRUE(transition & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
+  EXPECT_TRUE(
+      ui::PageTransitionCoreTypeIs(transition, ui::PAGE_TRANSITION_TYPED));
 }
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
