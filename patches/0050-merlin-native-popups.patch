@@ -105,12 +105,13 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_or
  
    auto* label = line_container->AddChildView(
        std::make_unique<views::Label>(request->GetMessageTextFragment()));
-@@ -223,6 +237,10 @@
+@@ -223,6 +237,11 @@
  
    label->SetTextStyle(views::style::STYLE_BODY_3);
    label->SetEnabledColor(kColorPermissionPromptRequestText);
 +  if (merlin) {
 +    label->SetFontList(modal_browser::popup::RowTitleFont());
++    label->SetEnabledColor(ui::kColorSysOnSurface);
 +    line_layout->SetFlexForView(label, 1);
 +  }
  
@@ -266,7 +267,39 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
  #include "ui/views/metadata/view_factory.h"
  #include "ui/views/style/typography.h"
  #include "ui/views/view.h"
-@@ -490,6 +493,88 @@
+@@ -328,6 +331,12 @@
+       flags.setAntiAlias(true);
+       flags.setColor(
+           GetColorProvider()->GetColor(ui::kColorMenuItemBackgroundSelected));
++      if (views::merlin_style::IsEnabled()) {
++        gfx::RectF pill(GetLocalBounds());
++        pill.Inset(gfx::InsetsF::VH(1, views::merlin_style::kRowInset));
++        canvas->DrawRoundRect(pill, views::merlin_style::kRowRadius, flags);
++        return;
++      }
+       canvas->DrawRect(GetLocalBounds(), flags);
+     }
+   }
+@@ -335,6 +344,18 @@
+ 
+ BEGIN_METADATA(MenuButtonRowView)
+ END_METADATA
++
++// Merlin puts each group of menu rows on a card instead of between rules.
++void UseMerlinRowCard(views::View* container) {
++  modal_browser::popup::StyleAsCard(container);
++  container->SetProperty(
++      views::kMarginsKey,
++      gfx::Insets::TLBR(4, kIdentityContainerMargin, 4,
++                        kIdentityContainerMargin));
++  container->SetLayoutManager(std::make_unique<views::BoxLayout>(
++      views::BoxLayout::Orientation::kVertical,
++      gfx::Insets::VH(modal_browser::popup::kCardInset, 0)));
++}
+ 
+ }  // namespace
+ 
+@@ -490,6 +511,88 @@
    // does not support a button without subtitle.
  
    identity_info_container_->RemoveAllChildViews();
@@ -355,3 +388,85 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
    // Vertical BoxLayout.
    auto box_layout =
        CreateBoxLayout(views::BoxLayout::Orientation::kVertical,
+@@ -667,8 +770,13 @@
+     user_education::DisplayNewBadge display_new_badge) {
+   // Initialize layout if this is the first time a button is added.
+   if (!features_container_->GetLayoutManager()) {
+-    features_container_->SetLayoutManager(std::make_unique<views::BoxLayout>(
+-        views::BoxLayout::Orientation::kVertical));
++    if (views::merlin_style::IsEnabled()) {
++      UseMerlinRowCard(features_container_);
++    } else {
++      features_container_->SetLayoutManager(
++          std::make_unique<views::BoxLayout>(
++              views::BoxLayout::Orientation::kVertical));
++    }
+   }
+ 
+   // `HoverButton` renders the "New" badge and appends its screen reader
+@@ -684,6 +792,22 @@
+ void ProfileMenuViewBase::SetProfileManagementHeading(
+     const std::u16string& heading) {
+   profile_mgmt_heading_ = heading;
++
++  if (views::merlin_style::IsEnabled()) {
++    // A small section label above the profiles card; no rule.
++    profile_mgmt_heading_container_->RemoveAllChildViews();
++    profile_mgmt_heading_container_->SetLayoutManager(
++        std::make_unique<views::FillLayout>());
++    profile_mgmt_heading_container_->SetBorder(views::CreateEmptyBorder(
++        gfx::Insets::TLBR(12, kIdentityContainerMargin + 12, 2,
++                          kIdentityContainerMargin)));
++    views::Label* label = profile_mgmt_heading_container_->AddChildView(
++        std::make_unique<views::Label>(heading, views::style::CONTEXT_LABEL));
++    modal_browser::popup::StyleSecondary(label);
++    label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
++    label->SetHandlesTooltips(false);
++    return;
++  }
+ 
+   // Add separator before heading.
+   profile_mgmt_separator_container_->RemoveAllChildViews();
+@@ -719,9 +843,13 @@
+     const std::u16string& extra_accessible_text) {
+   // Initialize layout if this is the first time a button is added.
+   if (!selectable_profiles_container_->GetLayoutManager()) {
+-    selectable_profiles_container_->SetLayoutManager(
+-        std::make_unique<views::BoxLayout>(
+-            views::BoxLayout::Orientation::kVertical));
++    if (views::merlin_style::IsEnabled()) {
++      UseMerlinRowCard(selectable_profiles_container_);
++    } else {
++      selectable_profiles_container_->SetLayoutManager(
++          std::make_unique<views::BoxLayout>(
++              views::BoxLayout::Orientation::kVertical));
++    }
+     // Give the container an accessible name so accessibility tools can provide
+     // context for the buttons inside it. The role change is required by Windows
+     // ATs.
+@@ -752,6 +880,9 @@
+ }
+ 
+ void ProfileMenuViewBase::AddProfileManagementFeaturesSeparator() {
++  if (views::merlin_style::IsEnabled()) {
++    return;
++  }
+   // Add separator before profile management features.
+   profile_mgmt_features_separator_container_->RemoveAllChildViews();
+   profile_mgmt_features_separator_container_->SetLayoutManager(
+@@ -777,6 +908,15 @@
+ 
+ void ProfileMenuViewBase::AddBottomMargin() {
+   // Create an empty container with a bottom margin.
++  if (!profile_mgmt_features_container_->GetLayoutManager() &&
++      views::merlin_style::IsEnabled()) {
++    UseMerlinRowCard(profile_mgmt_features_container_);
++    profile_mgmt_features_container_->SetProperty(
++        views::kMarginsKey,
++        gfx::Insets::TLBR(4, kIdentityContainerMargin, kIdentityContainerMargin,
++                          kIdentityContainerMargin));
++    return;
++  }
+   if (!profile_mgmt_features_container_->GetLayoutManager()) {
+     profile_mgmt_features_container_->SetLayoutManager(
+         std::make_unique<views::BoxLayout>(
