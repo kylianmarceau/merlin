@@ -246,6 +246,9 @@ class ModalBrowserController : public BrowserOps,
   std::string workspace_for_testing() const { return router_.workspace(); }
   ExternalEditor* field_editor_for_testing() { return field_editor_.get(); }
   MerlinAddressField* address_field_for_testing() { return address_field_; }
+  MerlinAddressEditor* address_editor_for_testing() {
+    return address_editor_.get();
+  }
   MerlinAdblockButton* adblock_button_for_testing() { return adblock_button_; }
   MerlinTabBarHost* tab_bar_host_for_testing() { return tab_bar_host_.get(); }
   MerlinNavButton* back_button_for_testing() { return back_button_; }

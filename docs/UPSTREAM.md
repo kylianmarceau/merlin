@@ -59,7 +59,14 @@ scripts/check_upstream.py
 ```
 
 compares `UPSTREAM_PIN` with the newest Mac Stable on chromiumdash (exit 1
-when behind). The October 31 check selected **157.0.8103.26**; the live check
+when behind). Exit 0 requires both the version and Chromium commit to match
+the Mac Stable response. Exit 2 means the check is unconfirmed: the pin is
+ahead, the commits differ, the response is invalid, or the request failed.
+An ahead pin is not automatically treated as Stable or a request to downgrade.
+`--json` includes `status`, both commits and the existing `rebase_due` field;
+an unsuccessful fetch/validation reports `status: "error"` and
+`rebase_due: null`. Automation should check the exit status as well.
+The October 31 check selected **157.0.8103.26**; the live check
 on November 1 confirmed it is still current. Run the checker again before
 distributing a build, and on a schedule
 (daily CI or a cron job) once there are testers.

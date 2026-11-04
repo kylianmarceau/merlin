@@ -31,7 +31,9 @@ scripts/check_upstream.py
 ```
 
 Exit status 1 from this checker means an update is due, not that downloading
-failed. Review and commit the overlay fixes (or otherwise back them up) before
+failed. Exit 2 means it could not confirm the pin against current Mac Stable
+(including an ahead version or mismatched commit); inspect the result before
+changing the pin. Review and commit the overlay fixes (or otherwise back them up) before
 changing the pin. Do not include local build logs accidentally.
 
 First test the existing patch set against the new tag without modifying the

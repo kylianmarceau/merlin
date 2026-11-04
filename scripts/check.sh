@@ -12,6 +12,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 echo "==> cargo test (Rust core, bridge, C++ host harness)"
 cargo test --workspace
 
+echo "==> upstream checker and browser test runner regressions"
+python3 -m unittest discover -s scripts -p 'test_browser_tools.py'
+
 echo "==> page scripts parse (needs node; skipped without it)"
 scripts/check_page_scripts.py
 if command -v node >/dev/null 2>&1; then

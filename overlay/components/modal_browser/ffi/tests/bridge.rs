@@ -14,6 +14,37 @@ const NONE: Modifiers = Modifiers {
     meta: false,
 };
 
+#[test]
+fn address_alias_translation_reuses_command_policy() {
+    use modal_browser_ffi::merlin_internal_url;
+    assert_eq!(
+        merlin_internal_url(" merlin://version "),
+        "chrome://version"
+    );
+    assert_eq!(
+        merlin_internal_url("MERLIN://start/?q=a#b"),
+        "chrome://merlin-start/?q=a#b"
+    );
+    assert_eq!(merlin_internal_url("merlin://startup"), "chrome://startup");
+    assert_eq!(
+        merlin_internal_url("merlin://settings/keys"),
+        "chrome://settings/keys"
+    );
+    for text in [
+        "https://example.com/merlin://start",
+        "javascript:alert(1)",
+        "data:text/plain,hello",
+        "?merlin://start",
+        "merlin://settings search",
+    ] {
+        assert_eq!(merlin_internal_url(text), "", "{text}");
+    }
+    assert_eq!(
+        merlin_internal_url(&format!("merlin://{}", "a".repeat(8192))),
+        ""
+    );
+}
+
 fn page() -> FocusState {
     FocusState {
         kind: FocusKind::Page,

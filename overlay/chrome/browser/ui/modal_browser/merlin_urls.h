@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_URLS_H_
 
 #include <string>
+#include <string_view>
 
 class GURL;
 
@@ -17,6 +18,10 @@ namespace modal_browser {
 // and typing merlin://x opens chrome://x (core/src/target.rs). With
 // --modal-browser-upstream-defaults, chrome:// stays chrome://.
 std::string MerlinDisplayUrl(const GURL& url);
+
+// Translate a typed merlin:// alias with the command core's URL policy.
+// Returns an empty URL for ordinary addresses/searches or invalid input.
+GURL MerlinInternalUrl(std::u16string_view text);
 
 }  // namespace modal_browser
 

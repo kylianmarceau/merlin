@@ -722,6 +722,9 @@ mod ffi {
         fn ipc_reply_tab(id: i64, tab: IpcTab) -> String;
         fn ipc_reply_names(id: i64, names: Vec<String>) -> String;
 
+        /// Translate only a Merlin internal-page alias; empty for other input.
+        fn merlin_internal_url(text: &str) -> String;
+
         /// Whether a file stem is a valid workspace name.
         fn is_workspace_name(name: &str) -> bool;
         /// The editor argv with `{file}` replaced by `path`.
@@ -746,6 +749,20 @@ pub use ffi::{
 #[derive(Debug, Default)]
 pub struct Session {
     inner: ModalSession,
+}
+
+pub fn merlin_internal_url(text: &str) -> String {
+    if !text
+        .trim()
+        .split_once(':')
+        .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case(core_api::target::MERLIN_SCHEME))
+    {
+        return String::new();
+    }
+    match core_api::target::classify(text) {
+        Ok(OpenTarget::Url(url)) => url,
+        _ => String::new(),
+    }
 }
 
 pub fn new_session() -> Box<Session> {

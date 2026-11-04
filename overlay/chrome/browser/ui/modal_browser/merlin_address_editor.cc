@@ -10,12 +10,14 @@
 #include "base/auto_reset.h"
 #include "base/functional/bind.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
+#include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/modal_style.h"
 #include "chrome/browser/ui/modal_browser/paint_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -30,6 +32,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
+#include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -76,10 +79,44 @@ bool IsOpenable(const GURL& url) {
          !url.SchemeIs(url::kFileSystemScheme);
 }
 
+// The card paints the rows, but each has a real accessibility node and action.
+// Keyboard focus stays in the textfield, just as in Chromium's omnibox.
+class MerlinAddressOption : public views::View {
+  METADATA_HEADER(MerlinAddressOption, views::View)
+
+ public:
+  MerlinAddressOption(MerlinAddressEditor* editor, int index)
+      : editor_(editor), index_(index) {
+    SetFocusBehavior(FocusBehavior::NEVER);
+    GetViewAccessibility().SetRole(ax::mojom::Role::kListBoxOption);
+    GetViewAccessibility().SetDefaultActionVerb(
+        ax::mojom::DefaultActionVerb::kClick);
+  }
+
+  bool HandleAccessibleAction(const ui::AXActionData& action) override {
+    if (action.action == ax::mojom::Action::kFocus) {
+      editor_->SelectRow(index_);
+      return true;
+    }
+    if (action.action == ax::mojom::Action::kDoDefault) {
+      editor_->OpenRow(index_, WindowOpenDisposition::CURRENT_TAB);
+      return true;
+    }
+    return views::View::HandleAccessibleAction(action);
+  }
+
+ private:
+  const raw_ptr<MerlinAddressEditor> editor_;
+  const int index_;
+};
+
+BEGIN_METADATA(MerlinAddressOption)
+END_METADATA
+
 }  // namespace
 
-// The card: the address on top, suggestions under a hairline. Rows are
-// painted, not views, and never take focus, so the address keeps it.
+// The card: the address on top, suggestions under a hairline. Transparent
+// option views expose the painted rows without taking keyboard or mouse focus.
 class MerlinAddressCard : public views::View {
   METADATA_HEADER(MerlinAddressCard, views::View)
 
@@ -92,8 +129,7 @@ class MerlinAddressCard : public views::View {
   };
 
   explicit MerlinAddressCard(MerlinAddressEditor* editor) : editor_(editor) {
-    GetViewAccessibility().SetRole(ax::mojom::Role::kListBox);
-    GetViewAccessibility().SetName(u"Suggestions");
+    GetViewAccessibility().SetRole(ax::mojom::Role::kGroup);
     auto textfield = std::make_unique<views::Textfield>();
     textfield->set_controller(editor);
     textfield->SetBorder(views::NullBorder());
@@ -101,18 +137,82 @@ class MerlinAddressCard : public views::View {
     textfield->SetFontList(style::UiFont());
     textfield->SetPlaceholderText(u"Search or enter address");
     textfield->GetViewAccessibility().SetName(u"Address and search bar");
+    textfield->GetViewAccessibility().SetAutoComplete("both");
+    textfield->GetViewAccessibility().SetHasPopup(
+        ax::mojom::HasPopup::kListbox);
+    textfield->GetViewAccessibility().SetIsCollapsed();
     textfield_ = AddChildView(std::move(textfield));
+    auto list = std::make_unique<views::View>();
+    list->GetViewAccessibility().SetRole(ax::mojom::Role::kListBox);
+    list->GetViewAccessibility().SetName(u"Suggestions");
+    list->SetCanProcessEventsWithinSubtree(false);
+    list->SetVisible(false);
+    list_ = AddChildView(std::move(list));
   }
   MerlinAddressCard(const MerlinAddressCard&) = delete;
   MerlinAddressCard& operator=(const MerlinAddressCard&) = delete;
   ~MerlinAddressCard() override = default;
 
   views::Textfield* textfield() { return textfield_; }
+  views::View* list() { return list_; }
   const std::vector<Row>& rows() const { return rows_; }
 
   void SetRows(std::vector<Row> rows, int selected) {
+    const bool changed = rows.size() != rows_.size() ||
+                         !std::equal(rows.begin(), rows.end(), rows_.begin(),
+                                     [](const Row& a, const Row& b) {
+                                       return a.kind == b.kind &&
+                                              a.title == b.title &&
+                                              a.detail == b.detail;
+                                     });
     rows_ = std::move(rows);
     selected_ = selected;
+    auto& field_ax = textfield_->GetViewAccessibility();
+    if (rows_.size() < list_->children().size())
+      field_ax.ClearActiveDescendant();
+    // Reuse option views so arrow selection and favicon delivery keep IDs.
+    while (list_->children().size() > rows_.size())
+      list_->RemoveChildViewT(list_->children().back());
+    while (list_->children().size() < rows_.size())
+      list_->AddChildView(std::make_unique<MerlinAddressOption>(
+          editor_, static_cast<int>(list_->children().size())));
+    list_->SetVisible(!rows_.empty());
+    for (size_t i = 0; i < rows_.size(); ++i) {
+      const Row& row = rows_[i];
+      std::u16string name = row.title;
+      if (!row.detail.empty() && row.detail != row.title)
+        name += u", " + row.detail;
+      if (row.kind == MerlinSuggestions::Kind::kTab)
+        name += u", Switch to tab";
+      auto& option = list_->children()[i]->GetViewAccessibility();
+      option.SetName(name);
+      option.SetIsSelected(static_cast<int>(i) == selected_);
+      option.SetPosInSet(static_cast<int>(i + 1));
+      option.SetSetSize(static_cast<int>(rows_.size()));
+    }
+    if (rows_.empty()) {
+      field_ax.SetIsCollapsed();
+      field_ax.RemoveControlIds();
+    } else {
+      field_ax.SetIsExpanded();
+      field_ax.SetControlIds({list_->GetViewAccessibility().GetUniqueId()});
+      if (selected_ >= 0 && selected_ < static_cast<int>(rows_.size())) {
+        auto& option = list_->children()[selected_]->GetViewAccessibility();
+        if (changed && field_ax.GetActiveDescendantView() == &option) {
+          // The selected index can stay the same while its result changes.
+          field_ax.NotifyEvent(ax::mojom::Event::kActiveDescendantChanged,
+                               true);
+          option.NotifyEvent(ax::mojom::Event::kSelection, true);
+        } else {
+          field_ax.SetActiveDescendant(option);
+        }
+      } else {
+        field_ax.ClearActiveDescendant();
+      }
+    }
+    if (changed)
+      list_->GetViewAccessibility().NotifyEvent(
+          ax::mojom::Event::kChildrenChanged, true);
     hovered_ = -1;
     pressed_ = -1;
     InvalidateLayout();
@@ -135,6 +235,13 @@ class MerlinAddressCard : public views::View {
     textfield_->SetBounds(card.x() + kInputPadX, card.y(),
                           std::max(0, card.width() - 2 * kInputPadX),
                           kInputHeight);
+    list_->SetBounds(card.x() + kRowInsetX,
+                     card.y() + kInputHeight + 1 + kListPadTop,
+                     std::max(0, card.width() - 2 * kRowInsetX),
+                     static_cast<int>(rows_.size()) * kRowHeight);
+    for (size_t i = 0; i < list_->children().size(); ++i)
+      list_->children()[i]->SetBounds(0, static_cast<int>(i) * kRowHeight,
+                                      list_->width(), kRowHeight);
   }
 
   void OnPaint(gfx::Canvas* canvas) override {
@@ -289,6 +396,7 @@ class MerlinAddressCard : public views::View {
 
   const raw_ptr<MerlinAddressEditor> editor_;
   raw_ptr<views::Textfield> textfield_ = nullptr;
+  raw_ptr<views::View> list_ = nullptr;
   std::vector<Row> rows_;
   int selected_ = -1;
   int hovered_ = -1;
@@ -325,6 +433,14 @@ MerlinAddressEditor::~MerlinAddressEditor() {
   StopWatching();
 }
 
+views::Textfield* MerlinAddressEditor::textfield_for_testing() {
+  return card_ ? card_->textfield() : nullptr;
+}
+
+views::View* MerlinAddressEditor::suggestions_for_testing() {
+  return card_ ? card_->list() : nullptr;
+}
+
 void MerlinAddressEditor::Begin() {
   if (!card_) {
     card_ = static_cast<MerlinAddressCard*>(host_.EnsureWidget(base::BindOnce(
@@ -348,9 +464,11 @@ void MerlinAddressEditor::Begin() {
                               (url.host() == kMerlinStartHost ||
                                url.host() == "newtab");
       if (!start_page && !url.is_empty()) {
-        text = url_formatter::FormatUrl(
-            url, url_formatter::kFormatUrlOmitDefaults,
-            base::UnescapeRule::SPACES, nullptr, nullptr, nullptr);
+        text = url.SchemeIs(content::kChromeUIScheme)
+                   ? base::UTF8ToUTF16(MerlinDisplayUrl(url))
+                   : url_formatter::FormatUrl(
+                         url, url_formatter::kFormatUrlOmitDefaults,
+                         base::UnescapeRule::SPACES, nullptr, nullptr, nullptr);
       }
     }
     typed_ = text;
@@ -396,6 +514,7 @@ void MerlinAddressEditor::End() {
     icons_.clear();
   }
   results_.clear();
+  UpdateCard();
   host_.Hide();
   on_end_.Run();
 }
@@ -560,6 +679,8 @@ bool MerlinAddressEditor::HandleKeyEvent(views::Textfield* sender,
 }
 
 void MerlinAddressEditor::SelectRow(int index) {
+  if (index < 0 || index >= static_cast<int>(results_.size()))
+    return;
   selected_ = index;
   UpdateCard();
 }
@@ -579,6 +700,10 @@ void MerlinAddressEditor::OpenRow(int index, WindowOpenDisposition disposition) 
 void MerlinAddressEditor::OpenTyped(WindowOpenDisposition disposition) {
   const std::u16string text(card_->textfield()->GetText());
   if (base::TrimWhitespace(text, base::TRIM_ALL).empty()) {
+    return;
+  }
+  if (const GURL internal = MerlinInternalUrl(text); internal.is_valid()) {
+    Open(internal, ui::PAGE_TRANSITION_TYPED, disposition);
     return;
   }
   // The same reading Chromium's field gives: an address, or a search with

@@ -6,9 +6,11 @@
 
 #include <utility>
 
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_provider_client.h"
 #include "chrome/browser/autocomplete/chrome_autocomplete_scheme_classifier.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_controller_config.h"
 #include "components/omnibox/browser/autocomplete_enums.h"
@@ -79,10 +81,13 @@ void MerlinSuggestions::Query(const std::u16string& text,
   // Classified like Chromium's address bar on a new tab page: pages from
   // history and bookmarks rank as they do there (a search-box
   // classification would favor searches over youtube.com for "youtu").
+  const GURL internal = MerlinInternalUrl(text);
   AutocompleteInput input(
-      text, metrics::OmniboxEventProto::INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS,
+      internal.is_valid() ? base::UTF8ToUTF16(internal.spec()) : text,
+      metrics::OmniboxEventProto::INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS,
       ChromeAutocompleteSchemeClassifier(profile_));
-  input.set_prevent_inline_autocomplete(prevent_inline);
+  // A completion suffix for chrome:// cannot be appended to merlin:// input.
+  input.set_prevent_inline_autocomplete(prevent_inline || internal.is_valid());
   input.set_focus_type(metrics::OmniboxFocusType::INTERACTION_DEFAULT);
   controller_->Start(input);
 }
@@ -115,6 +120,11 @@ void MerlinSuggestions::OnResultChanged(AutocompleteController* controller,
                    : Kind::kUrl;
       s.title = match.description.empty() ? match.contents : match.description;
       s.detail = match.contents;
+      if (s.destination.SchemeIs("chrome")) {
+        s.detail = base::UTF8ToUTF16(MerlinDisplayUrl(s.destination));
+        if (match.description.empty())
+          s.title = s.detail;
+      }
     }
     // Only the default match may complete the field, as in Chromium.
     if (results_.empty() && match.allowed_to_be_default_match) {

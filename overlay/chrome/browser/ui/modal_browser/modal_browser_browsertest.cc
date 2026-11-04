@@ -58,6 +58,7 @@
 #include "chrome/browser/ui/modal_browser/config_file.h"
 #include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
+#include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_library_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 #include "chrome/browser/ui/modal_browser/merlin_safety_controls.h"
@@ -128,6 +129,7 @@
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkImage.h"
+#include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
@@ -146,15 +148,27 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
 #include "ui/native_theme/native_theme.h"
+#include "ui/views/accessibility/ax_update_notifier.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/test/ax_event_counter.h"
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/test/views_drawing_test_utils.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 
 namespace modal_browser {
+
+// Deterministic result fixtures exercise the real card's accessibility and
+// actions without relying on remote suggestions or a populated user history.
+struct MerlinAddressEditorTestPeer {
+  static void Results(MerlinAddressEditor& editor,
+                      std::vector<MerlinSuggestions::Suggestion> results) {
+    editor.suggestions_->Stop();
+    editor.OnResults(results);
+  }
+};
 
 // Supplies compositor results deterministically without depending on GPU timing.
 struct PageColorSamplerTestPeer {
@@ -1151,6 +1165,187 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinUrlsInBarAndPalette) {
     listed |= tab.url == "merlin://version";
   }
   EXPECT_TRUE(listed);
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       MerlinAddressCardInternalAliases) {
+  auto* editor = controller()->address_editor_for_testing();
+  ASSERT_TRUE(editor);
+  const std::pair<std::u16string, GURL> aliases[] = {
+      {u"merlin://version", GURL("chrome://version/")},
+      {u"merlin://settings", GURL("chrome://settings/")},
+      {u"merlin://settings/keys", GURL("chrome://settings/keys")},
+      {u"merlin://start", GURL("chrome://merlin-start/")},
+      {u"  MERLIN://version/?q=a#b  ", GURL("chrome://version/?q=a#b")},
+  };
+  for (const auto& [typed, expected] : aliases) {
+    NavigateTo("/page");
+    controller()->FocusAddressBar();
+    ASSERT_TRUE(editor->editing());
+    views::Textfield* input = editor->textfield_for_testing();
+    ASSERT_TRUE(input);
+    input->SelectAll(false);
+    input->InsertOrReplaceText(typed);
+    content::TestNavigationObserver navigation(contents());
+    ui::KeyEvent enter(ui::EventType::kKeyPressed, ui::VKEY_RETURN,
+                       ui::EF_NONE);
+    input->OnKeyEvent(&enter);
+    navigation.Wait();
+    EXPECT_EQ(contents()->GetLastCommittedURL(), expected);
+    EXPECT_FALSE(editor->editing());
+
+    // Reopening the card shows the same alias as the passive address field.
+    if (expected.host() != "merlin-start") {
+      controller()->FocusAddressBar();
+      ASSERT_TRUE(editor->editing());
+      EXPECT_EQ(input->GetText(),
+                base::UTF8ToUTF16(MerlinDisplayUrl(expected)));
+      EXPECT_EQ(input->GetSelectedText(), input->GetText());
+      editor->End();
+    }
+  }
+
+  // Ordinary URLs retain Chromium classification and native Enter behavior.
+  NavigateTo("/page");
+  controller()->FocusAddressBar();
+  auto* input = editor->textfield_for_testing();
+  input->SelectAll(false);
+  const GURL target = embedded_test_server()->GetURL("/target");
+  input->InsertOrReplaceText(base::UTF8ToUTF16(target.spec()));
+  content::TestNavigationObserver navigation(contents());
+  ui::KeyEvent enter(ui::EventType::kKeyPressed, ui::VKEY_RETURN, ui::EF_NONE);
+  input->OnKeyEvent(&enter);
+  navigation.Wait();
+  EXPECT_EQ(contents()->GetLastCommittedURL(), target);
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       MerlinInternalAddressSuggestions) {
+  std::vector<MerlinSuggestions::Suggestion> results;
+  MerlinSuggestions suggestions(
+      browser()->GetProfile(),
+      base::BindRepeating(
+          [](std::vector<MerlinSuggestions::Suggestion>* output,
+             const std::vector<MerlinSuggestions::Suggestion>& incoming) {
+            *output = incoming;
+          },
+          &results));
+  suggestions.Query(u"merlin://version", false);
+  ASSERT_TRUE(base::test::RunUntil([&] { return !results.empty(); }));
+  EXPECT_EQ(results.front().destination, GURL("chrome://version/"));
+  EXPECT_NE(results.front().kind, MerlinSuggestions::Kind::kSearch);
+  EXPECT_EQ(results.front().detail, u"merlin://version");
+  EXPECT_TRUE(results.front().inline_completion.empty());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       MerlinAddressSuggestionsAccessibility) {
+  controller()->FocusAddressBar();
+  auto* editor = controller()->address_editor_for_testing();
+  ASSERT_TRUE(editor);
+  ASSERT_TRUE(editor->editing());
+  auto* input = editor->textfield_for_testing();
+  auto* list = editor->suggestions_for_testing();
+  ASSERT_TRUE(input);
+  ASSERT_TRUE(list);
+  auto* focus = input->GetFocusManager();
+  EXPECT_EQ(focus->GetStoredFocusView(), input);
+  const GURL target = embedded_test_server()->GetURL("/target");
+  const std::vector<MerlinSuggestions::Suggestion> results = {
+      {.kind = MerlinSuggestions::Kind::kSearch,
+       .title = u"Search documentation",
+       .destination = target},
+      {.kind = MerlinSuggestions::Kind::kUrl,
+       .title = u"Example docs",
+       .detail = u"example.test/docs",
+       .destination = target},
+      {.kind = MerlinSuggestions::Kind::kTab,
+       .title = u"Existing tab",
+       .detail = u"example.test/tab",
+       .destination = target},
+  };
+  views::test::AXEventCounter events(views::AXUpdateNotifier::Get());
+  MerlinAddressEditorTestPeer::Results(*editor, results);
+  ASSERT_EQ(list->children().size(), 3u);
+  EXPECT_TRUE(list->GetVisible());
+  ui::AXNodeData field_data;
+  input->GetViewAccessibility().GetAccessibleNodeData(&field_data);
+  EXPECT_TRUE(field_data.HasState(ax::mojom::State::kExpanded));
+  EXPECT_EQ(
+      field_data.GetIntListAttribute(ax::mojom::IntListAttribute::kControlsIds),
+      std::vector<int32_t>{list->GetViewAccessibility().GetUniqueId()});
+  EXPECT_EQ(input->GetViewAccessibility().GetActiveDescendantView(),
+            &list->children()[0]->GetViewAccessibility());
+  for (size_t i = 0; i < list->children().size(); ++i) {
+    ui::AXNodeData option;
+    list->children()[i]->GetViewAccessibility().GetAccessibleNodeData(&option);
+    EXPECT_EQ(option.role, ax::mojom::Role::kListBoxOption);
+    EXPECT_FALSE(list->children()[i]->GetViewAccessibility().GetIsIgnored());
+    EXPECT_EQ(option.GetBoolAttribute(ax::mojom::BoolAttribute::kSelected),
+              i == 0);
+    EXPECT_EQ(option.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet),
+              static_cast<int>(i + 1));
+    EXPECT_EQ(option.GetIntAttribute(ax::mojom::IntAttribute::kSetSize), 3);
+    EXPECT_FALSE(list->children()[i]->bounds().IsEmpty());
+  }
+  ui::AXNodeData tab_data;
+  list->children()[2]->GetViewAccessibility().GetAccessibleNodeData(&tab_data);
+  EXPECT_EQ(tab_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
+            u"Existing tab, example.test/tab, Switch to tab");
+
+  views::View* second = list->children()[1];
+  events.ResetAllCounts();
+  ui::KeyEvent down(ui::EventType::kKeyPressed, ui::VKEY_DOWN, ui::EF_NONE);
+  input->OnKeyEvent(&down);
+  EXPECT_EQ(input->GetViewAccessibility().GetActiveDescendantView(),
+            &second->GetViewAccessibility());
+  EXPECT_EQ(list->children()[1], second);
+  EXPECT_GT(events.GetCount(ax::mojom::Event::kActiveDescendantChanged, input),
+            0);
+  EXPECT_GT(events.GetCount(ax::mojom::Event::kSelection, second), 0);
+  EXPECT_EQ(focus->GetStoredFocusView(), input);
+
+  // New results at the same selected index must still be announced.
+  events.ResetAllCounts();
+  auto updated = results;
+  updated[1].title = u"Updated documentation";
+  MerlinAddressEditorTestPeer::Results(*editor, updated);
+  EXPECT_EQ(list->children()[1], second);
+  EXPECT_GT(events.GetCount(ax::mojom::Event::kActiveDescendantChanged, input),
+            0);
+
+  ui::AXActionData select;
+  select.action = ax::mojom::Action::kFocus;
+  EXPECT_TRUE(list->children()[2]->HandleAccessibleAction(select));
+  EXPECT_EQ(input->GetViewAccessibility().GetActiveDescendantView(),
+            &list->children()[2]->GetViewAccessibility());
+  EXPECT_EQ(focus->GetStoredFocusView(), input);
+
+  // Shrinking/replacing results must not leave a dangling active option.
+  MerlinAddressEditorTestPeer::Results(*editor, {results[1]});
+  ASSERT_EQ(list->children().size(), 1u);
+  EXPECT_EQ(input->GetViewAccessibility().GetActiveDescendantView(),
+            &list->children()[0]->GetViewAccessibility());
+  ui::KeyEvent escape(ui::EventType::kKeyPressed, ui::VKEY_ESCAPE, ui::EF_NONE);
+  input->OnKeyEvent(&escape);
+  EXPECT_FALSE(editor->editing());
+  EXPECT_TRUE(list->children().empty());
+  EXPECT_FALSE(list->GetVisible());
+  EXPECT_EQ(input->GetViewAccessibility().GetActiveDescendantView(), nullptr);
+  input->GetViewAccessibility().GetAccessibleNodeData(&field_data);
+  EXPECT_TRUE(field_data.HasState(ax::mojom::State::kCollapsed));
+  EXPECT_FALSE(field_data.HasIntListAttribute(
+      ax::mojom::IntListAttribute::kControlsIds));
+
+  // Screen-reader activation follows the same real navigation as a row click.
+  controller()->FocusAddressBar();
+  MerlinAddressEditorTestPeer::Results(*editor, {results[1]});
+  content::TestNavigationObserver navigation(contents());
+  ui::AXActionData activate;
+  activate.action = ax::mojom::Action::kDoDefault;
+  EXPECT_TRUE(list->children()[0]->HandleAccessibleAction(activate));
+  navigation.Wait();
+  EXPECT_EQ(contents()->GetLastCommittedURL(), target);
 }
 
 // -- Round 2: Merlin's own pages, menu and restyling ------------------------
