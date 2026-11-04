@@ -71,14 +71,6 @@ constexpr int kIconGap = 12;
 constexpr int kListPadTop = 5;
 constexpr int kListPadBottom = 6;
 
-// Addresses the field may open: not script or data the user did not mean
-// to run (typing javascript: here does nothing, as in Chromium's field).
-bool IsOpenable(const GURL& url) {
-  return url.is_valid() && !url.SchemeIs(url::kJavaScriptScheme) &&
-         !url.SchemeIs(url::kDataScheme) && !url.SchemeIs(url::kBlobScheme) &&
-         !url.SchemeIs(url::kFileSystemScheme);
-}
-
 // The card paints the rows, but each has a real accessibility node and action.
 // Keyboard focus stays in the textfield, just as in Chromium's omnibox.
 class MerlinAddressOption : public views::View {
@@ -485,6 +477,8 @@ void MerlinAddressEditor::Begin() {
           base::BindRepeating(&MerlinAddressEditor::OnResults,
                               weak_factory_.GetWeakPtr()));
     }
+    // What is typed opens in this tab, so the likely page is readied here.
+    suggestions_->SetTarget(contents);
     UpdateCard();
     Layout();
     focus_manager_ = card_->textfield()->GetFocusManager();
@@ -714,17 +708,21 @@ void MerlinAddressEditor::OpenTyped(WindowOpenDisposition disposition) {
                  /*allow_exact_keyword_match=*/true,
                  metrics::OmniboxEventProto::OTHER, &match,
                  /*alternate_nav_url=*/nullptr);
-  Open(match.destination_url, match.transition, disposition);
+  Open(match.destination_url,
+       MerlinSuggestions::FromAddressBar(match.transition), disposition);
 }
 
 void MerlinAddressEditor::Open(GURL url,
                                ui::PageTransition transition,
                                WindowOpenDisposition disposition) {
-  if (!IsOpenable(url)) {
+  if (!MerlinSuggestions::IsOpenable(url)) {
     return;
   }
   content::WebContents* contents =
       browser_->GetTabStripModel()->GetActiveWebContents();
+  if (suggestions_) {
+    suggestions_->Opened(url);
+  }
   End();
   if (!contents) {
     return;

@@ -115,6 +115,16 @@ handling, engine deprecation history and external trust-policy names remain
 intact. The source generators and exact exceptions are listed in the identity
 report; repeat both source audits and rendered checks after updating Chromium.
 
+## Speed and memory patches (2026-11-04)
+
+Two one-call hooks into `merlin_process_policy` (a leaf target with only
+`//base`). Both do nothing with `--modal-browser-upstream-defaults`.
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0047-merlin-start-page-process-per-site.patch` | `chrome/browser/chrome_content_browser_client.cc`, `chrome/browser/BUILD.gn` | `ShouldUseProcessPerSite` also returns true for `chrome://merlin-start`, as it does for Chromium's new tab page, so every start page in a profile shares one renderer process and ⌘T does not start a process |
+| `0048-merlin-no-hidden-tab-search-preload.patch` | `chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc`, its `BUILD.gn` | Chromium keeps Tab Search (or the most used side panel) loaded in a hidden renderer from startup. Merlin hides Tab Search, so preloading is off unless `--enable-features=PreloadTopChromeWebUI` is passed. Side panels load when first opened instead |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before

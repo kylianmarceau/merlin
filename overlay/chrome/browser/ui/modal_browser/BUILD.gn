@@ -32,6 +32,17 @@ source_set("url_rewrite") {
   ]
 }
 
+# Process rules Chromium asks Merlin about: one process for every start
+# page (patches/0047) and no hidden Tab Search page (patches/0048). A leaf
+# so //chrome/browser and its WebUI targets can depend on it.
+source_set("process_policy") {
+  sources = [
+    "merlin_process_policy.cc",
+    "merlin_process_policy.h",
+  ]
+  deps = [ "//base" ]
+}
+
 source_set("design_tokens") {
   sources = [ "merlin_design_tokens.h" ]
   public_deps = [ "//skia" ]
@@ -140,6 +151,7 @@ source_set("modal_browser") {
   ]
   public_deps = [
     ":design_tokens",
+    ":process_policy",
     ":router",
     ":theme",
     ":url_rewrite",
@@ -159,6 +171,10 @@ source_set("modal_browser") {
     "//chrome/browser/history",
     "//chrome/browser/media/webrtc",
     "//chrome/browser/merlin_adblock",
+    "//chrome/browser/predictors",
+    "//chrome/browser/predictors:config",
+    "//chrome/browser/preloading/prefetch/search_prefetch",
+    "//chrome/browser/preloading/search_preload",
     "//chrome/browser/prefs:util",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_manager",
@@ -218,6 +234,7 @@ source_set("modal_browser") {
     "//extensions/browser",
     "//extensions/common",
     "//net",
+    "//services/network/public/cpp",
     "//services/network/public/mojom",
     "//third_party/blink/public/common:headers",
     "//third_party/metrics_proto",
@@ -264,6 +281,7 @@ source_set("browser_tests") {
     "//chrome/browser/webauthn",
     "//components/autofill/core/browser",
     "//chrome/browser/media/webrtc",
+    "//chrome/browser/predictors",
     "//chrome/browser/prefs:util",
     "//chrome/browser/printing",
     "//chrome/browser/printing:test_support",
@@ -290,6 +308,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/views/passwords:password_bubble_view_base",
     "//chrome/browser/ui/views/permissions",
     "//chrome/browser/ui/views/toolbar",
+    "//chrome/browser/ui/webui/top_chrome",
     "//chrome/common",
     "//chrome/test:test_support",
     "//components/bookmarks/browser",
@@ -298,6 +317,7 @@ source_set("browser_tests") {
     "//components/input",
     "//components/omnibox/browser",
     "//components/password_manager/core/common",
+    "//components/performance_manager",
     "//components/permissions",
     "//components/permissions:test_support",
     "//components/prefs",

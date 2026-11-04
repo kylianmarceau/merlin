@@ -1,5 +1,26 @@
 # Testing
 
+## Results, 2026-11-04: speed and memory defaults
+
+Working tree on `main` after `f978977`, Chromium **157.0.8103.26**, macOS
+arm64 `out/Modal` component development build (DCHECKs on). The changes are
+described in [Architecture](ARCHITECTURE.md#speed-and-memory-defaults) and
+patches 0047–0048 in [Upstream](UPSTREAM.md#speed-and-memory-patches-2026-11-04).
+
+| Check | Result |
+| --- | --- |
+| Native `chrome browser_tests` rebuild | Passed |
+| Default browser suite | **146/146 passed**, 1,154 seconds |
+| New cases | `StartPagesShareOneProcess`, `NoHiddenTabSearchPage`, `MemorySaverOnByDefault`, `SuggestionsOpenFromTheAddressBar`, `AddressCardUsesThePageLoadedAhead` (a prerendered page is activated by Enter in the address card) and `StartPageEnterOpensTopMatch` passed |
+| Patch series | **48 patches** verified with `apply_patches.py --check` |
+| GN header checks | Passed for `//chrome/browser/ui/modal_browser/*`, `//chrome/browser/ui/webui/top_chrome/*` and `//chrome/browser:core` |
+| Repository checks | Page scripts, visual identity boundaries and browser tool tests passed; Rust code unchanged |
+
+Not measured yet: process count and memory with several start pages open,
+startup footprint without the hidden Tab Search page, and typed-navigation
+timing once the predictor has learned. Measure them on the fast
+non-development build; this build overstates every cost.
+
 ## Results, 2026-11-04: native blocker performance pass
 
 Branch `feature/adblock-performance`, Chromium **157.0.8103.26**, macOS arm64

@@ -1,0 +1,35 @@
+diff --git a/chrome/browser/ui/webui/top_chrome/BUILD.gn b/chrome/browser/ui/webui/top_chrome/BUILD.gn
+--- a/chrome/browser/ui/webui/top_chrome/BUILD.gn
++++ b/chrome/browser/ui/webui/top_chrome/BUILD.gn
+@@ -84,6 +84,9 @@
+       "//chrome/browser/ui:browser_window_header",
+       "//chrome/browser/ui:ui_features",
+       "//chrome/browser/ui/browser_window",
++
++      # Merlin: no hidden Tab Search page.
++      "//chrome/browser/ui/modal_browser:process_policy",
+       "//chrome/browser/ui/prefs",
+       "//chrome/browser/ui/tabs:tab_strip",
+       "//chrome/browser/ui/views/frame:browser_view_header",
+diff --git a/chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc b/chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc
+--- a/chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc
++++ b/chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc
+@@ -24,6 +24,7 @@
+ #include "chrome/browser/task_manager/web_contents_tags.h"
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+ #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
++#include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
+ #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
+ #include "chrome/browser/ui/tabs/tab_strip_model.h"
+ #include "chrome/browser/ui/ui_features.h"
+@@ -92,7 +93,9 @@
+ };
+ 
+ bool IsFeatureEnabled() {
+-  return base::FeatureList::IsEnabled(features::kPreloadTopChromeWebUI);
++  // Merlin: no hidden Tab Search page; Merlin has its own tab switcher.
++  return base::FeatureList::IsEnabled(features::kPreloadTopChromeWebUI) &&
++         modal_browser::ShouldPreloadTopChromeWebUI();
+ }
+ 
+ bool IsSmartPreloadEnabled() {
