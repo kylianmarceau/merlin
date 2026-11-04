@@ -1,14 +1,13 @@
 # Distribution build of the fork (macOS, Apple Silicon).
 #
-# Not the development build (build/args.modal.gn): macOS code signing needs
-# a non-component build, and testers should get an optimized one with
-# symbols kept separately for crash reports.
+# Not the development build (build/args.modal.gn): a release needs a
+# self-contained, optimized, non-component app, with symbols kept
+# separately (dSYMs) for crash reports.
 #
-#   gn gen out/Release --args="import(\"//build/args.release.gn\")"
-#   autoninja -C out/Release chrome
+#   scripts/build_release.sh        # copies this file to out/Release/args.gn
 #
-# UNVERIFIED: written against the 156 args documentation; not built yet
-# (a full non-component build needs ~100 GB free and several hours).
+# Checked with `gn gen` against 157.0.8103.26 on 2026-11-04 (36,688 targets,
+# no unused arguments). Not yet built end to end.
 target_cpu = "arm64"
 is_debug = false
 is_component_build = false
@@ -16,6 +15,10 @@ is_official_build = true
 dcheck_always_on = false
 symbol_level = 1
 enable_stripping = true
+# Official builds expect Google's PGO profiles, which a normal checkout does
+# not download (checkout_pgo_profiles in .gclient). Without this line gn gen
+# fails. Merlin ships without profile-guided optimization.
+chrome_pgo_phase = 0
 # Never Google Chrome branding; Merlin's comes from branding_file_path.
 is_chrome_branded = false
 # No proprietary codecs or Widevine: both need licensing decisions first.
@@ -24,6 +27,6 @@ enable_widevine = false
 # Merlin's name, bundle ID and icon (overlay/chrome/app/theme/merlin,
 # linked in by scripts/apply_overlay.sh; patch 0004 makes the icon follow).
 branding_file_path = "//chrome/app/theme/merlin/BRANDING"
-# Product logos (About, version page, profile picker, menus) from
-# chrome/app/theme/merlin and its sibling folders, not chromium/.
+# Product logos (About, version page, menus) from chrome/app/theme/merlin
+# and its sibling folders, not chromium/.
 branding_path_component = "merlin"

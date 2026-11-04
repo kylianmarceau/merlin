@@ -113,17 +113,17 @@ integration of Brave's engine, not the complete Brave Shields product.
 
 ### 1. Make the distribution build reproducible
 
-- [ ] Supply a working release-build helper or copy procedure. The current
+- [x] *(2026-11-04: `scripts/build_release.sh`; args gain `chrome_pgo_phase = 0` and pass `gn gen`.)* Supply a working release-build helper or copy procedure. The current
   `build/args.release.gn` example imports `//build/args.release.gn`, but the
   overlay installer does not put that file in Chromium's `build/` directory.
   Only `out/Modal` currently has an args file.
 - [ ] Validate the release args against the current pin and build the optimized
   non-component app. Preserve exact source/pin/args, version/build identity and
   matching symbols/build IDs.
-- [ ] Deliberately settle the application bundle identity, currently
+- [x] *(2026-11-04: `io.github.kylianmarceau.merlin`.)* Deliberately settle the application bundle identity, previously
   `local.merlin.Merlin`, and keep it and the Merlin profile location stable.
   A purchased domain is not a technical prerequisite.
-- [ ] Commit the intended existing address/accessibility/tooling additions,
+- [x] *(Committed before 2026-11-04.)* Commit the intended existing address/accessibility/tooling additions,
   including the untracked tooling regression file, before tagging a release.
   The local build uses those live overlay files; HEAD alone omits them.
 
@@ -185,7 +185,7 @@ captures qualify sampled states, not every family in the source inventory.
 
 ### 4. Finish notices, privacy and current-status documentation
 
-- [ ] Add the intended root `LICENSE`; Cargo declares BSD-3-Clause and source
+- [x] *(2026-11-04: added.)* Add the intended root `LICENSE`; Cargo declares BSD-3-Clause and source
   headers refer to the file, but it is absent.
 - [ ] Generate/review notices for the actual release graph and ship them in
   the artifact: Chromium, Rust dependencies, lists and executable resources.
@@ -217,7 +217,7 @@ separate operational requirement.
 
 ### 6. Package, install-test and publish the GitHub beta
 
-- [ ] Replace/adapt `scripts/package_mac.sh`: its default only prints a dry
+- [x] *(2026-11-04: replaced with ad-hoc signing, DMG, checksum, build info and dSYMs; tried on the dev build.)* Replace/adapt `scripts/package_mac.sh`: its default only prints a dry
   run, while its execution path still requires Developer ID/notary credentials
   and uses the obsolete signing prototype. It does not package the chosen
   release scope.

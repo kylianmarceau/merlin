@@ -11,3 +11,6 @@
 /notes/
 chromium_neovim_browser_plan.md
 claude_code_chromium_browser_prompt.md
+
+# Packaged releases (scripts/package_mac.sh)
+/dist/

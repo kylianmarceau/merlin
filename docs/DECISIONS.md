@@ -311,8 +311,9 @@ readiness reviews. Free ad-hoc signing needed for Apple Silicon is allowed.
 
 Finish implementation, testing and packaging for that scope, including
 installation from a downloaded artifact. `build/args.release.gn` remains the
-distribution configuration; `scripts/package_mac.sh` is an unverified older
-signing prototype and needs adapting or replacing for this path. Updates
+distribution configuration, built by `scripts/build_release.sh`;
+`scripts/package_mac.sh` ad-hoc signs the app and builds the DMG, checksum,
+build info and dSYM archive (replaced 2026-11-04). Updates
 remain manual (no Sparkle or Omaha). See [Release](RELEASE.md) for the
 remaining work and unnotarized installation steps.
 
@@ -404,9 +405,9 @@ branding that key is "Chromium", the same as upstream's fallback.
 
 The compiled icons are checked in, as Chromium does with its own, and
 `scripts/build_branding.sh` regenerates them from `branding/` and the
-Icon Composer source. `MAC_BUNDLE_ID` is the placeholder
-`local.merlin.Merlin` until there is a domain to use; packaging refuses
-to sign it. The remaining ~700 "Chromium" strings are left for a separate
+Icon Composer source. `MAC_BUNDLE_ID` was the placeholder
+`local.merlin.Merlin` until 2026-11-04, when it became
+`io.github.kylianmarceau.merlin` for GitHub releases. The remaining ~700 "Chromium" strings are left for a separate
 pass.
 
 ## 32. Merlin's own look, mostly through Chromium's public hooks
