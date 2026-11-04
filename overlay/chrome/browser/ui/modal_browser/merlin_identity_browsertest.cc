@@ -42,6 +42,8 @@
 #include "chrome/browser/ui/views/passwords/password_save_update_view.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_view_factory.h"
+#include "chrome/browser/ui/views/profiles/profile_menu_coordinator.h"
+#include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/webauthn/authenticator_request_dialog_view.h"
 #include "chrome/browser/ui/views/webauthn/authenticator_request_dialog_view_controller_views.h"
@@ -73,6 +75,7 @@
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/styled_label.h"
+#include "ui/views/merlin_style.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/metrics.h"
 #include "ui/views/test/button_test_api.h"
@@ -247,7 +250,12 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest,
     EXPECT_EQ(ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
                   views::kButtonRadius),
               design::kControlRadius);
+    // Secondary buttons are a quiet fill with no Chromium outline.
+    EXPECT_EQ(provider->GetColor(ui::kColorButtonBorder), SK_ColorTRANSPARENT);
+    EXPECT_EQ(provider->GetColor(ui::kColorCheckboxContainer), palette.accent);
   }
+  // Merlin's control shapes come on with its colors.
+  EXPECT_TRUE(views::merlin_style::IsEnabled());
   ui::ColorProviderKey key;
   key.contrast_mode = ui::ColorProviderKey::ContrastMode::kHigh;
   EXPECT_FALSE(MerlinThemeApplies(key));
@@ -647,6 +655,24 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest,
       EXPECT_EQ(delegate.decision, expected);
       prompt->GetWidget()->CloseNow();
     }
+  }
+}
+
+// Merlin's profile card: avatar beside the name on a card, rows below.
+IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest, ProfileMenuPresentation) {
+  auto* coordinator = ProfileMenuCoordinator::From(browser());
+  ASSERT_TRUE(coordinator);
+  for (bool dark : {false, true}) {
+    SetDark(dark);
+    coordinator->Show(/*is_source_accelerator=*/false);
+    ASSERT_TRUE(base::test::RunUntil([&] { return coordinator->IsShowing(); }));
+    ProfileMenuViewBase* menu = coordinator->GetProfileMenuViewBaseForTesting();
+    ASSERT_TRUE(menu);
+    SnapWidget(menu->GetWidget(),
+               dark ? "dark-profile-menu" : "light-profile-menu");
+    menu->GetWidget()->CloseNow();
+    ASSERT_TRUE(
+        base::test::RunUntil([&] { return !coordinator->IsShowing(); }));
   }
 }
 

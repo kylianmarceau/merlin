@@ -14,6 +14,7 @@
 #include "ui/color/color_provider_key.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/color/color_recipe.h"
+#include "ui/views/merlin_style.h"
 
 namespace modal_browser {
 
@@ -110,6 +111,31 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorSysStateFocusRing] = {p.focus_ring};
   mixer[ui::kColorSysStateTextHighlight] = {p.text_highlight};
   mixer[ui::kColorSysStateOnTextHighlight] = {p.on_surface};
+
+  // Controls in Merlin's shapes (ui/views/merlin_style.h). Secondary buttons
+  // are a quiet fill with no outline, like the Settings page's segmented
+  // controls; tonal buttons match them, so only the default action is gold.
+  const bool dark = key.color_mode == ui::ColorProviderKey::ColorMode::kDark;
+  const SkColor quiet_fill = dark ? p.base_elevated : p.base_container;
+  const SkColor hover = dark ? SkColorSetA(SK_ColorWHITE, 0x12)
+                             : SkColorSetARGB(0x10, 0x28, 0x1E, 0x0A);
+  mixer[ui::kColorSysStateHoverOnSubtle] = {hover};
+  mixer[ui::kColorButtonBackground] = {quiet_fill};
+  mixer[ui::kColorButtonBorder] = {SK_ColorTRANSPARENT};
+  mixer[ui::kColorButtonBorderDisabled] = {SK_ColorTRANSPARENT};
+  mixer[ui::kColorButtonForeground] = {p.on_surface};
+  mixer[ui::kColorButtonBackgroundTonal] = {quiet_fill};
+  mixer[ui::kColorButtonBackgroundTonalFocused] = {quiet_fill};
+  mixer[ui::kColorButtonForegroundTonal] = {p.on_surface};
+  mixer[ui::kColorToggleButtonTrackOff] = {p.outline};
+  mixer[ui::kColorToggleButtonThumbOff] = {dark ? p.on_header : SK_ColorWHITE};
+  mixer[ui::kColorCheckboxContainer] = {p.accent};
+  mixer[ui::kColorCheckboxCheck] = {p.on_accent};
+  mixer[ui::kColorCheckboxOutline] = {p.on_surface_subtle};
+  mixer[ui::kColorRadioButtonForegroundChecked] = {p.primary};
+  mixer[ui::kColorRadioButtonForegroundUnchecked] = {p.on_surface_subtle};
+  mixer[ui::kColorBubbleBorder] = {p.divider};
+  mixer[ui::kColorSeparator] = {p.divider};
 }
 
 void InstallMerlinTheme() {
@@ -122,6 +148,8 @@ void InstallMerlinTheme() {
     return;
   }
   installed = true;
+  // Merlin's control shapes go with its colors; both step aside together.
+  views::merlin_style::SetEnabled(true);
   ui::ColorProviderManager& manager = ui::ColorProviderManager::Get();
   manager.AppendColorProviderInitializer(
       base::BindRepeating(&AddMerlinColorMixer));
