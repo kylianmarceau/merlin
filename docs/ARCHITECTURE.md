@@ -267,6 +267,27 @@ All compiled and exercised by the browser tests at the pinned tag.
 * The overlay surfaces are painted by hand with our own tokens
   (`modal_style.cc`). They follow light/dark but not custom browser themes.
 
+## Speed and memory defaults
+
+* **One start-page process.** `merlin_process_policy` tells Chromium's
+  `ShouldUseProcessPerSite` (patch 0047) that `chrome://merlin-start` shares
+  one renderer per profile, as Chromium's new tab page does.
+* **No hidden Tab Search page.** The same target turns off Chromium's
+  top-chrome WebUI preload (patch 0048); Merlin has its own tab switcher.
+* **Typed addresses get a head start.** `MerlinSuggestions` reports to
+  Chromium's address-bar predictor as `ChromeOmniboxClient` does: it
+  registers results, asks `AutocompleteActionPredictor::RecommendAction`
+  once per keystroke and when the top match changes, then preconnects or
+  prerenders in the tab the field opens in; search prefetch and preload get
+  each result. `Opened()` teaches the predictor, which prerenders only after
+  repeated hits. Navigations carry `PAGE_TRANSITION_FROM_ADDRESS_BAR`, which
+  prerender activation requires. Enter on the start page opens the top
+  suggestion when the field still shows it. The `:` command line does not
+  use this engine and gets none of it. Chromium's *Preload pages* setting
+  and Energy Saver still decide whether any of it runs.
+* **Memory Saver on by default** (a local-state default set by the
+  controller; the Settings switch stores the user's choice).
+
 ## Native ad blocking
 
 `MerlinAdblock` is independent of modal browsing. The feature remains opt-in
