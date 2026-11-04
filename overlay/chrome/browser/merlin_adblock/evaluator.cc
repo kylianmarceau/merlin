@@ -7,7 +7,9 @@
 #include <utility>
 
 #include "base/functional/bind.h"
+#include "base/task/bind_post_task.h"
 #include "base/no_destructor.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/thread_checker.h"
@@ -16,7 +18,7 @@
 
 namespace merlin_adblock {
 namespace {
-// The async span includes the matcher queue and return hop to UI. Inner Match
+// The async span includes the matcher queue and the return hop to the caller.
 // spans measure engine work separately, without recording request URLs.
 class PendingTrace {
  public:
@@ -60,47 +62,66 @@ std::vector<std::string> Strings(const rust::Vec<rust::String>& strings) {
     result.emplace_back(value);
   return result;
 }
+std::vector<uint8_t> Identity(const std::string& key) {
+  std::vector<uint8_t> identity;
+  if (!base::HexStringToBytes(key, &identity))
+    identity.clear();
+  return identity;
+}
+rust::Slice<const uint8_t> Bytes(const std::vector<uint8_t>& bytes) {
+  return rust::Slice<const uint8_t>(bytes.data(), bytes.size());
+}
 Bundle Build(Bundle bundle) {
   TRACE_EVENT("loading", "MerlinAdblock.Build");
-  auto engine =
-      bundle.cache.empty()
-          ? ffi::build_generation(Sources(bundle.sources), bundle.resources)
-          : ffi::load_generation(
-                Sources(bundle.sources), bundle.resources,
-                rust::Slice<const uint8_t>(
-                    reinterpret_cast<const uint8_t*>(bundle.cache.data()),
-                    bundle.cache.size()));
-  if (!engine->valid()) {
-    if (bundle.from_cache && !bundle.bundled_sources.empty()) {
+  // Only reached for a fresh build, or after the owner sequence rejected a
+  // cached engine. A rejected cache falls back to the application catalog.
+  if (bundle.from_cache) {
+    if (!bundle.bundled_sources.empty())
       bundle.sources = bundle.bundled_sources;
-      bundle.from_cache = false;
-    }
-    engine = ffi::build_generation(Sources(bundle.sources), bundle.resources);
+    bundle.from_cache = false;
   }
+  bundle.cache.clear();
+  if (!LoadSourceTexts(bundle.sources, bundle.lists_path))
+    return bundle;
+  bundle = IdentifyBundle(std::move(bundle));
+  auto engine = ffi::build_generation(Sources(bundle.sources), bundle.resources,
+                                      Bytes(Identity(bundle.key)));
   if (engine->valid()) {
     auto bytes = engine->serialize();
     bundle.cache.assign(reinterpret_cast<const char*>(bytes.data()),
                         bytes.size());
-    if (!bundle.from_cache)
-      SaveBundleCache(bundle);
-  } else {
-    bundle.cache.clear();
+    SaveBundleCache(bundle);
   }
-  // The live engine is destroyed here on the builder sequence; only bytes move.
+  // List text is only needed to build. Release it here, along with the live
+  // engine; only the serialized bytes move to the owner sequence.
+  for (auto* sources : {&bundle.sources, &bundle.bundled_sources}) {
+    for (auto& source : *sources) {
+      source.text = std::string();
+      source.text_loaded = false;
+    }
+  }
   return bundle;
 }
 }  // namespace
 
 class EngineState {
  public:
-  ~EngineState() { DCHECK_CALLED_ON_VALID_THREAD(thread_checker_); }
+  explicit EngineState(scoped_refptr<Matcher> matcher)
+      : matcher_(std::move(matcher)) {
+    matcher_->state_ = this;
+  }
+  ~EngineState() {
+    DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+    matcher_->state_ = nullptr;
+  }
   bool Install(const Bundle& bundle) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
     if (bundle.cache.empty())
       return false;
+    const auto identity = Identity(bundle.key);
     auto candidate = ffi::load_generation(
-        Sources(bundle.sources), bundle.resources,
+        Bytes(identity), bundle.resources,
         rust::Slice<const uint8_t>(
             reinterpret_cast<const uint8_t*>(bundle.cache.data()),
             bundle.cache.size()));
@@ -180,17 +201,65 @@ class EngineState {
   }
 
  private:
+  const scoped_refptr<Matcher> matcher_;
   std::optional<rust::Box<ffi::Generation>> engine_;
   THREAD_CHECKER(thread_checker_);
   SEQUENCE_CHECKER(sequence_checker_);
 };
 
+Matcher::Matcher(scoped_refptr<base::SingleThreadTaskRunner> runner)
+    : runner_(std::move(runner)) {}
+Matcher::~Matcher() = default;
+void Matcher::Check(const GURL& url,
+                    const GURL& source,
+                    std::string method,
+                    uint8_t kind,
+                    base::OnceCallback<void(Decision)> done) {
+  runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&Matcher::CheckOnEngine, base::WrapRefCounted(this), url,
+                     source, std::move(method), kind,
+                     base::BindPostTaskToCurrentDefault(Traced(
+                         "MerlinAdblock.CheckRoundTrip", std::move(done)))));
+}
+void Matcher::Csp(const GURL& url,
+                  const GURL& source,
+                  bool main_document,
+                  base::OnceCallback<void(std::string)> done) {
+  runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&Matcher::CspOnEngine, base::WrapRefCounted(this), url,
+                     source, main_document,
+                     base::BindPostTaskToCurrentDefault(Traced(
+                         "MerlinAdblock.CspRoundTrip", std::move(done)))));
+}
+void Matcher::CheckOnEngine(GURL url,
+                            GURL source,
+                            std::string method,
+                            uint8_t kind,
+                            base::OnceCallback<void(Decision)> done) {
+  std::move(done).Run(state_ ? state_->Check(std::move(url), std::move(source),
+                                             std::move(method), kind)
+                             : Decision());
+}
+void Matcher::CspOnEngine(GURL url,
+                          GURL source,
+                          bool main_document,
+                          base::OnceCallback<void(std::string)> done) {
+  std::move(done).Run(state_ ? state_->Csp(std::move(url), std::move(source),
+                                           main_document)
+                             : std::string());
+}
+
 Evaluator::Evaluator()
     // Rust's single-thread Engine must remain on one OS thread, including
     // destruction; a sequenced ThreadPool runner alone may migrate threads.
-    : state_(base::ThreadPool::CreateSingleThreadTaskRunner(
+    : Evaluator(base::ThreadPool::CreateSingleThreadTaskRunner(
           {base::TaskPriority::USER_BLOCKING},
           base::SingleThreadTaskRunnerThreadMode::DEDICATED)) {}
+Evaluator::Evaluator(scoped_refptr<base::SingleThreadTaskRunner> runner)
+    : matcher_(base::MakeRefCounted<Matcher>(runner)),
+      state_(runner, matcher_) {}
 Evaluator::~Evaluator() = default;
 scoped_refptr<Evaluator> Evaluator::Acquire(const std::string& key) {
   static base::NoDestructor<std::map<std::string, base::WeakPtr<Evaluator>>>
@@ -262,9 +331,7 @@ void Evaluator::Check(const GURL& url,
                       uint8_t kind,
                       base::OnceCallback<void(Decision)> done) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  state_.AsyncCall(&EngineState::Check)
-      .WithArgs(url, source, std::move(method), kind)
-      .Then(Traced("MerlinAdblock.CheckRoundTrip", std::move(done)));
+  matcher_->Check(url, source, std::move(method), kind, std::move(done));
 }
 void Evaluator::Cosmetics(
     const GURL& url,
@@ -279,9 +346,7 @@ void Evaluator::Csp(const GURL& url,
                     bool main_document,
                     base::OnceCallback<void(std::string)> done) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  state_.AsyncCall(&EngineState::Csp)
-      .WithArgs(url, source, main_document)
-      .Then(Traced("MerlinAdblock.CspRoundTrip", std::move(done)));
+  matcher_->Csp(url, source, main_document, std::move(done));
 }
 void Evaluator::Generic(
     std::vector<std::string> classes,

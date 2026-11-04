@@ -845,6 +845,30 @@ IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
   EXPECT_EQ(0, blocked_hits_.load());
 }
 IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
+                       ServiceWorkerClaimAfterLoadStillFiltersSyntheticAds) {
+  // The document commits uncontrolled, so background fetches start without a
+  // throttle. Once the worker claims it, the controller-change hook must make
+  // later requests go through the policy before the worker answers them.
+  Rules("/synthetic-ad$script\n/cached-ad$script");
+  ASSERT_TRUE(
+      content::NavigateToURL(contents(), Url("/sw-page", "localhost")));
+  EXPECT_EQ(true, content::EvalJs(contents(), R"JS((async()=>{
+    if(navigator.serviceWorker.controller)return false;
+    const changed=new Promise(resolve=>navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true}));
+    await navigator.serviceWorker.register('/sw.js');
+    await changed;
+    return !!navigator.serviceWorker.controller;
+  })())JS"));
+  const std::string load = R"JS(new Promise(resolve=>{
+    const script=document.createElement('script');script.src=$1;
+    script.onload=()=>resolve('loaded');script.onerror=()=>resolve('blocked');
+    document.head.append(script);
+  }))JS";
+  EXPECT_EQ("blocked", content::EvalJs(contents(), content::JsReplace(
+                                                       load, "/synthetic-ad")));
+  EXPECT_EQ(false, content::EvalJs(contents(), "!!window.syntheticAdReached"));
+}
+IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest,
                        PopupRulesBlockBeforeCreationAndKeepLegitimateWindows) {
   Rules("||ads.test^$popup");
   ASSERT_TRUE(content::NavigateToURL(contents(), Url("/early")));

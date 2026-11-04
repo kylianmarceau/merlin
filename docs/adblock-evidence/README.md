@@ -1,5 +1,30 @@
 # Native blocker evidence
 
+## Performance pass, 2026-11-04
+
+Methods and results are in the
+[implementation record](../ADBLOCK_IMPLEMENTATION.md#performance-pass-2026-11-04).
+Same M2 / 16 GB arm64 component development build (DCHECKs and Rust debug
+assertions on).
+
+- Realistic page loads, 8 profile pairs × 3 loads for clean, ad-heavy and
+  service-worker variants:
+  [before](2026-11-04-realistic-before.json),
+  [renderer-only intermediate pass](2026-11-04-realistic-renderer-pass.json)
+  and [final](2026-11-04-realistic-final.json). The intermediate pass
+  predates moving the browser proxy off the UI thread; its traces were not
+  retained.
+- Traces for one load per variant and mode: `2026-11-04-before-*.trace.json.gz`
+  and `2026-11-04-final-*.trace.json.gz`, summarized in
+  [the trace summary](2026-11-04-trace-summary.json).
+- Physical footprint and idle CPU at 1/10/30 tabs:
+  [before](2026-11-04-physical-memory-before.json) and
+  [final](2026-11-04-physical-memory-final.json). An
+  [interrupted run](2026-11-04-physical-memory-interrupted.json) stopped at the
+  30-tab blocker-on step with a 60 s DevTools timeout. That timeout did not
+  recur in the final run or in a targeted 5 × 30-tab stress run; its 1- and
+  10-tab samples agree with the final run.
+
 ## Follow-up qualification, 2026-11-03
 
 Read the [current qualification record](../ADBLOCK_QUALIFICATION.md) for methods,

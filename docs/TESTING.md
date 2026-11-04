@@ -1,5 +1,35 @@
 # Testing
 
+## Results, 2026-11-04: native blocker performance pass
+
+Branch `feature/adblock-performance`, Chromium **157.0.8103.26**, macOS arm64
+`out/Modal` component development build (DCHECKs on). The changes and
+measurements are in the
+[implementation record](ADBLOCK_IMPLEMENTATION.md#performance-pass-2026-11-04).
+
+| Check | Result |
+| --- | --- |
+| Native `chrome browser_tests` rebuild | Passed |
+| Default browser suite | **140/140 passed**, 1,063 seconds, retries disabled: 77 modal, 47 blocker and 16 identity cases |
+| New blocker case | `ServiceWorkerClaimAfterLoadStillFiltersSyntheticAds` passed |
+| Repository checks | Passed: formatting, warnings-denied Clippy, **254 workspace tests**, page scripts, source/resource boundaries and **46 patches** |
+| GN header checks | Passed for browser and renderer blocker targets, `content/renderer` and `content/public/renderer` |
+| Realistic page-load benchmark | Clean +3.7 ms, ad-heavy +2.8 ms, service worker +11.5 ms median load-event cost (was +13.6 / +8.3 / +47.1) |
+| Physical memory | One-tab blocker overhead +21.9 MiB (was +45.8); 10-tab idle CPU 0.17 s per 15 s (was 0.88) |
+
+Reproduce the measurements with:
+
+```bash
+node scripts/benchmark_adblock_realistic.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --runs 8 --loads 3 --trace --output /tmp/adblock-realistic.json
+python3 scripts/analyze_adblock_trace.py /tmp/adblock-realistic-*-on.trace.json
+node scripts/benchmark_adblock.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --physical-memory --output /tmp/adblock-physical.json
+```
+
+`--trace-categories "loading,toplevel,mojom"` records scheduler tasks too,
+which is how the UI-thread relay cost was found. Rust code in this build has
+debug assertions on, which makes engine matching about 17× slower than in a
+release build, so these numbers overstate the blocker's cost.
+
 ## Results, 2026-11-03: address entry, accessibility and tooling
 
 Working tree based on `98c63c9`, Chromium **157.0.8103.26**, macOS arm64

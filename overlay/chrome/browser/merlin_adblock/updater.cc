@@ -56,8 +56,9 @@ std::optional<Source> Validate(Source source, std::string body) {
     return std::nullopt;
   source.expires_hours = SourceExpiryHours(body, source.expires_hours);
   source.text = std::move(body);
-  source.digest =
-      base::HexEncode(crypto::hash::Sha256(base::as_byte_span(source.text)));
+  source.digest = TextDigest(source.text);
+  source.cached_text = false;
+  source.text_loaded = true;
   source.revision = "sha256:" + source.digest;
   source.retrieved_at = base::Time::Now().InSecondsFSinceUnixEpoch();
   return source;
@@ -159,13 +160,47 @@ void Updater::Begin(bool manual) {
       profile_->GetPath().AppendASCII("MerlinAdblock").AppendASCII("current");
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::BindOnce(&LoadBundle, cache, cache, std::move(groups)),
+      // Metadata only: expiry checks need neither list text nor the engine.
+      base::BindOnce(&LoadBundle, cache, cache, std::move(groups),
+                     /*with_engine=*/false),
       base::BindOnce(&Updater::Loaded, weak_factory_.GetWeakPtr()));
 }
 void Updater::Loaded(Bundle bundle) {
   if (!running_)
     return;
   candidate_ = std::move(bundle);
+  // Without a cached snapshot, bundled lists' own Expires headers decide when
+  // they are due, so read their text first. Cached metadata already has it.
+  if (std::ranges::any_of(candidate_->sources, [](const Source& source) {
+        return !source.text_loaded && !source.cached_text;
+      })) {
+    LoadTexts();
+    return;
+  }
+  Next();
+}
+void Updater::LoadTexts() {
+  auto bundle = std::move(*candidate_);
+  candidate_.reset();
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(
+          [](Bundle bundle) -> std::optional<Bundle> {
+            if (!LoadSourceTexts(bundle.sources, bundle.lists_path))
+              return std::nullopt;
+            return bundle;
+          },
+          std::move(bundle)),
+      base::BindOnce(&Updater::TextsLoaded, weak_factory_.GetWeakPtr()));
+}
+void Updater::TextsLoaded(std::optional<Bundle> bundle) {
+  if (!running_)
+    return;
+  if (!bundle) {
+    Finish(false, "Could not read current lists; previous rules retained");
+    return;
+  }
+  candidate_ = std::move(*bundle);
   Next();
 }
 void Updater::Next() {
@@ -213,6 +248,11 @@ void Updater::Next() {
               base::Hours(source.expires_hours)) {
     ++index_;
     Next();
+    return;
+  }
+  // A download is due: the anomaly check compares with the current text.
+  if (!AllTextsLoaded(candidate_->sources)) {
+    LoadTexts();
     return;
   }
   if (!source.update_url.SchemeIs("https") &&

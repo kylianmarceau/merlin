@@ -377,6 +377,14 @@ tested ad blocking, not a guarantee of permanently zero ads.
   Real online update observed 60.28 MiB live-attributed peak and 10.07 MiB after.
   Keep this combined release/default-enablement gate open; the follow-up is
   local qualification, not release-build or broad real-site acceptance.
+  Performance pass, 2026-11-04: the request proxy moved off the UI thread, the
+  renderer per-request main-thread hop and repeating cosmetic timer were
+  removed, and startup no longer reads list text. Realistic clean-page load
+  cost fell from +13.6 to +3.7 ms median (DOMContentLoaded +3.5 ms, first
+  paint no slower). One-tab overhead fell from +45.8 to +21.9 MiB, and 10-tab
+  idle CPU returned to the blocker-off level. Development-build Rust debug
+  assertions slow matching about 17×, so a release-build measurement is the
+  remaining evidence for this gate.
 - [x] Run Rust/bridge tests, new deterministic browser/renderer tests, Merlin's
   existing suite and relevant upstream navigation/worker/extension tests.
   Test engine failure, profile shutdown and Network Service restart.

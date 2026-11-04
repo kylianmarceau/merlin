@@ -40,12 +40,13 @@ mod ffi {
     }
     extern "Rust" {
         type Generation;
-        fn build_generation(lists: Vec<ListSource>, resources: &str) -> Box<Generation>;
-        fn load_generation(
+        fn build_generation(
             lists: Vec<ListSource>,
             resources: &str,
-            bytes: &[u8],
+            identity: &[u8],
         ) -> Box<Generation>;
+        // No list text: startup only needs the serialized engine and resources.
+        fn load_generation(identity: &[u8], resources: &str, bytes: &[u8]) -> Box<Generation>;
         fn valid(self: &Generation) -> bool;
         fn error(self: &Generation) -> &str;
         fn serialize(self: &Generation) -> Vec<u8>;
@@ -87,11 +88,25 @@ fn wrap(result: Result<core::Generation, String>) -> Box<Generation> {
         Err(error) => Box::new(Generation { inner: None, error }),
     }
 }
-fn build_generation(lists: Vec<ffi::ListSource>, resources: &str) -> Box<Generation> {
-    wrap(core::Generation::build(&sources(lists), resources))
+fn identity(bytes: &[u8]) -> Result<[u8; 32], String> {
+    bytes
+        .try_into()
+        .map_err(|_| "invalid generation identity".to_string())
 }
-fn load_generation(lists: Vec<ffi::ListSource>, resources: &str, bytes: &[u8]) -> Box<Generation> {
-    wrap(core::Generation::load(&sources(lists), resources, bytes))
+fn build_generation(
+    lists: Vec<ffi::ListSource>,
+    resources: &str,
+    identity_bytes: &[u8],
+) -> Box<Generation> {
+    wrap(identity(identity_bytes).and_then(|identity| {
+        core::Generation::build_with_identity(&sources(lists), resources, identity)
+    }))
+}
+fn load_generation(identity_bytes: &[u8], resources: &str, bytes: &[u8]) -> Box<Generation> {
+    wrap(
+        identity(identity_bytes)
+            .and_then(|identity| core::Generation::load_with_identity(identity, resources, bytes)),
+    )
 }
 impl Generation {
     fn valid(&self) -> bool {
