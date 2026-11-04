@@ -90,7 +90,7 @@ fn split_keys_and_commands() {
 }
 
 #[test]
-fn windows_profiles_and_browser_pages() {
+fn windows_and_browser_pages() {
     let mut s = ModalSession::new();
     assert_eq!(
         run(&mut s, "private").actions,
@@ -100,12 +100,9 @@ fn windows_profiles_and_browser_pages() {
         run(&mut s, "window").actions,
         vec![Action::NewWindow { private: false }]
     );
-    assert_eq!(
-        run(&mut s, "profile Work Stuff").actions,
-        vec![Action::SwitchProfile {
-            name: "Work Stuff".into()
-        }]
-    );
+    // Merlin has one profile: no :profile command or profiles palette.
+    assert!(s.submit_command_line("profile Work").error.is_some());
+    assert!(s.submit_command_line("palette profiles").error.is_some());
     assert_eq!(
         run(&mut s, "downloads").actions,
         vec![Action::ShowBrowserPage(BrowserPage::Downloads)]
@@ -373,7 +370,7 @@ fn bookmarklets_from_lists_are_refused() {
 }
 
 #[test]
-fn workspace_and_profile_lists() {
+fn workspace_lists() {
     let mut s = ModalSession::new();
     s.set_workspace("research", None);
     let o = last(&mut s, "gw");
@@ -407,23 +404,6 @@ fn workspace_and_profile_lists() {
         s.palette_key(PaletteKey::Accept).actions[1],
         Action::ReadWorkspace {
             name: "travel".into()
-        }
-    );
-
-    run(&mut s, "profile");
-    s.set_items(
-        ItemSource::Profiles,
-        vec![ListItem {
-            title: "Work".into(),
-            value: "Work \"A\"".into(),
-            ..ListItem::default()
-        }],
-        0,
-    );
-    assert_eq!(
-        s.palette_key(PaletteKey::Accept).actions[1],
-        Action::SwitchProfile {
-            name: "Work \"A\"".into()
         }
     );
 }

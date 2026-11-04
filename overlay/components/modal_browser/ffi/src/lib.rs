@@ -156,8 +156,6 @@ mod ffi {
         DeleteWorkspace,
         /// `name`, `workspace_tabs`, `index` = active tab, `flag` = new window.
         RestoreWorkspace,
-        /// `name`
-        SwitchProfile,
         /// `source`. Fetch, then `set_items`.
         RequestItems,
         /// `page`
@@ -209,7 +207,6 @@ mod ffi {
         History,
         Bookmarks,
         Workspaces,
-        Profiles,
         Downloads,
     }
 
@@ -321,7 +318,6 @@ mod ffi {
         History,
         Bookmarks,
         Workspaces,
-        Profiles,
         Outline,
         Links,
         Menu,
@@ -519,7 +515,7 @@ mod ffi {
         /// Split: what `text` is.
         target: TargetKind,
         layout: SplitLayout,
-        /// Workspace or profile name.
+        /// Workspace name, or a `:browser` action.
         name: String,
         /// Second text: success message, what was copied, file extension.
         detail: String,
@@ -1035,7 +1031,6 @@ impl Session {
             ItemSource::History => CoreItemSource::History,
             ItemSource::Bookmarks => CoreItemSource::Bookmarks,
             ItemSource::Workspaces => CoreItemSource::Workspaces,
-            ItemSource::Profiles => CoreItemSource::Profiles,
             ItemSource::Downloads => CoreItemSource::Downloads,
             // Out of range: nothing is waiting for it.
             _ => return self.passive(CoreKeyDisposition::Consumed),
@@ -1484,7 +1479,6 @@ impl From<CorePaletteKind> for PaletteKind {
             CorePaletteKind::History => PaletteKind::History,
             CorePaletteKind::Bookmarks => PaletteKind::Bookmarks,
             CorePaletteKind::Workspaces => PaletteKind::Workspaces,
-            CorePaletteKind::Profiles => PaletteKind::Profiles,
             CorePaletteKind::Outline => PaletteKind::Outline,
             CorePaletteKind::Links => PaletteKind::Links,
             CorePaletteKind::Menu => PaletteKind::Menu,
@@ -1518,7 +1512,6 @@ impl From<CoreItemSource> for ItemSource {
             CoreItemSource::History => ItemSource::History,
             CoreItemSource::Bookmarks => ItemSource::Bookmarks,
             CoreItemSource::Workspaces => ItemSource::Workspaces,
-            CoreItemSource::Profiles => ItemSource::Profiles,
             CoreItemSource::Downloads => ItemSource::Downloads,
         }
     }
@@ -1795,7 +1788,6 @@ impl From<CoreAction> for Action {
                     ..Action::named(K::RestoreWorkspace, workspace.name)
                 }
             }
-            CoreAction::SwitchProfile { name } => Action::named(K::SwitchProfile, name),
             CoreAction::RequestItems(source) => Action {
                 source: source.into(),
                 ..Action::simple(K::RequestItems)

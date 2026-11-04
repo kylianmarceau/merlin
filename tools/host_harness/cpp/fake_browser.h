@@ -95,7 +95,6 @@ class FakeBrowser : public BrowserOps {
   void ReadWorkspace(std::string_view name) override;
   void DeleteWorkspace(std::string_view name) override;
   void RestoreWorkspace(const WorkspaceRestore& workspace) override;
-  void SwitchProfile(std::string_view name) override;
   void RequestItems(ffi::ItemSource source) override;
   void ShowBrowserPage(ffi::BrowserPage page) override;
   void RunBrowserCommand(std::string_view name, std::string_view arg) override;
@@ -185,7 +184,6 @@ class FakeBrowser : public BrowserOps {
   std::string workspace_read_request;
   bool restored = false;
   WorkspaceRestore last_restore;
-  std::string profile_request;
   int items_requests = 0;
   ffi::ItemSource items_source = ffi::ItemSource::History;
   int devtools_toggles = 0;

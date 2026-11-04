@@ -442,10 +442,6 @@ void FakeBrowser::RestoreWorkspace(const WorkspaceRestore& workspace) {
   last_restore = workspace;
 }
 
-void FakeBrowser::SwitchProfile(std::string_view name) {
-  profile_request = std::string(name);
-}
-
 void FakeBrowser::RequestItems(ffi::ItemSource source) {
   items_requests++;
   items_source = source;

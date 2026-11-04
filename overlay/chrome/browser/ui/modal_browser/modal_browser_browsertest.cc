@@ -40,6 +40,7 @@
 #include "base/test/test_future.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
@@ -50,6 +51,7 @@
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -78,6 +80,8 @@
 #include "chrome/browser/ui/modal_browser/status_view.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
 #include "chrome/browser/ui/permission_bubble/permission_bubble_test_util.h"
+#include "chrome/browser/ui/profiles/profile_picker.h"
+#include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -2367,6 +2371,29 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, ExtensionContentScriptCoexists) 
   ASSERT_TRUE(base::test::RunUntil([&] { return seen() == "zj"; }));
 }
 
+
+// Merlin has one profile (patches/0051): no picker, guest windows, new
+// profiles, profile menu or :profile command.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, OneProfileOnly) {
+  EXPECT_FALSE(profiles::IsProfileCreationAllowed());
+  EXPECT_FALSE(profiles::IsGuestModeEnabled());
+  EXPECT_FALSE(profiles::IsGuestModeEnabled(*browser()->GetProfile()));
+  EXPECT_EQ(ProfilePicker::GetStartupMode(), StartupProfileMode::kBrowserWindow);
+  for (int command : {IDC_SHOW_AVATAR_MENU, IDC_ADD_NEW_PROFILE,
+                      IDC_OPEN_GUEST_PROFILE, IDC_MANAGE_CHROME_PROFILES,
+                      IDC_CLOSE_PROFILE}) {
+    EXPECT_FALSE(chrome::IsCommandEnabled(browser(), command)) << command;
+  }
+  for (auto entry : {ProfilePicker::EntryPoint::kProfileMenuManageProfiles,
+                     ProfilePicker::EntryPoint::kProfileMenuAddNewProfile,
+                     ProfilePicker::EntryPoint::kAppMenuProfileSubMenuManageProfiles,
+                     ProfilePicker::EntryPoint::kOnStartup}) {
+    ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(entry));
+    EXPECT_FALSE(ProfilePicker::IsOpen());
+  }
+  EXPECT_NE(controller()->RunCommandLine("profile Work"), "");
+  EXPECT_NE(controller()->RunCommandLine("palette profiles"), "");
+}
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NewProfilesReopenTheirSession) {
   PrefService* prefs = browser()->GetProfile()->GetPrefs();

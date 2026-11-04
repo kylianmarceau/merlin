@@ -93,7 +93,6 @@ const std::map<std::string, std::string>& Links() {
       {"system", "chrome://settings/system"},
       {"import", "chrome://settings/importData"},
       {"reset", "chrome://settings/reset"},
-      {"profile", "chrome://settings/manageProfile"},
       {"version", "chrome://version/"},
       {"credits", "chrome://credits/"},
       {"history", "chrome://merlin-history/"},
@@ -507,8 +506,7 @@ constexpr char kSettingsJs[] = R"JS('use strict';
     return section('about', 'About Merlin', '',
       group(head,
         linkRow('Build details', '', () => open('version'), 'merlin://version'),
-        linkRow('Open-source licenses', 'Merlin is made possible by open-source software', () => open('credits')),
-        linkRow('Profile name and picture', '', () => open('profile'))));
+        linkRow('Open-source licenses', 'Merlin is made possible by open-source software', () => open('credits'))));
   }
 
   function renderNav(current) {

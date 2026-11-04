@@ -345,10 +345,6 @@ pub enum Action {
         workspace: Workspace,
         new_window: bool,
     },
-    /// Open a window for the profile with this name.
-    SwitchProfile {
-        name: String,
-    },
     /// Fetch a list for the open palette and pass it to
     /// `ModalSession::set_items`.
     RequestItems(ItemSource),

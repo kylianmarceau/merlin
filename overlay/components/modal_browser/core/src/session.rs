@@ -1003,7 +1003,6 @@ impl ModalSession {
                 Vec::new(),
                 Some(Action::RequestItems(ItemSource::Workspaces)),
             ),
-            PaletteKind::Profiles => (Vec::new(), Some(Action::RequestItems(ItemSource::Profiles))),
             PaletteKind::Menu => (menu_rows(&self.keymap), None),
             PaletteKind::Downloads => (
                 Vec::new(),
@@ -2035,7 +2034,7 @@ fn ago(now: i64, then: i64) -> String {
 
 /// Merlin's menu, in place of Chromium's ⋮ menu: label, what it runs, and
 /// a hint. Keys come from the keymap, so the user's own bindings show.
-const MENU: [(&str, &str, &str); 24] = [
+const MENU: [(&str, &str, &str); 23] = [
     ("New tab", "tabnew", ""),
     ("New window", "window", ""),
     (
@@ -2049,7 +2048,6 @@ const MENU: [(&str, &str, &str); 24] = [
     ("Bookmark this page", "bookmark", ""),
     ("Downloads", "palette downloads", ""),
     ("Workspaces", "palette workspaces", "saved windows"),
-    ("Profiles", "palette profiles", ""),
     ("Find in page", "find", ""),
     ("Zoom in", "browser zoom-in", ""),
     ("Zoom out", "browser zoom-out", ""),
@@ -2143,18 +2141,6 @@ fn item_row(source: ItemSource, item: ListItem, now: i64) -> PaletteRow {
             } else {
                 format!("browser download-open {}", item.value)
             },
-            ..PaletteRow::default()
-        },
-        ItemSource::Profiles => PaletteRow {
-            primary: item.title,
-            secondary: item.detail,
-            keys: if item.current {
-                "this window".into()
-            } else {
-                String::new()
-            },
-            active: item.current,
-            accept: format!("profile {}", quote_arg(&item.value)),
             ..PaletteRow::default()
         },
     }

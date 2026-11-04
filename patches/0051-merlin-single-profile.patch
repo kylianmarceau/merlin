@@ -1,0 +1,214 @@
+diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
+index ead883ef95..63fcd21ffc 100644
+--- a/chrome/browser/app_controller_mac.mm
++++ b/chrome/browser/app_controller_mac.mm
+@@ -1961,16 +1961,8 @@ - (void)initProfileMenu {
+   NSMenu* mainMenu = [NSApp mainMenu];
+   NSMenuItem* profileMenu = [mainMenu itemWithTag:IDC_PROFILE_MAIN_MENU];
+ 
+-  if (!profiles::IsMultipleProfilesEnabled()) {
+-    [mainMenu removeItem:profileMenu];
+-    return;
+-  }
+-
+-  // The controller will unhide the menu if necessary.
+-  [profileMenu setHidden:YES];
+-
+-  _profileMenuController =
+-      [[ProfileMenuController alloc] initWithMainMenuItem:profileMenu];
++  // Merlin has one profile: no Profiles menu, in the menu bar or the Dock.
++  [mainMenu removeItem:profileMenu];
+ }
+ 
+ - (void)initShareMenu {
+diff --git a/chrome/browser/profiles/profiles_state.cc b/chrome/browser/profiles/profiles_state.cc
+index d1fcd93ded..792a087943 100644
+--- a/chrome/browser/profiles/profiles_state.cc
++++ b/chrome/browser/profiles/profiles_state.cc
+@@ -78,10 +78,11 @@ void RegisterPrefs(PrefRegistrySimple* registry) {
+   registry->RegisterListPref(prefs::kProfilesLastActive);
+   registry->RegisterListPref(prefs::kProfilesDeleted);
+ 
+-  // Preferences about the user manager.
+-  registry->RegisterBooleanPref(prefs::kBrowserGuestModeEnabled, true);
++  // Preferences about the user manager. Merlin has one profile and no
++  // guest mode, so adding people and guest windows are off.
++  registry->RegisterBooleanPref(prefs::kBrowserGuestModeEnabled, false);
+   registry->RegisterBooleanPref(prefs::kBrowserGuestModeEnforced, false);
+-  registry->RegisterBooleanPref(prefs::kBrowserAddPersonEnabled, true);
++  registry->RegisterBooleanPref(prefs::kBrowserAddPersonEnabled, false);
+   registry->RegisterBooleanPref(prefs::kForceBrowserSignin, false);
+   registry->RegisterBooleanPref(prefs::kBrowserShowProfilePickerOnStartup,
+                                 true);
+@@ -200,11 +201,9 @@ bool IsGuestModeRequested(const base::CommandLine& command_line,
+   // Check if guest mode enforcement commandline switch or policy are provided.
+   if (command_line.HasSwitch(switches::kGuest) ||
+       local_state->GetBoolean(prefs::kBrowserGuestModeEnforced)) {
+-    // Check if guest mode is allowed by policy.
+-    if (local_state->GetBoolean(prefs::kBrowserGuestModeEnabled))
+-      return true;
++    // Merlin has no guest mode, whatever the switch or policy says.
+     if (show_warning) {
+-      LOG(WARNING) << "Guest mode disabled by policy, launching a normal "
++      LOG(WARNING) << "Merlin has no guest mode, launching a normal "
+                    << "browser session.";
+     }
+   }
+@@ -212,17 +211,15 @@ bool IsGuestModeRequested(const base::CommandLine& command_line,
+   return false;
+ }
+ 
++// Merlin keeps a single profile: no new profiles and no guest windows, even
++// if a policy asks for them.
+ bool IsProfileCreationAllowed() {
+-  const PrefService* const pref_service = g_browser_process->local_state();
+-  DCHECK(pref_service);
+-  return pref_service->GetBoolean(prefs::kBrowserAddPersonEnabled);
++  return false;
+ }
+ 
+ // Whether guest mode is globally disabled (for all entry points and users).
+ bool IsGuestModeGloballyDisabledInternal() {
+-  const PrefService* const pref_service = g_browser_process->local_state();
+-  DCHECK(pref_service);
+-  return !pref_service->GetBoolean(prefs::kBrowserGuestModeEnabled);
++  return true;
+ }
+ 
+ bool IsGuestModeEnabled() {
+diff --git a/chrome/browser/ui/browser_command_controller.cc b/chrome/browser/ui/browser_command_controller.cc
+index 8db5695096..9bf3782d75 100644
+--- a/chrome/browser/ui/browser_command_controller.cc
++++ b/chrome/browser/ui/browser_command_controller.cc
+@@ -1975,11 +1975,13 @@ void BrowserCommandController::InitCommandState() {
+        !profile()->IsPrimaryOTRProfileWithRegularParent()));
+ #if !BUILDFLAG(IS_CHROMEOS)
+   command_updater_->UpdateCommandEnabled(IDC_CUSTOMIZE_CHROME, true);
+-  command_updater_->UpdateCommandEnabled(IDC_CLOSE_PROFILE, true);
++  // Merlin has one profile: closing, adding, switching to guest and managing
++  // profiles are not offered.
++  command_updater_->UpdateCommandEnabled(IDC_CLOSE_PROFILE, false);
+   command_updater_->UpdateCommandEnabled(IDC_MANAGE_GOOGLE_ACCOUNT, true);
+-  command_updater_->UpdateCommandEnabled(IDC_OPEN_GUEST_PROFILE, true);
+-  command_updater_->UpdateCommandEnabled(IDC_ADD_NEW_PROFILE, true);
+-  command_updater_->UpdateCommandEnabled(IDC_MANAGE_CHROME_PROFILES, true);
++  command_updater_->UpdateCommandEnabled(IDC_OPEN_GUEST_PROFILE, false);
++  command_updater_->UpdateCommandEnabled(IDC_ADD_NEW_PROFILE, false);
++  command_updater_->UpdateCommandEnabled(IDC_MANAGE_CHROME_PROFILES, false);
+ #endif  // BUILDFLAG(IS_CHROMEOS)
+ 
+   if (profile()->IsIncognitoProfile()) {
+@@ -1997,8 +1999,9 @@ void BrowserCommandController::InitCommandState() {
+   command_updater_->UpdateCommandEnabled(
+       IDC_SHOW_AVATAR_MENU, /*state=*/profile()->IsIncognitoProfile());
+ #else
++  // No profile menu in Merlin.
+   command_updater_->UpdateCommandEnabled(IDC_SHOW_AVATAR_MENU,
+-                                         /*state=*/normal_window);
++                                         /*state=*/false);
+ #endif
+   command_updater_->UpdateCommandEnabled(IDC_CARET_BROWSING_TOGGLE, true);
+   // Navigation commands
+diff --git a/chrome/browser/ui/profiles/profile_picker.cc b/chrome/browser/ui/profiles/profile_picker.cc
+index cc2ae52597..b13d0b23c8 100644
+--- a/chrome/browser/ui/profiles/profile_picker.cc
++++ b/chrome/browser/ui/profiles/profile_picker.cc
+@@ -33,21 +33,6 @@ namespace {
+ 
+ bool g_open_command_line_urls_in_next_profile_opened = false;
+ 
+-ProfilePicker::AvailabilityOnStartup GetAvailabilityOnStartup() {
+-  int availability_on_startup = g_browser_process->local_state()->GetInteger(
+-      prefs::kBrowserProfilePickerAvailabilityOnStartup);
+-  switch (availability_on_startup) {
+-    case 0:
+-      return ProfilePicker::AvailabilityOnStartup::kEnabled;
+-    case 1:
+-      return ProfilePicker::AvailabilityOnStartup::kDisabled;
+-    case 2:
+-      return ProfilePicker::AvailabilityOnStartup::kForced;
+-    default:
+-      NOTREACHED();
+-  }
+-}
+-
+ bool IsFirstRunDisabledByPolicy(Profile& profile) {
+   const PrefService* const local_state = g_browser_process->local_state();
+   if (!local_state->GetBoolean(prefs::kPromotionsEnabled)) {
+@@ -189,51 +174,7 @@ bool ProfilePicker::Shown() {
+ 
+ // static
+ StartupProfileMode ProfilePicker::GetStartupMode() {
+-  AvailabilityOnStartup availability_on_startup = GetAvailabilityOnStartup();
+-
+-  if (availability_on_startup == AvailabilityOnStartup::kDisabled) {
+-    return StartupProfileMode::kBrowserWindow;
+-  }
+-
+-  // TODO (crbug.com/40159795): Move this over the urls check (in
+-  // startup_browser_creator.cc) once the profile picker can forward urls
+-  // specified in command line.
+-  if (availability_on_startup == AvailabilityOnStartup::kForced) {
+-    return StartupProfileMode::kProfilePicker;
+-  }
+-
+-  ProfileManager* profile_manager = g_browser_process->profile_manager();
+-
+-  // Only launch the profile creation flow at startup if the user has specified
+-  // both a profile email address and the switch to create a new profile. Only
+-  // launch the profile creation flow if and a profile with this email does not
+-  // already exist.
+-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+-  if (command_line->HasSwitch(switches::kProfileEmail)) {
+-    std::string switch_email =
+-        command_line->GetSwitchValueASCII(switches::kProfileEmail);
+-    if (!switch_email.empty()) {
+-      if (!profile_manager->GetProfileDirForEmail(switch_email).empty()) {
+-        return StartupProfileMode::kBrowserWindow;
+-      } else if (command_line->HasSwitch(
+-                     switches::kCreateProfileEmailIfNotExists)) {
+-        return StartupProfileMode::kProfilePicker;
+-      }
+-    }
+-  }
+-
+-  size_t number_of_profiles = profile_manager->GetNumberOfProfiles();
+-  // Need to consider 0 profiles as this is what happens in some browser-tests.
+-  if (number_of_profiles <= 1) {
+-    return StartupProfileMode::kBrowserWindow;
+-  }
+-
+-  bool pref_enabled = g_browser_process->local_state()->GetBoolean(
+-      prefs::kBrowserShowProfilePickerOnStartup);
+-  base::UmaHistogramBoolean("ProfilePicker.AskOnStartup", pref_enabled);
+-  if (pref_enabled) {
+-    return StartupProfileMode::kProfilePicker;
+-  }
++  // Merlin has one profile, so startup always opens a browser window.
+   return StartupProfileMode::kBrowserWindow;
+ }
+ 
+diff --git a/chrome/browser/ui/views/profiles/profile_picker_view.cc b/chrome/browser/ui/views/profiles/profile_picker_view.cc
+index bce0ed42f9..0cccdf28f2 100644
+--- a/chrome/browser/ui/views/profiles/profile_picker_view.cc
++++ b/chrome/browser/ui/views/profiles/profile_picker_view.cc
+@@ -161,6 +161,19 @@ void ClearLockedProfilesFirstBrowserKeepAlive() {
+ 
+ // static
+ void ProfilePicker::Show(Params&& params) {
++  // Merlin has one profile and no profile picker. Only the recovery screens
++  // (a locked profile or one that cannot open a window) still use it, so
++  // the browser is never left with nothing to show.
++  switch (params.entry_point()) {
++    case EntryPoint::kProfileLocked:
++    case EntryPoint::kUnableToCreateBrowser:
++    case EntryPoint::kOnStartupNoProfile:
++    case EntryPoint::kNewSessionOnExistingProcessNoProfile:
++    case EntryPoint::kFirstRun:
++      break;
++    default:
++      return;
++  }
+   // Re-open with new params if necessary.
+   if (g_profile_picker_view && g_profile_picker_view->MaybeReopen(params)) {
+     return;

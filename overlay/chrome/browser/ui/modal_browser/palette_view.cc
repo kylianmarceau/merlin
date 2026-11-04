@@ -84,8 +84,6 @@ std::u16string AccessibleInputName(ffi::PaletteKind kind) {
       return u"Search bookmarks";
     case ffi::PaletteKind::Workspaces:
       return u"Search workspaces";
-    case ffi::PaletteKind::Profiles:
-      return u"Search profiles";
     case ffi::PaletteKind::Outline:
       return u"Search the page outline";
     case ffi::PaletteKind::Links:
@@ -393,8 +391,6 @@ std::u16string PaletteView::FooterText() const {
     case ffi::PaletteKind::Links:
     case ffi::PaletteKind::Workspaces:
       return u"\u2191\u2193 select    \u21B5 open    esc close";
-    case ffi::PaletteKind::Profiles:
-      return u"\u2191\u2193 select    \u21B5 open window    esc close";
     default:
       return u"\u2191\u2193 select    \u21B5 run    esc close";
   }

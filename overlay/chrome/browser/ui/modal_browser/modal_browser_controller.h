@@ -186,7 +186,6 @@ class ModalBrowserController : public BrowserOps,
   void ReadWorkspace(std::string_view name) override;
   void DeleteWorkspace(std::string_view name) override;
   void RestoreWorkspace(const WorkspaceRestore& workspace) override;
-  void SwitchProfile(std::string_view name) override;
   void RequestItems(ffi::ItemSource source) override;
   void ShowBrowserPage(ffi::BrowserPage page) override;
   void RunBrowserCommand(std::string_view name, std::string_view arg) override;
@@ -266,7 +265,7 @@ class ModalBrowserController : public BrowserOps,
   PageFocus CurrentFocus();
   void ObserveActiveContents();
   // Hides Chromium's ⋮ menu and account buttons; the Merlin menu (M,
-  // :palette menu) and the profiles palette replace them.
+  // :palette menu) replaces them. Merlin has one profile (patch 0051).
   void HideChromiumToolbarButtons();
   void StartWatchingDownloads();
   void UpdateDownloadStatus();

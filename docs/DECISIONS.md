@@ -706,6 +706,20 @@ browserctl after the asynchronous workspace lookup. Disabled and private
 windows are excluded on both sides of that lookup.
 
 
+## 44. One profile, no profile UI
+
+The maintainer does not want profiles in the browser. Merlin keeps the one
+Chromium profile it needs for storage (`Default`) and removes every way to
+see or change it. Patch 0051 removes the Profiles menu (menu bar and Dock),
+never shows the profile picker at startup or from a menu, turns off guest
+mode and adding profiles (regardless of policy), and disables the profile
+menu, close-profile, add, guest and manage commands. The picker still opens
+for Chromium's recovery cases (a locked profile, or one that cannot open a
+window), so the app is never left with nothing to show. Merlin's `:profile`
+command, profiles palette and Settings "Profile name and picture" row are
+gone. Workspaces and private windows cover separating browsing; decision 11
+still holds.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing

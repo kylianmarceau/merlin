@@ -710,7 +710,7 @@ void Workspaces() {
 }
 
 void ListsAndBrowserPages() {
-  g_scenario = "history, profiles, browser pages";
+  g_scenario = "history, browser pages";
   Window w;
   w.Type("gh");
   CHECK_TRUE(w.browser.items_source == ffi::ItemSource::History);
@@ -725,8 +725,6 @@ void ListsAndBrowserPages() {
   w.PaletteKey(ffi::PaletteKey::Accept);
   CHECK_EQ_STR(w.browser.active().url(), "https://doc.rust-lang.org/book/");
 
-  w.Run("profile Work");
-  CHECK_EQ_STR(w.browser.profile_request, "Work");
   w.Run("private");
   CHECK_EQ_INT(w.browser.private_windows_opened, 1);
   w.Run("downloads");

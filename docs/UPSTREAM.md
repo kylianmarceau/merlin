@@ -125,6 +125,12 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | `0047-merlin-start-page-process-per-site.patch` | `chrome/browser/chrome_content_browser_client.cc`, `chrome/browser/BUILD.gn` | `ShouldUseProcessPerSite` also returns true for `chrome://merlin-start`, as it does for Chromium's new tab page, so every start page in a profile shares one renderer process and ⌘T does not start a process |
 | `0048-merlin-no-hidden-tab-search-preload.patch` | `chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc`, its `BUILD.gn` | Chromium keeps Tab Search (or the most used side panel) loaded in a hidden renderer from startup. Merlin hides Tab Search, so preloading is off unless `--enable-features=PreloadTopChromeWebUI` is passed. Side panels load when first opened instead |
 
+## Single profile patch (2026-11-04)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0051-merlin-single-profile.patch` | `chrome/browser/profiles/profiles_state.cc`, `chrome/browser/ui/profiles/profile_picker.cc`, `chrome/browser/ui/views/profiles/profile_picker_view.cc`, `chrome/browser/app_controller_mac.mm`, `chrome/browser/ui/browser_command_controller.cc` | No new profiles or guest mode (even by policy); startup always opens a window; the picker only opens for recovery entry points; no Profiles menu in the menu bar or Dock; profile menu, close, add, guest and manage commands disabled ([decision 44](DECISIONS.md#44-one-profile-no-profile-ui)) |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before
