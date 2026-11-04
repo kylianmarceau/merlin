@@ -1,0 +1,357 @@
+diff --git a/chrome/browser/ui/views/permissions/BUILD.gn b/chrome/browser/ui/views/permissions/BUILD.gn
+--- a/chrome/browser/ui/views/permissions/BUILD.gn
++++ b/chrome/browser/ui/views/permissions/BUILD.gn
+@@ -121,6 +121,7 @@
+       ":permissions",
+       "//chrome/app/vector_icons",
+       "//chrome/browser:primitives",
++      "//chrome/browser/ui/modal_browser:presentation",
+       "//chrome/browser/content_settings",
+       "//chrome/browser/content_settings:content_settings_util",
+       "//chrome/browser/custom_handlers",
+diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.cc b/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.cc
+--- a/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.cc
++++ b/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.cc
+@@ -12,6 +12,7 @@
+ #include "base/notreached.h"
+ #include "chrome/browser/ui/color/chrome_color_id.h"
+ #include "chrome/browser/ui/location_bar/location_bar_override_data.h"
++#include "chrome/browser/ui/modal_browser/merlin_popup_kit.h"
+ #include "chrome/browser/ui/views/chrome_widget_sublevel.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
+ #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
+@@ -32,6 +33,7 @@
+ #include "ui/views/controls/button/md_text_button.h"
+ #include "ui/views/controls/label.h"
+ #include "ui/views/layout/box_layout.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/metadata/view_factory.h"
+ #include "ui/views/view_class_properties.h"
+ #include "ui/views/widget/widget.h"
+@@ -155,6 +157,10 @@
+     buttons_container->AddChildView(std::move(allow_always_button));
+     buttons_container->AddChildView(std::move(allow_once_button));
+     buttons_container->AddChildView(std::move(block_button));
++    if (views::merlin_style::IsEnabled()) {
++      // Merlin lists the three answers as rows of one card, equally weighted.
++      modal_browser::popup::StyleChoiceList(buttons_container.get());
++    }
+ 
+     views::LayoutProvider* const layout_provider = views::LayoutProvider::Get();
+     buttons_container->SetPreferredSize(gfx::Size(
+diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_origin_view.cc b/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_origin_view.cc
+--- a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_origin_view.cc
++++ b/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_origin_view.cc
+@@ -16,6 +16,7 @@
+ #include "chrome/browser/platform_util.h"
+ #include "chrome/browser/profiles/profile.h"
+ #include "chrome/browser/ui/color/chrome_color_id.h"
++#include "chrome/browser/ui/modal_browser/merlin_popup_kit.h"
+ #include "chrome/browser/ui/url_identity.h"
+ #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
+ #include "chrome/browser/ui/views/chrome_layout_provider.h"
+@@ -38,6 +39,7 @@
+ #include "ui/views/controls/image_view.h"
+ #include "ui/views/controls/label.h"
+ #include "ui/views/layout/box_layout.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/view_class_properties.h"
+ #include "ui/views/widget/widget.h"
+ 
+@@ -188,21 +190,33 @@
+     const permissions::PermissionRequest* request,
+     std::size_t index) {
+   ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
++  const bool merlin = views::merlin_style::IsEnabled();
+ 
+   auto* line_container = AddChildViewAt(std::make_unique<views::View>(), index);
+-  line_container->SetLayoutManager(std::make_unique<views::BoxLayout>(
+-      views::BoxLayout::Orientation::kHorizontal,
+-      gfx::Insets::VH(0, provider->GetDistanceMetric(
+-                             DISTANCE_SUBSECTION_HORIZONTAL_INDENT)),
+-      provider->GetDistanceMetric(
+-          DISTANCE_PERMISSION_PROMPT_HORIZONTAL_ICON_LABEL_PADDING)));
+-
+-  constexpr int kPermissionIconSize = 20;
+-  auto* icon = line_container->AddChildView(
+-      std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
+-          permissions::GetIconId(request->request_type()), ui::kColorIcon,
+-          kPermissionIconSize)));
+-  icon->SetVerticalAlignment(views::ImageView::Alignment::kCenter);
++  auto* line_layout =
++      line_container->SetLayoutManager(std::make_unique<views::BoxLayout>(
++          views::BoxLayout::Orientation::kHorizontal,
++          gfx::Insets::VH(0, merlin ? 0
++                                    : provider->GetDistanceMetric(
++                                          DISTANCE_SUBSECTION_HORIZONTAL_INDENT)),
++          merlin ? 10
++                 : provider->GetDistanceMetric(
++                       DISTANCE_PERMISSION_PROMPT_HORIZONTAL_ICON_LABEL_PADDING)));
++
++  if (merlin) {
++    // Each request is a row led by a gold-tinted tile, as in Settings.
++    line_layout->set_cross_axis_alignment(
++        views::BoxLayout::CrossAxisAlignment::kCenter);
++    line_container->AddChildView(modal_browser::popup::CreateIconTile(
++        permissions::GetIconId(request->request_type())));
++  } else {
++    constexpr int kPermissionIconSize = 20;
++    auto* icon = line_container->AddChildView(
++        std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
++            permissions::GetIconId(request->request_type()), ui::kColorIcon,
++            kPermissionIconSize)));
++    icon->SetVerticalAlignment(views::ImageView::Alignment::kCenter);
++  }
+ 
+   auto* label = line_container->AddChildView(
+       std::make_unique<views::Label>(request->GetMessageTextFragment()));
+@@ -223,6 +237,10 @@
+ 
+   label->SetTextStyle(views::style::STYLE_BODY_3);
+   label->SetEnabledColor(kColorPermissionPromptRequestText);
++  if (merlin) {
++    label->SetFontList(modal_browser::popup::RowTitleFont());
++    line_layout->SetFlexForView(label, 1);
++  }
+ 
+   if (index == 0u) {
+     constexpr int kPermissionBodyTopMargin = 10;
+diff --git a/chrome/browser/ui/views/page_info/BUILD.gn b/chrome/browser/ui/views/page_info/BUILD.gn
+--- a/chrome/browser/ui/views/page_info/BUILD.gn
++++ b/chrome/browser/ui/views/page_info/BUILD.gn
+@@ -83,6 +83,7 @@
+     ":page_info",
+     "//base",
+     "//chrome/browser:primitives",
++    "//chrome/browser/ui/modal_browser:presentation",
+     "//chrome/browser/file_system_access",
+     "//chrome/browser/page_info",
+     "//chrome/browser/safe_browsing",
+diff --git a/chrome/browser/ui/views/page_info/page_info_main_view.cc b/chrome/browser/ui/views/page_info/page_info_main_view.cc
+--- a/chrome/browser/ui/views/page_info/page_info_main_view.cc
++++ b/chrome/browser/ui/views/page_info/page_info_main_view.cc
+@@ -11,6 +11,7 @@
+ #include "base/i18n/message_formatter.h"
+ #include "base/strings/utf_string_conversions.h"
+ #include "build/build_config.h"
++#include "chrome/browser/ui/modal_browser/merlin_popup_kit.h"
+ #include "chrome/browser/browser_process.h"
+ #include "chrome/browser/lookalikes/safety_tip_ui_helper.h"
+ #include "chrome/browser/page_info/page_info_features.h"
+@@ -60,6 +61,7 @@
+ #include "ui/views/vector_icons.h"
+ #include "ui/views/view_class_properties.h"
+ #include "ui/views/widget/widget.h"
++#include "ui/views/merlin_style.h"
+ 
+ #if BUILDFLAG(FULL_SAFE_BROWSING)
+ #include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
+@@ -158,9 +160,12 @@
+   const int hover_list_spacing =
+       layout_provider->GetDistanceMetric(DISTANCE_CONTENT_LIST_VERTICAL_MULTI);
+ 
++  const bool merlin = views::merlin_style::IsEnabled();
++  const int side_inset = merlin ? modal_browser::popup::kPopupSideInset : 0;
+   SetLayoutManager(std::make_unique<views::BoxLayout>(
+       views::BoxLayout::Orientation::kVertical,
+-      gfx::Insets::TLBR(0, 0, hover_list_spacing, 0)));
++      gfx::Insets::TLBR(0, side_inset,
++                        merlin ? side_inset : hover_list_spacing, side_inset)));
+ 
+   header_view_ = AddChildView(CreateBubbleHeaderView());
+   header_view_->SetProperty(views::kMarginsKey,
+@@ -179,6 +184,18 @@
+   SetProperty(views::kElementIdentifierKey, kMainLayoutElementId);
+ 
+   site_settings_view_ = AddChildView(CreateContainerView());
++
++  if (merlin) {
++    // Security, permissions and site data each sit on a card, like the
++    // groups of the Settings page, instead of between full-width rules.
++    for (views::View* card :
++         {security_container_view_.get(), permissions_view_.get(),
++          site_settings_view_.get()}) {
++      modal_browser::popup::StyleAsCard(card);
++      card->SetProperty(views::kMarginsKey,
++                        gfx::Insets().set_bottom(modal_browser::popup::kCardGap));
++    }
++  }
+ 
+   if (open_extensions_menu_callback_) {
+     see_extensions_button_ =
+@@ -205,7 +222,11 @@
+   int link_text_id = 0;
+   int tooltip_text_id = 0;
+   if (ui_delegate_->ShouldShowSiteSettings(&link_text_id, &tooltip_text_id)) {
+-    site_settings_link_ = AddChildView(std::make_unique<RichHoverButton>(
++    // Merlin keeps "Site settings" on the same card as cookies and
++    // extensions.
++    views::View* site_settings_parent = merlin ? site_settings_view_ : this;
++    site_settings_link_ =
++        site_settings_parent->AddChildView(std::make_unique<RichHoverButton>(
+         base::BindRepeating(
+             [](PageInfoMainView* view) {
+               view->HandleMoreInfoRequest(view->site_settings_link_);
+@@ -690,7 +711,8 @@
+ 
+ std::unique_ptr<views::View> PageInfoMainView::CreateBubbleHeaderView() {
+   return views::Builder<views::FlexLayoutView>()
+-      .SetInteriorMargin(gfx::Insets::VH(0, 20))
++      .SetInteriorMargin(gfx::Insets::VH(
++          0, views::merlin_style::IsEnabled() ? 12 : 20))
+       .AddChildren(
+           views::Builder<views::Label>(
+               std::make_unique<views::Label>(
+diff --git a/chrome/browser/ui/views/page_info/page_info_view_factory.cc b/chrome/browser/ui/views/page_info/page_info_view_factory.cc
+--- a/chrome/browser/ui/views/page_info/page_info_view_factory.cc
++++ b/chrome/browser/ui/views/page_info/page_info_view_factory.cc
+@@ -10,6 +10,7 @@
+ #include "base/memory/raw_ptr.h"
+ #include "build/branding_buildflags.h"
+ #include "build/build_config.h"
++#include "chrome/browser/ui/modal_browser/merlin_popup_kit.h"
+ #include "chrome/app/vector_icons/vector_icons.h"
+ #include "chrome/browser/ui/color/chrome_color_id.h"
+ #include "chrome/browser/ui/layout_constants.h"
+@@ -43,6 +44,7 @@
+ #include "ui/views/layout/flex_layout.h"
+ #include "ui/views/metadata/view_factory.h"
+ #include "ui/views/vector_icons.h"
++#include "ui/views/merlin_style.h"
+ 
+ constexpr int PageInfoViewFactory::kMinBubbleWidth;
+ constexpr int PageInfoViewFactory::kMaxBubbleWidth;
+@@ -92,6 +94,12 @@
+ // static
+ std::unique_ptr<views::View> PageInfoViewFactory::CreateSeparator(
+     int horizontal_inset) {
++  if (views::merlin_style::IsEnabled()) {
++    // Merlin groups page info rows on cards; space stands in for the rule.
++    auto spacer = std::make_unique<views::View>();
++    spacer->SetPreferredSize(gfx::Size(0, modal_browser::popup::kCardInset));
++    return spacer;
++  }
+   int separator_spacing = ChromeLayoutProvider::Get()->GetDistanceMetric(
+       DISTANCE_CONTENT_LIST_VERTICAL_MULTI);
+   auto separator = std::make_unique<views::Separator>();
+diff --git a/chrome/browser/ui/views/profiles/BUILD.gn b/chrome/browser/ui/views/profiles/BUILD.gn
+--- a/chrome/browser/ui/views/profiles/BUILD.gn
++++ b/chrome/browser/ui/views/profiles/BUILD.gn
+@@ -84,6 +84,7 @@
+     deps = [
+       ":avatar_badge_view",
+       "//chrome/app:command_ids",
++      "//chrome/browser/ui/modal_browser:presentation",
+       "//chrome/app:generated_resources",
+       "//chrome/app/vector_icons",
+       "//chrome/browser/profiles:profile",
+diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome/browser/ui/views/profiles/profile_menu_view_base.cc
+--- a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc
++++ b/chrome/browser/ui/views/profiles/profile_menu_view_base.cc
+@@ -23,6 +23,7 @@
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+ #include "chrome/browser/ui/chrome_pages.h"
+ #include "chrome/browser/ui/color/chrome_color_id.h"
++#include "chrome/browser/ui/modal_browser/merlin_popup_kit.h"
+ #include "chrome/browser/ui/profiles/profile_colors_util.h"
+ #include "chrome/browser/ui/profiles/profile_view_utils.h"
+ #include "chrome/browser/ui/tabs/tab_strip_model.h"
+@@ -70,7 +71,9 @@
+ #include "ui/views/layout/flex_layout.h"
+ #include "ui/views/layout/flex_layout_types.h"
+ #include "ui/views/layout/layout_manager.h"
++#include "ui/views/layout/box_layout_view.h"
+ #include "ui/views/layout/table_layout.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/metadata/view_factory.h"
+ #include "ui/views/style/typography.h"
+ #include "ui/views/view.h"
+@@ -490,6 +493,88 @@
+   // does not support a button without subtitle.
+ 
+   identity_info_container_->RemoveAllChildViews();
++
++  if (views::merlin_style::IsEnabled()) {
++    // Merlin's identity card: the avatar beside the name, as in a Settings
++    // row, rather than a large centered portrait on a colored panel. The
++    // header, texts, button and its action are Chromium's.
++    constexpr int kMerlinAvatarSize = 40;
++    identity_info_container_->SetLayoutManager(
++        std::make_unique<views::BoxLayout>(
++            views::BoxLayout::Orientation::kVertical, gfx::Insets(12), 10))
++        ->set_cross_axis_alignment(
++            views::BoxLayout::CrossAxisAlignment::kStretch);
++    modal_browser::popup::StyleAsCard(identity_info_container_);
++    identity_info_container_->SetProperty(
++        views::kMarginsKey, gfx::Insets::TLBR(kIdentityContainerMargin,
++                                              kIdentityContainerMargin, 4,
++                                              kIdentityContainerMargin));
++
++    if (!params.header_string.empty() && !params.header_image.IsEmpty()) {
++      auto header = std::make_unique<HoverButton>(
++          std::move(params.header_action),
++          std::make_unique<views::ImageView>(
++              GetCircularSizedImage(params.header_image, kHeaderImageSize)),
++          params.header_string, std::u16string(), nullptr, true,
++          std::u16string(), kManagementHeaderIconLabelSpacing);
++      header->title()->SetTextStyle(views::style::STYLE_BODY_5);
++      identity_info_container_->AddChildView(std::move(header));
++    }
++
++    auto* row = identity_info_container_->AddChildView(
++        std::make_unique<views::BoxLayoutView>());
++    row->SetOrientation(views::BoxLayout::Orientation::kHorizontal);
++    row->SetBetweenChildSpacing(12);
++    row->SetCrossAxisAlignment(views::BoxLayout::CrossAxisAlignment::kCenter);
++    row->AddChildView(std::make_unique<views::ImageView>(
++        GetCircularSizedImage(params.profile_image, kMerlinAvatarSize)));
++    auto* text = row->AddChildView(std::make_unique<views::BoxLayoutView>());
++    text->SetOrientation(views::BoxLayout::Orientation::kVertical);
++    text->SetCrossAxisAlignment(views::BoxLayout::CrossAxisAlignment::kStretch);
++    text->SetBetweenChildSpacing(2);
++    row->SetFlexForView(text, 1);
++
++    auto* title = text->AddChildView(std::make_unique<views::Label>(
++        params.title, views::style::CONTEXT_LABEL));
++    title->SetFontList(modal_browser::popup::TitleFont());
++    title->SetEnabledColor(kColorProfileMenuIdentityInfoTitle);
++    title->SetHorizontalAlignment(gfx::ALIGN_LEFT);
++    title->SetElideBehavior(gfx::ELIDE_TAIL);
++
++    for (const std::u16string* line :
++         {&params.email_subtitle, &params.subtitle}) {
++      if (line->empty()) {
++        continue;
++      }
++      auto* label = text->AddChildView(
++          std::make_unique<views::Label>(*line, views::style::CONTEXT_LABEL));
++      modal_browser::popup::StyleSecondary(label);
++      label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
++      label->SetMultiLine(line == &params.subtitle);
++      label->SetHandlesTooltips(false);
++    }
++    if (!params.subtitle.empty() || !params.email_subtitle.empty()) {
++      identity_info_container_->GetViewAccessibility().SetRole(
++          ax::mojom::Role::kGroup);
++      identity_info_container_->GetViewAccessibility().SetName(
++          !params.subtitle.empty() ? params.subtitle : params.email_subtitle,
++          ax::mojom::NameFrom::kAttribute);
++    }
++
++    if (!params.button_text.empty()) {
++      identity_button_ = identity_info_container_->AddChildView(
++          views::Builder<views::MdTextButton>()
++              .SetText(params.button_text)
++              .SetCallback(base::BindRepeating(
++                  &ProfileMenuViewBase::ButtonPressed, base::Unretained(this),
++                  std::move(params.button_action)))
++              .SetStyle(ui::ButtonStyle::kProminent)
++              .SetImageModel(views::Button::STATE_NORMAL, params.button_image)
++              .Build());
++    }
++    return;
++  }
++
+   // Vertical BoxLayout.
+   auto box_layout =
+       CreateBoxLayout(views::BoxLayout::Orientation::kVertical,

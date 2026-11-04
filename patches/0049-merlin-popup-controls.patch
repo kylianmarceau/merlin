@@ -1,0 +1,420 @@
+diff --git a/ui/views/merlin_style.h b/ui/views/merlin_style.h
+new file mode 100644
+--- /dev/null
++++ b/ui/views/merlin_style.h
+@@ -0,0 +1,62 @@
++// Copyright 2026 The Merlin Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef UI_VIEWS_MERLIN_STYLE_H_
++#define UI_VIEWS_MERLIN_STYLE_H_
++
++#include "third_party/skia/include/core/SkColor.h"
++#include "ui/gfx/geometry/insets.h"
++#include "ui/gfx/image/image_skia.h"
++#include "ui/views/views_export.h"
++
++namespace views {
++class View;
++}
++
++// Merlin's shapes for the shared controls every bubble and dialog is built
++// from: the frame's title and close button, text buttons, switches,
++// checkboxes, radio buttons and list rows. Colors still come from the color
++// pipeline (Merlin's mixer sets them); this file only changes geometry and
++// drops the Material ripples and halos, so a pop-up Chromium never had a
++// Merlin layout for still reads as Merlin's.
++//
++// Off by default, so views_unittests and other embedders keep upstream
++// behavior; the browser turns it on with Merlin's theme
++// (modal_browser::InstallMerlinTheme), which `--modal-browser-upstream-defaults`
++// skips.
++namespace views::merlin_style {
++
++VIEWS_EXPORT bool IsEnabled();
++VIEWS_EXPORT void SetEnabled(bool enabled);
++
++// Metrics, in DIPs.
++inline constexpr int kControlRadius = 8;
++inline constexpr int kRowRadius = 8;
++inline constexpr int kRowInset = 6;
++inline constexpr int kCardRadius = 12;
++inline constexpr int kToggleTrackWidth = 34;
++inline constexpr int kToggleTrackHeight = 20;
++inline constexpr int kToggleThumbInset = 2;
++inline constexpr int kCheckboxSize = 16;
++inline constexpr int kCheckboxRadius = 4;
++inline constexpr int kCloseButtonSize = 24;
++inline constexpr int kCloseIconSize = 14;
++inline constexpr int kTitleFontSize = 14;
++
++// A rounded-square checkbox: filled with `fill` and a `check` mark when
++// checked, a 1.5 DIP `stroke` outline when not.
++VIEWS_EXPORT gfx::ImageSkia CheckboxImage(bool checked,
++                                          SkColor fill,
++                                          SkColor stroke,
++                                          SkColor check);
++
++// Replaces `view`'s circular or full-bleed hover with a rounded rectangle
++// inset by `insets`, without the expanding ripple.
++VIEWS_EXPORT void UseRoundedFlatHighlight(View* view,
++                                          const gfx::Insets& insets,
++                                          int radius);
++
++}  // namespace views::merlin_style
++
++#endif  // UI_VIEWS_MERLIN_STYLE_H_
+diff --git a/ui/views/merlin_style.cc b/ui/views/merlin_style.cc
+new file mode 100644
+--- /dev/null
++++ b/ui/views/merlin_style.cc
+@@ -0,0 +1,88 @@
++// Copyright 2026 The Merlin Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "ui/views/merlin_style.h"
++
++#include "cc/paint/paint_flags.h"
++#include "ui/gfx/canvas.h"
++#include "ui/gfx/geometry/rect_f.h"
++#include "ui/gfx/image/canvas_image_source.h"
++#include "ui/gfx/paint_vector_icon.h"
++#include "ui/views/animation/ink_drop.h"
++#include "ui/views/animation/ink_drop_host.h"
++#include "ui/views/controls/highlight_path_generator.h"
++#include "ui/views/vector_icons.h"
++#include "ui/views/view.h"
++
++namespace views::merlin_style {
++
++namespace {
++
++bool g_enabled = false;
++
++class CheckboxSource : public gfx::CanvasImageSource {
++ public:
++  CheckboxSource(bool checked, SkColor fill, SkColor stroke, SkColor check)
++      : gfx::CanvasImageSource(gfx::Size(kCheckboxSize, kCheckboxSize)),
++        checked_(checked),
++        fill_(fill),
++        stroke_(stroke),
++        check_(check) {}
++
++  void Draw(gfx::Canvas* canvas) override {
++    cc::PaintFlags flags;
++    flags.setAntiAlias(true);
++    gfx::RectF box(0, 0, kCheckboxSize, kCheckboxSize);
++    if (checked_) {
++      flags.setColor(fill_);
++      canvas->DrawRoundRect(box, kCheckboxRadius, flags);
++      constexpr int kMark = 12;
++      const int offset = (kCheckboxSize - kMark) / 2;
++      canvas->Save();
++      canvas->Translate(gfx::Vector2d(offset, offset));
++      gfx::PaintVectorIcon(canvas, kCheckSmallIcon, kMark, check_);
++      canvas->Restore();
++      return;
++    }
++    constexpr float kStroke = 1.5f;
++    box.Inset(kStroke / 2);
++    flags.setStyle(cc::PaintFlags::kStroke_Style);
++    flags.setStrokeWidth(kStroke);
++    flags.setColor(stroke_);
++    canvas->DrawRoundRect(box, kCheckboxRadius - kStroke / 2, flags);
++  }
++
++ private:
++  const bool checked_;
++  const SkColor fill_;
++  const SkColor stroke_;
++  const SkColor check_;
++};
++
++}  // namespace
++
++bool IsEnabled() {
++  return g_enabled;
++}
++
++void SetEnabled(bool enabled) {
++  g_enabled = enabled;
++}
++
++gfx::ImageSkia CheckboxImage(bool checked,
++                             SkColor fill,
++                             SkColor stroke,
++                             SkColor check) {
++  return gfx::CanvasImageSource::MakeImageSkia<CheckboxSource>(checked, fill,
++                                                               stroke, check);
++}
++
++void UseRoundedFlatHighlight(View* view,
++                             const gfx::Insets& insets,
++                             int radius) {
++  InstallRoundRectHighlightPathGenerator(view, insets, radius);
++  InkDrop::Get(view)->SetMode(InkDropHost::InkDropMode::ON_NO_ANIMATE);
++}
++
++}  // namespace views::merlin_style
+diff --git a/ui/views/BUILD.gn b/ui/views/BUILD.gn
+--- a/ui/views/BUILD.gn
++++ b/ui/views/BUILD.gn
+@@ -301,6 +301,7 @@
+     "layout/table_layout.h",
+     "layout/table_layout_view.h",
+     "masked_targeter_delegate.h",
++    "merlin_style.h",
+     "metadata/type_conversion.h",
+     "metadata/view_factory.h",
+     "metadata/view_factory_internal.h",
+@@ -550,6 +551,7 @@
+     "layout/table_layout.cc",
+     "layout/table_layout_view.cc",
+     "masked_targeter_delegate.cc",
++    "merlin_style.cc",
+     "metadata/type_conversion.cc",
+     "metadata/view_factory_internal.cc",
+     "mouse_watcher.cc",
+diff --git a/ui/views/style/typography_provider.cc b/ui/views/style/typography_provider.cc
+--- a/ui/views/style/typography_provider.cc
++++ b/ui/views/style/typography_provider.cc
+@@ -16,6 +16,7 @@
+ #include "ui/base/ui_base_features.h"
+ #include "ui/color/color_id.h"
+ #include "ui/views/layout/layout_provider.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/style/typography.h"
+ 
+ #if BUILDFLAG(IS_MAC)
+@@ -295,6 +296,21 @@
+       details.size_delta = gfx::PlatformFont::GetFontSizeDelta(9);
+       details.weight = gfx::Font::Weight::BOLD;
+       break;
++  }
++
++  // Merlin sets pop-up titles at the size of its Settings rows, semibold,
++  // with the origin or name a step bolder, instead of Chromium's 16 DIP
++  // headline.
++  if (merlin_style::IsEnabled()) {
++    if (style == style::STYLE_HEADLINE_4) {
++      details.size_delta =
++          gfx::PlatformFont::GetFontSizeDelta(merlin_style::kTitleFontSize);
++      details.weight = gfx::Font::Weight::SEMIBOLD;
++    } else if (style == style::STYLE_HEADLINE_4_BOLD) {
++      details.size_delta =
++          gfx::PlatformFont::GetFontSizeDelta(merlin_style::kTitleFontSize);
++      details.weight = gfx::Font::Weight::BOLD;
++    }
+   }
+ 
+   return details;
+diff --git a/ui/views/bubble/bubble_frame_view.cc b/ui/views/bubble/bubble_frame_view.cc
+--- a/ui/views/bubble/bubble_frame_view.cc
++++ b/ui/views/bubble/bubble_frame_view.cc
+@@ -48,6 +48,7 @@
+ #include "ui/views/layout/box_layout.h"
+ #include "ui/views/layout/box_layout_view.h"
+ #include "ui/views/layout/layout_provider.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/metadata/type_conversion.h"
+ #include "ui/views/paint_info.h"
+ #include "ui/views/property_effects.h"
+@@ -181,6 +182,22 @@
+ // static
+ std::unique_ptr<Button> BubbleFrameView::CreateCloseButton(
+     Button::PressedCallback callback) {
++  if (merlin_style::IsEnabled()) {
++    // A small rounded square with a flat hover, the shape of Merlin's
++    // toolbar buttons, instead of a circle with a ripple.
++    auto close_button = CreateVectorImageButtonWithNativeTheme(
++        std::move(callback), vector_icons::kCloseIcon,
++        merlin_style::kCloseIconSize);
++    close_button->SetTooltipText(l10n_util::GetStringUTF16(IDS_APP_CLOSE));
++    close_button->GetViewAccessibility().SetName(
++        l10n_util::GetStringUTF16(IDS_APP_CLOSE));
++    close_button->SetBorder(CreateEmptyBorder(
++        (merlin_style::kCloseButtonSize - merlin_style::kCloseIconSize) / 2));
++    close_button->SizeToPreferredSize();
++    merlin_style::UseRoundedFlatHighlight(close_button.get(), gfx::Insets(),
++                                          merlin_style::kControlRadius - 2);
++    return close_button;
++  }
+   auto close_button = CreateVectorImageButtonWithNativeTheme(
+       std::move(callback), features::IsRoundedIconsEnabled()
+                                ? vector_icons::kCloseIcon
+diff --git a/ui/views/controls/button/md_text_button.cc b/ui/views/controls/button/md_text_button.cc
+--- a/ui/views/controls/button/md_text_button.cc
++++ b/ui/views/controls/button/md_text_button.cc
+@@ -3,6 +3,8 @@
+ // found in the LICENSE file.
+ 
+ #include "ui/views/controls/button/md_text_button.h"
++
++#include "ui/views/merlin_style.h"
+ 
+ #include <algorithm>
+ #include <string_view>
+@@ -54,7 +56,10 @@
+                   button_context,
+                   std::move(image_container)),
+       use_text_color_for_icon_(use_text_color_for_icon) {
+-  InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::ON);
++  // Merlin buttons change color on hover and press; they do not ripple.
++  InkDrop::Get(this)->SetMode(
++      merlin_style::IsEnabled() ? views::InkDropHost::InkDropMode::ON_NO_ANIMATE
++                                : views::InkDropHost::InkDropMode::ON);
+   SetHasInkDropActionOnClick(true);
+   SetShowInkDropWhenHotTracked(true);
+   InkDrop::Get(this)->SetBaseColorCallback(base::BindRepeating(
+diff --git a/ui/views/controls/button/toggle_button.cc b/ui/views/controls/button/toggle_button.cc
+--- a/ui/views/controls/button/toggle_button.cc
++++ b/ui/views/controls/button/toggle_button.cc
+@@ -39,6 +39,7 @@
+ #include "ui/views/animation/square_ink_drop_ripple.h"
+ #include "ui/views/controls/focus_ring.h"
+ #include "ui/views/controls/highlight_path_generator.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/painter.h"
+ #include "ui/views/property_effects.h"
+ 
+@@ -55,11 +56,24 @@
+ constexpr float kBorderStrokeWidth = 1.0f;
+ 
+ const gfx::Size GetTrackSize() {
++  // Merlin's switch is the Settings page's: a wider track and a thumb that
++  // keeps its size, rather than one that grows when switched on.
++  if (merlin_style::IsEnabled()) {
++    return gfx::Size(merlin_style::kToggleTrackWidth,
++                     merlin_style::kToggleTrackHeight);
++  }
+   return kTrackSize;
+ }
+ 
+ int GetThumbInset(bool is_on) {
++  if (merlin_style::IsEnabled()) {
++    return merlin_style::kToggleThumbInset;
++  }
+   return is_on ? kThumbInsetSelected : kThumbInset;
++}
++
++int GetThumbPressedOutset() {
++  return merlin_style::IsEnabled() ? 0 : kThumbPressedOutset;
+ }
+ 
+ }  // namespace
+@@ -195,7 +209,10 @@
+   hover_animation_.SetSlideDuration(base::Milliseconds(250));
+   hover_animation_.SetTweenType(gfx::Tween::LINEAR);
+   thumb_view_ = AddChildView(std::make_unique<ThumbView>(has_thumb_shadow));
+-  InkDrop::Get(this)->SetMode(InkDropHost::InkDropMode::ON);
++  // No halo around Merlin's thumb.
++  InkDrop::Get(this)->SetMode(merlin_style::IsEnabled()
++                                  ? InkDropHost::InkDropMode::OFF
++                                  : InkDropHost::InkDropMode::ON);
+   InkDrop::Get(this)->SetLayerRegion(LayerRegion::kAbove);
+   // Do not set a clip, allow the ink drop to burst out.
+   // TODO(pbos): Consider an explicit InkDrop API to not use a clip rect / mask.
+@@ -367,7 +384,7 @@
+   thumb_bounds.set_width(thumb_bounds.height());
+   thumb_bounds.Inset(thumb_view_->GetShadowOutsets());
+   if (GetState() == STATE_PRESSED) {
+-    thumb_bounds.Outset(kThumbPressedOutset);
++    thumb_bounds.Outset(GetThumbPressedOutset());
+   }
+   return thumb_bounds;
+ }
+@@ -481,7 +498,7 @@
+   track_flags.setColor(color_utils::AlphaBlend(
+       GetTrackColor(true), GetTrackColor(false), color_ratio));
+   canvas->DrawRoundRect(track_rect, radius, track_flags);
+-  if (!GetIsOn() && inner_border_enabled_) {
++  if (!GetIsOn() && inner_border_enabled_ && !merlin_style::IsEnabled()) {
+     track_rect.Inset(kBorderStrokeWidth * dsf / 2.0f);
+     track_flags.setColor(
+         GetColorProvider()->GetColor(ui::kColorToggleButtonShadow));
+diff --git a/ui/views/controls/button/checkbox.cc b/ui/views/controls/button/checkbox.cc
+--- a/ui/views/controls/button/checkbox.cc
++++ b/ui/views/controls/button/checkbox.cc
+@@ -36,6 +36,7 @@
+ #include "ui/views/controls/button/label_button_border.h"
+ #include "ui/views/controls/focus_ring.h"
+ #include "ui/views/controls/highlight_path_generator.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/layout/layout_provider.h"
+ #include "ui/views/painter.h"
+ #include "ui/views/property_effects.h"
+@@ -147,6 +148,13 @@
+   InkDrop::Get(image_container_view())
+       ->SetBaseColor(ui::kColorCheckboxForegroundUnchecked);
+ 
++  // Merlin's checkboxes and radio buttons have no halo or ripple.
++  if (merlin_style::IsEnabled()) {
++    InkDrop::Get(this)->SetMode(InkDropHost::InkDropMode::OFF);
++    InkDrop::Get(image_container_view())
++        ->SetMode(InkDropHost::InkDropMode::OFF);
++  }
++
+   GetViewAccessibility().SetRole(ax::mojom::Role::kCheckBox);
+   SetAndUpdateAccessibleDefaultActionVerb();
+   UpdateAccessibleCheckedState();
+@@ -197,6 +205,11 @@
+   const int icon_state = GetIconState(for_state);
+ 
+   const SkColor container_color = GetIconImageColor(icon_state);
++  if (merlin_style::IsEnabled()) {
++    return merlin_style::CheckboxImage(
++        GetChecked(), container_color, container_color,
++        GetChecked() ? GetIconCheckColor(icon_state) : SK_ColorTRANSPARENT);
++  }
+   if (GetChecked()) {
+     const gfx::ImageSkia check_icon = gfx::CreateVectorIcon(
+         GetVectorIcon(), kCheckboxIconDipSize, GetIconCheckColor(icon_state));
+diff --git a/chrome/browser/ui/views/controls/hover_button.cc b/chrome/browser/ui/views/controls/hover_button.cc
+--- a/chrome/browser/ui/views/controls/hover_button.cc
++++ b/chrome/browser/ui/views/controls/hover_button.cc
+@@ -24,6 +24,7 @@
+ #include "ui/views/background.h"
+ #include "ui/views/border.h"
+ #include "ui/views/controls/highlight_path_generator.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/focus/focus_manager.h"
+ #include "ui/views/layout/box_layout.h"
+ #include "ui/views/layout/flex_layout.h"
+@@ -118,6 +119,13 @@
+   // sets the opacity to 100% * opacity(kColorHoverButtonBackgroundHovered).
+   views::InkDrop::Get(this)->SetVisibleOpacity(1.0f);
+   views::InkDrop::Get(this)->SetHighlightOpacity(1.0f);
++  if (views::merlin_style::IsEnabled()) {
++    // Merlin list rows light up as a rounded pill inset from the edges of
++    // the pop-up, as in its palette and Settings, without a flood fill.
++    views::merlin_style::UseRoundedFlatHighlight(
++        this, gfx::Insets::VH(1, views::merlin_style::kRowInset),
++        views::merlin_style::kRowRadius);
++  }
+ 
+   SetTriggerableEventFlags(ui::EF_LEFT_MOUSE_BUTTON |
+                            ui::EF_RIGHT_MOUSE_BUTTON);
+diff --git a/chrome/browser/ui/views/chrome_layout_provider.cc b/chrome/browser/ui/views/chrome_layout_provider.cc
+--- a/chrome/browser/ui/views/chrome_layout_provider.cc
++++ b/chrome/browser/ui/views/chrome_layout_provider.cc
+@@ -12,6 +12,7 @@
+ #include "base/feature_list.h"
+ #include "chrome/browser/ui/ui_features.h"
+ #include "chrome/browser/ui/views/chrome_typography.h"
++#include "ui/views/merlin_style.h"
+ #include "components/omnibox/common/omnibox_features.h"
+ #include "ui/base/pointer/touch_ui_controller.h"
+ #include "ui/gfx/shadow_value.h"
+@@ -81,7 +82,9 @@
+     case INSETS_PAGE_INFO_HOVER_BUTTON: {
+       const gfx::Insets insets =
+           LayoutProvider::GetInsetsMetric(views::INSETS_LABEL_BUTTON);
+-      const int horizontal_padding = 20;
++      // Merlin's page info rows sit inside cards, so they need less room.
++      const int horizontal_padding =
++          views::merlin_style::IsEnabled() ? 12 : 20;
+       // Hover button in page info requires double the height compared to the
+       // label button because it behaves like a menu control.
+       return gfx::Insets::VH(insets.height(), horizontal_padding);
