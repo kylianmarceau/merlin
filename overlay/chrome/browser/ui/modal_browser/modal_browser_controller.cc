@@ -47,7 +47,6 @@
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
-#include "chrome/browser/ui/modal_browser/merlin_adblock_button.h"
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
@@ -463,11 +462,6 @@ ModalBrowserController::~ModalBrowserController() {
     accelerator_focus_manager_->UnregisterAccelerators(this);
   }
   accelerator_focus_manager_ = nullptr;
-  if (adblock_button_) {
-    auto removed =
-        adblock_button_->parent()->RemoveChildViewT(adblock_button_.get());
-    adblock_button_ = nullptr;
-  }
   if (safety_controls_) {
     auto removed =
         safety_controls_->parent()->RemoveChildViewT(safety_controls_.get());
@@ -924,14 +918,6 @@ void ModalBrowserController::InstallMerlinToolbar(
           .WithOrder(1));
   field->SetProperty(views::kMarginsKey, gfx::Insets::VH(0, 2));
   address_field_ = row->AddChildViewAt(std::move(field), index++);
-  adblock_button_ = row->AddChildViewAt(
-      std::make_unique<MerlinAdblockButton>(
-          browser_.get(),
-          base::BindRepeating(&ModalBrowserController::OpenUrl,
-                              weak_factory_.GetWeakPtr(),
-                              "chrome://merlin-settings/#adblock",
-                              ffi::OpenDisposition::CurrentTab)),
-      index++);
   toolbar_spacer_right_ = row->AddChildViewAt(flexible(), index);
   address_editor_ = std::make_unique<MerlinAddressEditor>(
       browser_view_, browser_.get(), address_field_,
@@ -956,8 +942,6 @@ void ModalBrowserController::UpdateMerlinToolbar(
   if (safety_controls_) {
     safety_controls_->UpdateSiteInfo();
   }
-  if (adblock_button_)
-    adblock_button_->Update();
   if (!address_field_) {
     return;
   }
@@ -2976,8 +2960,6 @@ void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
   if (safety_controls_) {
     safety_controls_->SetSurface(color);
   }
-  if (adblock_button_)
-    adblock_button_->SetSurface(color);
 }
 
 void ModalBrowserController::PageWorkDone() {

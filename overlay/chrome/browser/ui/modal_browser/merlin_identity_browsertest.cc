@@ -22,7 +22,10 @@
 #include "chrome/browser/ui/global_media_controls/media_notification_service_factory.h"
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "chrome/browser/ui/modal_browser/config_file.h"
+#include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_design_tokens.h"
+#include "chrome/browser/ui/modal_browser/merlin_toolbar.h"
+#include "chrome/browser/ui/modal_browser/modal_style.h"
 #include "chrome/browser/ui/modal_browser/merlin_safety_controls.h"
 #include "chrome/browser/ui/modal_browser/merlin_theme.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
@@ -75,6 +78,7 @@
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/styled_label.h"
+#include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/merlin_style.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/metrics.h"
@@ -655,6 +659,34 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest,
       EXPECT_EQ(delegate.decision, expected);
       prompt->GetWidget()->CloseNow();
     }
+  }
+}
+
+// The address card runs to the end of the toolbar, as Dia's does, instead of
+// stopping at the width of the address.
+IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest, AddressCardSpansToolbar) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/empty.html")));
+  auto* controller = ModalBrowserController::From(browser());
+  ASSERT_TRUE(controller);
+  MerlinAddressEditor* editor = controller->address_editor_for_testing();
+  ASSERT_TRUE(editor);
+  views::View* field = controller->address_field_for_testing();
+  ASSERT_TRUE(field && field->parent());
+  for (bool dark : {false, true}) {
+    SetDark(dark);
+    controller->FocusAddressBar();
+    ASSERT_TRUE(editor->editing());
+    editor->textfield_for_testing()->InsertOrReplaceText(u"merlin");
+    views::Widget* card = editor->textfield_for_testing()->GetWidget();
+    ASSERT_TRUE(card);
+    const gfx::Rect row = field->parent()->GetBoundsInScreen();
+    const gfx::Rect bounds = card->GetWindowBoundsInScreen();
+    // The card's own edge sits inside its shadow margin.
+    EXPECT_GE(bounds.right() - style::kShadowMargin, row.right() - 10);
+    EXPECT_GT(bounds.width() - 2 * style::kShadowMargin, row.width() / 2);
+    SnapWidget(card, dark ? "dark-address-card" : "light-address-card");
+    editor->End();
   }
 }
 
