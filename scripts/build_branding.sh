@@ -6,7 +6,7 @@
 #     tools/mac/icons/compile_car.py (needs Xcode 26+ and the checkout)
 #
 # The macOS 26+ icon comes from overlay/.../mac/AppIcon.icon (Icon Composer
-# format, hand-written); edit its merlin.svg and icon.json directly.
+# format). scripts/merlin_mark.py owns the SVG layer and palette.
 #
 # Run after changing branding/merlin-app-icon.svg or AppIcon.icon, then
 # commit the outputs: Chromium checks its compiled icons in, and so do we.
@@ -21,8 +21,32 @@ XC="$MAC/Assets.xcassets"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-swiftc -O "$ROOT/scripts/render_svg.swift" -o "$work/render_svg"
+python3 "$ROOT/scripts/merlin_mark.py" --write
+swiftc -module-cache-path "$work/swift-cache" -O "$ROOT/scripts/render_svg.swift" -o "$work/render_svg"
+swiftc -module-cache-path "$work/swift-cache" -O "$ROOT/scripts/render_wordmark.swift" -o "$work/render_wordmark"
 render() { "$work/render_svg" "$ICON" "$1" "$2"; }
+
+# Product tiles, template glyph and password favicon at every resource scale.
+TILE="$ROOT/branding/merlin-favicon.svg"
+for s in 64 128 256; do
+  "$work/render_svg" "$TILE" "$ROOT/overlay/chrome/app/theme/merlin/product_logo_$s.png" "$s"
+done
+"$work/render_svg" "$ROOT/branding/merlin-mono.svg" "$ROOT/overlay/chrome/app/theme/merlin/product_logo_22_mono.png" 22
+for scale in 1 2; do
+  theme="$ROOT/overlay/chrome/app/theme/default_$((scale * 100))_percent/merlin"
+  components="$ROOT/overlay/components/resources/default_$((scale * 100))_percent/merlin"
+  for s in 16 32; do
+    "$work/render_svg" "$TILE" "$theme/product_logo_$s.png" $((s * scale))
+  done
+  "$work/render_svg" "$TILE" "$components/favicon_product.png" $((16 * scale))
+  "$work/render_svg" "$ROOT/branding/merlin-password-favicon.svg" "$theme/favicon_password_manager.png" $((16 * scale))
+  for variant in normal white; do
+    suffix=""; ink="AA4C32"
+    if [[ "$variant" == white ]]; then suffix="_white"; ink="F5E9D7"; fi
+    "$work/render_wordmark" "$TILE" "$ROOT/branding/merlin-wordmark-toolbar-mask.png" "$theme/product_logo_name_22$suffix.png" $((22 * scale)) "$ink"
+    "$work/render_wordmark" "$TILE" "$ROOT/branding/merlin-wordmark-version-mask.png" "$components/product_logo$suffix.png" $((32 * scale)) "$ink"
+  done
+done
 
 # Pre-macOS 26 app icon and the document badge, in the asset catalog.
 for s in 16 32 64 128 256 512; do

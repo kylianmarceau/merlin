@@ -1105,16 +1105,16 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, PageCardAndTabLayout) {
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinMarksReplaceChromiumLogo) {
   // The product logo Settings › About shows (chrome://theme/current-channel-
-  // logo) is the Merlin tile: cream at the top, the rust middle feather at
-  // the center. Chromium's logo is white and blue there.
+  // logo) is the approved rust falcon on cream. Chromium's logo is
+  // white and blue at these same sample points.
   const gfx::ImageSkia* logo =
       ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
           IDR_PRODUCT_LOGO_32);
   ASSERT_TRUE(logo);
   const SkBitmap& bitmap = logo->GetRepresentation(1.0f).GetBitmap();
   ASSERT_EQ(bitmap.width(), 32);
-  EXPECT_EQ(bitmap.getColor(16, 3), SkColorSetRGB(0xF2, 0xEC, 0xE0));
-  EXPECT_EQ(bitmap.getColor(16, 16), SkColorSetRGB(0xC4, 0x55, 0x2D));
+  EXPECT_EQ(bitmap.getColor(16, 3), SkColorSetRGB(0xF5, 0xE9, 0xD7));
+  EXPECT_EQ(bitmap.getColor(16, 16), SkColorSetRGB(0xAA, 0x4C, 0x32));
 
   // chrome://version shows the Merlin wordmark (112 x 32, where Chromium's
   // is 171 x 32) and Merlin's own credit lines.

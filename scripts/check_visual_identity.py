@@ -2,6 +2,7 @@
 """Offline branding boundary checks; --src also audits the applied Chromium tree."""
 import argparse
 import json
+import re
 import hashlib
 from pathlib import Path
 import subprocess
@@ -25,6 +26,25 @@ ROOT=Path(__file__).resolve().parent.parent
 
 
 class BrandingBoundaries(unittest.TestCase):
+    def test_generated_falcon_assets_are_current(self):
+        for path, expected in art.merlin_mark.outputs(ROOT).items():
+            with self.subTest(asset=str(path.relative_to(ROOT))):
+                self.assertEqual(path.read_text(), expected)
+
+    def test_native_falcon_coordinates_are_valid_float_literals(self):
+        # Integer-valued coordinates must still have a decimal before C++'s f.
+        for size in (15, 16, 24, 32, 96):
+            with self.subTest(size=size):
+                self.assertIsNone(re.search(r'(?<![\w.])\d+f\b', icons.vector_icon(size)))
+
+    def test_internal_pages_use_shared_product_icon(self):
+        for name in ('merlin_start_page.cc', 'merlin_library_pages.cc'):
+            page = (ROOT / 'overlay/chrome/browser/ui/modal_browser' / name).read_text()
+            with self.subTest(page=name):
+                self.assertRegex(page, r'<img class="mark"[^>]*src="icon.svg"')
+                self.assertNotIn('M85.15 135.77', page)
+                self.assertNotIn('class="feathers"', page)
+
     def test_product_text_only(self):
         before='''<!-- <message name="COMMENT">Chrome</message> -->
 <message name="IDS_FIXTURE" desc="Chrome internal description">
