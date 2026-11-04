@@ -141,7 +141,6 @@
       "hover": "rgba(40, 30, 10, 0.045)",
       "selected": "rgba(40, 30, 10, 0.075)",
       "shadow": "0 14px 36px rgba(40, 30, 10, 0.14)",
-      "feather": "#12352E",
       "field": "var(--panel)",
       "caret": "var(--focus)",
       "error": "var(--danger)"
@@ -152,8 +151,7 @@
       "hair-strong": "rgba(255, 255, 255, 0.2)",
       "hover": "rgba(255, 255, 255, 0.045)",
       "selected": "rgba(255, 255, 255, 0.085)",
-      "shadow": "0 14px 36px rgba(0, 0, 0, 0.45)",
-      "feather": "#E9E3D6"
+      "shadow": "0 14px 36px rgba(0, 0, 0, 0.45)"
     }
   }
 }

@@ -2,8 +2,9 @@
 
 The browser is called **Merlin**. A merlin is a small, fast falcon that
 wins by agility, not size, which is how a keyboard-first browser should
-feel. The mark is its tail, fanned: five feathers spread from one point,
-like tabs from one window.
+feel. The mark is the swept-back, right-facing falcon approved for the browser:
+a rust silhouette on a warm cream tile, with a curved wing channel and a
+negative-space eye. Monochrome contexts use the same silhouette.
 
 `modal_browser` stays the internal code name (crates, Chromium paths,
 `~/.config/modal_browser`). Only user-facing names change.
@@ -12,15 +13,17 @@ like tabs from one window.
 
 | File | Use |
 |---|---|
-| `merlin-mark.svg` | The mark alone: the fanned tail, forest with a rust middle feather. On cream or light grounds. |
+| `merlin-mark.svg` | The approved rust falcon alone, with a transparent background. |
 | `merlin-app-icon.svg` | macOS app icon source, 1024 × 1024 on Apple's icon grid (824 px body). |
 | `merlin-app-icon-1024.png` | The app icon rendered at 1024 px. |
 | `merlin.icns` | Standalone app icon, 16 px to 1024 px, for the DMG and anywhere outside the build. |
 | `merlin-favicon.svg` | Full-bleed tile for small sizes: tabs, docs, the website, Merlin's own pages. |
-| `merlin-mono.svg` | The fan in one colour: the menu bar template and other single-colour uses. |
+| `merlin-mono.svg` | The falcon in one colour: the menu bar template and other single-colour uses. |
 | `merlin-password-favicon.svg` | The password manager's tab icon: a key on the cream tile. |
 
-`scripts/merlin_mark.py --write` draws every SVG above from one geometry,
+`merlin-falcon.json` stores the smooth vector contours traced from the approved
+artwork; `merlin-approved.png` retains that source for visual comparison.
+`scripts/merlin_mark.py --write` draws every SVG above from those contours,
 plus the Icon Composer layer (`overlay/.../mac/AppIcon.icon/Assets/merlin.svg`)
 and the Views glyphs (`overlay/components/vector_icons/merlin/*.icon`).
 Change the mark there, never in an SVG by hand. `scripts/rebrand_icons.py`
@@ -32,10 +35,13 @@ build uses in `overlay/chrome/app/theme/merlin/mac/` (`app.icns`,
 `Assets.car`). It needs Xcode 26+ and the Chromium checkout. Commit the
 outputs.
 
-The PNG tiles in `overlay/chrome/app/theme/{merlin,default_*_percent/merlin}/`
-and `overlay/components/resources/default_*_percent/merlin/` are
-`merlin-favicon.svg`, `merlin-mono.svg` and `merlin-password-favicon.svg`
-rendered with `scripts/render_svg.swift` at each file's size.
+The same build script renders every product tile, favicon and monochrome PNG
+in `overlay/chrome/app/theme/{merlin,default_*_percent/merlin}/` and
+`overlay/components/resources/default_*_percent/merlin/`. It also composes the
+wordmarks with `scripts/render_wordmark.swift`. The two `merlin-wordmark-*-mask.png`
+files retain the existing Syne lettering only, without any old logo pixels; this
+keeps builds independent of installed fonts. Internal pages load the shared
+`icon.svg` rather than embedding a separate drawing.
 
 ## In the build
 
@@ -51,17 +57,15 @@ product logo at the overlay: `chrome/app/theme/merlin/` (tiles 64-256,
 the mono tray glyph, `product_logo.svg`), `default_{100,200}_percent/merlin/`
 for Chrome and components (16 and 32 px tiles, the wordmark PNGs, the
 version page logo) and `components/vector_icons/merlin/` (the menu glyph).
-The wordmark PNGs are rendered with Syne Bold, which is not installed on
-the build machine; they were drawn in a browser with the font from Google
-Fonts and checked in. See `docs/DECISIONS.md` 33.
+The wordmark PNGs retain the existing Syne Bold lettering and use the new
+falcon tile, rust lettering on light grounds and cream on dark grounds. See `docs/DECISIONS.md` 33.
 
 ## Colors
 
 | Name | Hex | Use |
 |---|---|---|
-| Cream | `#F2ECE0` | Icon tile, light brand grounds |
-| Forest | `#12352E` | The mark, the wordmark, text on Cream |
-| Rust | `#C4552D` | The middle feather; one accent per mark, never body text |
+| Cream | `#F5E9D7` | Icon tile, light brand grounds, wordmark on dark |
+| Rust | `#AA4C32` | The falcon and the wordmark on light grounds |
 | Hint | `#F6D44A` | The interface accent: link-hint labels, focus, highlights |
 
 Hint yellow belongs to the interface, not the logo: it marks what you can
@@ -69,7 +73,7 @@ press. Keep it off the icon and the wordmark.
 
 ## Type
 
-* Wordmark: **Syne Bold**, "Merlin", tracking −2%, in Forest (white on dark).
+* Wordmark: **Syne Bold**, "Merlin", tracking −2%, in Rust (Cream on dark).
 * Browser interface: the macOS system UI family, following Merlin Settings.
 * Documentation typography: Inter.
 * Code, keys and hint labels: JetBrains Mono.

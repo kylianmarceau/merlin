@@ -78,8 +78,11 @@ class MerlinAddressEditor : public views::TextfieldController,
                         views::View* focused_now) override;
 
   MerlinAddressCard* card_for_testing() { return card_; }
+  views::Textfield* textfield_for_testing();
+  views::View* suggestions_for_testing();
 
  private:
+  friend struct MerlinAddressEditorTestPeer;
   void OnResults(const std::vector<MerlinSuggestions::Suggestion>& results);
   void UpdateCard();
   void Layout();

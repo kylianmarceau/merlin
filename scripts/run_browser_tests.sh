@@ -23,7 +23,7 @@
 # Extra arguments after the filter go to browser_tests.
 set -euo pipefail
 CHROMIUM_DIR="${CHROMIUM_DIR:-$HOME/chromium}"
-filter="${1:-ModalBrowserBrowserTest.*:MerlinAdblock*BrowserTest.*}"
+filter="${1:-ModalBrowserBrowserTest.*:MerlinAdblock*BrowserTest.*:MerlinIdentityBrowserTest.*}"
 shift || true
 extra=()
 IFS=: read -r -a suites <<< "$filter"

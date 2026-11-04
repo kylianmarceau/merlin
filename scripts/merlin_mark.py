@@ -2,173 +2,135 @@
 # Copyright 2026 The modal_browser Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-"""The Merlin mark: a merlin's tail, fanned. One geometry for every file.
+"""Merlin's approved swept-back falcon, in rust on cream.
 
-Five wedge feathers fan out from a round hub; the middle feather is rust,
-the rest and the hub forest, on a cream tile. Everything is drawn in a
-120 x 120 tile, the same box as the design sketches.
+The vector contours in branding/merlin-falcon.json were traced from the approved
+artwork, retaining its wing channel, eye and beak. All SVG, WebUI and native
+Views representations use those same contours; no surface draws its own mark.
 
-    python3 scripts/merlin_mark.py --write   # rewrites the SVGs below
+    python3 scripts/merlin_mark.py --write
 
-The PNGs, .icns and Assets.car come from these SVGs: scripts/build_branding.sh.
-scripts/rebrand_icons.py imports glyph_path() and vector_icon() from here.
+scripts/build_branding.sh renders all PNG, ICNS and macOS asset catalog files.
 """
 
-import math
-import os
+import json
+from pathlib import Path
 import sys
 
-CREAM = "#F2ECE0"
-FOREST = "#12352E"
-RUST = "#C4552D"
-
+ROOT = Path(__file__).resolve().parent.parent
+CREAM = "#F5E9D7"
+RUST = "#AA4C32"
 TILE = 120
-HUB = (60.0, 86.0)       # centre of the fan
-HUB_R = 7.5
-R0, R1 = 10.0, 54.0      # wedges run from R0 to R1 out from the hub
-ANGLES = (-52, -26, 0, 26, 52)
-HALF = 11.0              # half a wedge, in degrees; wedges sit 26 apart
-
-# Tight bounds of the fan in the tile, for fitting the bare glyph.
-_out = math.radians(ANGLES[-1] + HALF)
-BOX = (HUB[0] - R1 * math.sin(_out), HUB[1] - R1,
-       HUB[0] + R1 * math.sin(_out), HUB[1] + HUB_R)
+GEOMETRY = json.loads((ROOT / "branding/merlin-falcon.json").read_text())
+UNIT = TILE / GEOMETRY["canvas"]
+BOX = tuple(value * UNIT for value in GEOMETRY["bounds"])
 
 
-def _f(v: float) -> str:
-    return f"{v:.2f}".rstrip("0").rstrip(".")
+def _f(value: float) -> str:
+    return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
-def _pt(r: float, deg: float, k: float, ox: float, oy: float) -> tuple:
-    a = math.radians(deg)
-    return (ox + k * (HUB[0] + r * math.sin(a)), oy + k * (HUB[1] - r * math.cos(a)))
+def _commands(k=1.0, ox=0.0, oy=0.0):
+    for command, *values in GEOMETRY["commands"]:
+        yield command, [value * UNIT * k + (ox if i % 2 == 0 else oy)
+                        for i, value in enumerate(values)]
 
 
-def wedges(k: float = 1, ox: float = 0, oy: float = 0) -> list:
-    """Each wedge as (p0, p1, p2, p3, arc radius): in, out, arc, back in."""
-    out = []
-    for a in ANGLES:
-        out.append((_pt(R0, a - HALF, k, ox, oy), _pt(R1, a - HALF, k, ox, oy),
-                    _pt(R1, a + HALF, k, ox, oy), _pt(R0, a + HALF, k, ox, oy),
-                    R1 * k))
-    return out
-
-
-def wedge_d(w) -> str:
-    p0, p1, p2, p3, r = w
-    return (f"M{_f(p0[0])} {_f(p0[1])}L{_f(p1[0])} {_f(p1[1])}"
-            f"A{_f(r)} {_f(r)} 0 0 1 {_f(p2[0])} {_f(p2[1])}"
-            f"L{_f(p3[0])} {_f(p3[1])}Z")
-
-
-def hub_d(k: float = 1, ox: float = 0, oy: float = 0) -> str:
-    cx, cy, r = ox + k * HUB[0], oy + k * HUB[1], k * HUB_R
-    return (f"M{_f(cx - r)} {_f(cy)}A{_f(r)} {_f(r)} 0 1 1 {_f(cx + r)} {_f(cy)}"
-            f"A{_f(r)} {_f(r)} 0 1 1 {_f(cx - r)} {_f(cy)}Z")
+def _path(k=1.0, ox=0.0, oy=0.0):
+    return "".join(command + " ".join(_f(value) for value in values)
+                   for command, values in _commands(k, ox, oy))
 
 
 def mark(k: float = 1, ox: float = 0, oy: float = 0) -> str:
-    """The coloured fan as SVG elements, tile scaled by k and moved to ox, oy."""
-    ws = wedges(k, ox, oy)
-    side = "".join(wedge_d(w) for i, w in enumerate(ws) if i != 2)
-    return (f'<path d="{side}{hub_d(k, ox, oy)}" fill="{FOREST}"/>'
-            f'<path d="{wedge_d(ws[2])}" fill="{RUST}"/>')
+    """The approved falcon, on its original square canvas, scaled and offset."""
+    return f'<path d="{_path(k, ox, oy)}" fill="{RUST}"/>'
 
 
 def _fit(x0: float, y0: float, size: float, frac: float) -> tuple:
-    """Scale and offset that put the fan's bounds `frac` of a square, centred."""
-    bw, bh = BOX[2] - BOX[0], BOX[3] - BOX[1]
-    k = size * frac / bw
-    return k, x0 + (size - bw * k) / 2 - BOX[0] * k, y0 + (size - bh * k) / 2 - BOX[1] * k
+    width, height = BOX[2] - BOX[0], BOX[3] - BOX[1]
+    k = size * frac / max(width, height)
+    return k, x0 + (size - width * k) / 2 - BOX[0] * k, y0 + (size - height * k) / 2 - BOX[1] * k
 
 
 def glyph_path(x0: float, y0: float, size: float, frac: float = 0.9) -> str:
-    """The bare fan in one colour, as one SVG path d, centred in a square."""
-    k, ox, oy = _fit(x0, y0, size, frac)
-    return "".join(wedge_d(w) for w in wedges(k, ox, oy)) + hub_d(k, ox, oy)
+    """The bare falcon, including its negative-space eye, fitted in a square."""
+    return _path(*_fit(x0, y0, size, frac))
 
 
 def vector_icon(size: int, frac: float = 0.92) -> str:
-    """The bare fan in Chromium's .icon path language."""
-    k, ox, oy = _fit(0, 0, size, frac)
-    lines = [f"CANVAS_DIMENSIONS, {size},"]
-    for p0, p1, p2, p3, r in wedges(k, ox, oy):
-        lines += [f"MOVE_TO, {_f(p0[0])}, {_f(p0[1])},",
-                  f"LINE_TO, {_f(p1[0])}, {_f(p1[1])},",
-                  f"ARC_TO, {_f(r)}, {_f(r)}, 0, 0, 1, {_f(p2[0])}, {_f(p2[1])},",
-                  f"LINE_TO, {_f(p3[0])}, {_f(p3[1])},",
-                  "CLOSE,"]
-    lines.append(f"CIRCLE, {_f(ox + k * HUB[0])}, {_f(oy + k * HUB[1])}, {_f(k * HUB_R)}")
+    """The same contours in Chromium's native .icon path language."""
+    names = {"M": "MOVE_TO", "C": "CUBIC_TO", "Z": "CLOSE"}
+    lines = [f"CANVAS_DIMENSIONS, {size},", "FILL_RULE_NONZERO,"]
+    for command, values in _commands(*_fit(0, 0, size, frac)):
+        # Explicit f suffixes avoid narrowing decimal doubles in C++ arrays.
+        args = ", " + ", ".join(f"{value:.3f}f" for value in values) if values else ""
+        lines.append(names[command] + args + ",")
     return ("// Copyright 2026 The modal_browser Authors\n"
-            "// Use of this source code is governed by a BSD-style license that"
-            " can be\n// found in the LICENSE file.\n//\n"
-            "// The Merlin glyph, a fanned tail (scripts/merlin_mark.py).\n\n"
+            "// Use of this source code is governed by a BSD-style license that can be\n"
+            "// found in the LICENSE file.\n//\n"
+            "// Merlin's swept-back falcon (scripts/merlin_mark.py).\n\n"
             + "\n".join(lines) + "\n")
 
 
 def tile_svg(size: float = 200, label: str = "Merlin") -> str:
-    """The cream tile with the fan: favicons, product logos, page icons."""
-    k = size / TILE
+    """The selected rust falcon on a cream tile: pages and browser favicons."""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_f(size)} {_f(size)}" '
             f'role="img" aria-label="{label}">'
             f'<rect width="{_f(size)}" height="{_f(size)}" rx="{_f(size * 0.23)}" fill="{CREAM}"/>'
-            f"{mark(k)}</svg>\n")
+            f'{mark(size / TILE)}</svg>\n')
 
 
 def app_icon_svg() -> str:
-    """macOS app icon on Apple's 1024 grid: an 824 px body at 100, 100."""
-    k = 824 / TILE
+    """macOS icon on Apple's 1024 grid, preserving native padding and mask."""
     return ('<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" '
             'viewBox="0 0 1024 1024" role="img" aria-label="Merlin app icon">'
             f'<rect x="100" y="100" width="824" height="824" rx="185" fill="{CREAM}"/>'
-            f"{mark(k, 100, 100)}</svg>\n")
+            f'{mark(824 / TILE, 100, 100)}</svg>\n')
 
 
 def icon_composer_layer() -> str:
-    """The fan alone for Icon Composer, which fills the whole canvas with cream."""
-    k = 1024 / TILE
     return ('<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" '
-            f'viewBox="0 0 1024 1024">{mark(k)}</svg>\n')
+            f'viewBox="0 0 1024 1024">{mark(1024 / TILE)}</svg>\n')
 
 
 def mark_svg() -> str:
-    """The fan alone, cropped to its bounds plus a margin, for light grounds."""
-    m = 6
-    x, y, w, h = BOX[0] - m, BOX[1] - m, BOX[2] - BOX[0] + 2 * m, BOX[3] - BOX[1] + 2 * m
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{_f(x)} {_f(y)} {_f(w)} {_f(h)}" '
+    margin = 6
+    x, y = BOX[0] - margin, BOX[1] - margin
+    width, height = BOX[2] - BOX[0] + 2 * margin, BOX[3] - BOX[1] + 2 * margin
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{_f(x)} {_f(y)} {_f(width)} {_f(height)}" '
             f'role="img" aria-label="Merlin">{mark()}</svg>\n')
 
 
 def mono_svg(size: int = 22, color: str = "#000000") -> str:
-    """The bare fan in one colour: the macOS menu bar / tray template."""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}">'
             f'<path d="{glyph_path(0, 0, size, 0.95)}" fill="{color}"/></svg>\n')
 
 
 def password_svg() -> str:
-    """The password manager's tab icon: a key on the cream tile."""
+    """A key retains the password manager's distinct purpose in the new palette."""
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" '
             'aria-label="Merlin passwords">'
             f'<rect width="32" height="32" rx="7.4" fill="{CREAM}"/>'
-            f'<circle cx="11" cy="16" r="4.6" fill="none" stroke="{FOREST}" stroke-width="2.6"/>'
+            f'<circle cx="11" cy="16" r="4.6" fill="none" stroke="{RUST}" stroke-width="2.6"/>'
             '<path d="M15.4 16 H25.5 M22.5 16 V20 M25.5 16 V19" fill="none" '
-            f'stroke="{FOREST}" stroke-width="2.6" stroke-linecap="round"/></svg>\n')
+            f'stroke="{RUST}" stroke-width="2.6" stroke-linecap="round"/></svg>\n')
 
 
 def outputs(root: str) -> dict:
-    theme = os.path.join(root, "overlay/chrome/app/theme/merlin")
-    icons = os.path.join(root, "overlay/components/vector_icons/merlin")
+    root = Path(root)
+    theme = root / "overlay/chrome/app/theme/merlin"
+    icons = root / "overlay/components/vector_icons/merlin"
     return {
-        os.path.join(root, "branding/merlin-mark.svg"): mark_svg(),
-        os.path.join(root, "branding/merlin-app-icon.svg"): app_icon_svg(),
-        os.path.join(root, "branding/merlin-favicon.svg"): tile_svg(),
-        os.path.join(root, "branding/merlin-password-favicon.svg"): password_svg(),
-        os.path.join(root, "branding/merlin-mono.svg"): mono_svg(),
-        os.path.join(theme, "product_logo.svg"): tile_svg(),
-        os.path.join(theme, "product_logo_animation.svg"): tile_svg(),
-        os.path.join(theme, "mac/AppIcon.icon/Assets/merlin.svg"): icon_composer_layer(),
-        os.path.join(icons, "product.icon"): vector_icon(24),
-        os.path.join(icons, "product_refresh.icon"): vector_icon(24),
+        root / "branding/merlin-mark.svg": mark_svg(),
+        root / "branding/merlin-app-icon.svg": app_icon_svg(),
+        root / "branding/merlin-favicon.svg": tile_svg(),
+        root / "branding/merlin-password-favicon.svg": password_svg(),
+        root / "branding/merlin-mono.svg": mono_svg(),
+        theme / "product_logo.svg": tile_svg(),
+        theme / "product_logo_animation.svg": tile_svg(),
+        theme / "mac/AppIcon.icon/Assets/merlin.svg": icon_composer_layer(),
+        icons / "product.icon": vector_icon(24),
+        icons / "product_refresh.icon": vector_icon(24),
     }
 
 
@@ -176,11 +138,9 @@ def main() -> int:
     if sys.argv[1:] != ["--write"]:
         print(__doc__)
         return 2
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for path, text in outputs(root).items():
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(text)
-        print("wrote", os.path.relpath(path, root))
+    for path, text in outputs(ROOT).items():
+        path.write_text(text)
+        print("wrote", path.relative_to(ROOT))
     return 0
 
 

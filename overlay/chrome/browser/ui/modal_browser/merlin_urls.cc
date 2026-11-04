@@ -8,12 +8,18 @@
 #include <string_view>
 
 #include "base/command_line.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
+#include "components/modal_browser/ffi/src/lib.rs.h"
 #include "content/public/common/url_constants.h"
 #include "url/gurl.h"
 
 namespace modal_browser {
+
+GURL MerlinInternalUrl(std::u16string_view text) {
+  return GURL(std::string(ffi::merlin_internal_url(base::UTF16ToUTF8(text))));
+}
 
 std::string MerlinDisplayUrl(const GURL& url) {
   if (!url.SchemeIs(content::kChromeUIScheme) ||

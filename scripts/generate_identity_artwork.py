@@ -49,7 +49,7 @@ def artwork(original,role,dark):
     <path d="M100 32h16m-16 9h10m-10 9h16m-16 9h10" stroke="{muted}" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>
     <g stroke="{status}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">{shapes[role]}</g>
     <rect x="17" y="60" width="28" height="28" rx="8" fill="{merlin_mark.CREAM}"/>
-    <path d="{merlin_mark.glyph_path(19,62,24)}" fill="{merlin_mark.FOREST}"/>
+    <path d="{merlin_mark.glyph_path(19,62,24)}" fill="{merlin_mark.RUST}"/>
   </g>
 </svg>
 '''

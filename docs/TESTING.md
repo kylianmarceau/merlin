@@ -1,5 +1,58 @@
 # Testing
 
+## Results, 2026-11-03: address entry, accessibility and tooling
+
+Working tree based on `98c63c9`, Chromium **157.0.8103.26**, macOS arm64
+`out/Modal` development component build. This follows the repository review's
+first group of implementation corrections.
+
+| Check | Result |
+| --- | --- |
+| Native `chrome browser_tests` rebuild | Passed |
+| UI GN dependency check | Passed |
+| Repository checks | Passed: formatting, warnings-denied Clippy, **253 workspace tests**, page scripts, source/resource boundaries and **45 patches** |
+| Offline upstream-checker and browser-runner regressions | **11/11 passed**, now included in `scripts/check.sh` |
+| Targeted address/toolbar browser cases | **5/5 passed**, 41 seconds, retries disabled |
+| Updated default browser suite | **137/137 passed**, 943 seconds, retries disabled: 77 modal, 44 blocker and 16 identity cases |
+| Live upstream checker | Exact Mac Stable version and Chromium commit match; `status: "current"`, exit 0 |
+
+The new browser cases are `MerlinAddressCardInternalAliases`,
+`MerlinInternalAddressSuggestions` and
+`MerlinAddressSuggestionsAccessibility`. The targeted run also includes
+`MerlinUrlsInBarAndPalette` and `MerlinToolbarFollowsPage`.
+
+Internal-page coverage types into the real address textfield and presses Enter
+for version, Settings, nested Settings, start-page and uppercase/whitespace/
+query/fragment aliases. It also reopens the card to check alias display and
+retains ordinary HTTP navigation. Suggestions use Chromium's actual provider;
+Merlin aliases resolve to internal URLs without appending a `chrome://`
+completion suffix to the user's `merlin://` text.
+
+Accessibility coverage uses deterministic suggestion data in the actual native
+card. It checks exposed option names/roles/positions/selection, textfield/list
+controls and active-descendant relations, arrow-key selection notifications,
+updated results at the same index, keyboard focus retention, accessible focus
+and activation actions, replacement/shrinking results and Escape cleanup.
+An accessibility activation performs a real navigation. These automated checks
+do not certify a human VoiceOver listening/traversal session; that remains in
+the manual acceptance matrix.
+
+`scripts/run_browser_tests.sh` now defaults to modal, native-blocker **and**
+identity suites. Offline runner tests invoke the actual shell script with a
+temporary fake executable, checking default/explicit filters, extra arguments,
+background operation and upstream-specific geometry flags. Checker tests cover
+equal/behind/ahead versions, commit mismatches, wrong channel/platform,
+malformed responses, network failure and JSON status/exit behavior.
+
+The complete default-suite run used
+`scripts/run_browser_tests.sh '' --test-launcher-summary-output=/tmp/merlin-address-full.json`;
+the empty optional filter selects the script's default suites. All 137 summary
+statuses are `SUCCESS`.
+
+Local logs and summaries are `/tmp/merlin-address-{build,gn,check,targeted,full}.*`.
+The retained identity PNGs/manifest describe the earlier capture source;
+they were not regenerated or relabeled as evidence for these source changes.
+
 ## Results, 2026-11-02: native ad blocking
 
 Branch `feature/native-adblock`, Chromium **157.0.8103.26**, arm64 `out/Modal`
@@ -33,7 +86,7 @@ python3 scripts/measure_adblock_heap.py --output /tmp/adblock-heap.json
 node scripts/probe_adblock_youtube.mjs --app "$HOME/chromium/src/out/Modal/Merlin.app" --mode on --headful --output /tmp/adblock-youtube.json
 ```
 
-The browser runner's default includes both Merlin and native blocker suites;
+The browser runner's default includes Merlin, native blocker and identity suites;
 upstream filters retain upstream UI defaults without disabling the blocker
 when explicitly enabled. Tests use isolated configurations and profiles.
 Live probes never use an everyday profile or account credentials. Retained

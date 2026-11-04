@@ -74,7 +74,7 @@ constexpr char kIndexHtml[] = R"HTML(<!doctype html>
 <body>
 <main class="start">
   <header class="brand">
-    <svg class="mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path class="feathers" d="M85.15 135.77L19.81 102.47A90 90 0 0 1 40.95 75.41L89.07 130.75ZM89.97 130.02L45.84 71.46A90 90 0 0 1 76.71 56.4L95.69 127.23ZM104.31 127.23L123.29 56.4A90 90 0 0 1 154.16 71.46L110.03 130.02ZM110.93 130.75L159.05 75.41A90 90 0 0 1 180.19 102.47L114.85 135.77ZM87.5 143.33A12.5 12.5 0 1 1 112.5 143.33A12.5 12.5 0 1 1 87.5 143.33Z"/><path fill="#C4552D" d="M96.82 126.97L82.83 54.99A90 90 0 0 1 117.17 54.99L103.18 126.97Z"/></svg>
+    <img class="mark" src="icon.svg" alt="" aria-hidden="true">
     <span>Merlin</span>
   </header>
 
@@ -121,7 +121,6 @@ constexpr char kStartCss[] = R"CSS(html, body {
   margin-bottom: 22px; font-size: 14px; font-weight: 600; letter-spacing: -0.01em;
 }
 .mark { width: 20px; height: 20px; flex-shrink: 0; }
-.feathers { fill: var(--feather); }
 .field {
   display: flex; align-items: center; gap: 12px; height: 50px;
   padding: 0 16px; box-sizing: border-box; border-radius: 12px;

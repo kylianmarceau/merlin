@@ -614,9 +614,16 @@ shadow and row style.
   closes the card and drops the edit. With no row picked, Enter reads the
   text as Chromium would (an address, or a search, keywords included).
   javascript:, data:, blob: and filesystem: addresses are not opened.
-* Rows are painted in one view and never take focus, and the card's
+* Rows are painted in one view; transparent option views expose their names,
+  selection, positions and actions to accessibility. The text field controls
+  the suggestion list and announces its active descendant while retaining
+  keyboard focus. The card's
   widget cannot be activated, so the address keeps keyboard focus while
   the mouse is used on the rows.
+* The card and suggestion engine translate `merlin://` aliases through the
+  same Rust URL policy as commands. Internal pages show the same Merlin alias
+  in the editor and passive address display; ordinary input still uses
+  Chromium's address/search classifier.
 * Chromium's field stays hidden in normal windows; features that need it
   still check IsLocationBarVisible().
 * Not done: Chromium's special rows (pedals, answers, "Ask Google about
