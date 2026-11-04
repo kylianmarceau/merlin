@@ -84,12 +84,10 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorSysOnBaseTonalContainer] = {p.on_primary_container};
   mixer[ui::kColorMenuBackground] = {p.surface};
   mixer[ui::kColorDialogBackground] = {p.surface};
-  mixer[ui::kColorBubbleBackground] = {p.surface};
-  mixer[ui::kColorBubbleFooterBackground] = {p.base_container};
+  // Pop-ups are plain grey panels, like macOS popovers.
+  mixer[ui::kColorBubbleBackground] = {p.popover};
+  mixer[ui::kColorBubbleFooterBackground] = {p.popover};
   mixer[ui::kColorBubbleFooterBorder] = {p.divider};
-  mixer[ui::kColorButtonBackgroundProminent] = {p.accent};
-  mixer[ui::kColorButtonForegroundProminent] = {p.on_accent};
-  mixer[ui::kColorButtonBackgroundProminentFocused] = {p.accent_hover};
   mixer[ui::kColorToggleButtonTrackOn] = {p.accent};
   mixer[ui::kColorToggleButtonThumbOn] = {p.on_accent};
   mixer[ui::kColorToggleButtonThumbOnHover] = {p.on_accent};
@@ -112,11 +110,13 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorSysStateTextHighlight] = {p.text_highlight};
   mixer[ui::kColorSysStateOnTextHighlight] = {p.on_surface};
 
-  // Controls in Merlin's shapes (ui/views/merlin_style.h). Secondary buttons
-  // are a quiet fill with no outline, like the Settings page's segmented
-  // controls; tonal buttons match them, so only the default action is gold.
+  // Controls in Merlin's shapes (ui/views/merlin_style.h). Buttons are grey
+  // fills with no outline, as in macOS popovers; the default action is a
+  // shade stronger rather than a different color, so no answer is pushed.
   const bool dark = key.color_mode == ui::ColorProviderKey::ColorMode::kDark;
-  const SkColor quiet_fill = dark ? p.base_elevated : p.base_container;
+  const SkColor quiet_fill = p.popover_control;
+  const design::OverlayPalette& overlay = dark ? design::kDarkOverlay
+                                               : design::kLightOverlay;
   const SkColor hover = dark ? SkColorSetA(SK_ColorWHITE, 0x12)
                              : SkColorSetARGB(0x10, 0x28, 0x1E, 0x0A);
   mixer[ui::kColorSysStateHoverOnSubtle] = {hover};
@@ -127,6 +127,10 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorButtonBackgroundTonal] = {quiet_fill};
   mixer[ui::kColorButtonBackgroundTonalFocused] = {quiet_fill};
   mixer[ui::kColorButtonForegroundTonal] = {p.on_surface};
+  mixer[ui::kColorButtonBackgroundProminent] = {p.popover_control_strong};
+  mixer[ui::kColorButtonBackgroundProminentFocused] = {
+      p.popover_control_strong};
+  mixer[ui::kColorButtonForegroundProminent] = {p.on_surface};
   mixer[ui::kColorToggleButtonTrackOff] = {p.outline};
   mixer[ui::kColorToggleButtonThumbOff] = {dark ? p.on_header : SK_ColorWHITE};
   mixer[ui::kColorCheckboxContainer] = {p.accent};
@@ -134,8 +138,9 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorCheckboxOutline] = {p.on_surface_subtle};
   mixer[ui::kColorRadioButtonForegroundChecked] = {p.primary};
   mixer[ui::kColorRadioButtonForegroundUnchecked] = {p.on_surface_subtle};
-  mixer[ui::kColorBubbleBorder] = {p.divider};
-  mixer[ui::kColorSeparator] = {p.divider};
+  // Hairlines are a tint of the text color, so they read on any panel.
+  mixer[ui::kColorBubbleBorder] = {overlay.border};
+  mixer[ui::kColorSeparator] = {overlay.border};
 }
 
 void InstallMerlinTheme() {

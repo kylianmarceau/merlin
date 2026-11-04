@@ -1,6 +1,6 @@
 --- a/chrome/browser/ui/views/bubble_anchor_util_views.cc
 +++ b/chrome/browser/ui/views/bubble_anchor_util_views.cc
-@@ -40,6 +40,23 @@
+@@ -40,6 +40,29 @@
    auto* location_bar_view =
        browser_view ? browser_view->GetLocationBarView() : nullptr;
  
@@ -15,8 +15,14 @@
 +         views::ElementTrackerViews::GetInstance()->GetAllMatchingViews(
 +             kLocationIconElementId, context, /*require_visible=*/true)) {
 +      if (view->IsDrawn()) {
++        // Open toward the middle of the window, so a control at either end
++        // of the toolbar keeps its bubble beside it.
++        const bool on_right =
++            view->GetBoundsInScreen().CenterPoint().x() >
++            browser_view->GetBoundsInScreen().CenterPoint().x();
 +        return {views::BubbleAnchor(view), kLocationIconElementId,
-+                views::BubbleBorder::TOP_LEFT};
++                on_right ? views::BubbleBorder::TOP_RIGHT
++                         : views::BubbleBorder::TOP_LEFT};
 +      }
 +    }
 +  }
@@ -24,7 +30,7 @@
    if (base::FeatureList::IsEnabled(
            content_settings::features::kLeftHandSideActivityIndicators) &&
        location_bar_view) {
-@@ -134,7 +151,8 @@
+@@ -134,7 +157,8 @@
          location_bar::GetLocationBarForWebContents(web_contents);
      ChipController* chip_controller =
          location_bar ? location_bar->GetChipController() : nullptr;

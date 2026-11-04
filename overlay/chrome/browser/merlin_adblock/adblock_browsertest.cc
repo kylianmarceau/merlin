@@ -670,8 +670,11 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(content::NavigateToURL(contents(), Url("/page")));
   auto* controller = modal_browser::ModalBrowserController::From(browser());
   ASSERT_TRUE(controller);
-  auto* button = controller->adblock_button_for_testing();
-  ASSERT_TRUE(button);
+  // The toolbar no longer shows the shield; its per-site menu is still the
+  // control site information will offer.
+  auto owned_button = std::make_unique<modal_browser::MerlinAdblockButton>(
+      browser(), base::DoNothing());
+  auto* button = owned_button.get();
   button->Update();
   EXPECT_TRUE(button->GetVisible());
   auto* menu = button->BuildMenuForTesting();

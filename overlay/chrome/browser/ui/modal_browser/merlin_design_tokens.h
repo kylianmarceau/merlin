@@ -28,6 +28,9 @@ struct Palette {
   SkColor accent;
   SkColor on_accent;
   SkColor accent_hover;
+  SkColor popover;
+  SkColor popover_control;
+  SkColor popover_control_strong;
 };
 inline constexpr Palette kLight = {
     .header = 0xFFECE7DD,
@@ -52,6 +55,9 @@ inline constexpr Palette kLight = {
     .accent = 0xFFF6D44A,
     .on_accent = 0xFF1A1A1A,
     .accent_hover = 0xFFEDC93A,
+    .popover = 0xFFF3F0EA,
+    .popover_control = 0xFFE2DDD2,
+    .popover_control_strong = 0xFFD3CDC0,
 };
 inline constexpr Palette kDark = {
     .header = 0xFF12110F,
@@ -76,6 +82,9 @@ inline constexpr Palette kDark = {
     .accent = 0xFFF6D44A,
     .on_accent = 0xFF1A1A1A,
     .accent_hover = 0xFFEDC93A,
+    .popover = 0xFF3A3833,
+    .popover_control = 0xFF4A4740,
+    .popover_control_strong = 0xFF5C5951,
 };
 struct OverlayPalette {
   SkColor surface;

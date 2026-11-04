@@ -7,53 +7,54 @@
 
 #include <memory>
 
-#include "ui/gfx/geometry/insets.h"
-
 namespace gfx {
 class FontList;
 struct VectorIcon;
 }  // namespace gfx
 namespace views {
 class Label;
+class MdTextButton;
 class View;
 }  // namespace views
 
-// Building blocks for Merlin's own pop-up layouts (permission prompts, site
-// information, the profile menu). They follow the Settings page: grouped
-// rows on a rounded card instead of full-width separators, a gold-tinted
-// tile behind each row icon, and choices listed in one card rather than as
-// a stack of separate buttons.
+// Building blocks for Merlin's pop-ups (permission prompts, site
+// information, the profile menu). They follow macOS popovers: a plain grey
+// panel hanging from a toolbar button, a grey circle in front of the
+// message, two equal grey buttons, and hairlines between groups.
 //
 // Each Chromium view keeps its controller, callbacks, element identifiers,
 // accessible names and strings; these helpers change presentation only.
 // Callers check views::merlin_style::IsEnabled() first.
 namespace modal_browser::popup {
 
-// Card metrics, in DIPs.
-inline constexpr int kCardInset = 4;
-inline constexpr int kCardGap = 8;
-inline constexpr int kPopupSideInset = 12;
-inline constexpr int kIconTileSize = 28;
-inline constexpr int kIconTileGlyph = 16;
-inline constexpr int kChoiceHeight = 34;
+// Metrics, in DIPs.
+inline constexpr int kIconCircleSize = 30;
+inline constexpr int kIconGlyph = 16;
+inline constexpr int kIconTextGap = 12;
+inline constexpr int kButtonHeight = 32;
+inline constexpr int kButtonRadius = 10;
+inline constexpr int kButtonGap = 8;
+inline constexpr int kHairlineInset = 12;
 
-// Gives `view` a card background: a faint tint of the text color over the
-// pop-up surface with a hairline edge, rounded like the Settings cards.
-void StyleAsCard(views::View* view);
+// A grey circle behind `icon`, a little lighter (or darker) than the pop-up.
+// Decorative: hidden from accessibility.
+std::unique_ptr<views::View> CreateIconCircle(const gfx::VectorIcon& icon);
 
-// A rounded square tinted with Merlin's gold behind `icon`, for the start of
-// a row. Decorative: hidden from accessibility.
-std::unique_ptr<views::View> CreateIconTile(const gfx::VectorIcon& icon);
+// Lays out `container`, which owns all three buttons, as Merlin's decision
+// row: `decline` and `accept` side by side at equal width, and `other`, if
+// given, as a quiet text button centred below. Each button keeps its
+// callback, ID and element identifier.
+void StyleDecisionButtons(views::View* container,
+                          views::MdTextButton* decline,
+                          views::MdTextButton* accept,
+                          views::MdTextButton* other);
 
-// Turns `container`, whose children are views::MdTextButtons, into one card
-// listing them as rows with hairlines between. Every button keeps its
-// callback, ID and element identifier; they are given equal visual weight,
-// so no choice is pushed on the user.
-void StyleChoiceList(views::View* container);
+// A hairline between groups of rows, inset from the pop-up's edges.
+std::unique_ptr<views::View> CreateHairline(int vertical_margin);
 
-// Pop-up title and secondary text, set like the Settings page.
+// Pop-up title, body and secondary text.
 const gfx::FontList& TitleFont();
-const gfx::FontList& RowTitleFont();
+const gfx::FontList& BodyFont();
 void StyleSecondary(views::Label* label);
 
 }  // namespace modal_browser::popup

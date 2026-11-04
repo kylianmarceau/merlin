@@ -61,7 +61,6 @@ constexpr int kInputHeight = 40;
 // of the toolbar's field so the text does not move.
 constexpr int kInputPadX = 12;
 constexpr int kFieldTextInset = 8;  // MerlinAddressField's own padding
-constexpr int kCardMinWidth = 560;
 constexpr int kRowHeight = 36;
 constexpr int kRowInsetX = 6;
 constexpr int kRowRadius = 8;
@@ -608,13 +607,11 @@ void MerlinAddressEditor::Layout() {
   if (views::View* row = field_->parent()) {
     right = row->ConvertRectToWidget(row->GetLocalBounds()).right() - 8;
   }
-  // The address stays where the toolbar showed it.
+  // The address stays where the toolbar showed it, and the card runs to
+  // the end of the toolbar, as Dia's does, rather than stopping at the
+  // width of the address.
   const int x = field.x() + kFieldTextInset - kInputPadX;
-  const int width =
-      std::max(0, std::min(std::max(field.width() + 2 * (kInputPadX -
-                                                         kFieldTextInset),
-                                    kCardMinWidth),
-                           right - x));
+  const int width = std::max(0, right - x);
   const gfx::Rect card(x, field.CenterPoint().y() - kInputHeight / 2, width,
                        card_->CardHeight());
   gfx::Rect bounds = card;
