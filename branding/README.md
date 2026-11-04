@@ -97,9 +97,6 @@ UI states from the remaining manual qualification matrix.
 
 ## Still open
 
-* A real bundle ID. `MAC_BUNDLE_ID` in `overlay/chrome/app/theme/merlin/BRANDING`
-  is the placeholder `local.merlin.Merlin`; `scripts/package_mac.sh`
-  refuses to sign it.
 * A trademark and App Store name check for "Merlin". The name is crowded
   (Cornell's Merlin Bird ID app, Merlin Project); use "Merlin Browser"
   where a store or domain needs it unique.

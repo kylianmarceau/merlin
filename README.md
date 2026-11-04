@@ -136,12 +136,19 @@ most used ones:
 
 ## Install from GitHub Releases
 
-The release target is a GitHub download without Developer ID signing or
-Apple notarization; a paid Apple Developer account is not required. See
-[release policy and installation steps](docs/RELEASE.md), including macOS's
-**Privacy & Security > Open Anyway** approval for the first launch.
-Distribution packaging and downloaded-artifact acceptance still need
-verification; this is not a claim that a release is already available.
+Download the DMG from
+[Releases](https://github.com/kylianmarceau/merlin/releases). You need a Mac
+with Apple Silicon and macOS 13 or later.
+
+1. Open the DMG and drag **Merlin** into **Applications**.
+2. Open Merlin. macOS says it can't check the app, because Merlin is not
+   notarized by Apple.
+3. In **System Settings > Privacy & Security**, click **Open Anyway** next
+   to the message about Merlin, then confirm **Open**.
+
+Merlin doesn't update itself: watch the repository for releases
+(**Watch > Custom > Releases**) and replace the app to update. Your data
+is kept. See [installation and release details](docs/RELEASE.md).
 
 ## Build from source
 
@@ -317,7 +324,8 @@ and tests on its own with `cargo`, without a Chromium checkout.
 * [Architecture](docs/ARCHITECTURE.md): how the layers fit together and where Merlin hooks into Chromium
 * [Decisions](docs/DECISIONS.md): what was chosen, why, and what it costs
 * [Testing](docs/TESTING.md): test suites, results and the manual test plan
-* [Release](docs/RELEASE.md): GitHub release scope, remaining packaging checks and unnotarized installation
+* [Release](docs/RELEASE.md): building, packaging and testing a GitHub release, and installing it
+* [Release notes](docs/RELEASE_NOTES.md): requirements and known limitations for testers
 * [Upstream](docs/UPSTREAM.md): the pinned Chromium release, every patch, and the update process
 * [Privacy](docs/PRIVACY.md): every file, socket and piece of page data Merlin touches
 * [Ad blocking plan](docs/ADBLOCK_PLAN.md) and [implementation evidence](docs/ADBLOCK_IMPLEMENTATION.md): native Brave engine integration, YouTube qualification and performance gates
@@ -328,8 +336,14 @@ and tests on its own with `cargo`, without a Chromium checkout.
 
 Open an issue with the version (from `chrome://version`), the steps to
 reproduce, and whether stock Chromium at the same version behaves the same.
-Please don't report security problems in a public issue; contact the
-maintainer privately instead.
+Please don't report security problems in a public issue; see
+[SECURITY.md](SECURITY.md).
+
+## Licence
+
+Merlin's own code is under the BSD 3-Clause licence in [LICENSE](LICENSE).
+Chromium and the other included software keep their own licences, listed in
+each release's third-party notices.
 
 ## Acknowledgements
 
