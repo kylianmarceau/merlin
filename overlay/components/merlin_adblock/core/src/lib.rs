@@ -21,7 +21,7 @@ pub const MAX_GENERATION_BYTES: usize = 64 * 1024 * 1024;
 pub const MAX_RESOURCE_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_URL_BYTES: usize = 64 * 1024;
 pub const MAX_TOKENS: usize = 1024;
-const CACHE_MAGIC: &[u8] = b"MERLIN-ADBLOCK-3\n0.13.3/css-validation/popup-adapter-1\n";
+const CACHE_MAGIC: &[u8] = b"MERLIN-ADBLOCK-4\n0.13.3/css-validation/popup-adapter-1\n";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
@@ -152,7 +152,54 @@ pub fn digest_hex(bytes: &[u8]) -> String {
     sha256(bytes).iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn identity(lists: &[List], resources: &str) -> [u8; 32] {
+/// Detects accidental corruption of the serialized engine without hashing the
+/// whole payload with SHA-256 on every startup. The embedder already verifies a
+/// SHA-256 digest of the complete cache file (with hardware acceleration), and
+/// the FlatBuffers verifier rejects structurally invalid engine data. Four
+/// independent multiply-rotate lanes keep this at memory bandwidth; every lane
+/// step is a bijection, so any change confined to one 8-byte word is detected.
+fn checksum(bytes: &[u8]) -> [u8; 32] {
+    const K: [u64; 4] = [
+        0x9E37_79B9_7F4A_7C15,
+        0xC2B2_AE3D_27D4_EB4F,
+        0x1656_67B1_9E37_79F9,
+        0x85EB_CA77_C2B2_AE63,
+    ];
+    let mut lanes = [
+        0x243F_6A88_85A3_08D3u64,
+        0x1319_8A2E_0370_7344,
+        0xA409_3822_299F_31D0,
+        0x082E_FA98_EC4E_6C89,
+    ];
+    let mut step = |chunk: &[u8]| {
+        for (i, lane) in lanes.iter_mut().enumerate() {
+            let word = u64::from_le_bytes(chunk[i * 8..i * 8 + 8].try_into().unwrap());
+            *lane = (*lane ^ word).wrapping_mul(K[i]).rotate_left(29);
+        }
+    };
+    let (chunks, tail) = bytes.as_chunks::<32>();
+    chunks.iter().for_each(|chunk| step(chunk));
+    let mut last = [0u8; 32];
+    last[..tail.len()].copy_from_slice(tail);
+    step(&last);
+    let mut out = [0u8; 32];
+    for (i, lane) in lanes.iter().enumerate() {
+        // Murmur3 finalizer, with the length mixed in to separate truncations.
+        let mut h = lane ^ (bytes.len() as u64).wrapping_mul(K[(i + 1) % 4]);
+        h ^= h >> 33;
+        h = h.wrapping_mul(0xFF51_AFD7_ED55_8CCD);
+        h ^= h >> 33;
+        h = h.wrapping_mul(0xC4CE_B9FE_1A85_EC53);
+        h ^= h >> 33;
+        out[i * 8..i * 8 + 8].copy_from_slice(&h.to_le_bytes());
+    }
+    out
+}
+
+/// Text-based identity for standalone use. The browser computes a cheaper
+/// identity from catalog metadata and source digests and passes it in with
+/// `build_with_identity`/`load_with_identity`, so startup never rehashes lists.
+pub fn identity(lists: &[List], resources: &str) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(CACHE_MAGIC);
     // Length delimiters prevent ambiguity between adjacent source fields.
@@ -333,6 +380,16 @@ fn preprocess(text: &str, lists: &[List], permissions: u8, depth: usize) -> Resu
 
 impl Generation {
     pub fn build(lists: &[List], resources_json: &str) -> Result<Self, String> {
+        Self::build_with_identity(lists, resources_json, identity(lists, resources_json))
+    }
+
+    /// `identity` must change whenever the lists, their permissions, the
+    /// resources or this engine configuration change.
+    pub fn build_with_identity(
+        lists: &[List],
+        resources_json: &str,
+        identity: [u8; 32],
+    ) -> Result<Self, String> {
         if lists.is_empty()
             || lists.len() > 64
             || lists.iter().map(|l| l.text.len()).sum::<usize>() > MAX_GENERATION_BYTES
@@ -470,7 +527,7 @@ impl Generation {
             engine,
             popup_engine: Engine::new_with_filter_set(popup_set),
             popunder_engine: Engine::new_with_filter_set(popunder_set),
-            identity: identity(lists, resources_json),
+            identity,
             audit,
             resource_world,
         })
@@ -630,18 +687,28 @@ impl Generation {
         let mut data = Vec::with_capacity(CACHE_MAGIC.len() + 64 + payload.len());
         data.extend_from_slice(CACHE_MAGIC);
         data.extend_from_slice(&self.identity);
-        data.extend_from_slice(&sha256(&payload));
+        data.extend_from_slice(&checksum(&payload));
         data.extend(payload);
         data
     }
 
     pub fn load(lists: &[List], resources: &str, data: &[u8]) -> Result<Self, String> {
+        Self::load_with_identity(identity(lists, resources), resources, data)
+    }
+
+    /// Loads a serialized generation without the source text. The caller's
+    /// identity must equal the one the generation was built with.
+    pub fn load_with_identity(
+        identity: [u8; 32],
+        resources: &str,
+        data: &[u8],
+    ) -> Result<Self, String> {
         let offset = CACHE_MAGIC.len();
         if data.len() < offset + 64
             || data.len() > MAX_GENERATION_BYTES
             || !data.starts_with(CACHE_MAGIC)
-            || data[offset..offset + 32] != identity(lists, resources)
-            || data[offset + 32..offset + 64] != sha256(&data[offset + 64..])
+            || data[offset..offset + 32] != identity
+            || data[offset + 32..offset + 64] != checksum(&data[offset + 64..])
         {
             return Err("incompatible or corrupt engine cache".into());
         }
@@ -678,7 +745,7 @@ impl Generation {
             engine,
             popup_engine,
             popunder_engine,
-            identity: identity(lists, resources),
+            identity,
             audit: ListAudit::default(),
             resource_world,
         })

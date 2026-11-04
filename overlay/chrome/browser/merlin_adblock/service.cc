@@ -58,6 +58,44 @@ class CacheInvalidation {
   base::OneShotTimer timer_;
 };
 }  // namespace
+RequestGate::RequestGate() = default;
+RequestGate::~RequestGate() = default;
+bool RequestGate::EnabledForLocked(const GURL& top_level) const {
+  return alive_ && enabled_ && top_level.SchemeIsHTTPOrHTTPS() &&
+         !exceptions_.contains(top_level.host());
+}
+bool RequestGate::EnabledFor(const GURL& top_level) const {
+  base::AutoLock hold(lock_);
+  return EnabledForLocked(top_level);
+}
+bool RequestGate::alive() const {
+  base::AutoLock hold(lock_);
+  return alive_;
+}
+scoped_refptr<Matcher> RequestGate::MatcherFor(const GURL& top_level,
+                                               bool* initializing) const {
+  base::AutoLock hold(lock_);
+  *initializing = false;
+  if (!EnabledForLocked(top_level))
+    return nullptr;
+  *initializing = initializing_;
+  return matcher_;
+}
+void Service::PublishGate() {
+  base::flat_set<std::string> exceptions;
+  for (const auto [host, ignored] :
+       profile_->GetPrefs()->GetDict(kExceptionsPref))
+    exceptions.insert(host);
+  base::AutoLock hold(gate_->lock_);
+  gate_->enabled_ = base::FeatureList::IsEnabled(kMerlinAdblock) &&
+                    profile_->GetPrefs()->GetBoolean(kEnabledPref) &&
+                    !profile_->GetPrefs()->GetList(kListsPref).empty();
+  gate_->exceptions_ = std::move(exceptions);
+  gate_->initializing_ = state_ == Readiness::kInitializing;
+  gate_->matcher_ = state_ == Readiness::kReady && evaluator_
+                        ? evaluator_->matcher()
+                        : nullptr;
+}
 void Service::InvalidateResourceCaches(base::OnceClosure done) {
   if (!base::FeatureList::IsEnabled(kMerlinAdblock)) {
     if (done)
@@ -83,13 +121,16 @@ void Service::InvalidateResourceCaches(base::OnceClosure done) {
   for (auto* process : processes)
     CacheInvalidation::Start(process, barrier);
 }
-Service::Service(Profile* profile) : profile_(profile) {
+Service::Service(Profile* profile)
+    : profile_(profile), gate_(base::MakeRefCounted<RequestGate>()) {
   pref_changes_.Init(profile_->GetPrefs());
   for (const char* pref : {kEnabledPref, kExceptionsPref})
     pref_changes_.Add(pref, base::BindRepeating(
                                 [](base::WeakPtr<Service> self) {
-                                  if (self)
-                                    self->InvalidateResourceCaches();
+                                  if (!self)
+                                    return;
+                                  self->PublishGate();
+                                  self->InvalidateResourceCaches();
                                 },
                                 weak_factory_.GetWeakPtr()));
   pref_changes_.Add(
@@ -109,6 +150,7 @@ Service::Service(Profile* profile) : profile_(profile) {
           base::BindRepeating(&Service::Install, weak_factory_.GetWeakPtr()));
   } else
     state_ = Readiness::kDisabled;
+  PublishGate();
 }
 Service::~Service() = default;
 Service* Service::Get(content::BrowserContext* context) {
@@ -123,6 +165,7 @@ void Service::Initialize() {
     state_ = Readiness::kDisabled;
     evaluator_.reset();
     startup_timer_.Stop();
+    PublishGate();
     ReleaseWaiters();
     return;
   }
@@ -134,10 +177,12 @@ void Service::Initialize() {
                                if (!self)
                                  return;
                                self->state_ = Readiness::kDegraded;
+                               self->PublishGate();
                                self->ReleaseWaiters();
                              },
                              weak_factory_.GetWeakPtr()));
   }
+  PublishGate();
   auto read_cache = profile_->GetOriginalProfile()
                         ->GetPath()
                         .AppendASCII("MerlinAdblock")
@@ -145,7 +190,8 @@ void Service::Initialize() {
   auto write_cache = profile_->IsOffTheRecord() ? base::FilePath() : read_cache;
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
-      base::BindOnce(&LoadBundle, read_cache, write_cache, Groups()),
+      base::BindOnce(&LoadBundle, read_cache, write_cache, Groups(),
+                     /*with_engine=*/true),
       base::BindOnce(
           [](base::WeakPtr<Service> self, uint64_t configuration,
              Bundle bundle) {
@@ -219,6 +265,7 @@ void Service::Installed(scoped_refptr<Evaluator> candidate,
     state_ = Readiness::kReady;
   } else if (generation_ == 0)
     state_ = Readiness::kDegraded;
+  PublishGate();
   ReleaseWaiters();
   if (ok) {
     InvalidateResourceCaches(done ? base::BindOnce(std::move(done), true)
@@ -501,6 +548,11 @@ void Service::Shutdown() {
   weak_factory_.InvalidateWeakPtrs();
   startup_timer_.Stop();
   state_ = Readiness::kDisabled;
+  {
+    base::AutoLock hold(gate_->lock_);
+    gate_->alive_ = false;
+    gate_->matcher_ = nullptr;
+  }
   ReleaseWaiters();
   counts_.clear();
   navigation_counts_.clear();

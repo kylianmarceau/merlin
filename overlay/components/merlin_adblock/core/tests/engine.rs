@@ -608,3 +608,28 @@ fn popunder_uses_its_own_rule_set_and_survives_cache_loading() {
         Decision::Allow
     );
 }
+
+#[test]
+fn identity_cache_loads_without_list_text_and_detects_corruption() {
+    let rules = lists("||ads.test^", 0);
+    let identity = [7u8; 32];
+    let original = Generation::build_with_identity(&rules, "[]", identity).unwrap();
+    let cache = original.serialize();
+    let loaded = Generation::load_with_identity(identity, "[]", &cache).unwrap();
+    assert_eq!(
+        check(
+            &loaded,
+            "https://ads.test/a",
+            "https://news.test/",
+            Type::Image
+        ),
+        Decision::Block
+    );
+    assert!(Generation::load_with_identity([8u8; 32], "[]", &cache).is_err());
+    // Any single-bit change in the engine payload is rejected.
+    for at in [cache.len() / 2, cache.len() - 9, cache.len() - 1] {
+        let mut corrupt = cache.clone();
+        corrupt[at] ^= 0x10;
+        assert!(Generation::load_with_identity(identity, "[]", &corrupt).is_err());
+    }
+}

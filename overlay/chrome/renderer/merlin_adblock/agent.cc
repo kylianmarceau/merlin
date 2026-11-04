@@ -12,14 +12,17 @@
 #include "base/unguessable_token.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/renderer/merlin_adblock/cosmetics.h"
+#include "chrome/renderer/merlin_adblock/request_throttle.h"
 #include "components/merlin_adblock/common/features.h"
 #include "content/public/renderer/render_frame.h"
+#include "content/public/renderer/service_worker_controller_observer.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/browser_resource_cache_policy.h"
 #include "third_party/blink/public/platform/scheduler/web_agent_group_scheduler.h"
+#include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_cache.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -146,9 +149,35 @@ void BindProcess(mojo::PendingReceiver<mojom::AdblockProcess> receiver) {
   mojo::MakeSelfOwnedReceiver(std::make_unique<ProcessHost>(),
                               std::move(receiver));
 }
+Agent* AgentFor(blink::WebLocalFrame* frame) {
+  auto* render_frame = frame ? content::RenderFrame::FromWebFrame(frame) : nullptr;
+  return render_frame ? Agent::Get(render_frame) : nullptr;
+}
+// clients.claim() or loss of control after commit.
+void ControllerChanged(const blink::LocalFrameToken& token, bool controlled) {
+  if (auto* agent = AgentFor(blink::WebLocalFrame::FromFrameToken(token)))
+    agent->UpdateRequestPolicy(controlled);
+  else
+    SetFrameRequestPolicy(token, controlled, {});
+}
+// Installed only in Merlin's isolated world: the cosmetic helper pushes newly
+// seen class/id names here instead of native code polling it on a timer.
+void ReportIdentifiers(const v8::FunctionCallbackInfo<v8::Value>& info) {
+  auto* isolate = info.GetIsolate();
+  if (info.Length() != 1 || !info[0]->IsString())
+    return;
+  auto* agent = AgentFor(
+      blink::WebLocalFrame::FrameForContext(isolate->GetCurrentContext()));
+  if (!agent)
+    return;
+  v8::String::Utf8Value value(isolate, info[0]);
+  if (*value && value.length() <= 512 * 1024)
+    agent->ReceiveIdentifiers(std::string_view(*value, value.length()));
+}
 }  // namespace
 void RegisterProcessBinders(mojo::BinderMap* binders) {
   if (base::FeatureList::IsEnabled(kMerlinAdblock)) {
+    content::SetServiceWorkerControllerObserver(&ControllerChanged);
     blink::SetBrowserResourceCachePolicyEnabled(true);
     binders->Add<mojom::AdblockProcess>(
         base::BindRepeating(&BindProcess),
@@ -157,7 +186,11 @@ void RegisterProcessBinders(mojo::BinderMap* binders) {
 }
 Agent::Agent(content::RenderFrame* frame)
     : RenderFrameObserver(frame),
-      content::RenderFrameObserverTracker<Agent>(frame) {
+      content::RenderFrameObserverTracker<Agent>(frame),
+      token_(frame->GetWebFrame()->GetLocalFrameToken()) {
+  // Frame-scheduled, so background and frozen pages throttle or pause it.
+  helper_timer_.SetTaskRunner(
+      frame->GetTaskRunner(blink::TaskType::kInternalDefault));
   frame->GetAssociatedInterfaceRegistry()->AddInterface<mojom::AdblockAgent>(
       base::BindRepeating(&Agent::Bind, weak_factory_.GetWeakPtr()));
 }
@@ -173,11 +206,21 @@ void Agent::Prepare(mojom::DocumentConfigPtr config, PrepareCallback done) {
   pending_ = std::move(config);
   std::move(done).Run();
 }
+void Agent::UpdateRequestPolicy(bool controlled) {
+  mojo::PendingRemote<mojom::AdblockHost> host;
+  if (controlled)
+    render_frame()->GetBrowserInterfaceBroker().GetInterface(
+        host.InitWithNewPipeAndPassReceiver());
+  SetFrameRequestPolicy(token_, controlled, std::move(host));
+}
 void Agent::DidCreateNewDocument() {
   TRACE_EVENT("loading", "MerlinAdblock.NewDocument");
-  cosmetic_timer_.Stop();
+  UpdateRequestPolicy(IsServiceWorkerControlled(render_frame()->GetWebFrame()));
+  helper_timer_.Stop();
   host_.reset();
   generic_pending_ = false;
+  queued_classes_.clear();
+  queued_ids_.clear();
   inserted_.clear();
   css_bytes_ = 0;
   current_ = std::move(pending_);
@@ -200,6 +243,19 @@ void Agent::SetCachePartition() {
       *frame, blink::WebString::FromUtf8(partition));
 }
 void Agent::DidCreateScriptContext(v8::Local<v8::Context> context, int world) {
+  if (world == ISOLATED_WORLD_ID_MERLIN_ADBLOCK) {
+    auto* isolate = v8::Isolate::GetCurrent();
+    v8::HandleScope handles(isolate);
+    v8::Local<v8::Function> report;
+    if (v8::Function::New(context, &ReportIdentifiers).ToLocal(&report)) {
+      auto ignored = context->Global()->Set(
+          context,
+          v8::String::NewFromUtf8Literal(isolate, "__merlinAdblockReport"),
+          report);
+      (void)ignored;
+    }
+    return;
+  }
   if (world != 0 || injected_)
     return;
   InheritInitialConfiguration();
@@ -243,12 +299,17 @@ void Agent::DidCreateScriptContext(v8::Local<v8::Context> context, int world) {
   }
   current_->main_script.clear();
   current_->isolated_script.clear();
-  cosmetic_timer_.Start(
+  // With generic hiding off and no procedural rules there is nothing to scan.
+  if (current_->generichide && current_->procedural.empty())
+    return;
+  helper_timer_.Start(
       FROM_HERE, base::Milliseconds(250),
-      base::BindRepeating(&Agent::PollCosmetics, weak_factory_.GetWeakPtr()));
+      base::BindOnce(&Agent::EnsureCosmeticHelper, weak_factory_.GetWeakPtr()));
 }
 void Agent::EnsureCosmeticHelper() {
-  if (helper_installed_)
+  if (helper_installed_ || !current_ || !current_->enabled)
+    return;
+  if (GURL(render_frame()->GetWebFrame()->GetDocument().Url()) != current_->url)
     return;
   helper_installed_ = true;
   // Helpers first run at the initial scan tick. Actual scriptlets still execute
@@ -268,6 +329,9 @@ void Agent::EnsureCosmeticHelper() {
   std::string helper(kCosmeticHelper);
   helper.replace(helper.find("MERLIN_PROCEDURAL_RULES"),
                  sizeof("MERLIN_PROCEDURAL_RULES") - 1, encoded);
+  helper.replace(helper.find("MERLIN_COLLECT_IDENTIFIERS"),
+                 sizeof("MERLIN_COLLECT_IDENTIFIERS") - 1,
+                 current_->generichide ? "false" : "true");
   current_->procedural.clear();
   render_frame()->GetWebFrame()->ExecuteScriptInIsolatedWorld(
       ISOLATED_WORLD_ID_MERLIN_ADBLOCK,
@@ -338,43 +402,40 @@ void Agent::InsertSelectors(const std::vector<std::string>& selectors) {
     render_frame()->GetWebFrame()->GetDocument().InsertStyleSheet(
         blink::WebString::FromUtf8(css));
 }
-void Agent::PollCosmetics() {
-  if (!current_ || !current_->enabled || generic_pending_)
+void Agent::ReceiveIdentifiers(std::string_view json) {
+  if (!current_ || !current_->enabled || current_->generichide)
     return;
-  auto* frame = render_frame()->GetWebFrame();
-  if (GURL(frame->GetDocument().Url()) != current_->url)
+  if (GURL(render_frame()->GetWebFrame()->GetDocument().Url()) != current_->url)
     return;
-  EnsureCosmeticHelper();
-  auto* isolate = frame->GetAgentGroupScheduler()->Isolate();
-  v8::HandleScope handles(isolate);
-  auto result = frame->ExecuteScriptInIsolatedWorldAndReturnValue(
-      ISOLATED_WORLD_ID_MERLIN_ADBLOCK,
-      blink::WebScriptSource(
-          blink::WebString::FromUtf8("globalThis.__merlinAdblockTick?.()")),
-      blink::BackForwardCacheAware::kAllow);
-  if (result.IsEmpty() || !result->IsString())
+  auto identifiers = base::JSONReader::ReadDict(json, base::JSON_PARSE_RFC);
+  if (!identifiers)
     return;
-  v8::String::Utf8Value string(isolate, result);
-  if (!*string || string.length() > 128 * 1024)
-    return;
-  auto identifiers = base::JSONReader::ReadDict(
-      std::string_view(*string, string.length()), base::JSON_PARSE_RFC);
-  if (!identifiers || current_->generichide)
-    return;
-  std::vector<std::string> classes, ids;
-  auto collect = [](const base::ListValue* list,
-                    std::vector<std::string>& output) {
+  auto collect = [](const base::ListValue* list, std::deque<std::string>& queue) {
     if (!list)
       return;
     for (const auto& item : *list)
       if (item.is_string() && item.GetString().size() <= 256 &&
-          output.size() < 128)
-        output.push_back(item.GetString());
+          queue.size() < 4096)
+        queue.push_back(item.GetString());
   };
-  collect(identifiers->FindList("classes"), classes);
-  collect(identifiers->FindList("ids"), ids);
-  if (classes.empty() && ids.empty())
+  collect(identifiers->FindList("classes"), queued_classes_);
+  collect(identifiers->FindList("ids"), queued_ids_);
+  FlushGeneric();
+}
+void Agent::FlushGeneric() {
+  if (generic_pending_ || !current_ ||
+      (queued_classes_.empty() && queued_ids_.empty()))
     return;
+  std::vector<std::string> classes, ids;
+  auto take = [](std::deque<std::string>& queue,
+                 std::vector<std::string>& output) {
+    while (!queue.empty() && output.size() < 128) {
+      output.push_back(std::move(queue.front()));
+      queue.pop_front();
+    }
+  };
+  take(queued_classes_, classes);
+  take(queued_ids_, ids);
   EnsureHost();
   generic_pending_ = true;
   host_->GenericSelectors(
@@ -412,21 +473,22 @@ void Agent::GenericReceived(std::string token,
     return;
   generic_pending_ = false;
   InsertSelectors(selectors);
+  FlushGeneric();
 }
 void Agent::DidFinishSameDocumentNavigation() {
-  if (current_)
-    current_->url = GURL(render_frame()->GetWebFrame()->GetDocument().Url());
-}
-void Agent::DidSetPageLifecycleState(blink::BFCacheStateChange state) {
-  if (state == blink::BFCacheStateChange::kStoredToBFCache)
-    cosmetic_timer_.Stop();
-  if (state == blink::BFCacheStateChange::kRestoredFromBFCache && current_ &&
-      current_->enabled && current_->scripts_allowed)
-    cosmetic_timer_.Start(
-        FROM_HERE, base::Milliseconds(250),
-        base::BindRepeating(&Agent::PollCosmetics, weak_factory_.GetWeakPtr()));
+  if (!current_)
+    return;
+  current_->url = GURL(render_frame()->GetWebFrame()->GetDocument().Url());
+  // Single-page navigations replace content; rescan (path rules included).
+  if (helper_installed_)
+    render_frame()->GetWebFrame()->ExecuteScriptInIsolatedWorld(
+        ISOLATED_WORLD_ID_MERLIN_ADBLOCK,
+        blink::WebScriptSource(
+            blink::WebString::FromUtf8("globalThis.__merlinAdblockRescan?.()")),
+        blink::BackForwardCacheAware::kAllow);
 }
 void Agent::OnDestruct() {
+  RemoveFrameRequestPolicy(token_);
   delete this;
 }
 }  // namespace merlin_adblock

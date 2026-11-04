@@ -12,6 +12,107 @@ the remaining default-enablement gates in [the plan](ADBLOCK_PLAN.md). Developme
 `--enable-features=MerlinAdblock`; `--disable-features=MerlinAdblock` is the
 independent kill switch. Modal browsing does not control this feature.
 
+## Performance pass, 2026-11-04
+
+Branch `feature/adblock-performance`. An audit of the integrated engine found
+that adblock-rust itself was fast, but the code around it added most of the
+cost. Every request hopped to the renderer's main thread, and every network
+message for every request was relayed through the browser UI thread. Each
+startup read and hashed all list text, and a repeating cosmetic timer woke
+every tab. This pass removes those costs. Behavior and rule semantics are
+unchanged.
+
+**Request path.**
+
+- The browser proxy factory and its loads run on one dedicated thread, not the
+  UI thread. A check goes proxy thread → engine thread → proxy thread. The
+  proxy reads a thread-safe `RequestGate` snapshot (on/off, site exceptions,
+  readiness, live `Matcher`) that the Service republishes on every pref,
+  readiness or generation change.
+- The UI thread is visited only for blocked counts, Network Service CSP header
+  parsing and requests that arrive while the engine is still starting.
+- Sites with protection off skip the proxy entirely.
+- Top-level documents skip the matcher; the engine never blocks them.
+- Any added CSP is looked up as the request starts, so responses do not wait
+  for an engine hop.
+- Loads share the factory's downstream pipe rather than cloning one per
+  request.
+
+**Renderer.**
+
+- `BackgroundResourceFetch` creates URL loader throttles off the main thread.
+  The old throttle hopped back to the main thread for every request to ask
+  whether a service worker controlled the frame. A lock-protected per-frame
+  registry now answers on the loader thread.
+- Uncontrolled frames get no throttle; the browser proxy already covers them.
+- Controlled frames check through a `SharedRemote` bound on a background
+  sequence.
+- Patch 0046 adds a service worker controller-change hook, so
+  `clients.claim()` after load also switches the frame to renderer-side
+  checks.
+- The cosmetic helper has no repeating timer. It starts once, 250 ms after
+  script context creation, and is skipped when `generichide` applies and there
+  are no procedural rules. It scans on idle time and observes only `class`/`id`
+  attributes when it has no procedural rules.
+- The helper reports identifiers through a direct isolated-world function
+  rather than polling. It rescans after same-document navigations and holds
+  off while prerendering.
+
+**Startup and cache.**
+
+- The cached engine (`current`) is identified by metadata: source ids,
+  revisions, text digests, permissions, resources digest and engine version.
+  Startup no longer reads or hashes list text.
+- List text lives in `current.lists`, which is read only when a rebuild or
+  download is due. Each file keeps a `.previous` snapshot.
+- Inside the engine payload, a fast Rust checksum replaces a second SHA-256.
+  BoringSSL still verifies the whole file.
+
+Measurements use the new `scripts/benchmark_adblock_realistic.mjs`: 8 profile
+pairs × 3 loads per variant. Each variant is a clean page with about 80
+subresources, an ad-heavy page with 40 ad requests, or a service-worker
+controlled page. Deltas are blocker on minus off, median ms, on the same
+M2 / 16 GB arm64 `out/Modal` component build:
+
+| Variant / metric | Before | After |
+| --- | ---: | ---: |
+| Clean load event | +13.6 | **+3.7** |
+| Clean DOMContentLoaded | +20.4 | **+3.5** |
+| Clean first contentful paint | +24.0 | **−4.0** |
+| Clean per-resource stall | +11.6 | **+0.7** |
+| Ad-heavy load event | +8.3 | **+2.8** |
+| Ad-heavy per-resource time | −15.5 | **−23.9** |
+| Service-worker load event | +47.1 | **+11.5** |
+| Service-worker per-resource stall | +54.1 | **+9.8** |
+
+Ad-server requests stay at 40 off / 0 on. Traces show the renderer
+main-thread policy hop is gone for uncontrolled pages: it was 3.9 ms median
+and 34 ms max per request. The return hop after matching fell from 2.2–7.5 ms
+to about 0.1 ms. Physical footprint at idle, blocker overhead:
+
+| Tabs | Before | After | Idle CPU per 15 s, on (before → after) |
+| ---: | ---: | ---: | ---: |
+| 1 | +45.8 MiB | **+21.9 MiB** | 0.23 s → 0.24 s |
+| 10 | +38.1 MiB | **+32.7 MiB** | 0.88 s → **0.17 s** |
+| 30 | +50.9 MiB | +58.1 MiB | 1.27 s → **0.73 s** |
+
+The 30-tab footprint is within the 37.8–57.5 MiB range of earlier
+checkpoints. A stack sampler was attached during that run. One earlier
+physical-memory run stopped at the 30-tab step with a 60 s DevTools timeout.
+It did not recur in the full rerun, or in a targeted stress run of
+5 × 30 tabs with the blocker on, where the slowest browser round trip was
+218 ms. It is recorded as unexplained, not fixed.
+
+This build understates release-build speed. `dcheck_always_on` also passes
+`-Cdebug-assertions` to Rust code (`build/config/BUILD.gn`). The same engine
+microbenchmark measured **3.9 µs** per check without debug assertions and
+**67.8 µs** with them. In-browser matches here took 0.12–0.24 ms median, and
+most of the remaining engine-queue wait comes from that cost. A release build
+should match far faster. Release-build page-load measurements are still to be
+taken.
+
+Evidence: `docs/adblock-evidence/2026-11-04-*`, described in its README.
+
 ## Baseline and hook decision
 
 Chromium 157.0.8103.26, commit

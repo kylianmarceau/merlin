@@ -1,12 +1,13 @@
-// Runs only in Merlin's reserved isolated world. Native code owns the cadence,
-// the document lifetime, and browser-derived rules. Work and retained DOM roots
-// are capped; a busy page cannot enqueue an unbounded document scan.
-(function(rules) {
+// Runs only in Merlin's reserved isolated world. Native code owns the document
+// lifetime and browser-derived rules; this helper reports new class/id names
+// and applies procedural rules when the DOM changes. Work and retained DOM
+// roots are capped; a busy page cannot enqueue an unbounded document scan.
+(function(rules, collectIds) {
   'use strict';
   const MAX_ROOTS = 512, MAX_SEEN = 8192, MAX_TEXT = 65536;
   const seenClass = new Set(), seenId = new Set();
   const classes = [], ids = [], roots = [];
-  let walker = null, node = null, ruleIndex = 0, href = location.href, paused = false;
+  let walker = null, node = null, ruleIndex = 0, paused = false;
   function enqueue(root) {
     if (root && roots.length < MAX_ROOTS) roots.push(root.nodeType === 3 ? root.parentElement : root);
   }
@@ -91,24 +92,54 @@
       }
     }
   }
-  const observer = new MutationObserver(records => {
-    for (const change of records.slice(0, MAX_ROOTS)) {
-      if (change.type === 'childList') {
-        for (const added of change.addedNodes) { enqueue(added); if (roots.length === MAX_ROOTS) break; }
-        enqueue(change.target);
-      } else enqueue(change.target);
+  // Event driven: work is scheduled only when the DOM changes, in idle time
+  // (frame-scheduled, so background tabs throttle and frozen pages stop).
+  let scheduled = false;
+  const idle = globalThis.requestIdleCallback
+    ? (callback) => requestIdleCallback(callback, {timeout: 250})
+    : (callback) => setTimeout(callback, 50);
+  function schedule() {
+    if (scheduled || paused) return;
+    if (document.prerendering) {
+      document.addEventListener('prerenderingchange', schedule, {once: true});
+      return;
     }
+    scheduled = true;
+    idle(pump);
+  }
+  function collect(element) {
+    if (!collectIds || element.nodeType !== 1) return;
+    identifier(element.id, seenId, ids);
+    for (const value of element.classList) identifier(value, seenClass, classes);
+  }
+  const observer = new MutationObserver(records => {
+    for (const change of records) {
+      if (change.type === 'childList') {
+        for (const added of change.addedNodes) {
+          if (added.nodeType === 1) enqueue(added);
+          else if (rules.length) enqueue(added);
+          if (roots.length === MAX_ROOTS) break;
+        }
+        // Procedural rules can depend on a parent's text or children.
+        if (rules.length) enqueue(change.target);
+      } else if (rules.length) {
+        enqueue(change.target);
+      } else {
+        collect(change.target);  // class/id change on one element
+      }
+      if (roots.length === MAX_ROOTS) break;
+    }
+    schedule();
   });
-  const observe = () => observer.observe(document, {subtree:true, childList:true, attributes:true, characterData:true});
-  observe(); enqueue(document);
-  addEventListener('pagehide', () => { paused = true; observer.disconnect(); roots.length = 0; walker = node = null; });
-  addEventListener('pageshow', () => { paused = false; observe(); enqueue(document); });
-  globalThis.__merlinAdblockTick = () => {
-    if (paused || document.prerendering) return JSON.stringify({classes:[], ids:[]});
-    if (href !== location.href) { href = location.href; enqueue(document); }
-    const deadline = performance.now() + 3;
-    let work = 0;
-    while (++work <= 2500 && performance.now() < deadline) {
+  // Without procedural rules only element additions and class/id changes
+  // matter, so ordinary attribute and text churn is not observed at all.
+  const observe = () => observer.observe(document, rules.length
+    ? {subtree: true, childList: true, attributes: true, characterData: true}
+    : {subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'id']});
+  function work(budget) {
+    const deadline = performance.now() + budget;
+    let steps = 0;
+    while (++steps <= 2500 && performance.now() < deadline) {
       if (!node) {
         if (walker) node = walker.nextNode();
         if (!node) {
@@ -120,14 +151,30 @@
           if (!node) continue;
         }
         ruleIndex = 0;
-        identifier(node.id, seenId, ids);
-        for (const value of node.classList) identifier(value, seenClass, classes);
+        collect(node);
       }
       if (ruleIndex < rules.length) {
         try { apply(node, rules[ruleIndex]); } catch { /* Malformed/obsolete selector affects only its rule. */ }
         ++ruleIndex;
       } else node = null;
     }
-    return JSON.stringify({classes:classes.splice(0,128), ids:ids.splice(0,128)});
-  };
-})(MERLIN_PROCEDURAL_RULES);
+    if (classes.length || ids.length) {
+      const report = JSON.stringify({classes: classes.splice(0), ids: ids.splice(0)});
+      globalThis.__merlinAdblockReport?.(report);
+    }
+    return !!(node || walker || roots.length);
+  }
+  function pump(deadline) {
+    scheduled = false;
+    if (paused || document.prerendering) return schedule();
+    const budget = deadline && !deadline.didTimeout
+      ? Math.max(1, Math.min(3, deadline.timeRemaining())) : 3;
+    if (work(budget)) schedule();
+  }
+  observe(); enqueue(document); schedule();
+  addEventListener('pagehide', () => { paused = true; observer.disconnect(); roots.length = 0; walker = node = null; });
+  addEventListener('pageshow', () => { paused = false; observe(); enqueue(document); schedule(); });
+  globalThis.__merlinAdblockRescan = () => { enqueue(document); schedule(); };
+  // Diagnostic hook: run one bounded slice now.
+  globalThis.__merlinAdblockTick = () => { if (!paused) work(3); };
+})(MERLIN_PROCEDURAL_RULES, MERLIN_COLLECT_IDENTIFIERS);

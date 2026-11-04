@@ -3,6 +3,11 @@
 Work is on `feature/adblock-qualification`, based on the integrated main branch.
 This task measures and tests the blocker; distribution packaging remains deferred.
 
+A later [performance pass, 2026-11-04](ADBLOCK_IMPLEMENTATION.md#performance-pass-2026-11-04)
+supersedes the request-path and idle-CPU measurements below. The request proxy
+moved off the UI thread and the per-request renderer hop and repeating cosmetic
+timer were removed. Methods and limitations recorded here still apply.
+
 ## Method and performance decision
 
 The original development observation was a roughly 6 ms increase on a local

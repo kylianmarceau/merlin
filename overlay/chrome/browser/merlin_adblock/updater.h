@@ -35,6 +35,8 @@ class Updater {
   void Schedule(base::TimeDelta delay);
   void Begin(bool manual);
   void Loaded(Bundle bundle);
+  void LoadTexts();
+  void TextsLoaded(std::optional<Bundle> bundle);
   void Next();
   void Downloaded(std::optional<std::string> body);
   void Validated(std::optional<Source> source);

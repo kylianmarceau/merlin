@@ -5,8 +5,12 @@
 #include <map>
 #include <string>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/synchronization/lock.h"
+#include "base/thread_annotations.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/merlin_adblock/evaluator.h"
 #include "chrome/browser/profiles/profile_keyed_service_factory.h"
@@ -35,12 +39,42 @@ inline constexpr char kListsPref[] = "merlin.adblock.lists";
 enum class Readiness { kDisabled, kInitializing, kReady, kDegraded };
 class Updater;
 
+// Thread-safe snapshot of the state request proxies need, published by the
+// UI-thread Service whenever preferences, readiness or the engine change.
+class RequestGate : public base::RefCountedThreadSafe<RequestGate> {
+ public:
+  RequestGate();
+  // Same policy as Service::EnabledFor().
+  bool EnabledFor(const GURL& top_level) const;
+  // False after the owning Service shuts down.
+  bool alive() const;
+  // The live matcher when protection is on for `top_level` and the engine is
+  // ready. Otherwise null, with `initializing` set when the engine is still
+  // starting (callers then wait through the Service on the UI thread).
+  scoped_refptr<Matcher> MatcherFor(const GURL& top_level,
+                                    bool* initializing) const;
+
+ private:
+  friend class Service;
+  friend class base::RefCountedThreadSafe<RequestGate>;
+  ~RequestGate();
+  bool EnabledForLocked(const GURL& top_level) const
+      EXCLUSIVE_LOCKS_REQUIRED(lock_);
+  mutable base::Lock lock_;
+  bool alive_ GUARDED_BY(lock_) = true;
+  bool enabled_ GUARDED_BY(lock_) = false;
+  bool initializing_ GUARDED_BY(lock_) = false;
+  base::flat_set<std::string> exceptions_ GUARDED_BY(lock_);
+  scoped_refptr<Matcher> matcher_ GUARDED_BY(lock_);
+};
+
 class Service : public KeyedService {
  public:
   explicit Service(Profile* profile);
   ~Service() override;
   static Service* Get(content::BrowserContext* context);
   base::WeakPtr<Service> GetWeakPtr() { return weak_factory_.GetWeakPtr(); }
+  const scoped_refptr<RequestGate>& gate() const { return gate_; }
   bool EnabledFor(const GURL& top_level) const;
   void SetEnabled(bool enabled);
   std::vector<std::string> Groups() const;
@@ -99,7 +133,9 @@ class Service : public KeyedService {
                  bool ok);
   void WhenReady(base::OnceClosure callback);
   void ReleaseWaiters();
+  void PublishGate();
   raw_ptr<Profile> profile_;
+  const scoped_refptr<RequestGate> gate_;
   scoped_refptr<Evaluator> evaluator_;
   Readiness state_ = Readiness::kInitializing;
   uint64_t generation_ = 0;

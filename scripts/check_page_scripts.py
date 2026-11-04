@@ -121,7 +121,7 @@ if not match:
     sys.exit("kSettingsJs not found")
 cases["Merlin settings"] = match.group(1)
 cosmetics = SRC.parents[3] / "renderer/merlin_adblock/cosmetics.js"
-cases["native cosmetics"] = cosmetics.read_text().replace("MERLIN_PROCEDURAL_RULES", "[]")
+cases["native cosmetics"] = cosmetics.read_text().replace("MERLIN_PROCEDURAL_RULES", "[]").replace("MERLIN_COLLECT_IDENTIFIERS", "true")
 
 failed = False
 with tempfile.TemporaryDirectory() as d:
