@@ -56,15 +56,24 @@ unload, HTTP auth, choosers, file-system access, desktop capture picker,
 certificate selector and the WebUI profile picker. macOS context menus and
 system sheets are native and stay native.
 
-## Verification
+## Verification, 2026-11-04
 
-* `scripts/verify_patches.sh`: all 48 patches apply to 157.0.8103.26.
-* Every changed source file compiles with the exact `out/Modal` flags
-  (checked into a scratch output, not the shared build tree).
-* `MerlinIdentityBrowserTest.ProfileMenuPresentation` (new) captures the
-  profile menu; `PermissionDecisionsAndSiteInfo` captures the permission
-  prompt and site information and still checks all three decisions;
-  `NativeTokensAndAccessibleOverrides` checks the switch is on and the
-  button outline is gone.
-* Not yet done: a linked build, the browser test run and light/dark
-  screenshots.
+Branch merged with `main` at `1387df6` (speed and memory defaults), macOS
+arm64 `out/Modal` component build, Chromium 157.0.8103.26.
+
+| Check | Result |
+| --- | --- |
+| `scripts/verify_patches.sh` | All 50 patches apply to 157.0.8103.26 |
+| `gn check` for `//chrome/browser/ui/modal_browser/*` | Passed |
+| `chrome` and `browser_tests` build | Passed |
+| Default browser suite (`scripts/run_browser_tests.sh ''`) | **147/147 passed**, retries disabled |
+| Identity captures | Refreshed in `visual-identity-evidence/`; new `*-profile-menu.png` |
+
+`ProfileMenuPresentation` (new) captures the profile menu.
+`PermissionDecisionsAndSiteInfo` captures the permission prompt and site
+information and still checks all three decisions.
+`NativeTokensAndAccessibleOverrides` checks that Merlin styling is on and
+that secondary buttons have no outline.
+
+Still manual: VoiceOver on the new layouts, keyboard traversal of the
+permission choice card, and pop-ups that need real devices or accounts.
