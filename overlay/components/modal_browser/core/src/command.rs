@@ -887,8 +887,7 @@ const SCROLL_USAGE: &str =
 const FIND_USAGE: &str = ":find [next|previous]";
 const ADDRESS_USAGE: &str = ":focus-address";
 const CMDLINE_USAGE: &str = ":cmdline [text]";
-const PALETTE_USAGE: &str =
-    ":palette [commands|tabs|history|bookmarks|workspaces|profiles|outline|links]";
+const PALETTE_USAGE: &str = ":palette [commands|tabs|history|bookmarks|workspaces|outline|links]";
 const HINT_USAGE: &str = ":hint [follow|tab|yank|input|edit|code|select]";
 const YANK_USAGE: &str = ":yank [url|title|markdown|selection]";
 const PASTE_USAGE: &str = ":paste [tab]";
@@ -916,7 +915,6 @@ const MARK_USAGE: &str = ":mark [a-z|A-Z]";
 const JUMP_MARK_USAGE: &str = ":jump-mark [a-z|A-Z]";
 const MARKS_USAGE: &str = ":marks";
 const MACRO_USAGE: &str = ":macro <record [a-z] | stop | play [a-z|@]>";
-const PROFILE_USAGE: &str = ":profile [name]";
 const HISTORY_USAGE: &str = ":history [search terms]";
 const BOOKMARK_USAGE: &str = ":bookmark";
 const BOOKMARKS_USAGE: &str = ":bookmarks [search terms]";
@@ -1146,7 +1144,7 @@ fn cmd_palette(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
             invalid(
                 inv,
                 name,
-                "expected commands, tabs, history, bookmarks, workspaces, profiles, outline, links, menu or downloads",
+                "expected commands, tabs, history, bookmarks, workspaces, outline, links, menu or downloads",
             )
         })?,
     };
@@ -1482,17 +1480,6 @@ fn cmd_workspace(inv: &Invocation, ctx: &Context) -> Result<Effects, CommandErro
             "expected save, open, delete, list or project",
         )),
     }
-}
-
-fn cmd_profile(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
-    if inv.args.is_empty() {
-        return Ok(Effects::palette(PaletteKind::Profiles));
-    }
-    let name = inv.joined_args();
-    if name.chars().count() > 200 {
-        return Err(invalid(inv, &name, "profile names are shorter than that"));
-    }
-    Ok(Effects::action(Action::SwitchProfile { name }))
 }
 
 fn cmd_history(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
@@ -2091,13 +2078,6 @@ fn builtin_specs() -> Vec<CommandSpec> {
             WORKSPACE_USAGE,
             "save, open or list workspaces",
             cmd_workspace,
-        ),
-        available(
-            "profile",
-            &[],
-            PROFILE_USAGE,
-            "open a window for a browser profile",
-            cmd_profile,
         ),
         available("history", &[], HISTORY_USAGE, "search history", cmd_history),
         available(

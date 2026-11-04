@@ -2,7 +2,8 @@
 
 A Chromium fork with a Rust core for the parts that make this browser
 different. Chromium (C++) keeps everything it already does well: rendering,
-networking, process isolation, extensions, profiles, DevTools, security UI.
+networking, process isolation, extensions, DevTools, security UI. Merlin
+keeps a single Chromium profile and offers no profile UI (patch 0051).
 
 ## Layers
 
@@ -35,7 +36,7 @@ networking, process isolation, extensions, profiles, DevTools, security UI.
  BrowserWindowInterface::OpenGURL, NavigationController::GoToOffset, ...
  and owns three Views surfaces (child widgets over the web contents):
    PaletteHost  floating card: ':' line, tabs, commands, history,
-                bookmarks, workspaces, profiles, outline, links
+                bookmarks, workspaces, downloads, outline, links
    StatusHost   bottom-left pill: mode, pending keys, messages, which-key
    HintHost     click-through layer with hint labels
  plus, per window: an ExternalEditor session for :edit, and a share of
@@ -57,7 +58,7 @@ what happens next.
 | `OpenClipboard` | `ui::Clipboard::ReadText` | `open_text(text)` |
 | `ReloadConfig` | read the file on the thread pool | `load_config(text)` |
 | `OpenPalette` | snapshot tabs (`set_tabs`), render `palette_state()` | `palette_input`, `palette_key`, `palette_select` |
-| `RequestItems{source}` | history service, bookmark model, workspace directory, profile storage | `set_items(source, items, now)` |
+| `RequestItems{source}` | history service, bookmark model, workspace directory, downloads | `set_items(source, items, now)` |
 | `CollectDocument{generation}` | isolated-world extraction of headings, text, lists, code, tables | `document_collected(generation, blocks)` |
 | `SnapshotWorkspace{name}` | list this window's tabs, pins and split pairs | `save_workspace(name, tabs, now)` then `WriteWorkspace` |
 | `ReadWorkspace{name}` | read the file off the UI thread | `workspace_read(name, found, text)` then `RestoreWorkspace` |
@@ -193,7 +194,7 @@ Implemented: `open`, `tabnew`, `tabclose`, `tabnext`, `tabprevious`,
 `config-reload`, `vertical-tabs [on|off]`, `sidebar [on|off]`, `nop`,
 `help`; Phase 3: `vsplit`, `split`, `only`, `split-focus`, `split-swap`,
 `pin`, `window`, `private`, `workspace [save|open|delete|list]`,
-`profile`, `history`, `bookmark`, `bookmarks`, `downloads`, `settings`,
+`history`, `bookmark`, `bookmarks`, `downloads`, `settings`,
 `extensions`, `devtools`, `edit[!]`; Phase 4: `read`, `outline`, `links`,
 `extract`, `jump`, `select`; and `mark`, `jump-mark`, `marks`, `macro`.
 User-defined commands come from `[aliases]` in the config. Still planned
@@ -242,7 +243,6 @@ All compiled and exercised by the browser tests at the pinned tag.
 | Workspace windows | `chrome::OpenEmptyWindow`, `chrome::AddAndReturnTabAt`, `TabStripModel::CloseWebContentsAt` | `browser_commands.h:93`, `browser_tabstrip.h:33` |
 | Menus by keyboard | `chrome::ExecuteCommand` with `IDC_SHOW_HISTORY`, `IDC_SHOW_DOWNLOADS`, `IDC_OPTIONS`, `IDC_MANAGE_EXTENSIONS`, `IDC_DEV_TOOLS_TOGGLE`, `IDC_BOOKMARK_THIS_TAB`, `IDC_NEW_WINDOW`, `IDC_NEW_INCOGNITO_WINDOW`, `IDC_SHOW_READING_MODE_SIDE_PANEL` | `chrome/app/chrome_command_ids.h` |
 | History, bookmarks | `HistoryService::QueryHistory`, `BookmarkModel` tree | `history_service.h:340`, `bookmark_model.h` |
-| Profiles | `ProfileAttributesStorage`, `profiles::SwitchToProfile` | `profile_window.h:71` |
 | browserctl socket | `net::UnixDomainServerSocket` (peer uid check) on the IO thread | `net/socket/unix_domain_server_socket_posix.h` |
 | Front window for browserctl | `GlobalBrowserCollection::ForEach(..., Order::kActivation)` | `browser_collection.h:54` |
 | External editor | `base::LaunchProcess` (argv, own process group, `disclaim_responsibility`), `base::SequenceBound` | `base/process/launch.h` |

@@ -514,9 +514,6 @@ void ModalInputRouter::Perform(const ffi::Action& action, BrowserOps& ops) {
       ops.RestoreWorkspace(restore);
       return;
     }
-    case ffi::ActionKind::SwitchProfile:
-      ops.SwitchProfile(View(action.name));
-      return;
     case ffi::ActionKind::RequestItems:
       ops.RequestItems(action.source);
       return;

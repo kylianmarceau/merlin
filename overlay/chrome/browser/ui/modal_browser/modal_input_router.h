@@ -174,7 +174,7 @@ class BrowserOps {
   virtual void StartSequenceTimer(uint32_t delay_ms) = 0;
   virtual void StopSequenceTimer() = 0;
 
-  // -- Phase 3: splits, windows, workspaces, profiles -----------------------
+  // -- Phase 3: splits, windows, workspaces ---------------------------------
 
   virtual void Split(ffi::SplitLayout layout, const OpenRequest& target) = 0;
   virtual void FocusOtherSplit() = 0;
@@ -192,7 +192,6 @@ class BrowserOps {
   virtual void ReadWorkspace(std::string_view name) = 0;
   virtual void DeleteWorkspace(std::string_view name) = 0;
   virtual void RestoreWorkspace(const WorkspaceRestore& workspace) = 0;
-  virtual void SwitchProfile(std::string_view name) = 0;
   // Then ModalInputRouter::OnItems.
   virtual void RequestItems(ffi::ItemSource source) = 0;
   virtual void ShowBrowserPage(ffi::BrowserPage page) = 0;

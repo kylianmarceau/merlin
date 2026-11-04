@@ -1,5 +1,21 @@
 # Testing
 
+## Results, 2026-11-04: one profile, no profile UI
+
+Branch `feature/no-profiles`, Chromium **157.0.8103.26**, macOS arm64
+`out/Modal` component development build (DCHECKs on). The change is
+[decision 44](DECISIONS.md#44-one-profile-no-profile-ui) and patch 0051 in
+[Upstream](UPSTREAM.md#single-profile-patch-2026-11-04).
+
+| Check | Result |
+| --- | --- |
+| Native `chrome browser_tests` rebuild | Passed |
+| Default browser suite | **148/148 passed** |
+| New case | `OneProfileOnly`: no profile creation or guest mode, startup opens a window, picker entry points do nothing, profile commands disabled, `:profile` and `:palette profiles` rejected |
+| Patch series | **51 patches** verified with `apply_patches.py --check` |
+| Repository checks | Formatting, warnings-denied Clippy, **254 workspace tests**, page scripts, visual identity and blocker integrity passed; the networked upstream patch check could not reach the network |
+| Running app | Menu bar has no Profiles menu; launch opens the restored window with no picker |
+
 ## Results, 2026-11-04: speed and memory defaults
 
 Working tree on `main` after `f978977`, Chromium **157.0.8103.26**, macOS

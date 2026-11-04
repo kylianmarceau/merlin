@@ -320,7 +320,6 @@ fn every_vision_command_is_registered() {
         "split",
         "vsplit",
         "pin",
-        "profile",
         "workspace",
         "help",
     ] {

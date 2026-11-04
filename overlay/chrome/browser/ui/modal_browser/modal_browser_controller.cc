@@ -32,10 +32,6 @@
 #include "chrome/browser/merlin_adblock/service.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_attributes_entry.h"
-#include "chrome/browser/profiles/profile_attributes_storage.h"
-#include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabrestore.h"
@@ -1581,7 +1577,7 @@ void ModalBrowserController::StopSequenceTimer() {
 }
 
 
-// -- BrowserOps: splits, windows, workspaces, profiles ------------------------
+// -- BrowserOps: splits, windows, workspaces ----------------------------------
 
 std::optional<GURL> ModalBrowserController::ResolveTarget(
     const OpenRequest& target) {
@@ -1878,35 +1874,6 @@ void ModalBrowserController::RestoreWorkspace(
   }
 }
 
-void ModalBrowserController::SwitchProfile(std::string_view name) {
-  ProfileManager* manager = g_browser_process->profile_manager();
-  if (!manager) {
-    return;
-  }
-  const std::u16string wanted = base::UTF8ToUTF16(name);
-  ProfileAttributesEntry* match = nullptr;
-  for (ProfileAttributesEntry* entry :
-       manager->GetProfileAttributesStorage().GetAllProfilesAttributes()) {
-    const std::u16string local = entry->GetLocalProfileName();
-    if (base::EqualsCaseInsensitiveASCII(local, wanted) ||
-        base::EqualsCaseInsensitiveASCII(entry->GetName(), wanted)) {
-      match = entry;
-      break;
-    }
-    if (!match && base::StartsWith(base::ToLowerASCII(local),
-                                   base::ToLowerASCII(wanted))) {
-      match = entry;  // a unique-enough prefix; exact names win
-    }
-  }
-  if (!match) {
-    ShowMessage(ffi::MessageLevel::Error,
-                "No profile named " + std::string(name) +
-                    " (create one from the profile menu)");
-    return;
-  }
-  profiles::SwitchToProfile(match->GetPath(), /*always_create=*/false);
-}
-
 void ModalBrowserController::RequestItems(ffi::ItemSource source) {
   Profile* profile = browser_->GetProfile();
   auto deliver = [](base::WeakPtr<ModalBrowserController> self,
@@ -2014,24 +1981,6 @@ void ModalBrowserController::RequestItems(ffi::ItemSource source) {
             item->GetStartTime().ToTimeT(),
             state == "progress" || state == "paused" ||
                 state == "dangerous"});
-      }
-      deliver(weak_factory_.GetWeakPtr(), source, std::move(items));
-      return;
-    }
-    case ffi::ItemSource::Profiles: {
-      ::rust::Vec<ffi::ListItem> items;
-      if (ProfileManager* manager = g_browser_process->profile_manager()) {
-        for (ProfileAttributesEntry* entry :
-             manager->GetProfileAttributesStorage()
-                 .GetAllProfilesAttributesSortedForDisplay()) {
-          const std::string name =
-              base::UTF16ToUTF8(entry->GetLocalProfileName());
-          items.push_back(ffi::ListItem{
-              ::rust::String::lossy(name),
-              ::rust::String::lossy(base::UTF16ToUTF8(entry->GetName())),
-              ::rust::String::lossy(name), 0,
-              entry->GetPath() == profile->GetOriginalProfile()->GetPath()});
-        }
       }
       deliver(weak_factory_.GetWeakPtr(), source, std::move(items));
       return;

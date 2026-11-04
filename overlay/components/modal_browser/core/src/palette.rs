@@ -1,6 +1,6 @@
 //! The palette: one floating surface for the `:` command line, the tab
 //! switcher, the searchable command list (which doubles as help), and lists
-//! the host supplies (history, bookmarks, workspaces, profiles) or the page
+//! the host supplies (history, bookmarks, workspaces, downloads) or the page
 //! does (outline, links).
 //!
 //! The core owns the palette's state (text, rows, selection, error) and the
@@ -34,8 +34,6 @@ pub enum PaletteKind {
     Bookmarks,
     /// Saved workspaces.
     Workspaces,
-    /// Browser profiles.
-    Profiles,
     /// The page's headings, code blocks and tables.
     Outline,
     /// The page's links.
@@ -52,7 +50,6 @@ pub enum ItemSource {
     History,
     Bookmarks,
     Workspaces,
-    Profiles,
     Downloads,
 }
 
@@ -62,7 +59,6 @@ impl ItemSource {
             ItemSource::History => PaletteKind::History,
             ItemSource::Bookmarks => PaletteKind::Bookmarks,
             ItemSource::Workspaces => PaletteKind::Workspaces,
-            ItemSource::Profiles => PaletteKind::Profiles,
             ItemSource::Downloads => PaletteKind::Downloads,
         }
     }
@@ -74,11 +70,11 @@ pub struct ListItem {
     pub title: String,
     /// URL for history and bookmarks; folder or description otherwise.
     pub detail: String,
-    /// What choosing it acts on: a URL, a workspace or profile name.
+    /// What choosing it acts on: a URL or a workspace name.
     pub value: String,
     /// Seconds since the Unix epoch (last visit, save time), or 0.
     pub time: i64,
-    /// The current workspace or profile.
+    /// The current workspace, or a download still in progress.
     pub current: bool,
 }
 
@@ -93,13 +89,12 @@ impl ListItem {
 
 impl PaletteKind {
     /// Kinds that `:palette <name>` opens.
-    pub const NAMED: [(PaletteKind, &'static str); 10] = [
+    pub const NAMED: [(PaletteKind, &'static str); 9] = [
         (PaletteKind::Commands, "commands"),
         (PaletteKind::Tabs, "tabs"),
         (PaletteKind::History, "history"),
         (PaletteKind::Bookmarks, "bookmarks"),
         (PaletteKind::Workspaces, "workspaces"),
-        (PaletteKind::Profiles, "profiles"),
         (PaletteKind::Outline, "outline"),
         (PaletteKind::Links, "links"),
         (PaletteKind::Menu, "menu"),
@@ -121,7 +116,6 @@ impl PaletteKind {
             PaletteKind::History => "History",
             PaletteKind::Bookmarks => "Bookmarks",
             PaletteKind::Workspaces => "Workspaces",
-            PaletteKind::Profiles => "Profiles",
             PaletteKind::Outline => "Outline",
             PaletteKind::Links => "Links",
             PaletteKind::Menu => "Merlin",
@@ -145,7 +139,6 @@ impl PaletteKind {
             PaletteKind::History => "Search history by title or URL",
             PaletteKind::Bookmarks => "Search bookmarks",
             PaletteKind::Workspaces => "Open a workspace",
-            PaletteKind::Profiles => "Open a window for a profile",
             PaletteKind::Outline => "Jump to a section, code block or table   ← → fold",
             PaletteKind::Links => "Search links on this page",
             PaletteKind::Menu => "New window, history, settings, zoom, print…",
@@ -167,7 +160,6 @@ impl PaletteKind {
             PaletteKind::History => "No history yet",
             PaletteKind::Bookmarks => "No bookmarks yet (gB bookmarks this page)",
             PaletteKind::Workspaces => "No saved workspaces (:workspace save <name>)",
-            PaletteKind::Profiles => "No other profiles",
             PaletteKind::Outline => "No headings, code or tables on this page",
             PaletteKind::Links => "No links on this page",
             PaletteKind::Downloads => "No downloads yet",

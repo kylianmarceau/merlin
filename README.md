@@ -81,8 +81,10 @@ in Normal mode nothing covers the page.
   session comes back at launch, even after a crash.
 * **Project workspaces**: tie a workspace to a folder, then run
   `browserctl workspace here` in that repo to bring its tabs back.
-* Private windows (`:private`), new windows (`:window`) and profiles
-  (`:profile work`).
+* Private windows (`:private`) and new windows (`:window`).
+* **One profile.** No profile picker, Profiles menu, profile menu or guest
+  windows: everything lives in one place. Use workspaces to separate work
+  and fun, and private windows for a clean slate.
 
 ### Your editor, everywhere
 
@@ -274,7 +276,7 @@ data Merlin touches.
 ## What to know
 
 Merlin is Chromium, so rendering, JavaScript, site isolation, the sandbox,
-permissions, passwords, autofill, DevTools, PDFs, profiles and extensions
+permissions, passwords, autofill, DevTools, PDFs and extensions
 work as in Chromium. A few things do not:
 
 * **No Google Sync.** Bookmarks and passwords stay in your local profile.
