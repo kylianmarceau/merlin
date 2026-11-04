@@ -22,7 +22,10 @@
       "text_highlight": "#F8E596",
       "accent": "#F6D44A",
       "on_accent": "#1A1A1A",
-      "accent_hover": "#EDC93A"
+      "accent_hover": "#EDC93A",
+      "popover": "#F3F0EA",
+      "popover_control": "#E2DDD2",
+      "popover_control_strong": "#D3CDC0"
     },
     "dark": {
       "header": "#12110F",
@@ -46,7 +49,10 @@
       "text_highlight": "#5A4C14",
       "accent": "#F6D44A",
       "on_accent": "#1A1A1A",
-      "accent_hover": "#EDC93A"
+      "accent_hover": "#EDC93A",
+      "popover": "#3A3833",
+      "popover_control": "#4A4740",
+      "popover_control_strong": "#5C5951"
     }
   },
   "web": {

@@ -75,6 +75,8 @@
 #include "ui/compositor/layer.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/color_utils.h"
+#include "ui/views/bubble/bubble_border.h"
+#include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/styled_label.h"
@@ -257,6 +259,13 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest,
     // Secondary buttons are a quiet fill with no Chromium outline.
     EXPECT_EQ(provider->GetColor(ui::kColorButtonBorder), SK_ColorTRANSPARENT);
     EXPECT_EQ(provider->GetColor(ui::kColorCheckboxContainer), palette.accent);
+    // Pop-ups are grey panels with grey buttons, as macOS popovers are; the
+    // default action is a stronger grey, not a different color.
+    EXPECT_EQ(provider->GetColor(ui::kColorBubbleBackground), palette.popover);
+    EXPECT_EQ(provider->GetColor(ui::kColorButtonBackgroundTonal),
+              palette.popover_control);
+    EXPECT_EQ(provider->GetColor(ui::kColorButtonBackgroundProminent),
+              palette.popover_control_strong);
   }
   // Merlin's control shapes come on with its colors.
   EXPECT_TRUE(views::merlin_style::IsEnabled());
@@ -626,6 +635,10 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest,
     }));
     auto* site_info =
         PageInfoBubbleViewBase::GetPageInfoBubbleForTesting(contents());
+    // Site information hangs from the site controls at the right end of the
+    // toolbar, with an arrow pointing at them.
+    EXPECT_TRUE(site_info->GetBubbleFrameView()->GetDisplayVisibleArrow());
+    EXPECT_EQ(site_info->arrow(), views::BubbleBorder::TOP_RIGHT);
     SnapWidget(site_info->GetWidget(),
                dark ? "dark-site-info" : "light-site-info");
     site_info->GetWidget()->CloseNow();
@@ -651,6 +664,9 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest,
                                            PermissionPromptStyle::kBubbleOnly);
       ASSERT_TRUE(prompt);
       prompt->Show();
+      // A popover: an arrow, and no close button (Esc dismisses).
+      EXPECT_TRUE(prompt->GetBubbleFrameView()->GetDisplayVisibleArrow());
+      EXPECT_FALSE(prompt->ShouldShowCloseButton());
       if (expected == 1) {
         SnapWidget(prompt->GetWidget(),
                    dark ? "dark-permission" : "light-permission");

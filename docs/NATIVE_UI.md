@@ -1,6 +1,6 @@
 # Merlin-native pop-ups
 
-Branch: `feature/merlin-native-ui`. Chromium pin: `157.0.8103.26`.
+Branches: `feature/merlin-native-ui`, `feature/merlin-dia-popups`. Chromium pin: `157.0.8103.26`.
 
 The visual identity work (see [VISUAL_IDENTITY.md](VISUAL_IDENTITY.md))
 recoloured Chromium's pop-ups. They still had Chromium's shapes: pill and
@@ -22,27 +22,40 @@ both.
 | --- | --- | --- |
 | Pop-up title (`STYLE_HEADLINE_4`) | 16 DIP medium | 14 DIP semibold; origin/name bold |
 | Close button | circle highlight, ripple | 24 DIP rounded square, flat hover |
-| Text buttons | outlined secondary, ripple | quiet fill, no outline, no ripple; gold only for the default action |
+| Text buttons | outlined secondary, ripple | grey fill, no outline, no ripple; the default action a stronger grey |
 | Switch | 26×16 track, thumb grows when on, hover halo | 34×20 track, steady thumb, no halo (as in Settings) |
 | Checkbox / radio | 2 DIP corners, halo, ripple | 4 DIP rounded square, gold fill, no halo |
 | List rows (`HoverButton`) | full-bleed flood-fill ripple | rounded pill inset from the edges, flat |
-| Page-info row padding | 20 DIP | 12 DIP (rows sit inside cards) |
+| Page-info row padding | 20 DIP | 12 DIP |
 
-Colours for these controls are set in `merlin_theme.cc` (quiet fill, hover
-tint, switch track/thumb, checkbox and radio, bubble hairline).
+Colours for these controls are set in `merlin_theme.cc` (button greys, hover
+tint, switch track/thumb, checkbox and radio, hairlines).
 
-## Layer 2: Merlin layouts for the most-seen pop-ups (patch 0050)
+## Layer 2: Merlin popovers (patches 0049 and 0050)
+
+The first card-based layouts still read as Chromium. Merlin now follows
+Dia and macOS popovers: a plain grey panel that hangs from the toolbar
+button that opened it, with a small arrow pointing at that button, no title
+bar and no close button. A grey circle leads the message, and the two
+answers are equal grey buttons.
+
+| Piece | Where | Merlin |
+| --- | --- | --- |
+| Arrow | `BubbleDialogDelegate::CreateFrameView` (0049) | Bubbles that open downward from an anchor show an arrow, if they draw their own shadow and set no custom insets |
+| No close button | `BubbleFrameView::ResetWindowControls` (0049) | Hidden on anchored bubbles that close when you click elsewhere; Esc still closes them |
+| Panel and buttons | `merlin_theme.cc`, `branding/design_tokens.json` | `popover` panel, `popover_control` buttons, `popover_control_strong` for the default action; hairlines are a tint of the text color |
+| Top right | `modal_browser_controller.cc`, patch 0013 | Site controls sit at the right end of the toolbar; bubbles anchored there open toward the middle of the window (`TOP_RIGHT`) |
 
 `overlay/chrome/browser/ui/modal_browser/merlin_popup_kit.{h,cc}`
-(`:presentation` target) provides the pieces: a card background, a
-gold-tinted icon tile and a choice list.
+(`:presentation` target) provides the icon circle, the decision row and the
+hairline.
 
 | Pop-up | Merlin layout |
 | --- | --- |
-| Permission prompt | Each request is a row with an icon tile. "Allow while visiting / Allow this time / Never allow" are rows of one card with equal weight, so no answer is pushed. |
-| Site information | Security, permissions and site data are cards, like Settings groups; "Site settings" joins the site-data card; no full-width rules. |
-| Profile menu | Avatar beside the name on a card instead of a large centered portrait on a coloured panel. |
-| Media (audio) | Already Merlin-owned (patch 0044); picks up the new switch and rows. |
+| Permission prompt | "site wants to" as a plain sentence with the site in medium weight; each request is a sentence led by its icon in a grey circle; "Never allow" and "Allow" side by side at equal width; "Allow this time" as a quiet link below. "Allow" is the same lasting grant as Chromium's "Allow while visiting the site", which stays as its tooltip. No close button: Esc dismisses. |
+| Site information | Host as the heading, no close button, rows separated by inset hairlines instead of cards. |
+| Profile menu | Avatar beside the name, rows close to the edge with rounded hover pills, hairlines between groups. |
+| Save password, media and other bubbles | Arrow, grey panel, grey buttons and no close button come from the frame and theme. |
 
 Every Chromium view keeps its controller, callbacks, IDs, element
 identifiers, accessible names/roles and strings. Only presentation changes.
@@ -58,22 +71,25 @@ system sheets are native and stay native.
 
 ## Verification, 2026-11-04
 
-Branch merged with `main` at `1387df6` (speed and memory defaults), macOS
-arm64 `out/Modal` component build, Chromium 157.0.8103.26.
+Branch `feature/merlin-dia-popups`, macOS arm64 `out/Modal` component build,
+Chromium 157.0.8103.26.
 
 | Check | Result |
 | --- | --- |
 | `scripts/verify_patches.sh` | All 50 patches apply to 157.0.8103.26 |
-| `gn check` for `//chrome/browser/ui/modal_browser/*` | Passed |
+| `gn check` for modal_browser, permissions, page_info, profiles, title_origin_label | Passed |
+| `scripts/generate_design_tokens.py --check` | Current |
 | `chrome` and `browser_tests` build | Passed |
-| Default browser suite (`scripts/run_browser_tests.sh ''`) | **147/147 passed**, retries disabled |
-| Identity captures | Refreshed in `visual-identity-evidence/`; new `*-profile-menu.png` |
+| Default browser suite (`scripts/run_browser_tests.sh ''`) | **148/148 passed** |
+| Identity captures | Refreshed in `visual-identity-evidence/` |
 
-`ProfileMenuPresentation` (new) captures the profile menu.
-`PermissionDecisionsAndSiteInfo` captures the permission prompt and site
-information and still checks all three decisions.
-`NativeTokensAndAccessibleOverrides` checks that Merlin styling is on and
-that secondary buttons have no outline.
+`PermissionDecisionsAndSiteInfo` checks that site information and the
+permission prompt show an arrow, open `TOP_RIGHT` from the site controls,
+have no close button, and that all three decisions still reach the
+delegate. `NativeTokensAndAccessibleOverrides` checks the popover and button
+greys.
 
 Still manual: VoiceOver on the new layouts, keyboard traversal of the
-permission choice card, and pop-ups that need real devices or accounts.
+decision row, how the arrow and the macOS window shadow look on a real
+display (captures show the bubble only), and pop-ups that need real
+devices or accounts. The media pop-up keeps its own header close button.

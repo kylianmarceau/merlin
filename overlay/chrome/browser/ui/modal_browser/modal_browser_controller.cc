@@ -895,12 +895,6 @@ void ModalBrowserController::InstallMerlinToolbar(
   // [spacer][field][spacer] after Chromium's (hidden) field: the field is
   // at most its preferred width and sits centered in the space left.
   size_t index = *row->GetIndexOf(location_bar) + 1;
-  safety_controls_ = row->AddChildViewAt(
-      std::make_unique<MerlinSafetyControls>(
-          browser_.get(),
-          base::BindRepeating(&ModalBrowserController::ShowSiteInfo,
-                              weak_factory_.GetWeakPtr())),
-      index++);
   // Left-aligned after the buttons, as in Dia; the right spacer takes what
   // the field does not need.
   auto gap = std::make_unique<views::View>();
@@ -918,7 +912,15 @@ void ModalBrowserController::InstallMerlinToolbar(
           .WithOrder(1));
   field->SetProperty(views::kMarginsKey, gfx::Insets::VH(0, 2));
   address_field_ = row->AddChildViewAt(std::move(field), index++);
-  toolbar_spacer_right_ = row->AddChildViewAt(flexible(), index);
+  toolbar_spacer_right_ = row->AddChildViewAt(flexible(), index++);
+  // Site controls sit at the right end, so site information and permission
+  // prompts open from the top right corner, as in Dia.
+  safety_controls_ = row->AddChildViewAt(
+      std::make_unique<MerlinSafetyControls>(
+          browser_.get(),
+          base::BindRepeating(&ModalBrowserController::ShowSiteInfo,
+                              weak_factory_.GetWeakPtr())),
+      index);
   address_editor_ = std::make_unique<MerlinAddressEditor>(
       browser_view_, browser_.get(), address_field_,
       // The start page hides Merlin's field again.
