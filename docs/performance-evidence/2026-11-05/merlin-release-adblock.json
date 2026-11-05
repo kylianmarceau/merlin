@@ -1,0 +1,521 @@
+{
+ "browser": "merlin-release-adblock",
+ "app": "~/chromium/src/out/Release/Merlin.app (Chromium 157.0.8103.26)",
+ "started": "2026-11-05T06:31:14.005Z",
+ "errors": [],
+ "memory": {
+  "idle": {
+   "processes": 10,
+   "footprint_mb": 289.1,
+   "resident_mb": 949.3
+  },
+  "tabs10": {
+   "processes": 29,
+   "footprint_mb": 1867.4,
+   "resident_mb": 4813.6
+  },
+  "tabs30": {
+   "processes": 41,
+   "footprint_mb": 1946.7,
+   "resident_mb": 5361.2
+  },
+  "after_close": {
+   "processes": 12,
+   "footprint_mb": 486.7,
+   "resident_mb": 1362.5
+  },
+  "real10": {
+   "processes": 25,
+   "footprint_mb": 1846,
+   "resident_mb": 4779.7
+  }
+ },
+ "pageload_local": {
+  "simple": {
+   "fcp_ms": 76,
+   "lcp_ms": 76,
+   "dcl_ms": 32.59999996423721,
+   "load_ms": 44.5
+  },
+  "heavy": {
+   "fcp_ms": 144,
+   "lcp_ms": 184,
+   "dcl_ms": 252.5999999642372,
+   "load_ms": 252.69999998807907
+  },
+  "raw": {
+   "simple": [
+    {
+     "href": "http://127.0.0.1:50388/simple?r0",
+     "ready": "complete",
+     "origin": 1793860298226.4,
+     "ttfb": 22.5,
+     "dcl": 26.799999952316284,
+     "load": 33.299999952316284,
+     "fcp": 56,
+     "lcp": 56,
+     "resources": 1,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/simple?r1",
+     "ready": "complete",
+     "origin": 1793860301058.1,
+     "ttfb": 24.099999964237213,
+     "dcl": 29.5,
+     "load": 52.299999952316284,
+     "fcp": 60,
+     "lcp": 60,
+     "resources": 1,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/simple?r2",
+     "ready": "complete",
+     "origin": 1793860303873.5,
+     "ttfb": 27.299999952316284,
+     "dcl": 36.39999997615814,
+     "load": 41.19999998807907,
+     "fcp": 76,
+     "lcp": 76,
+     "resources": 1,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/simple?r3",
+     "ready": "complete",
+     "origin": 1793860306718.7,
+     "ttfb": 25.19999998807907,
+     "dcl": 33.59999996423721,
+     "load": 44.5,
+     "fcp": 80,
+     "lcp": 80,
+     "resources": 1,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/simple?r4",
+     "ready": "complete",
+     "origin": 1793860309551.1,
+     "ttfb": 26.400000035762787,
+     "dcl": 35.10000002384186,
+     "load": 49.90000003576279,
+     "fcp": 84,
+     "lcp": 84,
+     "resources": 1,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/simple?r5",
+     "ready": "complete",
+     "origin": 1793860312388.7,
+     "ttfb": 25.30000001192093,
+     "dcl": 31.69999998807907,
+     "load": 46.5,
+     "fcp": 80,
+     "lcp": 80,
+     "resources": 1,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/simple?r6",
+     "ready": "complete",
+     "origin": 1793860315234.7,
+     "ttfb": 25.399999976158142,
+     "dcl": 32.59999996423721,
+     "load": 42.59999996423721,
+     "fcp": 84,
+     "lcp": 84,
+     "resources": 1,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/simple?r7",
+     "ready": "complete",
+     "origin": 1793860318063.3,
+     "ttfb": 26.200000047683716,
+     "dcl": 35.700000047683716,
+     "load": 53.40000003576279,
+     "fcp": 72,
+     "lcp": 72,
+     "resources": 1,
+     "visibleAt": null
+    }
+   ],
+   "heavy": [
+    {
+     "href": "http://127.0.0.1:50388/heavy?r0",
+     "ready": "complete",
+     "origin": 1793860299570,
+     "ttfb": 47.5,
+     "dcl": 259.89999997615814,
+     "load": 260.0999999642372,
+     "fcp": 148,
+     "lcp": 180,
+     "resources": 77,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/heavy?r1",
+     "ready": "complete",
+     "origin": 1793860302400.2,
+     "ttfb": 44.5,
+     "dcl": 252.20000004768372,
+     "load": 252.30000001192093,
+     "fcp": 132,
+     "lcp": 184,
+     "resources": 77,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/heavy?r2",
+     "ready": "complete",
+     "origin": 1793860305228.2,
+     "ttfb": 45.80000001192093,
+     "dcl": 249.0999999642372,
+     "load": 249.19999998807907,
+     "fcp": 140,
+     "lcp": 188,
+     "resources": 77,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/heavy?r3",
+     "ready": "complete",
+     "origin": 1793860308068.6,
+     "ttfb": 45.69999998807907,
+     "dcl": 252.5999999642372,
+     "load": 252.69999998807907,
+     "fcp": 148,
+     "lcp": 184,
+     "resources": 77,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/heavy?r4",
+     "ready": "complete",
+     "origin": 1793860310905.9,
+     "ttfb": 45.299999952316284,
+     "dcl": 257.39999997615814,
+     "load": 257.5,
+     "fcp": 144,
+     "lcp": 196,
+     "resources": 77,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/heavy?r5",
+     "ready": "complete",
+     "origin": 1793860313740.2,
+     "ttfb": 46,
+     "dcl": 254.80000001192093,
+     "load": 254.89999997615814,
+     "fcp": 144,
+     "lcp": 192,
+     "resources": 77,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/heavy?r6",
+     "ready": "complete",
+     "origin": 1793860316585.1,
+     "ttfb": 44.90000003576279,
+     "dcl": 249.5,
+     "load": 249.60000002384186,
+     "fcp": 148,
+     "lcp": 184,
+     "resources": 77,
+     "visibleAt": null
+    },
+    {
+     "href": "http://127.0.0.1:50388/heavy?r7",
+     "ready": "complete",
+     "origin": 1793860319421.5,
+     "ttfb": 45,
+     "dcl": 257.2999999523163,
+     "load": 257.2999999523163,
+     "fcp": 144,
+     "lcp": 196,
+     "resources": 77,
+     "visibleAt": null
+    }
+   ]
+  }
+ },
+ "pageload_real": {
+  "https://en.wikipedia.org/wiki/Web_browser": {
+   "fcp_ms": 360,
+   "lcp_ms": 360,
+   "load_ms": 725.6000000238419,
+   "raw": [
+    {
+     "href": "https://en.wikipedia.org/wiki/Web_browser",
+     "ready": "complete",
+     "origin": 1793860320912.6,
+     "ttfb": 607.4000000357628,
+     "dcl": 1216.9000000357628,
+     "load": 1967.4000000357628,
+     "fcp": 1288,
+     "lcp": 1288,
+     "resources": 38,
+     "visibleAt": null
+    },
+    {
+     "href": "https://en.wikipedia.org/wiki/Web_browser",
+     "ready": "complete",
+     "origin": 1793860337548.5,
+     "ttfb": 194,
+     "dcl": 299.89999997615814,
+     "load": 725.6000000238419,
+     "fcp": 336,
+     "lcp": 336,
+     "resources": 31,
+     "visibleAt": null
+    },
+    {
+     "href": "https://en.wikipedia.org/wiki/Web_browser",
+     "ready": "complete",
+     "origin": 1793860348289.1,
+     "ttfb": 197.5,
+     "dcl": 323.19999998807907,
+     "load": 347.80000001192093,
+     "fcp": 360,
+     "lcp": 360,
+     "resources": 31,
+     "visibleAt": null
+    }
+   ]
+  },
+  "https://github.com/rust-lang/rust": {
+   "fcp_ms": 408,
+   "lcp_ms": 408,
+   "load_ms": 518.5,
+   "raw": [
+    {
+     "href": "https://github.com/rust-lang/rust",
+     "ready": "complete",
+     "origin": 1793860324181,
+     "ttfb": 762.5,
+     "dcl": 1266.5,
+     "load": 1270.699999988079,
+     "fcp": 1020,
+     "lcp": 1236,
+     "resources": 206,
+     "visibleAt": null
+    },
+    {
+     "href": "https://github.com/rust-lang/rust",
+     "ready": "complete",
+     "origin": 1793860339586.5,
+     "ttfb": 42.5,
+     "dcl": 357.80000001192093,
+     "load": 405.10000002384186,
+     "fcp": 248,
+     "lcp": 248,
+     "resources": 203,
+     "visibleAt": null
+    },
+    {
+     "href": "https://github.com/rust-lang/rust",
+     "ready": "complete",
+     "origin": 1793860349909,
+     "ttfb": 287.80000001192093,
+     "dcl": 427.0999999642372,
+     "load": 518.5,
+     "fcp": 408,
+     "lcp": 408,
+     "resources": 203,
+     "visibleAt": null
+    }
+   ]
+  },
+  "https://www.bbc.com/news": {
+   "fcp_ms": 136,
+   "lcp_ms": 168,
+   "load_ms": 536,
+   "raw": [
+    {
+     "href": "https://www.bbc.com/news",
+     "ready": "complete",
+     "origin": 1793860326699.5,
+     "ttfb": 49.30000001192093,
+     "dcl": 502.69999998807907,
+     "load": 536,
+     "fcp": 136,
+     "lcp": 352,
+     "resources": 152,
+     "visibleAt": null
+    },
+    {
+     "href": "https://www.bbc.com/news",
+     "ready": "complete",
+     "origin": 1793860341231,
+     "ttfb": 25.899999976158142,
+     "dcl": 155.5,
+     "load": 540.3999999761581,
+     "fcp": 168,
+     "lcp": 168,
+     "resources": 150,
+     "visibleAt": null
+    },
+    {
+     "href": "https://www.bbc.com/news",
+     "ready": "complete",
+     "origin": 1793860351665.3,
+     "ttfb": 20.80000001192093,
+     "dcl": 97.10000002384186,
+     "load": 130.69999998807907,
+     "fcp": 120,
+     "lcp": 120,
+     "resources": 149,
+     "visibleAt": null
+    }
+   ]
+  },
+  "https://www.youtube.com/": {
+   "fcp_ms": 516,
+   "lcp_ms": 896,
+   "load_ms": 791.1000000238419,
+   "raw": [
+    {
+     "href": "https://www.youtube.com/",
+     "ready": "complete",
+     "origin": 1793860330242.2,
+     "ttfb": 329,
+     "dcl": 1016.3999999761581,
+     "load": 1716,
+     "fcp": 576,
+     "lcp": 1140,
+     "resources": 133,
+     "visibleAt": null
+    },
+    {
+     "href": "https://www.youtube.com/",
+     "ready": "complete",
+     "origin": 1793860343056.2,
+     "ttfb": 356.4000000357628,
+     "dcl": 770.2000000476837,
+     "load": 791.1000000238419,
+     "fcp": 512,
+     "lcp": 896,
+     "resources": 50,
+     "visibleAt": null
+    },
+    {
+     "href": "https://www.youtube.com/",
+     "ready": "complete",
+     "origin": 1793860353099.4,
+     "ttfb": 304.89999997615814,
+     "dcl": 740.1000000238419,
+     "load": 761.5,
+     "fcp": 516,
+     "lcp": 868,
+     "resources": 48,
+     "visibleAt": null
+    }
+   ]
+  },
+  "https://stackoverflow.com/questions": {
+   "fcp_ms": 209.29999995231628,
+   "lcp_ms": 209.29999995231628,
+   "load_ms": 191.9549999833107,
+   "raw": [
+    {
+     "href": "https://stackoverflow.com/questions",
+     "ready": "loading",
+     "origin": 1793860334429.6,
+     "ttfb": 352.0999999642372,
+     "dcl": 0,
+     "load": 0,
+     "fcp": null,
+     "lcp": null,
+     "resources": 2,
+     "visibleAt": null
+    },
+    {
+     "href": "https://stackoverflow.com/questions",
+     "ready": "complete",
+     "origin": 1793860345155.915,
+     "ttfb": 20.5799999833107,
+     "dcl": 43.594999969005585,
+     "load": 191.9549999833107,
+     "fcp": 209.29999995231628,
+     "lcp": 209.29999995231628,
+     "resources": 5,
+     "visibleAt": null
+    },
+    {
+     "href": "https://stackoverflow.com/questions",
+     "ready": "complete",
+     "origin": 1793860355171.12,
+     "ttfb": 22.069999992847443,
+     "dcl": 69.32500004768372,
+     "load": 475.09500002861023,
+     "fcp": 494.06999999284744,
+     "lcp": 494.06999999284744,
+     "resources": 5,
+     "visibleAt": null
+    }
+   ]
+  },
+  "https://news.ycombinator.com/": {
+   "fcp_ms": 376,
+   "lcp_ms": 376,
+   "load_ms": 335.80000001192093,
+   "raw": [
+    {
+     "href": "https://news.ycombinator.com/",
+     "ready": "complete",
+     "origin": 1793860334819.6,
+     "ttfb": 878.1999999880791,
+     "dcl": 1208.3999999761581,
+     "load": 1494.800000011921,
+     "fcp": 1248,
+     "lcp": 1248,
+     "resources": 6,
+     "visibleAt": null
+    },
+    {
+     "href": "https://news.ycombinator.com/",
+     "ready": "complete",
+     "origin": 1793860346642.6,
+     "ttfb": 292.0999999642372,
+     "dcl": 334.89999997615814,
+     "load": 335.80000001192093,
+     "fcp": 376,
+     "lcp": 376,
+     "resources": 5,
+     "visibleAt": null
+    },
+    {
+     "href": "https://news.ycombinator.com/",
+     "ready": "complete",
+     "origin": 1793860356861.3,
+     "ttfb": 289.69999998807907,
+     "dcl": 296,
+     "load": 302.5,
+     "fcp": 340,
+     "lcp": 340,
+     "resources": 5,
+     "visibleAt": null
+    }
+   ]
+  }
+ },
+ "tab_switch": {
+  "ms": [
+   15,
+   13,
+   25,
+   23,
+   41,
+   25,
+   28,
+   41,
+   10,
+   23
+  ],
+  "median_ms": 23
+ },
+ "finished": "2026-11-05T06:34:53.700Z"
+}

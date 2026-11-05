@@ -67,6 +67,10 @@ if [[ $have_src == 0 ]]; then
   caffeinate fetch --nohooks --no-history chromium
 fi
 
+# Release builds use Google's PGO profile (build/args.release.gn).
+grep -q checkout_pgo_profiles "$CHROMIUM_DIR/.gclient" ||
+  sed -i '' 's/"custom_vars": {}/"custom_vars": {"checkout_pgo_profiles": True}/' "$CHROMIUM_DIR/.gclient"
+
 cd "$CHROMIUM_DIR/src"
 echo "==> checking out tag $TAG"
 git fetch --depth=1 origin "refs/tags/$TAG:refs/tags/$TAG"

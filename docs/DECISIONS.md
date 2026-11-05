@@ -721,6 +721,27 @@ command, profiles palette and Settings "Profile name and picture" row are
 gone. Workspaces and private windows cover separating browsing; decision 11
 still holds.
 
+## 45. Release builds use PGO; no search prewarm
+
+The first release build measured Speedometer 3.1 about 20% below Brave and
+Dia ([Performance](PERFORMANCE.md)). It was built without profile-guided
+optimization because the checkout lacked Google's profile; Chrome, Brave and
+Dia ship with it. `build/args.release.gn` now uses it: `.gclient` sets
+`"checkout_pgo_profiles": True` (the bootstrap script adds it) and
+`scripts/build_release.sh` refuses to build without the profile. It costs an
+86 MB download per Chromium version and nothing at run time.
+
+A trace of tab switches showed Merlin's browser-side switch work on par with
+Brave's; the benchmark's 25 ms vs 11 ms difference did not reproduce. The one
+Merlin-specific work in the trace was Chromium's search prewarm: with Google
+as the default search engine, each tab prerenders a hidden
+`google.com/search/warmup.html` when the address bar's results change, as on
+a tab switch (up to 11.5 ms of browser main-thread work, a renderer and a
+request to Google with its cookies). Merlin searches from its own address
+card and start page and turns it off (patch 0052), as Brave effectively does
+by not defaulting to Google. The cost: a first Google search in a tab may
+start a little slower. `--enable-features=Prewarm` brings it back.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing
