@@ -121,6 +121,7 @@ class BrowserRunnerTest(unittest.TestCase):
             "ModalBrowserBrowserTest.*", "MerlinAdblock*BrowserTest.*",
             "MerlinIdentityBrowserTest.*"})
         self.assertNotIn("--modal-browser-upstream-defaults", result["args"])
+        self.assertNotIn("--disable-features=MerlinAdblock", result["args"])
         self.assertEqual(result["background"], "1")
 
     def test_explicit_identity_suite_keeps_merlin_ui_and_extra_arguments(self):
@@ -135,6 +136,10 @@ class BrowserRunnerTest(unittest.TestCase):
         self.assertIn("--window-size=1280,900", find)
         self.assertIn("--modal-browser-upstream-defaults", view)
         self.assertFalse(any(a.startswith("--window-size=") for a in view))
+
+    def test_upstream_suites_run_without_the_ad_blocker(self):
+        args = self.run_runner("BrowserViewTest.*")["args"]
+        self.assertIn("--disable-features=MerlinAdblock", args)
 
 
 if __name__ == "__main__":

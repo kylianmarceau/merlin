@@ -290,8 +290,10 @@ All compiled and exercised by the browser tests at the pinned tag.
 
 ## Native ad blocking
 
-`MerlinAdblock` is independent of modal browsing. The feature remains opt-in
-while qualification is incomplete; see [implementation evidence](ADBLOCK_IMPLEMENTATION.md).
+`MerlinAdblock` is independent of modal browsing and on by default
+([decision 46](DECISIONS.md#46-ad-blocking-on-by-default));
+`--disable-features=MerlinAdblock` is the kill switch. See [implementation
+evidence](ADBLOCK_IMPLEMENTATION.md).
 A profile-keyed browser service owns preferences, exact-host exceptions,
 readiness and document counts. Private profiles have independent in-memory
 changes, no updater and no cache writes. Identical configurations share an

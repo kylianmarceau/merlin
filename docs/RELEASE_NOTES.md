@@ -46,8 +46,9 @@ Press `?` in the browser for every key, or read the
 
 * **Not notarized.** macOS asks for approval on first launch (see Install).
 * **No automatic updates.** Replace the app by hand for each release.
-* **Ad blocking is opt-in and experimental.** To try it, quit Merlin and
-  start it with `open -a Merlin --args --enable-features=MerlinAdblock`.
+* **Ad blocking is on by default and new.** If a site misbehaves, run
+  `:adblock site toggle` on it, or turn protection off in Settings > Ad
+  blocking.
 * **No Google services:** no Sync, and features that need Google API keys
   don't work: Safe Browsing lookups, spell-check dictionary downloads,
   Translate and Google location.

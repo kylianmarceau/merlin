@@ -33,8 +33,11 @@ never create an updater. Executable scriptlets and replacements are bundled
 with the app and cannot be downloaded by the list updater; they change through
 application releases. There are no Merlin browser-binary update checks.
 
-The native feature remains disabled by default during implementation and
-qualification; see [the implementation record](ADBLOCK_IMPLEMENTATION.md).
+The native blocker is on by default since 2026-11-05 ([decision
+46](DECISIONS.md#46-ad-blocking-on-by-default)), so a new profile makes
+these list checks unless automatic updates are turned off in Settings.
+`--disable-features=MerlinAdblock` stops the blocker and its updater for a
+launch.
 
 ## Files written
 

@@ -742,6 +742,30 @@ card and start page and turns it off (patch 0052), as Brave effectively does
 by not defaulting to Google. The cost: a first Google search in a tab may
 start a little slower. `--enable-features=Prewarm` brings it back.
 
+## 46. Ad blocking on by default
+
+Until now the native blocker ran only with `--enable-features=MerlinAdblock`;
+a normal launch showed ads while Settings showed the stored preference as on,
+with its switches locked. The maintainer chose to ship protection on by
+default. Measured on the release build (2026-11-05): 30% less memory across
+ten real sites, BBC News's load event 1.7 s → 0.54 s, real sites loading
+normally, and 46/46 native blocker tests in the last qualification run.
+
+Not yet done, and accepted for now: real login/OAuth, payment, pop-up and
+upload journeys; a review of the 1,061 unsupported filter rules by impact;
+and a release-build on/off comparison against a stated budget (see the
+[ad blocking plan](ADBLOCK_PLAN.md)). A site that breaks is fixed with
+`:adblock site toggle` or the Settings switch; `--disable-features=MerlinAdblock`
+turns the blocker and its list updates off for a launch. A new profile now
+checks filter lists over HTTPS ([Privacy](PRIVACY.md)).
+
+Chromium's own browser-test suites run without the blocker
+(`scripts/run_browser_tests.sh` passes `--disable-features=MerlinAdblock`
+with `--modal-browser-upstream-defaults`); Merlin's suites run with it, as
+users do. Settings shows the switch off and dimmed when the blocker cannot
+run, and site exceptions point to `:adblock site toggle` now that the
+toolbar shield is gone.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing

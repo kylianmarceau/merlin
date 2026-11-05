@@ -191,24 +191,19 @@ The Chromium checkout goes to `~/chromium` by default; set `CHROMIUM_DIR`
 to use another folder (no spaces in the path). The Chromium release Merlin
 is built on is pinned in [`UPSTREAM_PIN`](UPSTREAM_PIN).
 
-### Native ad blocking (development)
+### Native ad blocking
 
-The native Brave Rust integration includes network filtering, cosmetics,
-scriptlets, popup filtering, offline lists and a background list updater.
-It works independently of modal browsing. It remains opt-in while performance
-and remaining manual qualification are incomplete. Quit any running
-Merlin instance before using the command below:
+Merlin blocks ads and trackers out of the box with Brave's Rust filtering
+engine: network filtering, cosmetics, scriptlets, popup filtering, offline
+lists and a background list updater. It works independently of modal
+browsing.
 
-```bash
-open -n ~/chromium/src/out/Modal/Merlin.app --args --enable-features=MerlinAdblock
-```
-
-The toolbar shield shows this page's blocked count and exact-site exception.
-Settings > Ad blocking controls protection, list groups, updates and exceptions.
-Commands are `:adblock on`, `off`, `site toggle`, `status` and `update`.
-Reload after changing protection to apply scriptlet changes to the page.
-`--disable-features=MerlinAdblock` is the independent kill switch. See
-[test evidence and limitations](docs/ADBLOCK_IMPLEMENTATION.md).
+Settings > Ad blocking controls protection, list groups, updates and site
+exceptions. Commands are `:adblock on`, `off`, `site toggle` (turn it off for
+the current site), `status` and `update`. Reload after changing protection to
+apply scriptlet changes to the page. Starting Merlin with
+`--disable-features=MerlinAdblock` turns the blocker off completely for that
+launch. See [test evidence and limitations](docs/ADBLOCK_IMPLEMENTATION.md).
 
 ## Configuration
 
@@ -271,9 +266,9 @@ Turn it off with `browserctl = false` in the config.
 
 ## Privacy
 
-Merlin adds no telemetry, accounts or AI services. The native ad blocker,
-when enabled, refreshes selected filter lists over HTTPS from EasyList and
-GitHub's raw-content service. It sends no visited URLs, cookies or referrers.
+Merlin adds no telemetry, accounts or AI services. The native ad blocker
+refreshes selected filter lists over HTTPS from EasyList and GitHub's
+raw-content service. It sends no visited URLs, cookies or referrers.
 Automatic checks are controllable per profile; private windows use existing
 lists and keep their new exceptions and counts in memory. Scriptlet resources
 change only with application releases. There are no browser binary update

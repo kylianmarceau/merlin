@@ -132,9 +132,9 @@ without depending on undocumented local setup.
 
 ### 2. Close default-protection gates on that build
 
-`common/features.cc` still declares `FEATURE_DISABLED_BY_DEFAULT`. A normal
-launch has **no active native blocker**, even if its stored Settings preference
-is on. Development opt-in requires `--enable-features=MerlinAdblock`.
+*(2026-11-05: the maintainer turned the feature on by default before these
+gates closed — [decision 46](DECISIONS.md#46-ad-blocking-on-by-default). The
+checks below remain useful acceptance work.)*
 
 - [ ] Compare the same release binary on/off with fixed lists and isolated
   profiles: startup, clean/ad-heavy fixtures, broader real sites and YouTube.

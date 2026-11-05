@@ -7,10 +7,11 @@ a real filter-refresh failure, and records the justified development latency
 budget. Read the [November 3 qualification record](ADBLOCK_QUALIFICATION.md) for
 current results, limitations and the final 46/46 native-test pass. The original
 percentage-only latency target did not pass; broader release-build qualification
-remains separate. The `MerlinAdblock` feature is **disabled by default** pending
-the remaining default-enablement gates in [the plan](ADBLOCK_PLAN.md). Development builds opt in with
-`--enable-features=MerlinAdblock`; `--disable-features=MerlinAdblock` is the
-independent kill switch. Modal browsing does not control this feature.
+remains separate. Since 2026-11-05 the `MerlinAdblock` feature is **enabled
+by default** ([decision 46](DECISIONS.md#46-ad-blocking-on-by-default)), before
+every gate in [the plan](ADBLOCK_PLAN.md) closed; the open items are listed
+there and in decision 46. `--disable-features=MerlinAdblock` is the independent
+kill switch. Modal browsing does not control this feature.
 
 ## Performance pass, 2026-11-04
 
