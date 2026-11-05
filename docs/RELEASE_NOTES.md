@@ -32,6 +32,10 @@ about new versions, including Chromium security updates.
   every link, copy the page as Markdown, Visual-mode selection, Reading mode.
 * A tab sidebar or tabs on top, hidden tabs (`⌘S`), tab groups, pinned
   tabs and splits (`<C-w>v`, `<C-w>s`).
+* `Ctrl+Tab` goes back to the tab you used last; hold `Ctrl` to see every
+  open tab as a card and press `Tab` to move through them. Settings >
+  Browsing switches it to tab order.
+* `⌘Q` quits at once, with no "Hold ⌘Q to Quit" panel.
 * Workspaces that save themselves, restore your session after a crash and
   can be tied to a project folder.
 * Edit any text field in Neovim or your own editor (`ge`).

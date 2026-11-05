@@ -44,6 +44,7 @@
 #include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
+#include "chrome/browser/ui/modal_browser/merlin_ctrl_tab.h"
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 #include "chrome/browser/ui/modal_browser/merlin_pages.h"
@@ -387,6 +388,7 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
     return;
   }
   merlin_ui_ = true;
+  ctrl_tab_ = std::make_unique<CtrlTabSwitcher>(browser_, browser_view_);
   InstallMerlinTheme();
   InstallMerlinStartPage();
   InstallMerlinPages();
@@ -407,6 +409,8 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
                                base::Value(false));
     // Merlin draws its own forward button; Chromium's stays unpinned.
     prefs->SetDefaultPrefValue(prefs::kShowForwardButton, base::Value(false));
+    // Ctrl-Tab goes to the tab used last, as in Dia.
+    CtrlTabSwitcher::SetDefaultOrder(prefs);
   }
   SetMemorySaverDefault(g_browser_process->local_state());
   // The download count needs the download manager; start it after the
@@ -517,6 +521,13 @@ std::string ModalBrowserController::RunCommandLine(std::string_view line) {
 
 bool ModalBrowserController::AcceleratorPressed(
     const ui::Accelerator& accelerator) {
+  if (accelerator.key_code() == ui::VKEY_TAB) {
+    if (!ctrl_tab_) {
+      return false;
+    }
+    ctrl_tab_->Cycle(/*forward=*/!accelerator.IsShiftDown());
+    return true;
+  }
   SetTabsHidden(ffi::Switch::Toggle);
   return true;
 }
@@ -537,6 +548,16 @@ void ModalBrowserController::RegisterAccelerators() {
   focus_manager->RegisterAccelerator(
       ui::Accelerator(ui::VKEY_S, ui::EF_PLATFORM_ACCELERATOR),
       ui::AcceleratorManager::kNormalPriority, this);
+  // Ctrl-Tab and Ctrl-Shift-Tab: high priority runs before Chromium's Tab >
+  // Select Next Tab command and before the page, as Chromium's own did.
+  if (ctrl_tab_) {
+    for (int flags : {ui::EF_CONTROL_DOWN,
+                      ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN}) {
+      focus_manager->RegisterAccelerator(
+          ui::Accelerator(ui::VKEY_TAB, flags),
+          ui::AcceleratorManager::kHighPriority, this);
+    }
+  }
 }
 
 bool ModalBrowserController::TabsInSidebar() const {

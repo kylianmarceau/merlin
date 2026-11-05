@@ -59,6 +59,7 @@ inline constexpr char kUpstreamDefaultsSwitch[] =
 class ExternalEditor;
 class HintHost;
 class MerlinAddressEditor;
+class CtrlTabSwitcher;
 class MerlinTabBarHost;
 class PageColorSampler;
 class MerlinAddressField;
@@ -108,7 +109,8 @@ class ModalBrowserController : public BrowserOps,
   bool TabsInSidebar() const;
   bool TabsHidden() const { return tabs_hidden_; }
 
-  // ui::AcceleratorTarget (Cmd-S, after the page had its chance):
+  // ui::AcceleratorTarget: Cmd-S, after the page had its chance, and
+  // Ctrl-Tab / Ctrl-Shift-Tab before it and before Chromium's own handling.
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
   bool CanHandleAccelerators() const override;
   // Rereads the config file in every window, after Settings saved it.
@@ -248,6 +250,7 @@ class ModalBrowserController : public BrowserOps,
     return address_editor_.get();
   }
   MerlinTabBarHost* tab_bar_host_for_testing() { return tab_bar_host_.get(); }
+  CtrlTabSwitcher* ctrl_tab_for_testing() { return ctrl_tab_.get(); }
   MerlinNavButton* back_button_for_testing() { return back_button_; }
   MerlinSafetyControls* safety_controls_for_testing() {
     return safety_controls_;
@@ -359,6 +362,8 @@ class ModalBrowserController : public BrowserOps,
   std::unique_ptr<MerlinAddressEditor> address_editor_;
   // Merlin's tab bar over Chromium's, with tabs on top.
   std::unique_ptr<MerlinTabBarHost> tab_bar_host_;
+  // Ctrl-Tab: last used tab, and the card switcher while Ctrl is held.
+  std::unique_ptr<CtrlTabSwitcher> ctrl_tab_;
   // The active page's color, which the active tab and the toolbar take.
   std::unique_ptr<PageColorSampler> page_color_;
   std::optional<SkColor> page_color_value_;

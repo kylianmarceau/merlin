@@ -766,6 +766,39 @@ users do. Settings shows the switch off and dimmed when the blocker cannot
 run, and site exceptions point to `:adblock site toggle` now that the
 toolbar shield is gone.
 
+## 47. Cmd-Q quits at once; Ctrl-Tab goes to the last used tab
+
+**Cmd-Q.** Chromium 157 turns on "Hold ⌘Q to Quit" by default on macOS.
+Merlin restores your session on launch, so the hold only slows quitting;
+patch 0053 makes the default off. Chrome menu > Warn Before Quitting still
+turns it on.
+
+**Ctrl-Tab.** Chromium cycled through tabs in strip order, so going back to
+the previous tab meant wrapping around. As in Dia, a tap of Ctrl-Tab now
+goes to the tab used last, and a second tap comes back. Holding Ctrl shows
+the window's tabs as cards (thumbnail, icon, title, address), most recent
+first; Tab and Shift-Tab (or the arrow keys) move, releasing Ctrl switches,
+Esc cancels, and Return or a click switches at once. The cards appear after
+120 ms, so a quick tap never flashes them.
+
+The order is Chromium's own `browser.ctrl_tab_mru` pref, which Merlin
+defaults to on; Settings > Browsing > Ctrl-Tab goes to > Next tab turns it
+off, and then the cards follow the strip from the current tab. Chromium's
+Tab > Select Next Tab menu item uses the same pref. Merlin claims Ctrl-Tab
+and Ctrl-Shift-Tab as high-priority window accelerators, which run before
+Chromium's command and the page, so no command code is patched
+(`merlin_ctrl_tab.cc`). An `NSEvent` local monitor
+(`merlin_ctrl_tab_mac.mm`) sees the Ctrl release and swallows Esc, Return
+and the arrows while the cards are up; a 100 ms check catches a release
+while another app is in front. The switcher only covers its own window,
+and stays off with `--modal-browser-upstream-defaults`.
+
+Cards need thumbnails, which Chromium only keeps on macOS when hover-card
+images are on. Patch 0054 gives every tab its `ThumbnailTabHelper` without
+turning those images on: a small compressed capture when a tab is left (as
+Chrome on Windows does by default), and a short capture of tabs that have
+none while the cards are up. A tab with no capture shows its icon.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing
