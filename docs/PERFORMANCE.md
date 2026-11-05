@@ -68,9 +68,9 @@ DevTools timings of the other browsers.
    build.** `build/args.release.gn` now uses Google's profile
    ([decision 45](DECISIONS.md#45-release-builds-use-pgo-no-search-prewarm)).
    Rerun Speedometer on the next release build and record the result here.
-2. **Native ad blocking on by default**, after its remaining release gates
-   ([ad blocking plan](ADBLOCK_PLAN.md)): the largest memory and load-time
-   gain on real sites.
+2. **Native ad blocking on by default — since 2026-11-05, awaiting a release
+   build** ([decision 46](DECISIONS.md#46-ad-blocking-on-by-default)): the
+   largest memory and load-time gain on real sites.
 3. **Search prewarm — off since 2026-11-05 (patch 0052).** The only
    Merlin-specific work in the tab-switch trace: a hidden Google page
    prerendered per tab, up to 11.5 ms of browser main-thread work each.
@@ -112,7 +112,11 @@ out=/tmp/merlin-bench-$(date +%F)
 for b in merlin-release brave dia; do
   node scripts/benchmark_browsers.mjs --browser "$b" --out "$out"
 done
-node scripts/benchmark_browsers.mjs --browser merlin-release-adblock --out "$out" --skip speedometer,startup,newtab
+# Since 2026-11-05 Merlin blocks ads by default, so merlin-release measures it
+# with the blocker on. For a like-for-like comparison with the 2026-11-05
+# merlin-release column (blocker off):
+node scripts/benchmark_browsers.mjs --browser merlin-release --name merlin-release-noadblock \
+  --arg --disable-features=MerlinAdblock --out "$out" --skip speedometer,startup,newtab
 node scripts/summarize_benchmarks.mjs "$out"
 ```
 

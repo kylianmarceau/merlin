@@ -5,8 +5,10 @@ Status: native implementation is present; follow-up qualification on
 live allocations, physical footprint and real online-update peaks, and covered
 signed-in playback, observed mid-roll conditions and maintainer-confirmed player
 controls. Clean-page overhead is bounded under an explicitly revised development
-paint budget; the original percentage-only gate did not pass. The feature
-remains opt-in. See the [current qualification record](ADBLOCK_QUALIFICATION.md)
+paint budget; the original percentage-only gate did not pass. The
+maintainer turned the feature on by default on 2026-11-05 ([decision
+46](DECISIONS.md#46-ad-blocking-on-by-default)); the real-flow and
+unsupported-rule gates below remain open. See the [current qualification record](ADBLOCK_QUALIFICATION.md)
 and [implementation evidence](ADBLOCK_IMPLEMENTATION.md).
 The maintainer clarified on 2026-11-02 that packaging and publication are
 outside this task; the implementation and tests remain in scope.

@@ -138,6 +138,7 @@ select {
 }
 .switch[aria-checked="true"] { background: var(--accent); }
 .switch[aria-checked="true"]::after { transform: translateX(16px); background: var(--on-accent); }
+.switch:disabled { opacity: 0.4; cursor: default; }
 
 /* List items: history, downloads, bookmarks. */
 .tile {

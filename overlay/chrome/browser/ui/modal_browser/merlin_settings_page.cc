@@ -416,7 +416,7 @@ constexpr char kSettingsJs[] = R"JS('use strict';
   function adblock() {
     const a = state.adblock;
     if (!a) return section('adblock', 'Ad blocking', 'Loading protection settings.');
-    const protect = toggle(a.enabled, v => send('setAdblock', v), 'Native ad blocking');
+    const protect = toggle(a.enabled && a.available, v => send('setAdblock', v), 'Native ad blocking');
     protect.id = 'adblock-enabled'; protect.disabled = !a.available;
     const automatic = toggle(a.automatic, v => send('setAdblockUpdates', v), 'Automatic filter updates');
     automatic.id = 'adblock-updates'; automatic.disabled = !a.available || a.private;
@@ -445,11 +445,11 @@ constexpr char kSettingsJs[] = R"JS('use strict';
       return row(host, 'Protection is disabled only for this exact top-level hostname.', remove);
     });
     return section('adblock', 'Ad blocking', 'Native protection works independently of modal browsing.',
-      group(row('Native ad blocking', a.available ? 'Block advertising and tracking requests.' : 'Native protection is unavailable in this build.', protect)),
+      group(row('Native ad blocking', a.available ? 'Block advertising and tracking requests.' : 'Turned off for this launch with --disable-features=MerlinAdblock.', protect)),
       status, sub('Filter lists'), group(...listRows),
       group(row('Automatic list updates', 'Checks run in the background with source expiry and retry backoff.', automatic),
             row('Refresh selected lists', a.private ? 'Private windows use existing lists; updates run in a normal profile.' : 'Executable scriptlets update only with Merlin releases.', refresh)),
-      update, last, sub('Site exceptions'), group(...(exceptions.length ? exceptions : [row('No site exceptions', 'Use the ad blocking button on a web page to add an exception.')])),
+      update, last, sub('Site exceptions'), group(...(exceptions.length ? exceptions : [row('No site exceptions', 'Run :adblock site toggle on a page to turn protection off for that site.')])),
       el('p', 'note', 'Reload open pages after changing protection to apply or remove page hooks.'),
       ...(a.private ? [el('p', 'note', 'Changes in this private window stay in memory.')] : []));
   }

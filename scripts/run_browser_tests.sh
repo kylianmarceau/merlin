@@ -13,9 +13,10 @@
 #   scripts/run_browser_tests.sh 'BrowserViewTest.*'  # any filter
 #   MODAL_SNAPSHOT_DIR=/tmp/snaps scripts/run_browser_tests.sh 'ModalBrowserBrowserTest.Snapshots'
 #
-# Filters other than our own suite also get --modal-browser-upstream-defaults:
-# upstream tests assume Chromium's defaults (tabs on top) and must not read
-# your config.toml.
+# Filters other than our own suite also get --modal-browser-upstream-defaults
+# and --disable-features=MerlinAdblock: upstream tests assume Chromium's
+# defaults (tabs on top, no ad blocker; some load ad-like test pages) and must
+# not read your config.toml.
 # Run FindInPageControllerTest separately: it needs a 1280x900 window for
 # FindMovesWhenObscuring. The BrowserView DevTools size tests must retain
 # default/restored window sizes, so they must not receive that size override.
@@ -29,7 +30,7 @@ extra=()
 IFS=: read -r -a suites <<< "$filter"
 for suite in "${suites[@]}"; do
   if [[ "$suite" != ModalBrowserBrowserTest.* && "$suite" != MerlinAdblock* && "$suite" != MerlinIdentityBrowserTest.* ]]; then
-    extra+=(--modal-browser-upstream-defaults)
+    extra+=(--modal-browser-upstream-defaults --disable-features=MerlinAdblock)
     break
   fi
 done
