@@ -1,0 +1,14 @@
+diff --git a/chrome/browser/ui/cocoa/confirm_quit.cc b/chrome/browser/ui/cocoa/confirm_quit.cc
+--- a/chrome/browser/ui/cocoa/confirm_quit.cc
++++ b/chrome/browser/ui/cocoa/confirm_quit.cc
+@@ -15,7 +15,9 @@ void RecordHistogram(ConfirmQuitMetric sample) {
+ }
+ 
+ void RegisterLocalState(PrefRegistrySimple* registry) {
+-  registry->RegisterBooleanPref(prefs::kConfirmToQuitEnabled, true);
++  // Merlin: Cmd-Q quits at once. Chrome menu > Warn Before Quitting turns
++  // the hold-to-quit panel back on.
++  registry->RegisterBooleanPref(prefs::kConfirmToQuitEnabled, false);
+ }
+ 
+ }  // namespace confirm_quit

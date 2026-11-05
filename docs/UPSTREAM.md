@@ -137,6 +137,13 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | --- | --- | --- |
 | `0052-merlin-no-search-prewarm.patch` | `chrome/browser/preloading/prerender/prerender_manager.cc`, its `BUILD.gn` | With Google as the default search engine, Chromium prerenders a hidden `google.com/search/warmup.html` in each tab when the address bar's results change, which happens on tab switches. Merlin starts none unless `--enable-features=Prewarm` or `--modal-browser-upstream-defaults` is passed ([decision 45](DECISIONS.md#45-release-builds-use-pgo-no-search-prewarm)) |
 
+## Quit and Ctrl-Tab patches (2026-11-05)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0053-merlin-quit-without-hold.patch` | `chrome/browser/ui/cocoa/confirm_quit.cc` | `browser.confirm_to_quit` defaults to off, so Cmd-Q quits at once; Chrome menu > Warn Before Quitting turns the hold-to-quit panel back on ([decision 47](DECISIONS.md#47-cmd-q-quits-at-once-ctrl-tab-goes-to-the-last-used-tab)) |
+| `0054-merlin-tab-thumbnails.patch` | `chrome/browser/ui/tabs/tab_features.cc` | Every tab gets a `ThumbnailTabHelper`, also on macOS where `kTabHoverCardImages` is off, for the Ctrl-Tab switcher's cards. Hover cards still follow the feature and show no image ([decision 47](DECISIONS.md#47-cmd-q-quits-at-once-ctrl-tab-goes-to-the-last-used-tab)) |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before

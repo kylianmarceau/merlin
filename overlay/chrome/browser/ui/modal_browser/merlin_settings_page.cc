@@ -32,6 +32,7 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/modal_browser/config_file.h"
+#include "chrome/browser/ui/modal_browser/merlin_ctrl_tab.h"
 #include "chrome/browser/ui/modal_browser/merlin_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_url_rewrite.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
@@ -365,7 +366,10 @@ constexpr char kSettingsJs[] = R"JS('use strict';
             segmented([['start', 'Start page'], ['last', 'Continue where you left off']], state.startup,
                       (v) => send('setStartup', v), 'On startup')),
         row('Default page size', '',
-            select(zoom, String(state.zoom), (v) => send('setZoom', Number(v)), 'Default page size'))),
+            select(zoom, String(state.zoom), (v) => send('setZoom', Number(v)), 'Default page size')),
+        row('Ctrl-Tab goes to', 'Hold Ctrl and press Tab again to see every open tab.',
+            segmented([['recent', 'Last used tab'], ['order', 'Next tab']], state.ctrlTab,
+                      (v) => send('setCtrlTab', v), 'Ctrl-Tab goes to'))),
       sub('Downloads'),
       group(
         row('Save files to', '', (() => {
@@ -690,6 +694,7 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
     on("setEngine", &MerlinSettingsHandler::OnSetEngine);
     on("setStartup", &MerlinSettingsHandler::OnSetStartup);
     on("setZoom", &MerlinSettingsHandler::OnSetZoom);
+    on("setCtrlTab", &MerlinSettingsHandler::OnSetCtrlTab);
     on("chooseDownloadDir", &MerlinSettingsHandler::OnChooseDownloadDir);
     on("setAskWhere", &MerlinSettingsHandler::OnSetAskWhere);
     on("setMemorySaver", &MerlinSettingsHandler::OnSetMemorySaver);
@@ -806,6 +811,8 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
              theme ? static_cast<int>(theme->GetBrowserColorScheme()) : 0);
     data.Set("tabs",
              controller && !controller->TabsInSidebar() ? "top" : "side");
+    data.Set("ctrlTab",
+             CtrlTabSwitcher::RecentOrder(prefs()) ? "recent" : "order");
 
     base::ListValue bindings;
     if (controller) {
@@ -998,6 +1005,14 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
       return;
     }
     Message(controller->RunCommandLine("set tabs=" + *value));
+  }
+
+  void OnSetCtrlTab(const base::ListValue& args) {
+    const std::string* value = StringArg(args);
+    if (!value || (*value != "recent" && *value != "order")) {
+      return;
+    }
+    prefs()->SetBoolean(prefs::kCtrlTabMru, *value == "recent");
   }
 
   void OnSetEngine(const base::ListValue& args) {

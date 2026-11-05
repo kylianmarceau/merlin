@@ -40,6 +40,7 @@
 #include "base/test/test_future.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -65,6 +66,7 @@
 #include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
+#include "chrome/browser/ui/modal_browser/merlin_ctrl_tab.h"
 #include "chrome/browser/ui/modal_browser/merlin_library_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 #include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
@@ -87,6 +89,7 @@
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
+#include "chrome/browser/ui/thumbnails/thumbnail_tab_helper.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -165,6 +168,7 @@
 #include "ui/views/accessibility/ax_update_notifier.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/textfield/textfield.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/test/ax_event_counter.h"
 #include "ui/views/test/button_test_api.h"
@@ -798,6 +802,134 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, ClickingThePageDismissesHints) {
                                 gfx::Point(400, 400));
   ASSERT_TRUE(base::test::RunUntil([&] { return !hints()->IsVisible(); }));
   EXPECT_EQ(mode(), ffi::Mode::Normal);
+}
+
+// -- Ctrl-Tab -----------------------------------------------------------------
+
+namespace {
+
+// Opens /hints and /inner after the first tab, then goes back to the first:
+// tabs 0, 1, 2 used most recently in the order 0, 2, 1.
+void OpenThreeTabsUsingFirst(BrowserWindowInterface* browser,
+                             net::EmbeddedTestServer* server) {
+  for (const char* path : {"/hints", "/inner"}) {
+    ui_test_utils::NavigateToURLWithDisposition(
+        browser, server->GetURL(path), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+  }
+  browser->GetTabStripModel()->ActivateTabAt(0);
+}
+
+// Pretends Control is held (or not) for one test.
+class ScopedControlDown {
+ public:
+  explicit ScopedControlDown(bool down) {
+    CtrlTabSwitcher::SetControlDownForTesting(down);
+  }
+  ~ScopedControlDown() { CtrlTabSwitcher::SetControlDownForTesting(std::nullopt); }
+};
+
+}  // namespace
+
+#if BUILDFLAG(IS_MAC)
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, QuitWithoutHold) {
+  // Cmd-Q quits at once (patches/0053); Warn Before Quitting turns the
+  // hold-to-quit panel back on.
+  EXPECT_FALSE(g_browser_process->local_state()->GetBoolean(
+      prefs::kConfirmToQuitEnabled));
+}
+#endif
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, CtrlTabGoesToLastUsedTab) {
+  OpenThreeTabsUsingFirst(browser(), embedded_test_server());
+  TabStripModel* strip = browser()->tab_strip_model();
+  EXPECT_TRUE(CtrlTabSwitcher::RecentOrder(browser()->GetProfile()->GetPrefs()));
+  ScopedControlDown tap(false);
+  // Through the window's accelerators, as the key arrives: Merlin's
+  // high-priority Ctrl-Tab wins over Chromium's Select Next Tab.
+  views::FocusManager* focus =
+      BrowserView::GetBrowserViewForBrowser(browser())->GetFocusManager();
+  const ui::Accelerator ctrl_tab(ui::VKEY_TAB, ui::EF_CONTROL_DOWN);
+  ASSERT_TRUE(focus->ProcessAccelerator(ctrl_tab));
+  EXPECT_EQ(strip->active_index(), 2);
+  // Again: back, as in Dia.
+  ASSERT_TRUE(focus->ProcessAccelerator(ctrl_tab));
+  EXPECT_EQ(strip->active_index(), 0);
+  // Shift: the tab used longest ago.
+  ASSERT_TRUE(focus->ProcessAccelerator(
+      ui::Accelerator(ui::VKEY_TAB, ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN)));
+  EXPECT_EQ(strip->active_index(), 1);
+  EXPECT_FALSE(controller()->ctrl_tab_for_testing()->IsOpen());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, CtrlTabInTabOrder) {
+  OpenThreeTabsUsingFirst(browser(), embedded_test_server());
+  TabStripModel* strip = browser()->tab_strip_model();
+  // Settings > Browsing > Ctrl-Tab goes to > Next tab.
+  browser()->GetProfile()->GetPrefs()->SetBoolean(prefs::kCtrlTabMru, false);
+  ScopedControlDown tap(false);
+  CtrlTabSwitcher* ctrl_tab = controller()->ctrl_tab_for_testing();
+  ctrl_tab->Cycle(/*forward=*/true);
+  EXPECT_EQ(strip->active_index(), 1);
+  ctrl_tab->Cycle(/*forward=*/false);
+  EXPECT_EQ(strip->active_index(), 0);
+  ctrl_tab->Cycle(/*forward=*/false);
+  EXPECT_EQ(strip->active_index(), 2);
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, CtrlTabCardsWhileCtrlHeld) {
+  OpenThreeTabsUsingFirst(browser(), embedded_test_server());
+  TabStripModel* strip = browser()->tab_strip_model();
+  CtrlTabSwitcher* ctrl_tab = controller()->ctrl_tab_for_testing();
+  ScopedControlDown held(true);
+  ctrl_tab->Cycle(/*forward=*/true);
+  ASSERT_TRUE(ctrl_tab->IsOpen());
+  // Nothing switches while Ctrl is held, and a quick tap shows no cards.
+  EXPECT_EQ(strip->active_index(), 0);
+  EXPECT_FALSE(ctrl_tab->cards_visible_for_testing());
+  EXPECT_EQ(ctrl_tab->selected_for_testing(), 1);
+  ctrl_tab->Cycle(/*forward=*/true);
+  EXPECT_EQ(ctrl_tab->selected_for_testing(), 2);
+  ctrl_tab->ShowCardsNowForTesting();
+  EXPECT_TRUE(ctrl_tab->cards_visible_for_testing());
+  const std::vector<tabs::TabInterface*> order = ctrl_tab->tabs_for_testing();
+  ASSERT_EQ(order.size(), 3u);
+  EXPECT_EQ(order[0], strip->GetTabAtIndex(0));
+  EXPECT_EQ(order[1], strip->GetTabAtIndex(2));
+  EXPECT_EQ(order[2], strip->GetTabAtIndex(1));
+  // Every tab keeps a thumbnail for its card (patches/0054).
+  EXPECT_TRUE(ThumbnailTabHelper::From(strip->GetTabAtIndex(1)));
+  // Releasing Ctrl switches to the selected card.
+  CtrlTabSwitcher::SetControlDownForTesting(false);
+  ASSERT_TRUE(base::test::RunUntil([&] { return !ctrl_tab->IsOpen(); }));
+  EXPECT_EQ(strip->active_index(), 1);
+  EXPECT_FALSE(ctrl_tab->cards_visible_for_testing());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, CtrlTabCancelAndClick) {
+  OpenThreeTabsUsingFirst(browser(), embedded_test_server());
+  TabStripModel* strip = browser()->tab_strip_model();
+  CtrlTabSwitcher* ctrl_tab = controller()->ctrl_tab_for_testing();
+  ScopedControlDown held(true);
+  // Esc: no switch.
+  ctrl_tab->Cycle(/*forward=*/true);
+  ctrl_tab->ShowCardsNowForTesting();
+  ctrl_tab->Cancel();
+  EXPECT_FALSE(ctrl_tab->IsOpen());
+  EXPECT_FALSE(ctrl_tab->cards_visible_for_testing());
+  EXPECT_EQ(strip->active_index(), 0);
+  // A click on a card switches to it at once.
+  ctrl_tab->Cycle(/*forward=*/true);
+  ctrl_tab->ShowCardsNowForTesting();
+  ctrl_tab->CommitIndex(2);
+  EXPECT_FALSE(ctrl_tab->IsOpen());
+  EXPECT_EQ(strip->active_index(), 1);
+  // A tab closing while the cards are up closes them without switching.
+  ctrl_tab->Cycle(/*forward=*/true);
+  ASSERT_TRUE(ctrl_tab->IsOpen());
+  strip->CloseWebContentsAt(2, TabCloseTypes::CLOSE_NONE);
+  EXPECT_FALSE(ctrl_tab->IsOpen());
+  EXPECT_EQ(strip->active_index(), 1);
 }
 
 // -- Phase 2: palette ---------------------------------------------------------
