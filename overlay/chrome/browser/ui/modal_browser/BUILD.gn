@@ -294,6 +294,7 @@ source_set("browser_tests") {
     "//components/autofill/core/browser",
     "//chrome/browser/media/webrtc",
     "//chrome/browser/predictors",
+    "//chrome/browser/preloading/prerender",
     "//chrome/browser/prefs:util",
     "//chrome/browser/printing",
     "//chrome/browser/printing:test_support",

@@ -28,6 +28,17 @@ bool ShouldShareMerlinPageProcess(std::string_view host);
 // command line (--enable-features=PreloadTopChromeWebUI).
 bool ShouldPreloadTopChromeWebUI();
 
+// Called by PrerenderManager::MaybeStartPrewarmSearchResult (patches/0052).
+// With Google as the default search engine, Chromium prerenders a hidden
+// https://www.google.com/search/warmup.html in each tab when the address
+// bar's results change, which happens on tab switches: browser main-thread
+// work during the switch, a renderer and a request to Google with its
+// cookies, for a page that is never shown. Merlin searches from its own
+// address card and start page. False unless --modal-browser-upstream-defaults
+// is set or the feature is enabled on the command line
+// (--enable-features=Prewarm).
+bool ShouldPrewarmDefaultSearch();
+
 }  // namespace modal_browser
 
 #endif  // CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_PROCESS_POLICY_H_

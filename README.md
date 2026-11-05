@@ -327,6 +327,7 @@ and tests on its own with `cargo`, without a Chromium checkout.
 * [Release](docs/RELEASE.md): building, packaging and testing a GitHub release, and installing it
 * [Release notes](docs/RELEASE_NOTES.md): requirements and known limitations for testers
 * [Upstream](docs/UPSTREAM.md): the pinned Chromium release, every patch, and the update process
+* [Performance](docs/PERFORMANCE.md): startup, page load, tab and memory baseline against Brave and Dia, and how to rerun it
 * [Privacy](docs/PRIVACY.md): every file, socket and piece of page data Merlin touches
 * [Ad blocking plan](docs/ADBLOCK_PLAN.md) and [implementation evidence](docs/ADBLOCK_IMPLEMENTATION.md): native Brave engine integration, YouTube qualification and performance gates
 * [Branding](branding/README.md): name, logo and palette

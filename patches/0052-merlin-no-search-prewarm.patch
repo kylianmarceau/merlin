@@ -1,0 +1,42 @@
+diff --git a/chrome/browser/preloading/prerender/BUILD.gn b/chrome/browser/preloading/prerender/BUILD.gn
+--- a/chrome/browser/preloading/prerender/BUILD.gn
++++ b/chrome/browser/preloading/prerender/BUILD.gn
+@@ -76,6 +76,11 @@ source_set("impl") {
+   if (!is_android) {
+     deps += [ "//chrome/browser/ui/web_applications" ]
+   }
++
++  # Merlin: no search prewarm on tab switches.
++  if (is_mac || is_win || is_linux) {
++    deps += [ "//chrome/browser/ui/modal_browser:process_policy" ]
++  }
+ }
+ 
+ source_set("test_support") {
+diff --git a/chrome/browser/preloading/prerender/prerender_manager.cc b/chrome/browser/preloading/prerender/prerender_manager.cc
+--- a/chrome/browser/preloading/prerender/prerender_manager.cc
++++ b/chrome/browser/preloading/prerender/prerender_manager.cc
+@@ -64,6 +64,10 @@
+ #include "chromeos/components/kiosk/kiosk_utils.h"
+ #endif
+ 
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++#include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
++#endif
++
+ namespace internal {
+ const char kHistogramPrerenderPredictionStatusDefaultSearchEngine[] =
+     "Prerender.Experimental.PredictionStatus.DefaultSearchEngine";
+@@ -329,6 +333,12 @@ PrerenderManager::StartPrerenderDirectUrlInput(
+ }
+ 
+ bool PrerenderManager::MaybeStartPrewarmSearchResult() {
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++  // Merlin: no hidden Google search page per tab (merlin_process_policy.h).
++  if (!modal_browser::ShouldPrewarmDefaultSearch()) {
++    return false;
++  }
++#endif
+   GURL prewarm_url;
+   PrewarmDecision decision = ShouldPrewarm(prewarm_url);
+   base::UmaHistogramEnumeration(kHistogramPrerenderPrewarmDecision, decision);

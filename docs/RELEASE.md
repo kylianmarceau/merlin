@@ -40,8 +40,11 @@ a Developer ID identity or Apple notarization.
 
    This writes `out/Release/args.gn` from
    [`build/args.release.gn`](../build/args.release.gn): optimized,
-   non-component, separate dSYMs and no PGO profile. It then builds `chrome`
-   and writes `credits.html`.
+   non-component, profile-guided (PGO) and with separate dSYMs. It then
+   builds `chrome` and writes `credits.html`. The PGO profile comes with
+   `gclient runhooks` once `~/chromium/.gclient` sets
+   `"checkout_pgo_profiles": True` in `custom_vars`; the script stops with
+   instructions if it is missing.
 3. Smoke-test `out/Release/Merlin.app`: it opens, pages and video play,
    hints, the palette, splits and workspaces work, an extension installs,
    and it quits and relaunches cleanly.

@@ -34,6 +34,11 @@ if [[ -n "$(git status --porcelain)" ]]; then
   echo "         include them, but build-info will name the last commit." >&2
 fi
 
+# Official builds need the PGO profile named in chrome/build/mac-arm.pgo.txt.
+pgo="$SRC/chrome/build/pgo_profiles/$(cat "$SRC/chrome/build/mac-arm.pgo.txt")"
+[[ -s "$pgo" ]] || die "no PGO profile at $pgo; set \"checkout_pgo_profiles\": True in
+  custom_vars in $CHROMIUM_DIR/.gclient, then run gclient runhooks (see docs/PERFORMANCE.md)"
+
 free_gb="$(df -Pk "$SRC" | awk 'NR == 2 { print int($4 / 1048576) }')"
 (( free_gb >= MIN_FREE_GB )) ||
   die "only ${free_gb} GB free on the Chromium disk; free at least ${MIN_FREE_GB} GB"

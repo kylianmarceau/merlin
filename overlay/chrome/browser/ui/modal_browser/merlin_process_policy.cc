@@ -19,6 +19,17 @@ bool UpstreamDefaults() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(kUpstreamDefaults);
 }
 
+// Chromium's behaviour comes back with --modal-browser-upstream-defaults or
+// when the user enables the feature by name on the command line.
+bool UpstreamOrEnabledOnCommandLine(const char* feature) {
+  if (UpstreamDefaults()) {
+    return true;
+  }
+  const base::FeatureList* features = base::FeatureList::GetInstance();
+  return features && features->IsFeatureOverriddenFromCommandLine(
+                         feature, base::FeatureList::OVERRIDE_ENABLE_FEATURE);
+}
+
 }  // namespace
 
 bool ShouldShareMerlinPageProcess(std::string_view host) {
@@ -26,13 +37,11 @@ bool ShouldShareMerlinPageProcess(std::string_view host) {
 }
 
 bool ShouldPreloadTopChromeWebUI() {
-  if (UpstreamDefaults()) {
-    return true;
-  }
-  const base::FeatureList* features = base::FeatureList::GetInstance();
-  return features && features->IsFeatureOverriddenFromCommandLine(
-                         "PreloadTopChromeWebUI",
-                         base::FeatureList::OVERRIDE_ENABLE_FEATURE);
+  return UpstreamOrEnabledOnCommandLine("PreloadTopChromeWebUI");
+}
+
+bool ShouldPrewarmDefaultSearch() {
+  return UpstreamOrEnabledOnCommandLine("Prewarm");
 }
 
 }  // namespace modal_browser

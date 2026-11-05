@@ -23,6 +23,8 @@ scripts/check_page_scripts.py
 if command -v node >/dev/null 2>&1; then
   node --check scripts/benchmark_adblock.mjs
   node --check scripts/benchmark_adblock_realistic.mjs
+  node --check scripts/benchmark_browsers.mjs
+  node --check scripts/summarize_benchmarks.mjs
   node --check scripts/lib/cdp.mjs
   node --check scripts/lib/adblock_memory.mjs
   node --check scripts/probe_adblock_youtube.mjs

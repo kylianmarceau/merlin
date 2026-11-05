@@ -12,7 +12,9 @@ Searches typed in the command line go to the user's default search engine throug
 Chromium's own omnibox classifier, as if typed in the address bar.
 The address card (decision 39) asks Chromium's address-bar engine as
 Chromium's own field does, so the default search engine's suggestions
-follow Chromium's setting for them.
+follow Chromium's setting for them. Chromium's search prewarm, which
+loads a hidden Google page in each tab when Google is the default search
+engine, is off (patch 0052).
 
 When the native ad blocker is enabled, normal profiles can automatically
 refresh selected filter sources with Chromium's networking. The fixed catalog

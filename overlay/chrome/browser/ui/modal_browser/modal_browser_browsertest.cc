@@ -50,6 +50,7 @@
 #include "chrome/browser/predictors/autocomplete_action_predictor.h"
 #include "chrome/browser/predictors/autocomplete_action_predictor_factory.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
+#include "chrome/browser/preloading/prerender/prerender_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -1281,6 +1282,13 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NoHiddenTabSearchPage) {
   base::RunLoop().RunUntilIdle();
   EXPECT_FALSE(
       WebUIContentsPreloadManager::GetInstance()->preloaded_web_contents());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NoSearchPrewarm) {
+  EXPECT_FALSE(ShouldPrewarmDefaultSearch());
+  // The address bar's trigger reaches PrerenderManager, which starts nothing.
+  auto* manager = PrerenderManager::GetOrCreateForWebContents(contents());
+  EXPECT_FALSE(manager->MaybeStartPrewarmSearchResult());
 }
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MemorySaverOnByDefault) {

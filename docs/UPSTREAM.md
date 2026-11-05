@@ -131,6 +131,12 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | --- | --- | --- |
 | `0051-merlin-single-profile.patch` | `chrome/browser/profiles/profiles_state.cc`, `chrome/browser/ui/profiles/profile_picker.cc`, `chrome/browser/ui/views/profiles/profile_picker_view.cc`, `chrome/browser/app_controller_mac.mm`, `chrome/browser/ui/browser_command_controller.cc` | No new profiles or guest mode (even by policy); startup always opens a window; the picker only opens for recovery entry points; no Profiles menu in the menu bar or Dock; profile menu, close, add, guest and manage commands disabled ([decision 44](DECISIONS.md#44-one-profile-no-profile-ui)) |
 
+## Search prewarm patch (2026-11-05)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0052-merlin-no-search-prewarm.patch` | `chrome/browser/preloading/prerender/prerender_manager.cc`, its `BUILD.gn` | With Google as the default search engine, Chromium prerenders a hidden `google.com/search/warmup.html` in each tab when the address bar's results change, which happens on tab switches. Merlin starts none unless `--enable-features=Prewarm` or `--modal-browser-upstream-defaults` is passed ([decision 45](DECISIONS.md#45-release-builds-use-pgo-no-search-prewarm)) |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before

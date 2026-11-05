@@ -6,8 +6,8 @@
 #
 #   scripts/build_release.sh        # copies this file to out/Release/args.gn
 #
-# Checked with `gn gen` against 157.0.8103.26 on 2026-11-04 (36,688 targets,
-# no unused arguments). Not yet built end to end.
+# Built end to end against 157.0.8103.26 on 2026-11-05 without PGO; PGO
+# enabled the same day, checked with `gn gen`.
 target_cpu = "arm64"
 is_debug = false
 is_component_build = false
@@ -15,10 +15,11 @@ is_official_build = true
 dcheck_always_on = false
 symbol_level = 1
 enable_stripping = true
-# Official builds expect Google's PGO profiles, which a normal checkout does
-# not download (checkout_pgo_profiles in .gclient). Without this line gn gen
-# fails. Merlin ships without profile-guided optimization.
-chrome_pgo_phase = 0
+# Official builds use profile-guided optimization (PGO) with Google's
+# recorded profile for this Chromium version, as Chrome, Brave and Dia do;
+# without it Speedometer scored about 20% lower (docs/PERFORMANCE.md). The
+# profile is downloaded when .gclient sets "checkout_pgo_profiles": True
+# (scripts/bootstrap_chromium.sh does); scripts/build_release.sh checks it.
 # Never Google Chrome branding; Merlin's comes from branding_file_path.
 is_chrome_branded = false
 # No proprietary codecs or Widevine: both need licensing decisions first.
