@@ -5,6 +5,39 @@ memory it uses and how responsive it is, against Brave and Dia. Use it as
 the reference point for optimization work: rerun the same benchmark after a
 change and compare.
 
+## Latest — 2026-11-06, release build with PGO and ad blocking on
+
+The first release build with profile-guided optimization, ad blocking on by
+default and search prewarm off, measured against the baseline below. Same
+Mac, after a macOS update, on mains power. Only Merlin was rerun; Brave and
+Dia are the 2026-11-05 figures. Raw results are in
+[performance-evidence/2026-11-06](performance-evidence/2026-11-06/summary.md).
+
+| | Merlin 2026-11-06 | Merlin 2026-11-05 | Brave | Dia |
+|---|---:|---:|---:|---:|
+| Speedometer 3.1 (higher is better) | **42.8** (42.8, 43.0, 42.8) | 34.3 | 43.1 | 41.4 |
+| Startup, existing profile | **0.54 s** | 0.51 s | 0.59 s | 3.7 s* |
+| Startup, new profile | 0.78 s (0.56 s, blocker off) | 0.54 s | 0.57 s | – |
+| Memory, idle | **275 MB** (258 MB, blocker off) | 261 MB | 295 MB | 1,024 MB* |
+| Memory, 30 heavy tabs | 2,690 MB (2,342 MB, blocker off) | 2,538 MB | 3,034 MB | 4,126 MB* |
+| Memory, after closing them | **485 MB** (865 MB, blocker off) | 485 MB | 1,203 MB | 1,620 MB* |
+| Memory, 10 real sites | **1,899 MB** (2,871 MB, blocker off) | 2,625 MB | 2,369 MB | 3,128 MB* |
+| Heavy test page, load event | 243 ms | 255 ms | 265 ms | **227 ms** |
+| Real sites, median load event | **346 ms** | – | 439 ms | 508 ms |
+| New tab with a page, to loaded | 74 ms | 67 ms | 80 ms | 212 ms† |
+| Switch to a background tab | 26 ms | 25 ms | **11 ms** | – |
+
+- **PGO closed the JavaScript gap:** Speedometer rose 25%, to Brave's
+  score and ahead of Dia's, steady across three runs.
+- **Ad blocking by default cut memory on real sites by a third** (1,899 MB
+  vs 2,871 MB with it off) and makes Merlin lightest on real sites too.
+- **A new profile's first launch costs about 220 ms more** with the blocker
+  on (0.78 s vs 0.56 s); launches of an existing profile are unchanged.
+  The likely cause is the blocker setting up its filter lists for the new
+  profile.
+- 30-tab memory moves with Memory Saver's timing (see below); it is within
+  the spread of earlier runs.
+
 ## Baseline — 2026-11-05, Merlin 0.1.0-beta.1
 
 MacBook with Apple M2 (8 cores) and 16 GB, macOS 27.0.1, on mains power.
@@ -64,18 +97,21 @@ DevTools timings of the other browsers.
 
 ### Optimization targets, by expected impact
 
-1. **Profile-guided optimization — enabled 2026-11-05, awaiting a release
-   build.** `build/args.release.gn` now uses Google's profile
+1. **Profile-guided optimization — done; measured 2026-11-06.**
+   `build/args.release.gn` uses Google's profile
    ([decision 45](DECISIONS.md#45-release-builds-use-pgo-no-search-prewarm)).
-   Rerun Speedometer on the next release build and record the result here.
-2. **Native ad blocking on by default — since 2026-11-05, awaiting a release
-   build** ([decision 46](DECISIONS.md#46-ad-blocking-on-by-default)): the
-   largest memory and load-time gain on real sites.
+   Speedometer went from 34.3 to 42.8.
+2. **Native ad blocking on by default — done; measured 2026-11-06**
+   ([decision 46](DECISIONS.md#46-ad-blocking-on-by-default)): memory
+   across 10 real sites fell a third. It adds about 220 ms to a new
+   profile's first launch, which is worth a look.
 3. **Search prewarm — off since 2026-11-05 (patch 0052).** The only
    Merlin-specific work in the tab-switch trace: a hidden Google page
    prerendered per tab, up to 11.5 ms of browser main-thread work each.
    Its memory effect could not be measured headless (the prewarm never
-   starts there); compare 30-tab memory on the next release build.
+   starts there). The 2026-11-06 30-tab figure (2,342 MB with the blocker
+   off, vs 2,538 MB) points to a small saving, but it is within Memory
+   Saver's spread.
 
 ## Method
 
