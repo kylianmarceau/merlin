@@ -38,6 +38,11 @@ fi
 pgo="$SRC/chrome/build/pgo_profiles/$(cat "$SRC/chrome/build/mac-arm.pgo.txt")"
 [[ -s "$pgo" ]] || die "no PGO profile at $pgo; set \"checkout_pgo_profiles\": True in
   custom_vars in $CHROMIUM_DIR/.gclient, then run gclient runhooks (see docs/PERFORMANCE.md)"
+# With PGO on, V8 also optimizes its builtins from its own profile, which the
+# same gclient hook downloads (v8/tools/builtins-pgo/download_profiles.py).
+[[ -s "$SRC/v8/tools/builtins-pgo/profiles/x64.profile" ]] ||
+  die "no V8 builtins profile in $SRC/v8/tools/builtins-pgo/profiles; run gclient runhooks,
+  or: (cd $SRC && python3 v8/tools/builtins-pgo/download_profiles.py download --depot-tools \"\$(dirname \"\$(command -v gclient)\")\" --check-v8-revision)"
 
 free_gb="$(df -Pk "$SRC" | awk 'NR == 2 { print int($4 / 1048576) }')"
 (( free_gb >= MIN_FREE_GB )) ||
