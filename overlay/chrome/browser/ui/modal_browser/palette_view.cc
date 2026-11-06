@@ -419,7 +419,13 @@ void PaletteView::Layout(PassKey) {
 void PaletteView::OnPaint(gfx::Canvas* canvas) {
   const style::Colors& colors = style::ColorsFor(this);
   const gfx::Rect card = CardBounds();
-  paint::DrawCard(canvas, card, style::kPaletteRadius, colors, colors.surface);
+  // Frosted like the other pop-ups when the pop-up transparency setting
+  // allows it; a flat card otherwise.
+  if (!paint::DrawGlassCard(canvas, this, card, style::kPaletteRadius,
+                            colors)) {
+    paint::DrawCard(canvas, card, style::kPaletteRadius, colors,
+                    colors.surface);
+  }
 
   // Prompt: ':' in the accent for the command line, a chip for the others.
   const gfx::FontList& prompt_font = PromptFont(model_.kind);

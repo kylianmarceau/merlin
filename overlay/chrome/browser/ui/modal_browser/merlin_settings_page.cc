@@ -234,6 +234,11 @@ constexpr char kSettingsJs[] = R"JS('use strict';
               pendingToast = v ? 'Tabs are hidden: \u2318S shows them' : 'Tabs are shown';
               saveConfig(setOption(config.text, 'hide_tabs', String(v)));
             }, 'Hide tabs')),
+        row('Pop-up transparency', 'How much of the page shows through menus and pop-ups. Solid keeps one flat colour.',
+            segmented([['solid', 'Solid'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']],
+                      stringOption(config.text, 'popup_transparency') ?? 'medium',
+                      (v) => saveConfig(setOption(config.text, 'popup_transparency', JSON.stringify(v))),
+                      'Pop-up transparency')),
         linkRow('Fonts and page size', 'Typefaces and minimum font size', () => open('fonts'))));
   }
 
@@ -253,6 +258,18 @@ constexpr char kSettingsJs[] = R"JS('use strict';
       if (t !== null) { table = t; continue; }
       const m = new RegExp('^' + name + '\\s*=\\s*(true|false)\\b').exec(line.trim());
       if (table === 'options' && m) return m[1] === 'true';
+    }
+    return null;
+  }
+
+  // A quoted string option from [options] in the file's text, or null.
+  function stringOption(text, name) {
+    let table = '';
+    for (const line of text.split('\n')) {
+      const t = tableOf(line);
+      if (t !== null) { table = t; continue; }
+      const m = new RegExp('^' + name + '\\s*=\\s*"([^"]*)"').exec(line.trim());
+      if (table === 'options' && m) return m[1];
     }
     return null;
   }

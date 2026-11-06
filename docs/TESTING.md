@@ -1,5 +1,47 @@
 # Testing
 
+## Results, 2026-11-06: pop-up transparency setting
+
+Same build base as the entry below. Adds `popup_transparency` (Settings >
+Appearance > Pop-up transparency) and frosts the command menu and the
+start page's suggestion list
+([decision 50](DECISIONS.md#50-frosted-glass-pop-ups)).
+
+| Check | Result |
+| --- | --- |
+| Rust workspace tests (new `popup_transparency_config`) | **259 passed** |
+| Native `chrome browser_tests` rebuild | Passed |
+| Default browser suite (`scripts/run_browser_tests.sh`) | **160/160 passed**, 1,094 seconds |
+| New check | `PopupTransparencyConfig`: medium by default; high and low lower and raise the tint; solid keeps the panel colour and the command menu gets no glass; the default frosts the command menu on macOS |
+| Patch series | **59 patches** verified with `apply_patches.py --check` |
+
+In the app, switching to Solid left a frosted band above and below the address card and command menu: their windows are reused, and the blur from the earlier level stayed behind them. Solid now removes it. `PopupTransparencyConfig` frosts the command menu first and checks the blur is gone after the switch; it and the 20 other pop-up and identity cases pass.
+
+## Results, 2026-11-06: frosted glass pop-ups
+
+`main` after `833ea85`, Chromium **157.0.8103.26**, macOS arm64 `out/Modal`
+component development build. The change is
+[decision 50](DECISIONS.md#50-frosted-glass-pop-ups) and patch 0059 in
+[Upstream](UPSTREAM.md#glass-pop-ups-patch-2026-11-06).
+
+| Check | Result |
+| --- | --- |
+| Native `chrome browser_tests` rebuild | Passed |
+| Default browser suite (`scripts/run_browser_tests.sh`), final build | **158/158 passed**, 1,212 seconds |
+| Pop-up cases after the final arrow change | `NativeTokensAndAccessibleOverrides`, `PermissionDecisionsAndSiteInfo`, `PasswordPromptSaveAndCancel`, `AddressCardSpansToolbar`, `MerlinMenuReplacesChromiumMenu`, `DownloadsButtonAndPopover` passed |
+| New checks | `DownloadsButtonAndPopover`: the pop-up has glass on macOS. `NativeTokensAndAccessibleOverrides`: menus use the pop-up grey; button fills are translucent tints, the default action stronger |
+| Patch series | **59 patches** verified with `apply_patches.py --check` |
+| Design tokens and visual identity checks | Passed |
+
+First look in the running app showed the address dropdown frosted but bubbles opaque: Chromium's bubble frame gave the client view an opaque copy of the panel colour, covering the glass, and the tint was too strong over the system material. Both are fixed (tint now 22% dark, 28% light). Leaving the client view transparent made labels' subpixel-text check fire in six identity tests and the menu test; labels over glass now skip subpixel text, and all 21 pop-up cases pass again.
+
+Checked by the maintainer in the running app: the downloads pop-up and the address dropdown are frosted.
+
+Still manual: how the blur, tint and edge look on a real display in light
+and dark mode, over busy and plain pages, and with Reduce Transparency on.
+Headless test windows are never shown, so the tests check that glass is
+installed, not how it looks.
+
 ## Results, 2026-11-04: one profile, no profile UI
 
 Branch `feature/no-profiles`, Chromium **157.0.8103.26**, macOS arm64

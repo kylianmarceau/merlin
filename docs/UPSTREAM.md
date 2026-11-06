@@ -153,6 +153,12 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | `0057-merlin-downloads-button.patch` | `chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.cc` | With Merlin's style on, Chromium's download button never appears; `MerlinDownloadsButton` and its pop-up stand in ([decision 49](DECISIONS.md#49-everything-without-modal-keys-merlins-downloads-and-menus)) |
 | `0058-merlin-menus.patch` | `ui/views/controls/menu/menu_config_mac.mm`, `menu_item_view.cc` | Menus Chromium draws itself get a 12 px rounded panel, roomier rows and an inset rounded highlight when Merlin's style is on. Native context menus are unchanged ([decision 49](DECISIONS.md#49-everything-without-modal-keys-merlins-downloads-and-menus)) |
 
+## Glass pop-ups patch (2026-11-06)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0059-merlin-glass-popovers.patch` | `ui/views/merlin_style.{h,cc}`, new `ui/views/merlin_style_mac.mm`, `ui/views/BUILD.gn`, `ui/views/bubble/bubble_border.cc`, `bubble_frame_view.cc`, `ui/views/controls/label.cc`, `ui/views/controls/menu/menu_scroll_view_container.cc` | Frosted glass behind pop-up windows on macOS: an `NSVisualEffectView` masked to the bubble's outline (arrow included) or the menu's rounded panel, under a translucent tint and a hairline edge. The bubble's client view no longer gets an opaque copy of the panel colour over the glass, and labels on glass skip subpixel text, which needs an opaque background. Only when Merlin's style is on and the window is translucent and in process ([decision 50](DECISIONS.md#50-frosted-glass-pop-ups)) |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before

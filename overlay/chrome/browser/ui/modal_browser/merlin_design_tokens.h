@@ -136,7 +136,7 @@ inline constexpr OverlayPalette kDarkOverlay = {
 };
 inline constexpr int kControlRadius = 8;
 inline constexpr int kCardRadius = 14;
-inline constexpr int kDialogRadius = 14;
+inline constexpr int kDialogRadius = 16;
 inline constexpr int kSpaceSmall = 8;
 inline constexpr int kSpaceMedium = 16;
 inline constexpr int kDialogInset = 20;
@@ -153,6 +153,7 @@ inline constexpr char kStartTokensCss[] = R"CSS(:root {
   --field: var(--panel);
   --caret: var(--focus);
   --error: var(--danger);
+  --glass: #F3F0EA;
 }
 @media (prefers-color-scheme: dark) {
 :root {
@@ -162,6 +163,7 @@ inline constexpr char kStartTokensCss[] = R"CSS(:root {
   --hover: rgba(255, 255, 255, 0.045);
   --selected: rgba(255, 255, 255, 0.085);
   --shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+  --glass: #3A3833;
 }
 }
 )CSS";
@@ -189,7 +191,7 @@ inline constexpr char kPageTokensCss[] = R"CSS(:root {
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --control-radius: 8px;
   --card-radius: 14px;
-  --dialog-radius: 14px;
+  --dialog-radius: 16px;
   --space-small: 8px;
   --space-medium: 16px;
   --dialog-inset: 20px;

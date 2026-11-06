@@ -67,6 +67,7 @@
 #include "chrome/browser/ui/modal_browser/hint_overlay_view.h"
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_ctrl_tab.h"
+#include "chrome/browser/ui/modal_browser/merlin_downloads_button.h"
 #include "chrome/browser/ui/modal_browser/merlin_library_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 #include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
@@ -74,9 +75,6 @@
 #include "chrome/browser/ui/modal_browser/merlin_settings_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
-#include "chrome/browser/ui/modal_browser/merlin_downloads_button.h"
-#include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
 #include "chrome/browser/ui/modal_browser/merlin_toolbar.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
@@ -95,7 +93,7 @@
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/thumbnails/thumbnail_tab_helper.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
-#include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
+#include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
@@ -106,6 +104,8 @@
 #include "chrome/browser/ui/views/permissions/permission_prompt_style.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/theme_resources.h"
@@ -134,8 +134,8 @@
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
@@ -155,9 +155,11 @@
 #include "third_party/skia/include/core/SkImage.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/clipboard/test/test_clipboard.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/color/color_provider.h"
 #include "ui/color/color_provider_key.h"
@@ -171,18 +173,17 @@
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
+#include "ui/menus/simple_menu_model.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/ax_update_notifier.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/controls/menu/menu_item_view.h"
+#include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/submenu_view.h"
-#include "ui/menus/simple_menu_model.h"
-#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/views/controls/textfield/textfield.h"
-#include "ui/base/accelerators/accelerator.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/merlin_style.h"
 #include "ui/views/test/ax_event_counter.h"
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/test/views_drawing_test_utils.h"
@@ -3007,6 +3008,10 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, DownloadsButtonAndPopover) {
       ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
   views::Widget* popover = button->popover_for_testing();
   ASSERT_TRUE(popover);
+#if BUILDFLAG(IS_MAC)
+  // The pop-up is frosted glass, like Merlin's other pop-ups.
+  EXPECT_TRUE(views::merlin_style::HasPopoverGlass(popover));
+#endif
   bool found = false;
   views::View* contents = popover->GetContentsView();
   std::vector<views::View*> stack = {contents};
@@ -3027,6 +3032,69 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, DownloadsButtonAndPopover) {
   MerlinDownloadsButton::ClearRecent(browser()->GetProfile());
   ASSERT_TRUE(base::test::RunUntil([&] { return !button->GetVisible(); }));
   EXPECT_TRUE(MerlinDownloadsButton::Recent(browser()->GetProfile()).empty());
+}
+
+// `popup_transparency` sets how frosted pop-ups are; "solid" turns the glass
+// off and keeps the flat colour. The command menu follows it.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, PopupTransparencyConfig) {
+  using views::merlin_style::PopoverTransparency;
+  EXPECT_EQ(views::merlin_style::GetPopoverTransparency(),
+            PopoverTransparency::kMedium)
+      << "medium by default";
+  const SkColor panel = SK_ColorWHITE;
+  const SkAlpha medium = SkColorGetA(views::merlin_style::PopoverGlassTint(panel));
+#if BUILDFLAG(IS_MAC)
+  // Frost the command menu first: its window stays between uses, so a later
+  // switch to solid must take that glass away again.
+  ASSERT_TRUE(controller()->AcceleratorPressed(
+      ui::Accelerator(ui::VKEY_K, ui::EF_PLATFORM_ACCELERATOR)));
+  ASSERT_TRUE(palette()->IsVisible());
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return views::merlin_style::HasPopoverGlassViewForTesting(
+        palette_view()->GetWidget());
+  }));
+  TypeInPalette(u"", ui::VKEY_ESCAPE);
+  ASSERT_TRUE(base::test::RunUntil([&] { return !palette()->IsVisible(); }));
+#endif
+
+  WriteConfig("[options]\npopup_transparency = \"high\"\n");
+  ReloadConfig();
+  EXPECT_EQ(views::merlin_style::GetPopoverTransparency(),
+            PopoverTransparency::kHigh);
+  EXPECT_LT(SkColorGetA(views::merlin_style::PopoverGlassTint(panel)), medium);
+
+  WriteConfig("[options]\npopup_transparency = \"low\"\n");
+  ReloadConfig();
+  EXPECT_GT(SkColorGetA(views::merlin_style::PopoverGlassTint(panel)), medium);
+
+  WriteConfig("[options]\npopup_transparency = \"solid\"\n");
+  ReloadConfig();
+  EXPECT_EQ(views::merlin_style::PopoverGlassTint(panel), panel);
+  ASSERT_TRUE(controller()->AcceleratorPressed(
+      ui::Accelerator(ui::VKEY_K, ui::EF_PLATFORM_ACCELERATOR)));
+  ASSERT_TRUE(palette()->IsVisible());
+  EXPECT_FALSE(
+      views::merlin_style::HasPopoverGlass(palette_view()->GetWidget()))
+      << "solid pop-ups have no glass";
+  EXPECT_TRUE(base::test::RunUntil([&] {
+    return !views::merlin_style::HasPopoverGlassViewForTesting(
+        palette_view()->GetWidget());
+  })) << "glass from before the switch is gone";
+  TypeInPalette(u"", ui::VKEY_ESCAPE);
+  ASSERT_TRUE(base::test::RunUntil([&] { return !palette()->IsVisible(); }));
+
+  WriteConfig("[options]\n");
+  ReloadConfig();
+  EXPECT_EQ(views::merlin_style::GetPopoverTransparency(),
+            PopoverTransparency::kMedium);
+#if BUILDFLAG(IS_MAC)
+  ASSERT_TRUE(controller()->AcceleratorPressed(
+      ui::Accelerator(ui::VKEY_K, ui::EF_PLATFORM_ACCELERATOR)));
+  ASSERT_TRUE(palette()->IsVisible());
+  EXPECT_TRUE(
+      views::merlin_style::HasPopoverGlass(palette_view()->GetWidget()))
+      << "the command menu is frosted like the other pop-ups";
+#endif
 }
 
 // Cmd-K opens Merlin's menu with modal browsing on or off.

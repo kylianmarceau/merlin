@@ -40,7 +40,7 @@ use crate::command::{
     self, AwaitChar, CommandError, CommandOptions, CommandRegistry, Completion, Context, Effects,
     KeymapEdit, MAX_COUNT, SessionEdit,
 };
-use crate::config::{ConfigError, ConfigFile, SitePattern};
+use crate::config::{ConfigError, ConfigFile, PopupTransparency, SitePattern};
 use crate::document::PageDocument;
 use crate::editor::{self, EditDecision, FieldInfo};
 use crate::focus::{FocusContext, FocusTarget};
@@ -85,6 +85,8 @@ pub struct SessionConfig {
     pub vertical_tabs: bool,
     /// Whether windows start with their tabs hidden (Cmd-S toggles).
     pub hide_tabs: bool,
+    /// How much of the page shows through frosted pop-ups.
+    pub popup_transparency: PopupTransparency,
     /// Reopen the last session's windows at launch (a default; the user's
     /// choice in Settings wins).
     pub restore_session: bool,
@@ -124,6 +126,7 @@ impl Default for SessionConfig {
             passthrough_sites: Vec::new(),
             vertical_tabs: true,
             hide_tabs: false,
+            popup_transparency: PopupTransparency::default(),
             restore_session: true,
             workspace_autosave: true,
             browserctl: true,
@@ -1336,6 +1339,9 @@ impl ModalSession {
         }
         if let Some(v) = file.hide_tabs {
             config.hide_tabs = v;
+        }
+        if let Some(v) = file.popup_transparency {
+            config.popup_transparency = v;
         }
         if let Some(v) = file.restore_session {
             config.restore_session = v;

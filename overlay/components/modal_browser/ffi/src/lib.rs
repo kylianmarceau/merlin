@@ -689,6 +689,8 @@ mod ffi {
         fn vertical_tabs_default(self: &Session) -> bool;
         /// Whether windows start with their tabs hidden (config `hide_tabs`).
         fn hide_tabs_default(self: &Session) -> bool;
+        /// Config `popup_transparency`: "solid", "low", "medium" or "high".
+        fn popup_transparency(self: &Session) -> String;
         /// Normal-mode bindings for Merlin Settings: `title` is the
         /// description, `detail` the command, `value` the keys.
         fn key_bindings(self: &Session) -> Vec<ListItem>;
@@ -987,6 +989,10 @@ impl Session {
 
     fn hide_tabs_default(&self) -> bool {
         self.inner.config().hide_tabs
+    }
+
+    fn popup_transparency(&self) -> String {
+        self.inner.config().popup_transparency.name().to_string()
     }
 
     fn key_bindings(&self) -> Vec<ListItem> {

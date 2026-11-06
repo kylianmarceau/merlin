@@ -4,7 +4,7 @@
 use modal_browser_core::{
     Action, Disposition, Editable, FocusContext, FocusTarget, HintAction, HintKind, Key, KeyCode,
     KeyDisposition, KeySequence, MessageLevel, ModalSession, Mode, Modifiers, OpenTarget, Outcome,
-    PaletteKind, Scroll, SelectUnit, Switch, TabEdge, YankKind,
+    PaletteKind, PopupTransparency, Scroll, SelectUnit, Switch, TabEdge, YankKind,
 };
 
 const PAGE: FocusContext = FocusContext::PAGE;
@@ -984,6 +984,35 @@ fn vertical_tabs_default_comes_from_config() {
     assert!(!s.config().vertical_tabs);
     assert!(s.load_config("").errors.is_empty());
     assert!(s.config().vertical_tabs);
+}
+
+#[test]
+fn popup_transparency_config() {
+    let mut s = ModalSession::new();
+    assert_eq!(
+        s.config().popup_transparency,
+        PopupTransparency::Medium,
+        "frosted by default"
+    );
+    for (text, level) in [
+        ("solid", PopupTransparency::Solid),
+        ("low", PopupTransparency::Low),
+        ("medium", PopupTransparency::Medium),
+        ("high", PopupTransparency::High),
+    ] {
+        let report = s.load_config(&format!("[options]\npopup_transparency = \"{text}\""));
+        assert!(report.errors.is_empty(), "{text}: {:?}", report.errors);
+        assert_eq!(s.config().popup_transparency, level);
+        assert_eq!(level.name(), text);
+    }
+    assert_eq!(
+        s.load_config("[options]\npopup_transparency = \"glassy\"")
+            .errors
+            .len(),
+        1
+    );
+    assert!(s.load_config("").errors.is_empty());
+    assert_eq!(s.config().popup_transparency, PopupTransparency::Medium);
 }
 
 #[test]

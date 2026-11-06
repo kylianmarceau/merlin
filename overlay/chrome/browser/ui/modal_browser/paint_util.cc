@@ -7,11 +7,20 @@
 #include <algorithm>
 
 #include "cc/paint/paint_flags.h"
+#include "third_party/skia/include/core/SkPath.h"
+#include "third_party/skia/include/core/SkRRect.h"
+#include "ui/color/color_id.h"
+#include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/skia_conversions.h"
+#include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/shadow_value.h"
 #include "ui/gfx/skia_paint_util.h"
 #include "ui/gfx/text_constants.h"
+#include "ui/views/merlin_style.h"
+#include "ui/views/view.h"
 
 namespace modal_browser::paint {
 
@@ -58,6 +67,51 @@ void DrawCard(gfx::Canvas* canvas,
   gfx::RectF hairline(rect);
   hairline.Inset(0.5f);
   canvas->DrawRoundRect(hairline, radius, border);
+}
+
+bool DrawGlassCard(gfx::Canvas* canvas,
+                   views::View* view,
+                   const gfx::Rect& rect,
+                   int radius,
+                   const style::Colors& colors) {
+  if (!views::merlin_style::HasPopoverGlass(view->GetWidget())) {
+    // The address card and command menu keep their window between uses, so
+    // glass from before a switch to solid would show around the card.
+    views::merlin_style::RemovePopoverGlass(view->GetWidget());
+    return false;
+  }
+  const SkColor panel =
+      view->GetColorProvider()->GetColor(ui::kColorBubbleBackground);
+  const SkPath shape = SkPath::RRect(
+      SkRRect::MakeRectXY(gfx::RectToSkRect(rect), radius, radius));
+  {
+    // The shadow, kept outside the card so it does not darken the glass.
+    gfx::ScopedCanvas scoped(canvas);
+    canvas->sk_canvas()->clipPath(shape, SkClipOp::kDifference,
+                                  /*doAntiAlias=*/true);
+    gfx::ShadowValues shadows = {
+        gfx::ShadowValue(gfx::Vector2d(0, 8), 28, colors.shadow),
+        gfx::ShadowValue(
+            gfx::Vector2d(0, 1), 3,
+            SkColorSetA(colors.shadow, SkColorGetA(colors.shadow) / 2)),
+    };
+    cc::PaintFlags flags;
+    flags.setAntiAlias(true);
+    flags.setColor(panel);
+    flags.setLooper(gfx::CreateShadowDrawLooper(shadows));
+    canvas->DrawPath(shape, flags);
+  }
+  cc::PaintFlags fill;
+  fill.setAntiAlias(true);
+  fill.setColor(views::merlin_style::PopoverGlassTint(panel));
+  canvas->DrawPath(shape, fill);
+  views::merlin_style::PaintPopoverGlassEdge(canvas, shape, panel);
+  gfx::Point origin;
+  views::View::ConvertPointToWidget(view, &origin);
+  views::merlin_style::UpdatePopoverGlass(
+      view->GetWidget(), shape.makeOffset(origin.x(), origin.y()),
+      color_utils::IsDark(panel));
+  return true;
 }
 
 std::vector<std::u16string> SplitKeys(std::u16string_view keys) {

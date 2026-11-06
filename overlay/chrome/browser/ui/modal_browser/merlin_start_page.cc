@@ -45,6 +45,7 @@
 #include "content/public/common/referrer.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/views/merlin_style.h"
 #include "url/gurl.h"
 
 namespace modal_browser {
@@ -138,6 +139,16 @@ constexpr char kStartCss[] = R"CSS(html, body {
   position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 2;
   list-style: none; margin: 0; padding: 6px; border-radius: 12px;
   background: var(--field); box-shadow: 0 0 0 1px var(--hair), var(--shadow);
+}
+/* Frosted like Merlin's native pop-ups; the Pop-up transparency setting picks
+   how much of the page shows through, and Solid keeps the flat field colour. */
+:root[data-glass="low"] { --glass-alpha: 86%; }
+:root[data-glass="medium"] { --glass-alpha: 64%; }
+:root[data-glass="high"] { --glass-alpha: 38%; }
+:root[data-glass]:not([data-glass="solid"]) .sug {
+  background: color-mix(in srgb, var(--glass) var(--glass-alpha), transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
 }
 .sug-row {
   display: flex; align-items: center; gap: 11px; height: 36px; padding: 0 10px;
@@ -249,6 +260,7 @@ constexpr char kStartJs[] = R"JS('use strict';
     render(data) {
       actions.clear();
       modal = data.modal !== false;
+      document.documentElement.dataset.glass = data.glass || 'medium';
       const ws = (data.workspaces || []).slice(0, WORKSPACE_LABELS.length);
       const rc = (data.recent || []).slice(0, RECENT_LABELS.length);
       const any = [
@@ -606,7 +618,24 @@ class MerlinStartHandler : public content::WebUIMessageHandler {
     data.Set("recent", RecentlyClosed());
     ModalBrowserController* controller = Controller();
     data.Set("modal", !controller || controller->modal_browsing());
+    data.Set("glass", GlassName());
     CallJavascriptFunction("merlinStart.render", data);
+  }
+
+  // The pop-up transparency setting, so the suggestion list frosts like the
+  // native pop-ups.
+  static const char* GlassName() {
+    switch (views::merlin_style::GetPopoverTransparency()) {
+      case views::merlin_style::PopoverTransparency::kSolid:
+        return "solid";
+      case views::merlin_style::PopoverTransparency::kLow:
+        return "low";
+      case views::merlin_style::PopoverTransparency::kMedium:
+        return "medium";
+      case views::merlin_style::PopoverTransparency::kHigh:
+        return "high";
+    }
+    return "medium";
   }
 
   base::ListValue RecentlyClosed() {

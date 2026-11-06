@@ -11,8 +11,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/supports_user_data.h"
-#include "base/task/sequenced_task_runner.h"
 #include "base/task/cancelable_task_tracker.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/browser/browser_process.h"
@@ -32,6 +32,7 @@
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/image/image.h"
@@ -53,7 +54,7 @@ constexpr int kPopoverWidth = 340;
 constexpr int kMaxRows = 6;
 constexpr int kRowHeight = 50;
 constexpr int kHeaderHeight = 38;
-constexpr int kFooterHeight = 40;
+constexpr int kFooterHeight = 38;
 constexpr int kSideInset = 8;
 constexpr int kIconSize = 26;
 constexpr int kActionSize = 24;
@@ -86,8 +87,45 @@ SkColor Color(const views::View* view, ui::ColorId id) {
   return view->GetColorProvider()->GetColor(id);
 }
 
-style::Ink PopoverInk(const views::View* view) {
-  return style::InkOn(Color(view, ui::kColorBubbleBackground));
+// Colours over the frosted panel, after Dia: only the file name is at full
+// strength; labels, details and icons are quieter tints of it.
+struct GlassInk {
+  SkColor text;
+  SkColor dim;
+  SkColor faint;
+  SkColor hover;
+  SkColor pressed;
+  // The small filled circles at the end of a row, and their glyphs.
+  SkColor action;
+  SkColor action_hot;
+  SkColor on_action;
+};
+
+GlassInk InkFor(const views::View* view) {
+  const SkColor panel = Color(view, ui::kColorBubbleBackground);
+  if (color_utils::IsDark(panel)) {
+    return {
+        .text = SK_ColorWHITE,
+        .dim = SkColorSetA(SK_ColorWHITE, 0x94),
+        .faint = SkColorSetA(SK_ColorWHITE, 0x2E),
+        .hover = SkColorSetA(SK_ColorWHITE, 0x17),
+        .pressed = SkColorSetA(SK_ColorWHITE, 0x26),
+        .action = SkColorSetA(SK_ColorWHITE, 0xD9),
+        .action_hot = SK_ColorWHITE,
+        .on_action = SkColorSetA(panel, 0xFF),
+    };
+  }
+  const SkColor ink = SkColorSetRGB(0x1C, 0x1B, 0x18);
+  return {
+      .text = ink,
+      .dim = SkColorSetA(ink, 0x8C),
+      .faint = SkColorSetA(ink, 0x24),
+      .hover = SkColorSetA(ink, 0x0F),
+      .pressed = SkColorSetA(ink, 0x1C),
+      .action = SkColorSetA(ink, 0x7A),
+      .action_hot = SkColorSetA(ink, 0xB3),
+      .on_action = SK_ColorWHITE,
+  };
 }
 
 // A round progress ring: `fraction` of it in `fill`, the rest in `track`.
@@ -96,7 +134,7 @@ void PaintRing(gfx::Canvas* canvas,
                float fraction,
                SkColor track,
                SkColor fill) {
-  constexpr float kStroke = 2.5f;
+  constexpr float kStroke = 2.f;
   gfx::RectF ring = bounds;
   ring.Inset(kStroke / 2 + 1);
   cc::PaintFlags flags;
@@ -115,8 +153,8 @@ void PaintRing(gfx::Canvas* canvas,
   }
 }
 
-// A small round button at the end of a row: cancel (⊗), show in Finder or
-// retry.
+// A small filled circle at the end of a row, as in Dia: cancel (×), show in
+// Finder (a magnifier) or retry (↻).
 class RowAction : public views::Button {
   METADATA_HEADER(RowAction, views::Button)
 
@@ -141,42 +179,36 @@ class RowAction : public views::Button {
   }
 
   void PaintButtonContents(gfx::Canvas* canvas) override {
-    const style::Ink ink = PopoverInk(this);
-    const bool hot = GetState() == STATE_HOVERED || GetState() == STATE_PRESSED;
-    // Show in Finder appears with the row's hover, as in a Finder list.
-    if (kind_ == Kind::kShow && !hot && !HasFocus() &&
-        !(parent() && parent()->IsMouseHovered())) {
-      return;
-    }
+    const GlassInk ink = InkFor(this);
+    const bool hot = GetState() == STATE_HOVERED ||
+                     GetState() == STATE_PRESSED || HasFocus();
     const gfx::PointF c = gfx::RectF(GetLocalBounds()).CenterPoint();
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
+    flags.setColor(hot ? ink.action_hot : ink.action);
+    canvas->DrawCircle(c, 10, flags);
+
     flags.setStyle(cc::PaintFlags::kStroke_Style);
-    flags.setStrokeWidth(1.5f);
+    flags.setStrokeWidth(1.6f);
     flags.setStrokeCap(cc::PaintFlags::kRound_Cap);
     flags.setStrokeJoin(cc::PaintFlags::kRound_Join);
-    flags.setColor(hot ? ink.text : ink.text_dim);
+    flags.setColor(ink.on_action);
     SkPathBuilder path;
     switch (kind_) {
       case Kind::kCancel:
-        // ⊗: a circle with a cross.
-        canvas->DrawCircle(c, 7.5f, flags);
         path.moveTo(c.x() - 3, c.y() - 3).lineTo(c.x() + 3, c.y() + 3);
         path.moveTo(c.x() + 3, c.y() - 3).lineTo(c.x() - 3, c.y() + 3);
         break;
       case Kind::kShow:
-        // A magnifier over the file: show it in Finder.
-        canvas->DrawCircle(gfx::PointF(c.x() - 1.5f, c.y() - 1.5f), 4.5f,
-                           flags);
-        path.moveTo(c.x() + 1.8f, c.y() + 1.8f).lineTo(c.x() + 5, c.y() + 5);
+        canvas->DrawCircle(gfx::PointF(c.x() - 1, c.y() - 1), 3.5f, flags);
+        path.moveTo(c.x() + 1.6f, c.y() + 1.6f).lineTo(c.x() + 4, c.y() + 4);
         break;
       case Kind::kRetry:
-        // ↻
-        path.arcTo(SkRect::MakeLTRB(c.x() - 6, c.y() - 6, c.x() + 6, c.y() + 6),
+        path.arcTo(SkRect::MakeLTRB(c.x() - 4, c.y() - 4, c.x() + 4, c.y() + 4),
                    -60, 300, /*forceMoveTo=*/true);
-        path.moveTo(c.x() + 3.5f, c.y() - 7.5f)
-            .lineTo(c.x() + 3.2f, c.y() - 4.6f)
-            .lineTo(c.x() + 6, c.y() - 4);
+        path.moveTo(c.x() + 2.3f, c.y() - 5.2f)
+            .lineTo(c.x() + 2.1f, c.y() - 3.2f)
+            .lineTo(c.x() + 4, c.y() - 2.8f);
         break;
     }
     canvas->DrawPath(path.detach(), flags);
@@ -287,7 +319,7 @@ class DownloadRow : public views::Button {
     if (!item) {
       return;
     }
-    const style::Ink ink = PopoverInk(this);
+    const GlassInk ink = InkFor(this);
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
     if (GetState() == STATE_HOVERED || GetState() == STATE_PRESSED ||
@@ -303,10 +335,9 @@ class DownloadRow : public views::Button {
                           kIconSize, kIconSize);
     if (state == "progress" || state == "paused") {
       const int percent = item->PercentComplete();
-      PaintRing(canvas, icon, percent < 0 ? 0.08f : percent / 100.f,
-                SkColorSetA(ink.text, 0x30),
-                state == "paused" ? ink.text_dim : ink.text);
-      flags.setColor(ink.text_dim);
+      PaintRing(canvas, icon, percent < 0 ? 0.08f : percent / 100.f, ink.faint,
+                state == "paused" ? ink.dim : ink.text);
+      flags.setColor(ink.dim);
       flags.setStyle(cc::PaintFlags::kFill_Style);
       const gfx::PointF c = icon.CenterPoint();
       if (state == "paused") {
@@ -338,7 +369,7 @@ class DownloadRow : public views::Button {
       flags.setStrokeWidth(1.5f);
       flags.setStrokeJoin(cc::PaintFlags::kRound_Join);
       flags.setColor(trouble ? Color(this, ui::kColorAlertHighSeverity)
-                             : ink.text_dim);
+                             : ink.dim);
       const float l = icon.x() + 6, t = icon.y() + 3, r = icon.right() - 6,
                   b = icon.bottom() - 3;
       SkPathBuilder page;
@@ -362,20 +393,21 @@ class DownloadRow : public views::Button {
     const gfx::FontList& name_font =
         style::UiFont(0, gfx::Font::Weight::MEDIUM);
     const gfx::FontList& detail_font = style::UiFont(-1);
-    const std::u16string name = gfx::ElideFilename(
-        item->GetFileNameToReportUser(), name_font, text_width);
+    // Elided in the middle, as Dia does, so the start of the name and its
+    // extension both show.
+    const std::u16string name =
+        gfx::ElideText(item->GetFileNameToReportUser().LossyDisplayName(),
+                       name_font, text_width, gfx::ELIDE_MIDDLE);
     const int name_h = name_font.GetHeight();
     const int detail_h = detail_font.GetHeight();
     const int top = (height() - name_h - detail_h - 2) / 2;
-    canvas->DrawStringRect(name, name_font,
-                           state == "cancelled" || state == "removed"
-                               ? ink.text_dim
-                               : ink.text,
-                           gfx::Rect(text_x, top, text_width, name_h));
+    canvas->DrawStringRect(
+        name, name_font,
+        state == "cancelled" || state == "removed" ? ink.dim : ink.text,
+        gfx::Rect(text_x, top, text_width, name_h));
     canvas->DrawStringRect(
         base::UTF8ToUTF16(MerlinDownloadShortDetail(item)), detail_font,
-        state == "failed" ? Color(this, ui::kColorAlertHighSeverity)
-                          : ink.text_dim,
+        state == "failed" ? Color(this, ui::kColorAlertHighSeverity) : ink.dim,
         gfx::Rect(text_x, top + name_h + 2, text_width, detail_h));
   }
 
@@ -486,18 +518,18 @@ class TextButton : public views::Button {
   }
 
   void PaintButtonContents(gfx::Canvas* canvas) override {
-    const style::Ink ink = PopoverInk(this);
+    const GlassInk ink = InkFor(this);
     const bool hot = GetState() == STATE_HOVERED ||
                      GetState() == STATE_PRESSED || HasFocus();
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
     if (kind_ == Kind::kPill) {
+      // A quiet tinted chip, brighter under the pointer.
       flags.setColor(hot ? ink.pressed : ink.hover);
-      const gfx::RectF r(GetLocalBounds());
-      canvas->DrawRoundRect(r, r.height() / 2, flags);
-      canvas->DrawStringRectWithFlags(text_, style::UiFont(-1), ink.text,
-                                      GetLocalBounds(),
-                                      gfx::Canvas::TEXT_ALIGN_CENTER);
+      canvas->DrawRoundRect(gfx::RectF(GetLocalBounds()), 7, flags);
+      canvas->DrawStringRectWithFlags(
+          text_, style::UiFont(-1), hot ? ink.text : ink.dim, GetLocalBounds(),
+          gfx::Canvas::TEXT_ALIGN_CENTER);
       return;
     }
     if (hot) {
@@ -511,13 +543,13 @@ class TextButton : public views::Button {
     const int w = gfx::GetStringWidth(text_, font);
     canvas->DrawStringRect(text_, font, ink.text,
                            gfx::Rect(x, 0, w + 2, height()));
-    // ↗
+    // ↗ at the far end of the row.
     flags.setStyle(cc::PaintFlags::kStroke_Style);
-    flags.setStrokeWidth(1.4f);
+    flags.setStrokeWidth(1.5f);
     flags.setStrokeCap(cc::PaintFlags::kRound_Cap);
     flags.setStrokeJoin(cc::PaintFlags::kRound_Join);
-    flags.setColor(ink.text_dim);
-    const float ax = x + w + 8.f, ay = height() / 2.f;
+    flags.setColor(ink.text);
+    const float ax = width() - kSideInset - 10 - 7.f, ay = height() / 2.f;
     SkPathBuilder arrow;
     arrow.moveTo(ax, ay + 3.5f).lineTo(ax + 7, ay - 3.5f);
     arrow.moveTo(ax + 2, ay - 3.5f).lineTo(ax + 7, ay - 3.5f).lineTo(
@@ -556,10 +588,8 @@ class Header : public views::View {
 
   void OnPaint(gfx::Canvas* canvas) override {
     canvas->DrawStringRect(
-        u"RECENT DOWNLOADS",
-        style::UiFont(-2, gfx::Font::Weight::SEMIBOLD),
-        PopoverInk(this).text_dim,
-        gfx::Rect(kSideInset + 10, 2, width() / 2, height()));
+        u"RECENT DOWNLOADS", style::UiFont(-2, gfx::Font::Weight::MEDIUM),
+        InkFor(this).dim, gfx::Rect(kSideInset + 10, 2, width() / 2, height()));
   }
 
  private:
@@ -567,22 +597,6 @@ class Header : public views::View {
 };
 
 BEGIN_METADATA(Header)
-END_METADATA
-
-class Hairline : public views::View {
-  METADATA_HEADER(Hairline, views::View)
-
- public:
-  gfx::Size CalculatePreferredSize(const views::SizeBounds&) const override {
-    return {kPopoverWidth, 9};
-  }
-  void OnPaint(gfx::Canvas* canvas) override {
-    canvas->FillRect(gfx::Rect(kSideInset + 6, 4, width() - 2 * kSideInset - 12, 1),
-                     SkColorSetA(PopoverInk(this).text, 0x1F));
-  }
-};
-
-BEGIN_METADATA(Hairline)
 END_METADATA
 
 // The pop-up's contents; the bubble around it is Merlin's restyled one.
@@ -651,7 +665,9 @@ class DownloadsPopover : public views::View,
           base::BindRepeating(&DownloadsPopover::Close,
                               base::Unretained(this)))));
     }
-    AddChildView(std::make_unique<Hairline>());
+    // A little room between the list and the footer, without a rule.
+    AddChildView(std::make_unique<views::View>())
+        ->SetPreferredSize(gfx::Size(kPopoverWidth, 4));
     AddChildView(std::make_unique<TextButton>(
         TextButton::Kind::kRow, u"View all downloads",
         base::BindRepeating(

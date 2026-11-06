@@ -881,6 +881,68 @@ Chromium draws itself (toolbar button menus, back/forward history) take
 Merlin's pop-up shape through patch 0058: a 12 px rounded panel, roomier
 rows and an inset rounded highlight.
 
+## 50. Frosted glass pop-ups
+
+Merlin's pop-ups now look like Dia's: a translucent grey panel over the
+system blur of whatever is behind it, with a thin edge, rather than an
+opaque panel. The maintainer picked this look (option 1 of five
+prototypes) on 2026-11-06.
+
+**Where it applies.** Every pop-up that opens in its own window on macOS:
+all of Chromium's bubbles (downloads, site information, permission prompts,
+passwords, bookmarks, extensions, zoom and the rest), the menus Chromium
+draws itself (the ad blocker and safety buttons' menus, back/forward
+history), and Merlin's address dropdown. Right-click menus are native macOS
+menus and already have the system's own glass. In-window overlays (palette,
+Ctrl-Tab switcher, status pill) are unchanged, except the command menu
+(see below).
+
+**How.** Patch 0059 adds `views::merlin_style::UpdatePopoverGlass()`, which
+puts an `NSVisualEffectView` (popover material, always active) behind the
+pop-up window's content, masked to the pop-up's outline including its
+arrow. The window server's shadow follows that outline. The bubble frame,
+the menu container and Merlin's address card paint their panel colour as a
+tint over it (22% dark, 28% light; the system material does most of the work) and draw a 1 DIP hairline just inside
+the edge. Pop-ups whose window is opaque or in another process keep their
+opaque panel, and nothing changes off macOS or with
+`--modal-browser-upstream-defaults`.
+
+**Colours.** Menus take the pop-up grey (`popover`). Buttons in pop-ups,
+menu highlights and Merlin's downloads rows use tints of the text colour so
+the glass shows through instead of solid grey chips. Pop-up corners are
+16 DIP (`dialog_radius`, was 14).
+
+**Command menu and start page.** The command menu (palette) is an in-window
+overlay with its own translucent widget, so it takes the same glass as the
+address dropdown. The start page's suggestion list is part of a web page,
+so it cannot see past the window: it uses the pop-up grey at the chosen
+strength with a CSS `backdrop-filter` blur of the page behind it.
+
+**Setting.** `popup_transparency` in `[options]` (Settings > Appearance >
+Pop-up transparency) picks how much shows through. The tint over the system
+material is:
+
+| Level | Dark | Light | Start page fill |
+| --- | --- | --- | --- |
+| Solid | opaque, no glass | opaque, no glass | the field colour, no blur |
+| Low | 55% | 60% | 86% |
+| Medium (default) | 22% | 28% | 64% |
+| High | 5% | 8% | 38% |
+
+Solid is the look from before this decision: no blur view is added and
+pop-ups paint their normal opaque panel. The level is app-wide, since
+Merlin has one config file, and applies to pop-ups opened after the config
+is read.
+
+**Address dropdown.** It is centred on the page, with as much room after its right edge as before its left edge; the address text stays where the toolbar showed it. `AddressCardSpansToolbar` checks the margins match.
+
+**Downloads pop-up.** Restyled to match: a quiet "RECENT DOWNLOADS" label
+and tinted Clear chip, a thinner progress ring, names elided in the middle,
+muted status lines, small filled round buttons for cancel, show in Finder
+(always shown) and retry, no rule above the footer, and the ↗ at the far
+end of "View all downloads". This replaces the downloads look described in
+decision 49.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing

@@ -99,7 +99,7 @@
   "metrics": {
     "control_radius": 8,
     "card_radius": 14,
-    "dialog_radius": 14,
+    "dialog_radius": 16,
     "space_small": 8,
     "space_medium": 16,
     "dialog_inset": 20
@@ -149,7 +149,8 @@
       "shadow": "0 14px 36px rgba(40, 30, 10, 0.14)",
       "field": "var(--panel)",
       "caret": "var(--focus)",
-      "error": "var(--danger)"
+      "error": "var(--danger)",
+      "glass": "#F3F0EA"
     },
     "dark": {
       "text3": "#6E695E",
@@ -157,7 +158,8 @@
       "hair-strong": "rgba(255, 255, 255, 0.2)",
       "hover": "rgba(255, 255, 255, 0.045)",
       "selected": "rgba(255, 255, 255, 0.085)",
-      "shadow": "0 14px 36px rgba(0, 0, 0, 0.45)"
+      "shadow": "0 14px 36px rgba(0, 0, 0, 0.45)",
+      "glass": "#3A3833"
     }
   }
 }

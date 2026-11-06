@@ -85,6 +85,7 @@
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/metrics.h"
 #include "ui/views/test/button_test_api.h"
+#include "ui/views/controls/webview/webview.h"
 #include "ui/views/test/views_drawing_test_utils.h"
 #include "ui/views/widget/widget.h"
 
@@ -259,13 +260,16 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest,
     // Secondary buttons are a quiet fill with no Chromium outline.
     EXPECT_EQ(provider->GetColor(ui::kColorButtonBorder), SK_ColorTRANSPARENT);
     EXPECT_EQ(provider->GetColor(ui::kColorCheckboxContainer), palette.accent);
-    // Pop-ups are grey panels with grey buttons, as macOS popovers are; the
-    // default action is a stronger grey, not a different color.
+    // Pop-ups and menus are frosted grey panels. Their buttons are tints of
+    // the text color, so the glass shows through; the default action is a
+    // stronger tint, not a different color.
     EXPECT_EQ(provider->GetColor(ui::kColorBubbleBackground), palette.popover);
-    EXPECT_EQ(provider->GetColor(ui::kColorButtonBackgroundTonal),
-              palette.popover_control);
-    EXPECT_EQ(provider->GetColor(ui::kColorButtonBackgroundProminent),
-              palette.popover_control_strong);
+    EXPECT_EQ(provider->GetColor(ui::kColorMenuBackground), palette.popover);
+    const SkColor quiet = provider->GetColor(ui::kColorButtonBackgroundTonal);
+    const SkColor strong =
+        provider->GetColor(ui::kColorButtonBackgroundProminent);
+    EXPECT_LT(SkColorGetA(quiet), 0x40u);
+    EXPECT_GT(SkColorGetA(strong), SkColorGetA(quiet));
   }
   // Merlin's control shapes come on with its colors.
   EXPECT_TRUE(views::merlin_style::IsEnabled());
@@ -698,8 +702,14 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest, AddressCardSpansToolbar) {
     ASSERT_TRUE(card);
     const gfx::Rect row = field->parent()->GetBoundsInScreen();
     const gfx::Rect bounds = card->GetWindowBoundsInScreen();
-    // The card's own edge sits inside its shadow margin.
-    EXPECT_GE(bounds.right() - style::kShadowMargin, row.right() - 10);
+    // The card's own edges sit inside its shadow margin, and it is centred on
+    // the page: the same room before its left edge as after its right edge.
+    const gfx::Rect page = BrowserView::GetBrowserViewForBrowser(browser())
+                               ->GetActiveContentsWebView()
+                               ->GetBoundsInScreen();
+    const int card_left = bounds.x() + style::kShadowMargin;
+    const int card_right = bounds.right() - style::kShadowMargin;
+    EXPECT_NEAR(card_left - page.x(), page.right() - card_right, 1);
     EXPECT_GT(bounds.width() - 2 * style::kShadowMargin, row.width() / 2);
     SnapWidget(card, dark ? "dark-address-card" : "light-address-card");
     editor->End();

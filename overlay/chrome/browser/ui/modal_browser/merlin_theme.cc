@@ -82,7 +82,8 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorSysOnSurfacePrimaryInactive] = {p.on_surface_subtle};
   mixer[ui::kColorSysBaseTonalContainer] = {p.primary_container};
   mixer[ui::kColorSysOnBaseTonalContainer] = {p.on_primary_container};
-  mixer[ui::kColorMenuBackground] = {p.surface};
+  // Menus Chromium draws itself are frosted pop-ups like the others.
+  mixer[ui::kColorMenuBackground] = {p.popover};
   mixer[ui::kColorDialogBackground] = {p.surface};
   // Pop-ups are plain grey panels, like macOS popovers.
   mixer[ui::kColorBubbleBackground] = {p.popover};
@@ -114,7 +115,12 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   // fills with no outline, as in macOS popovers; the default action is a
   // shade stronger rather than a different color, so no answer is pushed.
   const bool dark = key.color_mode == ui::ColorProviderKey::ColorMode::kDark;
-  const SkColor quiet_fill = p.popover_control;
+  // Pop-ups are frosted glass on macOS (ui/views/merlin_style.h), so their
+  // fills are tints of the text colour that let the glass show through.
+  const SkColor quiet_fill = dark ? SkColorSetA(SK_ColorWHITE, 0x1F)
+                                  : SkColorSetARGB(0x14, 0x28, 0x1E, 0x0A);
+  const SkColor strong_fill = dark ? SkColorSetA(SK_ColorWHITE, 0x33)
+                                   : SkColorSetARGB(0x24, 0x28, 0x1E, 0x0A);
   const design::OverlayPalette& overlay = dark ? design::kDarkOverlay
                                                : design::kLightOverlay;
   const SkColor hover = dark ? SkColorSetA(SK_ColorWHITE, 0x12)
@@ -127,9 +133,8 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorButtonBackgroundTonal] = {quiet_fill};
   mixer[ui::kColorButtonBackgroundTonalFocused] = {quiet_fill};
   mixer[ui::kColorButtonForegroundTonal] = {p.on_surface};
-  mixer[ui::kColorButtonBackgroundProminent] = {p.popover_control_strong};
-  mixer[ui::kColorButtonBackgroundProminentFocused] = {
-      p.popover_control_strong};
+  mixer[ui::kColorButtonBackgroundProminent] = {strong_fill};
+  mixer[ui::kColorButtonBackgroundProminentFocused] = {strong_fill};
   mixer[ui::kColorButtonForegroundProminent] = {p.on_surface};
   mixer[ui::kColorToggleButtonTrackOff] = {p.outline};
   mixer[ui::kColorToggleButtonThumbOff] = {dark ? p.on_header : SK_ColorWHITE};
@@ -141,6 +146,11 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   // Hairlines are a tint of the text color, so they read on any panel.
   mixer[ui::kColorBubbleBorder] = {overlay.border};
   mixer[ui::kColorSeparator] = {overlay.border};
+  const SkColor row_hover = dark ? SkColorSetA(SK_ColorWHITE, 0x1A)
+                                 : SkColorSetARGB(0x12, 0x28, 0x1E, 0x0A);
+  mixer[ui::kColorMenuItemBackgroundSelected] = {row_hover};
+  mixer[ui::kColorMenuItemBackgroundHighlighted] = {row_hover};
+  mixer[ui::kColorMenuSeparator] = {overlay.border};
 }
 
 void InstallMerlinTheme() {

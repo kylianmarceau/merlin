@@ -131,6 +131,7 @@
 #include "ui/views/background.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/box_layout_view.h"
+#include "ui/views/merlin_style.h"
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/view_class_properties.h"
 #include "url/gurl.h"
@@ -1592,6 +1593,14 @@ void ModalBrowserController::ApplyConfigToBrowser() {
     prefs->SetInteger(prefs::kRestoreOnStartup,
                       SessionStartupPref::kPrefValueLast);
   }
+  // Frosted pop-ups (ui/views/merlin_style.h). One setting for the whole app:
+  // Merlin has one profile and one config file.
+  const std::string transparency = router_.popup_transparency();
+  views::merlin_style::SetPopoverTransparency(
+      transparency == "solid"  ? views::merlin_style::PopoverTransparency::kSolid
+      : transparency == "low"  ? views::merlin_style::PopoverTransparency::kLow
+      : transparency == "high" ? views::merlin_style::PopoverTransparency::kHigh
+                               : views::merlin_style::PopoverTransparency::kMedium);
   // browserctl never serves private windows.
   BrowserctlService::Get().Update(
       this, router_.browserctl_enabled() &&

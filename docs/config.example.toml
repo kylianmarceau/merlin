@@ -33,6 +33,11 @@ vertical_tabs = true
 # Start with the tabs hidden, the page filling the window. Cmd-S (or
 # :hide-tabs) shows or hides them in the current window.
 hide_tabs = false
+# How frosted pop-ups, menus, the command menu and the start page's
+# suggestions are: "low", "medium" or "high" lets that much of what is
+# behind show through; "solid" keeps one flat colour. Settings >
+# Appearance > Pop-up transparency writes this.
+popup_transparency = "medium"
 # The key that leaves Passthrough mode (plain <Esc> goes to the site).
 passthrough_exit = "<S-Esc>"
 # Sites with their own keyboard shortcuts: Passthrough starts automatically

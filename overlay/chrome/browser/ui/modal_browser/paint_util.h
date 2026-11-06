@@ -15,6 +15,9 @@
 namespace gfx {
 class Canvas;
 }
+namespace views {
+class View;
+}
 
 // Painting helpers shared by the palette, status pill and hint layer.
 namespace modal_browser::paint {
@@ -27,6 +30,16 @@ void DrawCard(gfx::Canvas* canvas,
               int radius,
               const style::Colors& colors,
               SkColor fill);
+
+// DrawCard as frosted glass, like Merlin's other pop-ups
+// (views::merlin_style): the system blur behind `view`'s widget, a tint of
+// the pop-up colour and a hairline edge. Draws nothing and returns false
+// where the widget cannot show glass; callers then use DrawCard.
+bool DrawGlassCard(gfx::Canvas* canvas,
+                   views::View* view,
+                   const gfx::Rect& rect,
+                   int radius,
+                   const style::Colors& colors);
 
 // Splits a key hint such as "J  gt" into keys {"J", "gt"}.
 std::vector<std::u16string> SplitKeys(std::u16string_view keys);

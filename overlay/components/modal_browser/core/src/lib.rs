@@ -43,7 +43,7 @@ pub use command::{
     CommandError, CommandOptions, CommandRegistry, CommandSpec, CommandStatus, Completion, Context,
     Effects, Invocation, KeymapEdit,
 };
-pub use config::{ConfigError, ConfigFile, SitePattern};
+pub use config::{ConfigError, ConfigFile, PopupTransparency, SitePattern};
 pub use document::{Block, BlockKind, ExtractKind, OutlineEntry, PageDocument, Span, SpanKind};
 pub use editor::{EditDecision, FieldInfo, FieldKind};
 pub use focus::{Editable, FocusContext, FocusTarget};

@@ -12,6 +12,7 @@
 //! passthrough_sites = ["mail.google.com", "*.figma.com"]
 //! tabs = "side"                    # "side" (a rail) or "top"; vertical_tabs = true|false also works
 //! hide_tabs = false                # start with tabs hidden; Cmd-S (:hide-tabs) toggles
+//! popup_transparency = "medium"    # frosted pop-ups: "solid", "low", "medium" or "high"
 //! restore_session = true           # reopen last session's windows at launch
 //! workspace_autosave = true        # keep an opened workspace saved as it changes
 //! browserctl = true                # accept commands from browserctl (same user only)
@@ -137,6 +138,38 @@ pub struct UnmapEntry {
     pub line: usize,
 }
 
+/// How much of the page shows through Merlin's frosted pop-ups. `Solid`
+/// keeps them one flat colour, as before they were frosted.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PopupTransparency {
+    Solid,
+    Low,
+    #[default]
+    Medium,
+    High,
+}
+
+impl PopupTransparency {
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "solid" => Some(Self::Solid),
+            "low" => Some(Self::Low),
+            "medium" => Some(Self::Medium),
+            "high" => Some(Self::High),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Solid => "solid",
+            Self::Low => "low",
+            Self::Medium => "medium",
+            Self::High => "high",
+        }
+    }
+}
+
 /// Everything the file sets. `None` means "keep the default".
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ConfigFile {
@@ -150,6 +183,7 @@ pub struct ConfigFile {
     pub passthrough_sites: Option<Vec<SitePattern>>,
     pub vertical_tabs: Option<bool>,
     pub hide_tabs: Option<bool>,
+    pub popup_transparency: Option<PopupTransparency>,
     pub restore_session: Option<bool>,
     pub workspace_autosave: Option<bool>,
     pub browserctl: Option<bool>,
@@ -172,6 +206,7 @@ const OPTION_NAMES: &[&str] = &[
     "vertical_tabs",
     "tabs",
     "hide_tabs",
+    "popup_transparency",
     "restore_session",
     "workspace_autosave",
     "browserctl",
@@ -398,6 +433,15 @@ impl ConfigFile {
             "smooth_scroll" => self.smooth_scroll = Some(expect_bool(name, value)?),
             "vertical_tabs" => self.vertical_tabs = Some(expect_bool(name, value)?),
             "hide_tabs" => self.hide_tabs = Some(expect_bool(name, value)?),
+            "popup_transparency" => {
+                let text = expect_str(name, value)?;
+                self.popup_transparency =
+                    Some(PopupTransparency::from_name(text).ok_or_else(|| {
+                        format!(
+                            "'{name}' must be \"solid\", \"low\", \"medium\" or \"high\", not \"{text}\""
+                        )
+                    })?);
+            }
             "tabs" => {
                 self.vertical_tabs = Some(match expect_str(name, value)? {
                     "side" => true,

@@ -24,7 +24,7 @@ html {
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   --control-radius: 8px;
   --card-radius: 14px;
-  --dialog-radius: 14px;
+  --dialog-radius: 16px;
   --space-small: 8px;
   --space-medium: 16px;
   --dialog-inset: 20px;

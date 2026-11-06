@@ -60,6 +60,28 @@ hairline.
 Every Chromium view keeps its controller, callbacks, IDs, element
 identifiers, accessible names/roles and strings. Only presentation changes.
 
+## Layer 3: frosted glass (patch 0059)
+
+Pop-up windows on macOS are frosted glass, after Dia
+([decision 50](DECISIONS.md#50-frosted-glass-pop-ups)).
+
+| Piece | Where | Merlin |
+| --- | --- | --- |
+| Blur | `ui/views/merlin_style_mac.mm` | `UpdatePopoverGlass()` adds an `NSVisualEffectView` (popover material, active, light or dark to match the panel) behind the window's content and masks it to the pop-up's outline. It ignores clicks, and only redraws its mask when the outline, size or scale changes |
+| Bubbles | `bubble_border.cc` | Where the window server draws the shadow, the frame paints its colour as a tint (`PopoverGlassTint`), adds a hairline just inside the outline and updates the blur to the client area plus arrow |
+| Client area | `bubble_frame_view.cc` | Chromium normally paints the client view with an opaque copy of the panel colour (an overdraw shortcut). Over glass it leaves the client view transparent, or the glass is hidden |
+| Text | `label.cc` | Labels over glass draw greyscale-smoothed text, since subpixel text needs an opaque background |
+| Menus | `menu_scroll_view_container.cc` | Menus Chromium draws itself paint the same tinted, rounded panel over the blur, unless the caller set its own colour |
+| Address dropdown | `paint_util.cc` (`DrawGlassCard`), `merlin_address_editor.cc` | The card in its own child window gets the same blur; its drawn shadow stays outside the card |
+| Command menu | `palette_view.cc` | The palette's card uses `DrawGlassCard` too |
+| Start page | `merlin_start_page.cc` | The suggestion list is web content, so it uses a translucent pop-up grey with a CSS `backdrop-filter` blur, at the same level |
+| Setting | `merlin_style.cc`, `modal_browser_controller.cc` | `popup_transparency` (Settings > Appearance > Pop-up transparency) sets `SetPopoverTransparency()` when the config is read. Low, medium and high change the tint; solid adds no blur, so pop-ups keep their opaque panel. The address card and command menu keep their window between uses, so on solid they remove any blur left from before (`RemovePopoverGlass`) |
+| Colours | `merlin_theme.cc` | Menus use the pop-up grey; button fills and menu highlights are text-colour tints, so they do not show as solid chips on the glass |
+
+`HasPopoverGlass()` reads the widget's root layer (translucent widgets do not fill it opaquely) and is false for opaque or out-of-process windows, with the solid setting, off
+macOS and with `--modal-browser-upstream-defaults`; those keep the opaque
+panel. Right-click menus are native and unchanged.
+
 ## Not yet covered by a Merlin layout
 
 These get Layer 1 (Merlin title, buttons, switches, rows) but keep

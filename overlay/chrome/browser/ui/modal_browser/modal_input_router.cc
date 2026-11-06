@@ -304,6 +304,10 @@ bool ModalInputRouter::hide_tabs_default() const {
   return session_->hide_tabs_default();
 }
 
+std::string ModalInputRouter::popup_transparency() const {
+  return std::string(session_->popup_transparency());
+}
+
 bool ModalInputRouter::modal_browsing() const {
   return session_->modal_browsing();
 }

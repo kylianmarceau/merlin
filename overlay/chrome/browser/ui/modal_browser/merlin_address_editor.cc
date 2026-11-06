@@ -238,7 +238,9 @@ class MerlinAddressCard : public views::View {
   void OnPaint(gfx::Canvas* canvas) override {
     const style::Colors& c = style::ColorsFor(this);
     const gfx::Rect card = CardBounds();
-    paint::DrawCard(canvas, card, kCardRadius, c, c.surface);
+    if (!paint::DrawGlassCard(canvas, this, card, kCardRadius, c)) {
+      paint::DrawCard(canvas, card, kCardRadius, c, c.surface);
+    }
     if (rows_.empty()) {
       return;
     }
@@ -603,14 +605,14 @@ void MerlinAddressEditor::Layout() {
     return;
   }
   const gfx::Rect field = field_->ConvertRectToWidget(field_->GetLocalBounds());
-  int right = field.right();
-  if (views::View* row = field_->parent()) {
-    right = row->ConvertRectToWidget(row->GetLocalBounds()).right() - 8;
-  }
-  // The address stays where the toolbar showed it, and the card runs to
-  // the end of the toolbar, as Dia's does, rather than stopping at the
-  // width of the address.
+  // The address stays where the toolbar showed it, and the card runs across
+  // the page, as Dia's does, rather than stopping at the width of the
+  // address.
   const int x = field.x() + kFieldTextInset - kInputPadX;
+  // Centred on the page: as much room after the card's right edge as there
+  // is before its left edge.
+  const gfx::Rect page = host_.ContentsArea();
+  const int right = std::max(field.right(), page.right() - (x - page.x()));
   const int width = std::max(0, right - x);
   const gfx::Rect card(x, field.CenterPoint().y() - kInputHeight / 2, width,
                        card_->CardHeight());
