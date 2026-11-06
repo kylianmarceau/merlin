@@ -4,9 +4,10 @@
 
 use modal_browser_core::{
     Action, Block, BlockJump, BlockKind, BrowserPage, DocumentPurpose, ExtractDestination,
-    ExtractKind, FieldInfo, FieldKind, FocusContext, HintAction, HintKind, ItemSource, KeySequence,
-    ListItem, MessageLevel, ModalSession, Mode, OpenTarget, Outcome, PageDocument, PaletteKey,
-    PaletteKind, SelectUnit, SplitLayout, Switch, TabInfo, WindowTab, YankKind,
+    ExtractKind, FieldInfo, FieldKind, FocusContext, HintAction, HintKind, ItemSource,
+    KeyDisposition, KeySequence, ListItem, MessageLevel, ModalSession, Mode, OpenTarget, Outcome,
+    PageDocument, PaletteKey, PaletteKind, SelectUnit, SplitLayout, Switch, TabInfo, WindowTab,
+    YankKind,
 };
 
 const PAGE: FocusContext = FocusContext::PAGE;
@@ -769,6 +770,38 @@ fn merlin_menu_lists_window_actions_with_their_keys() {
         name: "zoom-in".into(),
         arg: String::new()
     }));
+}
+
+#[test]
+fn with_modal_browsing_off_the_menu_shows_no_keys_and_offers_splits() {
+    let mut s = ModalSession::new();
+    s.load_config("[options]\nmodal_browsing = false");
+    run(&mut s, "palette menu");
+    let p = s.palette().unwrap();
+    assert!(p.rows.iter().all(|r| r.keys.is_empty()), "no key runs them");
+    let names = rows(&s);
+    for want in [
+        "Split side by side",
+        "Split top and bottom",
+        "Save workspace…",
+    ] {
+        assert!(names.iter().any(|n| n == want), "{want} in {names:?}");
+    }
+    run(&mut s, "palette commands");
+    assert!(s.palette().unwrap().rows.iter().all(|r| r.keys.is_empty()));
+}
+
+#[test]
+fn with_modal_browsing_off_hints_from_the_palette_still_take_keys() {
+    let mut s = ModalSession::new();
+    s.load_config("[options]\nmodal_browsing = false");
+    run(&mut s, "hint");
+    assert_eq!(s.mode(), Mode::Hint);
+    let o = last(&mut s, "<Esc>");
+    assert_eq!(o.disposition, KeyDisposition::Consumed);
+    assert_eq!(s.mode(), Mode::Normal);
+    // Back in Normal, keys are the page's again.
+    assert_eq!(last(&mut s, "f").disposition, KeyDisposition::Forward);
 }
 
 #[test]

@@ -1,0 +1,54 @@
+diff --git a/ui/views/controls/menu/menu_config_mac.mm b/ui/views/controls/menu/menu_config_mac.mm
+index eabfb36489..67c9a6cdff 100644
+--- a/ui/views/controls/menu/menu_config_mac.mm
++++ b/ui/views/controls/menu/menu_config_mac.mm
+@@ -4,6 +4,8 @@
+ 
+ #include "ui/views/controls/menu/menu_config.h"
+ 
++#include "ui/views/merlin_style.h"
++
+ namespace views {
+ 
+ void MenuConfig::InitPlatform() {
+@@ -12,6 +14,18 @@
+   use_mnemonics = false;
+   show_context_menu_accelerators = false;
+   all_menus_use_prefix_selection = true;
++  // Merlin: the menus Chromium draws itself (toolbar button menus, history
++  // lists) take the shape of its pop-ups: a rounded panel with rows that
++  // highlight as inset rounded rectangles.
++  if (merlin_style::IsEnabled()) {
++    corner_radius = merlin_style::kCardRadius;
++    auxiliary_corner_radius = merlin_style::kCardRadius;
++    item_corner_radius = merlin_style::kRowRadius - 2;
++    rounded_menu_vertical_border_size = merlin_style::kRowInset;
++    item_vertical_margin = 6;
++    item_horizontal_padding = 14;
++    separator_height = 13;
++  }
+ }
+ 
+ }  // namespace views
+diff --git a/ui/views/controls/menu/menu_item_view.cc b/ui/views/controls/menu/menu_item_view.cc
+index 0bee2e87b0..834cb35752 100644
+--- a/ui/views/controls/menu/menu_item_view.cc
++++ b/ui/views/controls/menu/menu_item_view.cc
+@@ -64,6 +64,7 @@
+ #include "ui/views/style/typography.h"
+ #include "ui/views/style/typography_provider.h"
+ #include "ui/views/vector_icons.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/view_class_properties.h"
+ #include "ui/views/view_tracker.h"
+ #include "ui/views/view_utils.h"
+@@ -1426,6 +1427,9 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
+       item_bounds.Inset(gfx::Insets::TLBR(
+           menu_item_background_->top_padding, horizontal_margin,
+           menu_item_background_->bottom_padding, horizontal_margin));
++    } else if (merlin_style::IsEnabled()) {
++      // Merlin: an inset rounded highlight (menu_config_mac.mm).
++      item_bounds.Inset(gfx::Insets::VH(0, merlin_style::kRowInset));
+     }
+     if (type_ == Type::kActionableSubMenu) {
+       if (submenu_area_of_actionable_submenu_selected_) {

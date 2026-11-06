@@ -451,7 +451,9 @@ impl ModalSession {
     pub fn handle_key(&mut self, key: Key, focus: &FocusContext) -> Outcome {
         let before = self.mode;
         let mut actions = Vec::new();
-        if !self.config.modal_browsing {
+        // Modal browsing off: keys are the page's, except while link hints
+        // started from the palette (`:hint`) are up, which need typing.
+        if !self.config.modal_browsing && self.mode != Mode::Hint {
             return self.finish(before, KeyDisposition::Forward, actions);
         }
         let recordable = matches!(self.mode, Mode::Normal | Mode::Visual | Mode::Hint)
@@ -981,7 +983,7 @@ impl ModalSession {
     }
 
     fn open_palette(&mut self, kind: PaletteKind, text: String, actions: &mut Vec<Action>) {
-        let (items, follow_up) = match kind {
+        let (mut items, follow_up) = match kind {
             PaletteKind::CommandLine => (Vec::new(), None),
             PaletteKind::Tabs => (tab_rows(&self.tabs, &self.mru), None),
             PaletteKind::Commands => {
@@ -1019,6 +1021,14 @@ impl ModalSession {
                 Some(self.document_request_action(DocumentPurpose::Links)),
             ),
         };
+        // With modal browsing off no plain key runs a command, so the menu
+        // and the command list show none.
+        if !self.config.modal_browsing && matches!(kind, PaletteKind::Menu | PaletteKind::Commands)
+        {
+            for row in &mut items {
+                row.keys.clear();
+            }
+        }
         let mut palette = Palette::new(kind, text.clone(), items);
         palette.loading = follow_up.is_some();
         self.palette = Some(palette);
@@ -2035,7 +2045,7 @@ fn ago(now: i64, then: i64) -> String {
 
 /// Merlin's menu, in place of Chromium's ⋮ menu: label, what it runs, and
 /// a hint. Keys come from the keymap, so the user's own bindings show.
-const MENU: [(&str, &str, &str); 23] = [
+const MENU: [(&str, &str, &str); 28] = [
     ("New tab", "tabnew", ""),
     ("New window", "window", ""),
     (
@@ -2049,6 +2059,15 @@ const MENU: [(&str, &str, &str); 23] = [
     ("Bookmark this page", "bookmark", ""),
     ("Downloads", "palette downloads", ""),
     ("Workspaces", "palette workspaces", "saved windows"),
+    (
+        "Save workspace…",
+        "cmdline workspace save",
+        "keep this window's tabs and splits",
+    ),
+    ("Split side by side", "vsplit", "this page and a new one"),
+    ("Split top and bottom", "split", ""),
+    ("End the split", "only", ""),
+    ("Tabs in a sidebar", "sidebar", "or on top"),
     ("Find in page", "find", ""),
     ("Zoom in", "browser zoom-in", ""),
     ("Zoom out", "browser zoom-out", ""),

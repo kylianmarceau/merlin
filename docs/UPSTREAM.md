@@ -145,6 +145,14 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | `0055-merlin-picture-in-picture.patch` | `chrome/browser/ui/views/overlay/video_overlay_window_views.cc`, `playback_image_button.cc` | Merlin's picture-in-picture look: light veil, short gradients, site name without icon, frosted play/pause, white controls, one bottom row with a steady-width time label. Presentation only; controller, keys and accessibility unchanged ([decision 48](DECISIONS.md#48-site-controls-on-the-address-merlins-picture-in-picture-whole-workspaces)) |
 | `0054-merlin-tab-thumbnails.patch` | `chrome/browser/ui/tabs/tab_features.cc` | Every tab gets a `ThumbnailTabHelper`, also on macOS where `kTabHoverCardImages` is off, for the Ctrl-Tab switcher's cards. Hover cards still follow the feature and show no image ([decision 47](DECISIONS.md#47-cmd-q-quits-at-once-ctrl-tab-goes-to-the-last-used-tab)) |
 
+## Downloads, menus and menu bar patches (2026-11-06)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0056-merlin-menu-bar-icon.patch` | `chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc`, `chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc` | The menu bar item shows Merlin's falcon (`kProductIcon`) as a template image instead of Chromium's magnifier ([decision 49](DECISIONS.md#49-everything-without-modal-keys-merlins-downloads-and-menus)) |
+| `0057-merlin-downloads-button.patch` | `chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.cc` | With Merlin's style on, Chromium's download button never appears; `MerlinDownloadsButton` and its pop-up stand in ([decision 49](DECISIONS.md#49-everything-without-modal-keys-merlins-downloads-and-menus)) |
+| `0058-merlin-menus.patch` | `ui/views/controls/menu/menu_config_mac.mm`, `menu_item_view.cc` | Menus Chromium draws itself get a 12 px rounded panel, roomier rows and an inset rounded highlight when Merlin's style is on. Native context menus are unchanged ([decision 49](DECISIONS.md#49-everything-without-modal-keys-merlins-downloads-and-menus)) |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before

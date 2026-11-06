@@ -74,6 +74,9 @@
 #include "chrome/browser/ui/modal_browser/merlin_settings_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
+#include "chrome/browser/ui/modal_browser/merlin_downloads_button.h"
+#include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
 #include "chrome/browser/ui/modal_browser/merlin_toolbar.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
@@ -103,7 +106,6 @@
 #include "chrome/browser/ui/views/permissions/permission_prompt_style.h"
 #include "chrome/browser/ui/views/toolbar/reload_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/theme_resources.h"
@@ -172,6 +174,12 @@
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/ax_update_notifier.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/controls/menu/menu_controller.h"
+#include "ui/views/controls/menu/menu_item_view.h"
+#include "ui/views/controls/menu/submenu_view.h"
+#include "ui/menus/simple_menu_model.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/views/focus/focus_manager.h"
@@ -307,6 +315,12 @@ std::unique_ptr<net::test_server::HttpResponse> ServePage(
     response->set_content(html);
   } else if (request.relative_url == "/frame") {
     response->set_content(kCrossFrameHtml);
+  } else if (request.relative_url == "/report-2026.pdf") {
+    response->set_content(std::string(20000, 'x'));
+    response->set_content_type("application/octet-stream");
+    response->AddCustomHeader("Content-Disposition",
+                              "attachment; filename=\"report-2026.pdf\"");
+    return response;
   } else {
     response->set_content(kPageHtml);
   }
@@ -1986,6 +2000,34 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, Snapshots) {
        "palette_tabs_filtered.png");
   TypeInPalette(u"", ui::VKEY_ESCAPE);
 
+  // A menu Chromium draws itself (toolbar button menus), in Merlin's shape.
+  {
+    ui::SimpleMenuModel model(nullptr);
+    model.AddItem(1, u"12 requests blocked on this page");
+    model.AddCheckItem(2, u"Use protection on example.com");
+    model.AddItem(3, u"Reload to apply page changes");
+    model.AddSeparator(ui::NORMAL_SEPARATOR);
+    model.AddItem(4, u"Ad blocking settings");
+    views::MenuRunner runner(&model, views::MenuRunner::HAS_MNEMONICS);
+    views::Widget* window =
+        BrowserView::GetBrowserViewForBrowser(browser())->GetWidget();
+    runner.RunMenuAt(window, nullptr, gfx::Rect(window->GetWindowBoundsInScreen().top_right() - gfx::Vector2d(40, -40), gfx::Size(30, 30)),
+                     views::MenuAnchorPosition::kTopRight,
+                     ui::mojom::MenuSourceType::kKeyboard);
+    views::MenuController* menu = views::MenuController::GetActiveInstance();
+    ASSERT_TRUE(menu);
+    views::MenuItemView* root = menu->GetSelectedMenuItem();
+    while (root && root->GetParentMenuItem()) {
+      root = root->GetParentMenuItem();
+    }
+    ASSERT_TRUE(root && root->GetSubmenu() && root->GetSubmenu()->GetWidget());
+    base::RunLoop().RunUntilIdle();
+    save(views::test::PaintViewToBitmap(
+             root->GetSubmenu()->GetWidget()->GetRootView()),
+         "menu.png");
+    runner.Cancel();
+  }
+
   PressQuestion();
   save(Snap(palette_view()), "palette_commands.png");
   TypeInPalette(u"tab", ui::VKEY_UNKNOWN);
@@ -2876,6 +2918,147 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
     return view->toolbar()->parent() && view->Contains(view->toolbar());
   }));
   EXPECT_TRUE(contents()->GetPrimaryMainFrame()->IsRenderFrameLive());
+}
+
+// A tab dragged out of the bar onto the right or top of the page goes into
+// a split there, beside the tab used before it; with modal browsing off this
+// is how a mouse user splits.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, DragTabOntoPageSplits) {
+  TabStripModel* strip = browser()->tab_strip_model();
+  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("about:blank#b"), WindowOpenDisposition::NEW_BACKGROUND_TAB,
+      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
+  ASSERT_EQ(strip->count(), 2);
+  tabs::TabInterface* first = strip->GetTabAtIndex(0);
+  tabs::TabInterface* second = strip->GetTabAtIndex(1);
+  MerlinTabBar* bar = controller()->tab_bar_host_for_testing()->bar();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return bar->tabs_for_testing().size() == 2u; }));
+  views::View* page =
+      BrowserView::GetBrowserViewForBrowser(browser())->contents_container();
+  const gfx::Rect area = page->GetBoundsInScreen();
+  ASSERT_FALSE(area.IsEmpty());
+
+  struct Drop {
+    gfx::Point at;
+    MerlinTabBar::SplitDrop zone;
+    split_tabs::SplitTabLayout layout;
+    bool dragged_first;
+  };
+  for (const Drop& drop :
+       {Drop{gfx::Point(area.right() - 10, area.CenterPoint().y()),
+             MerlinTabBar::SplitDrop::kRight,
+             split_tabs::SplitTabLayout::kSideBySide, false},
+        Drop{gfx::Point(area.CenterPoint().x(), area.y() + area.height() / 4),
+             MerlinTabBar::SplitDrop::kTop,
+             split_tabs::SplitTabLayout::kStacked, true}}) {
+    strip->ActivateTabAt(strip->GetIndexOfTab(first));
+    MerlinTab* dragged = nullptr;
+    for (MerlinTab* tab : bar->tabs_for_testing()) {
+      if (tab->handle() == second->GetHandle()) {
+        dragged = tab;
+      }
+    }
+    ASSERT_TRUE(dragged);
+    // As a press does, then the drag.
+    bar->ActivateTab(dragged);
+    bar->DragTab(dragged, gfx::Point(5, 5), drop.at);
+    EXPECT_EQ(bar->split_drop_for_testing(), drop.zone);
+    bar->EndDrag(/*cancel=*/false);
+    ASSERT_TRUE(base::test::RunUntil([&] { return second->IsSplit(); }));
+    const std::optional<split_tabs::SplitTabId> id =
+        strip->GetSplitForTab(strip->GetIndexOfTab(second));
+    ASSERT_TRUE(id);
+    split_tabs::SplitTabData* data = strip->GetSplitData(*id);
+    EXPECT_EQ(data->visual_data()->split_layout(), drop.layout);
+    EXPECT_EQ(data->ListTabs()[0] == second, drop.dragged_first);
+    EXPECT_TRUE(first->IsSplit());
+    EXPECT_EQ(strip->GetActiveTab(), second);
+    strip->RemoveSplit(*id);
+  }
+
+  // The middle of the page is no split.
+  MerlinTab* dragged = bar->tabs_for_testing()[1];
+  bar->ActivateTab(dragged);
+  bar->DragTab(dragged, gfx::Point(5, 5), area.CenterPoint());
+  EXPECT_EQ(bar->split_drop_for_testing(), MerlinTabBar::SplitDrop::kNone);
+  bar->EndDrag(/*cancel=*/true);
+  EXPECT_FALSE(first->IsSplit());
+}
+
+// Merlin's downloads button appears with a download and opens its pop-up;
+// Chromium's own button stays away.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, DownloadsButtonAndPopover) {
+  MerlinDownloadsButton* button = controller()->downloads_button_for_testing();
+  ASSERT_TRUE(button);
+  EXPECT_FALSE(button->GetVisible());
+  ui_test_utils::DownloadURL(
+      browser(), embedded_test_server()->GetURL("/report-2026.pdf"));
+  ASSERT_TRUE(base::test::RunUntil([&] { return button->GetVisible(); }));
+  EXPECT_FALSE(button->progress_for_testing()) << "nothing still running";
+  EXPECT_FALSE(browser()->GetProfile()->GetPrefs()->GetBoolean(
+      prefs::kDownloadBubblePartialViewEnabled));
+  if (auto* chromium = DownloadToolbarUIController::From(browser())) {
+    EXPECT_FALSE(chromium->IsShowing());
+  }
+
+  views::test::ButtonTestApi(button).NotifyClick(ui::MouseEvent(
+      ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
+      ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON));
+  views::Widget* popover = button->popover_for_testing();
+  ASSERT_TRUE(popover);
+  bool found = false;
+  views::View* contents = popover->GetContentsView();
+  std::vector<views::View*> stack = {contents};
+  while (!stack.empty()) {
+    views::View* view = stack.back();
+    stack.pop_back();
+    if (view->GetViewAccessibility().GetCachedName().find(u"report-2026.pdf") !=
+        std::u16string::npos) {
+      found = true;
+    }
+    for (views::View* child : view->children()) {
+      stack.push_back(child);
+    }
+  }
+  EXPECT_TRUE(found) << "the download has a row";
+
+  // Clear empties the pop-up's list of finished files, and the button goes.
+  MerlinDownloadsButton::ClearRecent(browser()->GetProfile());
+  ASSERT_TRUE(base::test::RunUntil([&] { return !button->GetVisible(); }));
+  EXPECT_TRUE(MerlinDownloadsButton::Recent(browser()->GetProfile()).empty());
+}
+
+// Cmd-K opens Merlin's menu with modal browsing on or off.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, CommandKOpensMerlinMenu) {
+  for (bool modal : {true, false}) {
+    WriteConfig(modal ? "[options]\nmodal_browsing = true\n"
+                      : "[options]\nmodal_browsing = false\n");
+    ReloadConfig();
+    ASSERT_TRUE(controller()->AcceleratorPressed(
+        ui::Accelerator(ui::VKEY_K, ui::EF_PLATFORM_ACCELERATOR)));
+    ASSERT_TRUE(palette()->IsVisible()) << modal;
+    EXPECT_EQ(palette_view()->model().kind, ffi::PaletteKind::Menu);
+    // Keys show only while they run something.
+    EXPECT_EQ(palette_view()->model().rows[0].keys.empty(), !modal);
+    TypeInPalette(u"", ui::VKEY_ESCAPE);
+    ASSERT_TRUE(base::test::RunUntil([&] { return !palette()->IsVisible(); }));
+  }
+}
+
+// The first 'o' of a session focuses the input, as later ones do. The
+// palette's widget is created on that first open, and a new child widget can
+// report itself visible at once; focus used to be skipped then.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, FirstOpenFocusesInput) {
+  BrowserView::GetBrowserViewForBrowser(browser())->Activate();
+  base::RunLoop().RunUntilIdle();
+  for (int i = 0; i < 2; ++i) {
+    PressLetter('o');
+    ASSERT_TRUE(palette()->IsVisible());
+    EXPECT_TRUE(palette_view()->textfield()->HasFocus()) << "open " << i;
+    PressEscape();
+    ASSERT_FALSE(palette()->IsVisible());
+  }
 }
 
 }  // namespace modal_browser

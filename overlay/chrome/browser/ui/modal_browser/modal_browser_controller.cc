@@ -50,6 +50,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 #include "chrome/browser/ui/modal_browser/merlin_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_restyle.h"
+#include "chrome/browser/ui/modal_browser/merlin_downloads_button.h"
 #include "chrome/browser/ui/modal_browser/merlin_safety_controls.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
@@ -562,6 +563,11 @@ ModalBrowserController::~ModalBrowserController() {
         safety_controls_->parent()->RemoveChildViewT(safety_controls_.get());
     safety_controls_ = nullptr;
   }
+  if (downloads_button_) {
+    auto removed =
+        downloads_button_->parent()->RemoveChildViewT(downloads_button_.get());
+    downloads_button_ = nullptr;
+  }
   // Before the tab strip model and the window go.
   page_color_.reset();
   tab_bar_host_.reset();
@@ -623,6 +629,10 @@ bool ModalBrowserController::AcceleratorPressed(
     ctrl_tab_->Cycle(/*forward=*/!accelerator.IsShiftDown());
     return true;
   }
+  if (accelerator.key_code() == ui::VKEY_K) {
+    RunCommandLine("palette menu");
+    return true;
+  }
   SetTabsHidden(ffi::Switch::Toggle);
   return true;
 }
@@ -642,6 +652,12 @@ void ModalBrowserController::RegisterAccelerators() {
   // Save Page As moves to Shift-Cmd-S (patches/0012).
   focus_manager->RegisterAccelerator(
       ui::Accelerator(ui::VKEY_S, ui::EF_PLATFORM_ACCELERATOR),
+      ui::AcceleratorManager::kNormalPriority, this);
+  // Cmd-K (Ctrl-K elsewhere) opens Merlin's menu, with modal browsing on or
+  // off: every Merlin command is a search away without its keys. Also only
+  // after the page: sites with their own Cmd-K palette keep it.
+  focus_manager->RegisterAccelerator(
+      ui::Accelerator(ui::VKEY_K, ui::EF_PLATFORM_ACCELERATOR),
       ui::AcceleratorManager::kNormalPriority, this);
   // Ctrl-Tab and Ctrl-Shift-Tab: high priority runs before Chromium's Tab >
   // Select Next Tab command and before the page, as Chromium's own did.
@@ -1028,7 +1044,17 @@ void ModalBrowserController::InstallMerlinToolbar(
   // Recording and private-window labels at the right end. Site
   // information and permission prompts open from the address field.
   safety_controls_ = row->AddChildViewAt(
-      std::make_unique<MerlinSafetyControls>(browser_.get()), index);
+      std::make_unique<MerlinSafetyControls>(browser_.get()), index++);
+  auto downloads = std::make_unique<MerlinDownloadsButton>(
+      browser_.get(), base::BindRepeating(
+                          [](base::WeakPtr<ModalBrowserController> self) {
+                            if (self) {
+                              self->RunCommandLine("downloads");
+                            }
+                          },
+                          weak_factory_.GetWeakPtr()));
+  downloads->SetProperty(views::kMarginsKey, gfx::Insets::VH(0, 2));
+  downloads_button_ = row->AddChildViewAt(std::move(downloads), index);
   address_editor_ = std::make_unique<MerlinAddressEditor>(
       browser_view_, browser_.get(), address_field_,
       // The start page hides Merlin's field again.
@@ -3210,6 +3236,9 @@ void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
   }
   if (safety_controls_) {
     safety_controls_->SetSurface(color);
+  }
+  if (downloads_button_) {
+    downloads_button_->SetSurface(color);
   }
 }
 

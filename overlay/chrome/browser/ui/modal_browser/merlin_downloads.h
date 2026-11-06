@@ -36,6 +36,10 @@ std::string MerlinDownloadState(const download::DownloadItem* item);
 // "2.1 MB · example.com", "Failed: network error".
 std::string MerlinDownloadDetail(const download::DownloadItem* item);
 
+// The shorter line the toolbar's downloads pop-up shows: "141.8/317.5 MB ·
+// 21s", "Paused · 141.8/317.5 MB", "317.5 MB · example.com".
+std::string MerlinDownloadShortDetail(const download::DownloadItem* item);
+
 // {id, name, url, state, detail, percent, canResume, start} for the page.
 base::DictValue DescribeMerlinDownload(const download::DownloadItem* item);
 

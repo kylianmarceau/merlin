@@ -837,6 +837,50 @@ window opens 28 px down and right of the current one, not exactly over it.
 Unloaded restored tabs show their favicon from history. Split pairs share
 one capsule in the tab row and sidebar whether or not they are active.
 
+## 49. Everything without modal keys; Merlin's downloads and menus
+
+**Modal browsing off.** Every Merlin feature stays reachable without its
+keys. Cmd-K (Ctrl-K elsewhere) opens Merlin's menu in either mode, after the
+page has had the key, so sites with their own Cmd-K palette keep it. The
+menu now also lists Save workspace…, both splits, End the split and Tabs in
+a sidebar, and "Keys and commands" lists every command. With modal browsing
+off, the menu and command list show no keys, since no plain key runs them,
+and link hints started from the palette (`:hint`) still take typed letters.
+A tab dragged out of the tab row onto the page splits: the outer thirds
+side by side, the top and bottom of the middle stacked, with the dragged tab
+on the side it was dropped and the tab used before it on the other; the
+middle of the page is no split. An accent outline shows where it will go.
+Chromium's tab menu (right-click a tab) and Tab > New split view still work.
+The start page shows each workspace's and closed tab's site icon instead of
+the letter labels, and takes no letter keys.
+
+**First `o`.** The palette's widget is made on first use, and a new child
+widget can say it is already visible, which skipped focusing the input:
+the first `o` of a session typed nowhere. Visibility is now read before the
+widget exists.
+
+**Menu bar.** The menu bar item is Chromium's Omnibox Everywhere (on in
+non-Google builds through the field-trial testing config). Patch 0056 draws
+it with Merlin's falcon as a template image, so it follows the menu bar's
+colour, instead of Chromium's magnifier.
+
+**Downloads.** Merlin's toolbar has its own downloads button: an arrow over
+a small progress pill, shown while there are downloads from the last day
+(running and held-back ones always). It opens a pop-up with a "RECENT
+DOWNLOADS" header and a Clear pill, rows with a progress ring or the file's
+own icon, the name elided in the middle so the extension shows, a status
+line ("141.8/317.5 MB · 21s"), cancel (⊗), show in Finder on hover or retry,
+and "View all downloads ↗" to the Downloads page. Clear hides finished ones
+from the pop-up only. Patch 0057 keeps Chromium's download button from
+appearing, and Merlin turns off Chromium's bubble that opened by itself on
+each download. Held-back files open the Downloads page, which explains the
+risk.
+
+**Menus.** Right-click menus on macOS are native and unchanged. The menus
+Chromium draws itself (toolbar button menus, back/forward history) take
+Merlin's pop-up shape through patch 0058: a 12 px rounded panel, roomier
+rows and an inset rounded highlight.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing

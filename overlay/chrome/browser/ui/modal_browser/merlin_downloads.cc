@@ -153,6 +153,65 @@ std::string MerlinDownloadDetail(const download::DownloadItem* item) {
   return line;
 }
 
+namespace {
+
+// "141.8/317.5 MB": both in the total's unit, so they read as a fraction.
+std::string Fraction(int64_t received, int64_t total) {
+  static constexpr std::array<const char*, 5> kUnits = {"B", "KB", "MB", "GB",
+                                                        "TB"};
+  double scale = 1;
+  size_t unit = 0;
+  while (total / scale >= 1000 && unit + 1 < kUnits.size()) {
+    scale *= 1000;
+    ++unit;
+  }
+  return unit == 0 ? base::StringPrintf("%.0f/%.0f %s", received / scale,
+                                        total / scale, kUnits.at(unit))
+                   : base::StringPrintf("%.1f/%.1f %s", received / scale,
+                                        total / scale, kUnits.at(unit));
+}
+
+std::string TimeLeft(base::TimeDelta left) {
+  const int64_t s = std::max<int64_t>(1, left.InSeconds());
+  if (s < 60) {
+    return base::NumberToString(s) + "s";
+  }
+  if (s < 3600) {
+    return base::NumberToString(s / 60) + " min";
+  }
+  return base::NumberToString(s / 3600) + " h";
+}
+
+}  // namespace
+
+std::string MerlinDownloadShortDetail(const download::DownloadItem* item) {
+  const std::string state = MerlinDownloadState(item);
+  const int64_t received = item->GetReceivedBytes();
+  const int64_t total = item->GetTotalBytes();
+  if (state == "progress" || state == "paused") {
+    std::string amount =
+        total > 0 ? Fraction(received, total) : Size(received);
+    if (amount.empty()) {
+      amount = "Starting";
+    }
+    if (state == "paused") {
+      return "Paused · " + amount;
+    }
+    base::TimeDelta left;
+    if (item->TimeRemaining(&left)) {
+      return amount + " · " + TimeLeft(left);
+    }
+    if (item->CurrentSpeed() > 0) {
+      return amount + " · " + Size(item->CurrentSpeed()) + "/s";
+    }
+    return amount;
+  }
+  if (state == "dangerous") {
+    return "Held back · open to decide";
+  }
+  return MerlinDownloadDetail(item);
+}
+
 base::DictValue DescribeMerlinDownload(const download::DownloadItem* item) {
   base::DictValue d;
   d.Set("id", static_cast<int>(item->GetId()));

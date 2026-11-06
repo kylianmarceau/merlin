@@ -65,6 +65,7 @@ class MerlinTabBarHost;
 class PageColorSampler;
 class MerlinAddressField;
 class MerlinNavButton;
+class MerlinDownloadsButton;
 class MerlinSafetyControls;
 class StatusHost;
 
@@ -253,9 +254,14 @@ class ModalBrowserController : public BrowserOps,
   MerlinTabBarHost* tab_bar_host_for_testing() { return tab_bar_host_.get(); }
   CtrlTabSwitcher* ctrl_tab_for_testing() { return ctrl_tab_.get(); }
   MerlinNavButton* back_button_for_testing() { return back_button_; }
+  MerlinDownloadsButton* downloads_button_for_testing() {
+    return downloads_button_;
+  }
   MerlinSafetyControls* safety_controls_for_testing() {
     return safety_controls_;
   }
+  // Config `modal_browsing`; pages that show key labels hide them when off.
+  bool modal_browsing() const { return router_.modal_browsing(); }
   bool browserctl_enabled_for_testing() const {
     return router_.browserctl_enabled();
   }
@@ -368,6 +374,7 @@ class ModalBrowserController : public BrowserOps,
   raw_ptr<MerlinSafetyControls> safety_controls_ = nullptr;
   // Keeps Chromium's media toolbar button hidden.
   std::unique_ptr<KeepHidden> media_button_hidden_;
+  raw_ptr<MerlinDownloadsButton> downloads_button_ = nullptr;
   // Swaps Chromium's field in while the address is edited.
   std::unique_ptr<MerlinAddressEditor> address_editor_;
   // Merlin's tab bar over Chromium's, with tabs on top.

@@ -166,6 +166,7 @@ h2 { margin: 0 0 8px; font-size: 12px; font-weight: 500; color: var(--text3); }
   display: inline-flex; align-items: center; justify-content: center;
   background: #F6D44A; color: #1A1A1A; font: 700 10.5px/1 var(--mono);
 }
+.row-icon { width: 16px; height: 16px; flex-shrink: 0; border-radius: 3px; color: var(--text3); }
 .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .when { font-size: 12px; color: var(--text3); flex-shrink: 0; }
 )CSS";
@@ -198,17 +199,44 @@ constexpr char kStartJs[] = R"JS('use strict';
     return then.toLocaleDateString(undefined, {day: 'numeric', month: 'short'});
   }
 
-  function row(label, title, onActivate, extra) {
+  // With modal browsing on, each row shows the key that picks it. Off,
+  // Merlin binds no plain keys, so the row shows the site's icon instead and
+  // letters typed on the page stay the page's.
+  let modal = true;
+
+  function row(label, icon, title, onActivate, extra) {
     const li = el('li');
     const b = el('button', 'row');
     b.type = 'button';
     b.title = title;
-    b.append(el('kbd', 'label', label), el('span', 'name', title));
+    b.append(modal ? el('kbd', 'label', label) : icon(), el('span', 'name', title));
     if (extra) b.append(extra);
     b.addEventListener('click', onActivate);
     li.append(b);
-    actions.set(label, onActivate);
+    if (modal) actions.set(label, onActivate);
     return li;
+  }
+
+  // A workspace without a web page to show: four tiles.
+  function workspaceIcon() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    const attrs = {class: 'row-icon', viewBox: '0 0 16 16', 'aria-hidden': 'true', fill: 'none',
+                   stroke: 'currentColor', 'stroke-width': '1.4'};
+    for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
+    for (const [x, y] of [[2, 2], [9, 2], [2, 9], [9, 9]]) {
+      const r = document.createElementNS(NS, 'rect');
+      for (const [k, v] of Object.entries({x, y, width: 5, height: 5, rx: 1.4})) r.setAttribute(k, v);
+      svg.append(r);
+    }
+    return svg;
+  }
+
+  function siteIcon(url, fallback) {
+    if (!url) return fallback();
+    const img = favicon(url);
+    img.className = 'row-icon';
+    return img;
   }
 
   function fill(listId, sectionId, items, makeRow) {
@@ -220,12 +248,13 @@ constexpr char kStartJs[] = R"JS('use strict';
   window.merlinStart = {
     render(data) {
       actions.clear();
+      modal = data.modal !== false;
       const ws = (data.workspaces || []).slice(0, WORKSPACE_LABELS.length);
       const rc = (data.recent || []).slice(0, RECENT_LABELS.length);
       const any = [
-        fill('ws', 'ws-sec', ws, (w, i) => row(WORKSPACE_LABELS[i], w.name,
+        fill('ws', 'ws-sec', ws, (w, i) => row(WORKSPACE_LABELS[i], () => siteIcon(w.url, workspaceIcon), w.name,
             () => chrome.send('openWorkspace', [w.name]), el('span', 'when', when(w.modified)))),
-        fill('rc', 'rc-sec', rc, (r, i) => row(RECENT_LABELS[i], r.title || r.domain || r.url,
+        fill('rc', 'rc-sec', rc, (r, i) => row(RECENT_LABELS[i], () => siteIcon(r.url, workspaceIcon), r.title || r.domain || r.url,
             () => chrome.send('reopen', [r.id]))),
       ].some(Boolean);
       $('cols').hidden = !any;
@@ -383,6 +412,7 @@ constexpr char kStartJs[] = R"JS('use strict';
 
   // Labels work while nothing on the page is being typed into (Esc leaves
   // the field). In Normal mode Merlin passes these unbound keys to the page.
+  // With modal browsing off there are no labels, so no keys are taken.
   document.addEventListener('keydown', (e) => {
     if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
     const t = e.target;
@@ -429,6 +459,19 @@ std::optional<base::DictValue> SummarizeWorkspace(const std::string& name,
   const std::string* project = file.FindString("project");
   std::optional<double> saved = file.FindDouble("saved");
   const size_t tab_count = tabs ? tabs->size() : 0;
+  // The page the workspace opens on, for its icon.
+  std::string url;
+  if (tabs && tab_count) {
+    const size_t active =
+        static_cast<size_t>(std::max(0, file.FindInt("active").value_or(0)));
+    const base::Value& tab = (*tabs)[active < tab_count ? active : 0];
+    if (const std::string* spec =
+            tab.is_dict() ? tab.GetDict().FindString("url") : nullptr) {
+      if (GURL(*spec).SchemeIsHTTPOrHTTPS()) {
+        url = *spec;
+      }
+    }
+  }
   size_t pinned = 0;
   if (tabs) {
     for (const base::Value& tab : *tabs) {
@@ -461,6 +504,7 @@ std::optional<base::DictValue> SummarizeWorkspace(const std::string& name,
                      : split                       ? "split"
                                                    : "single");
   item.Set("modified", saved.value_or(0));
+  item.Set("url", url);
   return item;
 }
 
@@ -560,6 +604,8 @@ class MerlinStartHandler : public content::WebUIMessageHandler {
     base::DictValue data;
     data.Set("workspaces", std::move(workspaces));
     data.Set("recent", RecentlyClosed());
+    ModalBrowserController* controller = Controller();
+    data.Set("modal", !controller || controller->modal_browsing());
     CallJavascriptFunction("merlinStart.render", data);
   }
 

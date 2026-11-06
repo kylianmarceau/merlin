@@ -1,0 +1,31 @@
+diff --git a/chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc b/chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc
+index b01a62eae2..3cd7945849 100644
+--- a/chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc
++++ b/chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc
+@@ -178,6 +178,8 @@ void OmniboxEverywhereBackgroundModeManager::ShowStatusIcon() {
+     status_icon_->AddObserver(this);
+ #if BUILDFLAG(IS_MAC)
+     status_icon_->SetOpenMenuWithSecondaryClick(true);
++    // Merlin: drawn in the menu bar's own colour, light or dark.
++    status_icon_->SetImageTemplate(true);
+ #endif
+     UpdateStatusIconContextMenu();
+   }
+diff --git a/chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc b/chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc
+index e9f0242490..4876cd4b24 100644
+--- a/chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc
++++ b/chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc
+@@ -28,9 +28,11 @@ gfx::ImageSkia GetBaseIcon() {
+ #if BUILDFLAG(IS_WIN)
+   constexpr int kIconDipSize = 32;
+ #else
+-  constexpr int kIconDipSize = 16;
++  // Merlin: its falcon, at menu bar height, not Chromium's magnifier. Black,
++  // used as a template image on macOS so it follows the menu bar's colour.
++  constexpr int kIconDipSize = 18;
+ #endif
+-  return gfx::CreateVectorIcon(vector_icons::kSearchIcon, kIconDipSize,
++  return gfx::CreateVectorIcon(vector_icons::kProductIcon, kIconDipSize,
+                                SK_ColorBLACK);
+ #endif
+ }

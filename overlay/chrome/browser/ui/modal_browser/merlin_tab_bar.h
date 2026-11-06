@@ -52,6 +52,8 @@ class Widget;
 
 namespace modal_browser {
 
+class OverlayHost;
+
 class MerlinTabBar;
 
 // What one tab shows, read from the tab strip model.
@@ -283,6 +285,12 @@ class MerlinTabBar : public views::View,
   // Where a tab dropped at `screen_point` would go (a model index).
   int DropIndexAt(const gfx::Point& screen_point) const;
 
+  // A tab dragged onto an edge of the page goes into a split there, beside
+  // the tab used before it.
+  enum class SplitDrop { kNone, kLeft, kRight, kTop, kBottom };
+  SplitDrop SplitDropAt(const gfx::Point& screen_point) const;
+  SplitDrop split_drop_for_testing() const { return split_drop_; }
+
   // Called by group headers.
   void ToggleGroup(MerlinGroupHeader* header);
   SkColor GroupColor(tab_groups::TabGroupColorId color) const;
@@ -374,6 +382,12 @@ class MerlinTabBar : public views::View,
   // Moves a dropped tab to the window under `screen_point`, or to a new
   // window there.
   void DetachTab(tabs::TabHandle tab, gfx::Point screen_point);
+  // The tab a dragged `tab` would be split with: the last one used that is
+  // not in a split already and is pinned as `tab` is.
+  tabs::TabInterface* SplitPartnerFor(const tabs::TabInterface* tab) const;
+  void SplitWithDropped(tabs::TabHandle tab, SplitDrop drop);
+  // Shows where the dragged tab would go, or hides that for kNone.
+  void ShowSplitDrop(SplitDrop drop);
   void UpdateLoadingTimer();
   void OnLoadingTimer();
   void NewTab();
@@ -409,6 +423,9 @@ class MerlinTabBar : public views::View,
   // Pulled far enough out to leave the bar.
   bool detaching_ = false;
   gfx::Point drag_screen_point_;
+  // Out of the bar over an edge of the page: a split on drop.
+  SplitDrop split_drop_ = SplitDrop::kNone;
+  std::unique_ptr<OverlayHost> split_indicator_;
   // From the window's origin to the grab point, so a new window lands with
   // the tab under the mouse.
   gfx::Vector2d drag_offset_in_window_;

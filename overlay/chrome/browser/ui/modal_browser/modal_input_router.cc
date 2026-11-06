@@ -304,6 +304,10 @@ bool ModalInputRouter::hide_tabs_default() const {
   return session_->hide_tabs_default();
 }
 
+bool ModalInputRouter::modal_browsing() const {
+  return session_->modal_browsing();
+}
+
 std::vector<ModalInputRouter::Binding> ModalInputRouter::key_bindings() const {
   std::vector<Binding> out;
   for (const ffi::ListItem& item : session_->key_bindings()) {

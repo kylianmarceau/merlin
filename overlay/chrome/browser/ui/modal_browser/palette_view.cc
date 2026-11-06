@@ -576,6 +576,10 @@ void PaletteHost::Show(const ffi::PaletteState& state) {
     Hide();
     return;
   }
+  // Read before the widget exists: a new child widget can report itself
+  // visible as soon as it is created, which would skip focusing the input
+  // on the first open.
+  const bool was_visible = view_ && host_.IsVisible();
   if (!view_) {
     view_ = static_cast<PaletteView*>(host_.EnsureWidget(base::BindOnce(
         [](PaletteDelegate* delegate) -> std::unique_ptr<views::View> {
@@ -586,7 +590,6 @@ void PaletteHost::Show(const ffi::PaletteState& state) {
       return;
     }
   }
-  const bool was_visible = host_.IsVisible();
   view_->SetModel(PaletteModel::From(state));
   Layout();
   // Lay out now, not at the next frame: the input moves with the prompt

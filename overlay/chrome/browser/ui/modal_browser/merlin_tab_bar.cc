@@ -22,8 +22,10 @@
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/modal_browser/modal_style.h"
+#include "chrome/browser/ui/modal_browser/overlay_host.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_group_theme.h"
@@ -38,7 +40,9 @@
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"  // nogncheck
 #include "chrome/browser/ui/views/tabs/groups/tab_group_editor_bubble_view.h"  // nogncheck
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"  // nogncheck
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_visual_data.h"
+#include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_context_menu_command.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/vector_icons/vector_icons.h"
@@ -1859,8 +1863,10 @@ void MerlinTabBar::DragTab(MerlinTab* tab,
     LayoutTabs(/*animate=*/true);
   }
   if (detaching_) {
+    ShowSplitDrop(SplitDropAt(screen_point));
     return;
   }
+  ShowSplitDrop(SplitDrop::kNone);
   // Pinned tiles in the sidebar move along their row.
   const bool vertical_drag = vertical_ && !tab->data().pinned;
   const int pos_in_bar = vertical_drag ? in_bar.y() : in_bar.x();
@@ -1934,6 +1940,17 @@ void MerlinTabBar::EndDrag(bool cancel) {
   const bool detach = detaching_ && !cancel;
   detaching_ = false;
   tab->SetDetaching(false);
+  const SplitDrop split = split_drop_;
+  ShowSplitDrop(SplitDrop::kNone);
+  if (detach && split != SplitDrop::kNone) {
+    // After this mouse event, as below.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&MerlinTabBar::SplitWithDropped,
+                                  weak_factory_.GetWeakPtr(), tab->handle(),
+                                  split));
+    LayoutTabs(/*animate=*/true);
+    return;
+  }
   if (detach) {
     // After this mouse event: moving the tab may delete this view.
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -1967,6 +1984,162 @@ int MerlinTabBar::DropIndexAt(const gfx::Point& screen_point) const {
     }
   }
   return index;
+}
+
+namespace {
+
+// What ShowSplitDrop shows: the part of the page the tab would take, in
+// Merlin's accent.
+class SplitDropView : public views::View {
+ public:
+  void OnPaint(gfx::Canvas* canvas) override {
+    constexpr SkColor kAccent = SkColorSetRGB(0xF6, 0xD4, 0x4A);
+    gfx::RectF r(GetLocalBounds());
+    r.Inset(1.5f);
+    cc::PaintFlags flags;
+    flags.setAntiAlias(true);
+    flags.setColor(SkColorSetA(kAccent, 0x30));
+    canvas->DrawRoundRect(r, design::kCardRadius, flags);
+    flags.setStyle(cc::PaintFlags::kStroke_Style);
+    flags.setStrokeWidth(2);
+    flags.setColor(SkColorSetA(kAccent, 0xD0));
+    canvas->DrawRoundRect(r, design::kCardRadius, flags);
+  }
+};
+
+// The page area of `browser`'s window, in screen coordinates.
+views::View* PageArea(BrowserWindowInterface* browser) {
+  BrowserView* view = BrowserView::GetBrowserViewForBrowser(browser);
+  return view ? view->contents_container() : nullptr;
+}
+
+}  // namespace
+
+MerlinTabBar::SplitDrop MerlinTabBar::SplitDropAt(
+    const gfx::Point& screen_point) const {
+  views::View* page = PageArea(browser_);
+  if (!drag_tab_ || !page || !page->GetVisible() ||
+      !SplitPartnerFor(drag_tab_->handle().Get())) {
+    return SplitDrop::kNone;
+  }
+  const gfx::Rect area = page->GetBoundsInScreen();
+  if (area.IsEmpty() || !area.Contains(screen_point)) {
+    return SplitDrop::kNone;
+  }
+  // The outer thirds split side by side; the top and bottom of the middle
+  // stack. The centre is no split: dropped there, the tab stays put.
+  const float x = float(screen_point.x() - area.x()) / area.width();
+  const float y = float(screen_point.y() - area.y()) / area.height();
+  if (x < 0.33f) {
+    return SplitDrop::kLeft;
+  }
+  if (x > 0.67f) {
+    return SplitDrop::kRight;
+  }
+  if (y < 0.3f) {
+    return SplitDrop::kTop;
+  }
+  if (y > 0.7f) {
+    return SplitDrop::kBottom;
+  }
+  return SplitDrop::kNone;
+}
+
+tabs::TabInterface* MerlinTabBar::SplitPartnerFor(
+    const tabs::TabInterface* tab) const {
+  if (!tab || tab->IsSplit()) {
+    return nullptr;
+  }
+  tabs::TabInterface* best = nullptr;
+  base::TimeTicks best_time;
+  for (int i = 0; i < model_->count(); ++i) {
+    tabs::TabInterface* other = model_->GetTabAtIndex(i);
+    if (other == tab || other->IsSplit() ||
+        other->IsPinned() != tab->IsPinned()) {
+      continue;
+    }
+    const base::TimeTicks used = other->GetContents()->GetLastActiveTimeTicks();
+    if (!best || used > best_time) {
+      best = other;
+      best_time = used;
+    }
+  }
+  return best;
+}
+
+void MerlinTabBar::SplitWithDropped(tabs::TabHandle handle, SplitDrop drop) {
+  tabs::TabInterface* tab = handle.Get();
+  tabs::TabInterface* partner = SplitPartnerFor(tab);
+  if (!tab || !partner) {
+    return;
+  }
+  const int dropped = model_->GetIndexOfTab(tab);
+  const int other = model_->GetIndexOfTab(partner);
+  if (dropped == TabStripModel::kNoTab || other == TabStripModel::kNoTab) {
+    return;
+  }
+  const bool side_by_side =
+      drop == SplitDrop::kLeft || drop == SplitDrop::kRight;
+  // The page you were on stays where it is; the dropped tab joins it.
+  const split_tabs::SplitTabId id = model_->AddToNewSplit(
+      {other, dropped},
+      split_tabs::SplitTabVisualData(side_by_side
+                                         ? split_tabs::SplitTabLayout::kSideBySide
+                                         : split_tabs::SplitTabLayout::kStacked),
+      split_tabs::SplitTabCreatedSource::kDragAndDropTab);
+  const bool dropped_first = drop == SplitDrop::kLeft || drop == SplitDrop::kTop;
+  split_tabs::SplitTabData* data = model_->GetSplitData(id);
+  if (data && !data->ListTabs().empty() &&
+      (data->ListTabs()[0] == tab) != dropped_first) {
+    model_->ReverseTabsInSplit(id);
+  }
+  model_->ActivateTabAt(model_->GetIndexOfTab(tab));
+}
+
+void MerlinTabBar::ShowSplitDrop(SplitDrop drop) {
+  if (drop == split_drop_) {
+    return;
+  }
+  split_drop_ = drop;
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser_);
+  if (drop == SplitDrop::kNone || !browser_view) {
+    if (split_indicator_) {
+      split_indicator_->Hide();
+    }
+    return;
+  }
+  if (!split_indicator_) {
+    split_indicator_ = std::make_unique<OverlayHost>(
+        browser_view, OverlayHost::Options{.name = "MerlinSplitDrop",
+                                           .accept_events = false});
+  }
+  if (!split_indicator_->EnsureWidget(base::BindOnce(
+          [] { return std::unique_ptr<views::View>(new SplitDropView()); }))) {
+    return;
+  }
+  views::View* page = PageArea(browser_);
+  if (!page) {
+    return;
+  }
+  gfx::Rect area = page->ConvertRectToWidget(page->GetLocalBounds());
+  switch (drop) {
+    case SplitDrop::kLeft:
+      area.set_width(area.width() / 2);
+      break;
+    case SplitDrop::kRight:
+      area.Inset(gfx::Insets::TLBR(0, area.width() / 2, 0, 0));
+      break;
+    case SplitDrop::kTop:
+      area.set_height(area.height() / 2);
+      break;
+    case SplitDrop::kBottom:
+      area.Inset(gfx::Insets::TLBR(area.height() / 2, 0, 0, 0));
+      break;
+    case SplitDrop::kNone:
+      break;
+  }
+  area.Inset(8);
+  split_indicator_->ShowAt(area);
 }
 
 void MerlinTabBar::DetachTab(tabs::TabHandle handle, gfx::Point screen_point) {

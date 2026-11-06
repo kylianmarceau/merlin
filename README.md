@@ -35,7 +35,9 @@ passwords and DevTools work the same as in Chrome.
 
 Typing in a text field always goes to the page, and any site can have its
 own shortcuts back. To turn the keyboard layer off entirely, switch off
-**Settings › Keys › Modal browsing**.
+**Settings › Keys › Modal browsing**. Everything stays a click or Cmd-K
+away: Cmd-K opens Merlin's menu, and dragging a tab onto the edge of the
+page splits the window.
 
 > [!NOTE]
 > Merlin is in beta. It runs on Apple Silicon Macs only and doesn't update

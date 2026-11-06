@@ -614,6 +614,11 @@ Tab bar and page color (decision 38):
 | 58 | Cmd-S in Google Docs or in the Settings config editor | The page saves; the tabs stay. Shift-Cmd-S opens Save Page As |
 | 59 | Settings > Appearance > Hide tabs on; open a new window | Every window hides its tabs; the new one starts hidden. Off brings them back |
 | 60 | Open HTTPS; right-click the address, then type `:site`, in both layouts and with tabs hidden | Page Info opens under the address and shows permissions/cookies/certificate details; no sliders or ♫ button in the toolbar, even while a video plays |
+| 61 | Modal browsing off: press Cmd-K, pick Split side by side; then drag a tab from the row onto the right or top of the page | The menu opens with no key hints; the split opens; the drag shows an accent outline and splits there, the dragged tab on the side it was dropped |
+| 62 | Modal browsing off: open a new tab | Workspaces and Recently closed show site icons, not letters; typing letters outside the field does nothing |
+| 63 | Modal browsing on: launch, press `o` once and type | The text goes into the open field the first time |
+| 64 | Download a large file; click the toolbar ↓ | Only Merlin's button shows, its pill filling; the pop-up lists the file with a ring and "x/y MB · time"; ⊗ cancels; finished files show their icon, open on click, and show a magnifier on hover; Clear empties finished ones; View all downloads opens the Downloads page |
+| 65 | Look at the menu bar item; switch macOS between light and dark | Merlin's falcon, not a magnifier, in the menu bar's colour |
 | 61 | Start microphone/camera capture in two tabs, then pin, compact, group-collapse and hide tabs | Sensitive tab badges remain where tabs are visible; Recording/Sharing stays in the toolbar, identifies capturing origins, and stops only the selected tab's user capture |
 | 62 | Start screen/window/tab sharing, navigate or move/close a capturing tab with the capture menu open | The indicator follows Chromium's capture state; stale menu entries cannot operate on replacement documents or tabs moved to another window; the current stream can be stopped |
 | 63 | Open a private window, switch tab layouts and hide tabs; enable high contrast/forced colours | Private stays explicit; page tint does not override the accessibility theme |
