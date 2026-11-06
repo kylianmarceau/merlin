@@ -943,6 +943,43 @@ muted status lines, small filled round buttons for cancel, show in Finder
 end of "View all downloads". This replaces the downloads look described in
 decision 49.
 
+## 51. No Chromium promo bubbles
+
+Chromium shows tip and promo bubbles on its own schedule, such as "Enhance
+your browser with extensions" with "Find coupons" and "Help me write"
+chips. Each one points at a toolbar button. Merlin hides most of those
+buttons, so the bubbles floated at the window's edge with an arrow pointing
+at nothing (reported 2026-11-06). Merlin now shows none of them. The
+features they advertise stay in menus and settings.
+
+**How.** Patch 0060 adds two checks, both through
+`modal_browser::ShouldShowChromiumPromos()`, which is false unless
+`--modal-browser-upstream-defaults` is set:
+
+- `UserEducationServiceFactory::ProfileAllowsUserEducation` returns false.
+  Chromium already does this for guest windows, `--no-first-run` and
+  Chrome for Testing, so every caller handles it. No promo controller,
+  tutorial service, "New" badge controller or new tab page promo registry
+  is created, which turns off all 106 registered in-product help bubbles
+  and toasts, the 9 tutorials and the 17 "New" badges in menus.
+- `feature_engagement::NonIphPromo` never grants permission. This covers
+  the promos that skip in-product help: the high memory and CPU usage alert
+  (anchored to a hidden toolbar button), "get Chrome on your phone" QR
+  bubbles, price tracking and price insight prompts, the Enhanced Safe
+  Browsing row on the Downloads page and the smart tab sharing tip. Memory
+  Saver itself is unchanged.
+
+**Audit of other pop-ups.** Checked on 157.0.8103.26 and left alone:
+
+| Pop-up | Why it can't appear or stays |
+| --- | --- |
+| "Out of date" update bubble | Needs `enable_update_notifications`, which is on only for Google Chrome builds |
+| Happiness surveys (HaTS) | Driven by server-side field trials, which non-Google builds don't download |
+| Commerce and phone promos | Also need Google shopping or Chrome Sync, which Merlin doesn't have |
+| "Merlin isn't your default browser" infobar, then "make Merlin your default PDF viewer" | A bar across the top of the page at startup, not an arrow bubble; at most 5 times, 3 weeks apart, only when Merlin isn't the default |
+| "Restore pages?" after a crash | Functional: reopens the lost session |
+| Permission, password, download and site bubbles | Functional, anchored to Merlin's own controls (patch 0013) and restyled (patches 0049, 0059) |
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing

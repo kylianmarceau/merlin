@@ -45,6 +45,7 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
+#include "chrome/browser/feature_engagement/non_iph_promo.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
@@ -106,12 +107,14 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
+#include "chrome/browser/user_education/user_education_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/theme_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/keyed_service/core/service_access_type.h"
@@ -1454,6 +1457,21 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NoSearchPrewarm) {
   // The address bar's trigger reaches PrerenderManager, which starts nothing.
   auto* manager = PrerenderManager::GetOrCreateForWebContents(contents());
   EXPECT_FALSE(manager->MaybeStartPrewarmSearchResult());
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, NoChromiumPromos) {
+  // Tip and promo bubbles point at toolbar buttons Merlin hides
+  // (merlin_process_policy.h, patches/0060).
+  EXPECT_FALSE(ShouldShowChromiumPromos());
+  Profile* const profile = browser()->GetProfile();
+  EXPECT_FALSE(UserEducationServiceFactory::ProfileAllowsUserEducation(profile));
+  // The high memory usage alert and other promos outside in-product help.
+  EXPECT_FALSE(feature_engagement::NonIphPromo::WouldBeGrantedPermissionToShow(
+      profile,
+      feature_engagement::kIPHPerformanceInterventionDialogFeature));
+  EXPECT_FALSE(feature_engagement::NonIphPromo::RequestPermissionToShow(
+      profile,
+      feature_engagement::kIPHPerformanceInterventionDialogFeature));
 }
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MemorySaverOnByDefault) {

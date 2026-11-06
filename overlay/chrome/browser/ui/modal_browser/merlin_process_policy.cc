@@ -44,4 +44,8 @@ bool ShouldPrewarmDefaultSearch() {
   return UpstreamOrEnabledOnCommandLine("Prewarm");
 }
 
+bool ShouldShowChromiumPromos() {
+  return UpstreamDefaults();
+}
+
 }  // namespace modal_browser

@@ -39,6 +39,15 @@ bool ShouldPreloadTopChromeWebUI();
 // (--enable-features=Prewarm).
 bool ShouldPrewarmDefaultSearch();
 
+// Called by UserEducationServiceFactory::ProfileAllowsUserEducation and
+// feature_engagement::NonIphPromo (patches/0060). Chromium's tip and promo
+// pop-ups ("Enhance your browser with extensions", feature tips, tutorials,
+// "New" badges, the high memory usage alert, "get Chrome on your phone")
+// point at toolbar buttons Merlin hides, so they float with an arrow pointing
+// at nothing. Every feature they advertise stays reachable from menus and
+// settings. False unless --modal-browser-upstream-defaults is set.
+bool ShouldShowChromiumPromos();
+
 }  // namespace modal_browser
 
 #endif  // CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_PROCESS_POLICY_H_

@@ -1,5 +1,24 @@
 # Testing
 
+## Results, 2026-11-06: no Chromium promo bubbles
+
+`main` after `79f4572`, Chromium **157.0.8103.26**, macOS arm64 `out/Modal`
+component development build. The change is
+[decision 51](DECISIONS.md#51-no-chromium-promo-bubbles) and patch 0060 in
+[Upstream](UPSTREAM.md#no-chromium-promos-patch-2026-11-06).
+
+| Check | Result |
+| --- | --- |
+| Native `chrome browser_tests` rebuild | Passed |
+| New case | `NoChromiumPromos`: the policy is off, the profile gets no in-product help and `NonIphPromo` refuses the high memory usage alert; passed with `NoSearchPrewarm` and `MemorySaverOnByDefault` |
+| Upstream `UserEducationServiceBrowserTest.*`, `BrowserUserEducationServiceBrowserTest.*` with `--modal-browser-upstream-defaults` | 5 of 6 passed under `scripts/run_browser_tests.sh`. `TestServicePresent` expects a promo controller, which Chromium never creates in headless mode; it passed without `--headless` |
+| GN header checks | Passed for `//chrome/browser/ui/modal_browser/*` (after adding the test target's missing `//chrome/browser/ui/views/download` dep), `//chrome/browser/user_education/*` and `//chrome/browser/feature_engagement/*` |
+| Patch series | **60 patches** verified with `apply_patches.py --check` and `verify_patches.sh` |
+
+Browser tests block in-product help by default, so `NoChromiumPromos` pins
+Merlin's policy rather than reproducing the bubble. The full default suite
+was not rerun.
+
 ## Results, 2026-11-06: pop-up transparency setting
 
 Same build base as the entry below. Adds `popup_transparency` (Settings >

@@ -1,0 +1,102 @@
+diff --git a/chrome/browser/feature_engagement/BUILD.gn b/chrome/browser/feature_engagement/BUILD.gn
+--- a/chrome/browser/feature_engagement/BUILD.gn
++++ b/chrome/browser/feature_engagement/BUILD.gn
+@@ -61,6 +61,11 @@ source_set("impl") {
+     deps += [ "//chrome/browser/user_education" ]
+   }
+ 
++  # Merlin: no promotional bubbles.
++  if (is_mac || is_win || is_linux) {
++    deps += [ "//chrome/browser/ui/modal_browser:process_policy" ]
++  }
++
+   if (is_chromeos) {
+     deps += [ "//chromeos/ash/components/growth:config_provider" ]
+   }
+diff --git a/chrome/browser/feature_engagement/non_iph_promo.cc b/chrome/browser/feature_engagement/non_iph_promo.cc
+--- a/chrome/browser/feature_engagement/non_iph_promo.cc
++++ b/chrome/browser/feature_engagement/non_iph_promo.cc
+@@ -5,15 +5,26 @@
+ #include "chrome/browser/feature_engagement/non_iph_promo.h"
+ 
+ #include "base/types/pass_key.h"
++#include "build/build_config.h"
+ #include "chrome/browser/feature_engagement/tracker_factory.h"
+ #include "components/feature_engagement/public/tracker.h"
+ 
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++#include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
++#endif
++
+ namespace feature_engagement {
+ 
+ // static
+ bool NonIphPromo::WouldBeGrantedPermissionToShow(
+     content::BrowserContext* context,
+     const base::Feature& feature) {
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++  // Merlin: no promotional bubbles (merlin_process_policy.h).
++  if (!modal_browser::ShouldShowChromiumPromos()) {
++    return false;
++  }
++#endif
+   const Tracker* const tracker = TrackerFactory::GetForBrowserContext(context);
+   return tracker->WouldTriggerHelpUI(feature, base::PassKey<NonIphPromo>());
+ }
+@@ -21,6 +32,12 @@ bool NonIphPromo::WouldBeGrantedPermissionToShow(
+ // static
+ bool NonIphPromo::RequestPermissionToShow(content::BrowserContext* context,
+                                           const base::Feature& feature) {
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++  // Merlin: no promotional bubbles (merlin_process_policy.h).
++  if (!modal_browser::ShouldShowChromiumPromos()) {
++    return false;
++  }
++#endif
+   Tracker* const tracker = TrackerFactory::GetForBrowserContext(context);
+   if (!tracker->ShouldTriggerHelpUI(feature, base::PassKey<NonIphPromo>())) {
+     return false;
+diff --git a/chrome/browser/user_education/BUILD.gn b/chrome/browser/user_education/BUILD.gn
+--- a/chrome/browser/user_education/BUILD.gn
++++ b/chrome/browser/user_education/BUILD.gn
+@@ -112,6 +112,11 @@ if (is_android) {
+     if (is_chrome_for_testing) {
+       deps += [ "//chrome/browser/chrome_for_testing:browser" ]
+     }
++
++    # Merlin: no in-product help.
++    if (is_mac || is_win || is_linux) {
++      deps += [ "//chrome/browser/ui/modal_browser:process_policy" ]
++    }
+   }
+ 
+   source_set("unit_tests") {
+diff --git a/chrome/browser/user_education/user_education_service_factory.cc b/chrome/browser/user_education/user_education_service_factory.cc
+--- a/chrome/browser/user_education/user_education_service_factory.cc
++++ b/chrome/browser/user_education/user_education_service_factory.cc
+@@ -33,6 +33,10 @@
+ #include "chrome/browser/chrome_for_testing/config.h"
+ #endif
+ 
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++#include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
++#endif
++
+ namespace {
+ 
+ // Idle observer that doesn't do anything.
+@@ -113,6 +117,14 @@ UserEducationServiceFactory::BuildServiceInstanceForBrowserContextImpl(
+ 
+ // static
+ bool UserEducationServiceFactory::ProfileAllowsUserEducation(Profile* profile) {
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++  // Merlin: no in-product help, tutorials or "New" badges
++  // (merlin_process_policy.h).
++  if (!modal_browser::ShouldShowChromiumPromos()) {
++    return false;
++  }
++#endif
++
+ #if BUILDFLAG(CHROME_FOR_TESTING)
+   if (!chrome_for_testing::IsEnableUserEducationUI()) {
+     return false;

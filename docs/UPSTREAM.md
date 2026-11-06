@@ -159,6 +159,12 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | --- | --- | --- |
 | `0059-merlin-glass-popovers.patch` | `ui/views/merlin_style.{h,cc}`, new `ui/views/merlin_style_mac.mm`, `ui/views/BUILD.gn`, `ui/views/bubble/bubble_border.cc`, `bubble_frame_view.cc`, `ui/views/controls/label.cc`, `ui/views/controls/menu/menu_scroll_view_container.cc` | Frosted glass behind pop-up windows on macOS: an `NSVisualEffectView` masked to the bubble's outline (arrow included) or the menu's rounded panel, under a translucent tint and a hairline edge. The bubble's client view no longer gets an opaque copy of the panel colour over the glass, and labels on glass skip subpixel text, which needs an opaque background. Only when Merlin's style is on and the window is translucent and in process ([decision 50](DECISIONS.md#50-frosted-glass-pop-ups)) |
 
+## No Chromium promos patch (2026-11-06)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0060-merlin-no-chromium-promos.patch` | `chrome/browser/user_education/user_education_service_factory.cc`, `chrome/browser/user_education/BUILD.gn`, `chrome/browser/feature_engagement/non_iph_promo.cc`, `chrome/browser/feature_engagement/BUILD.gn` | No in-product help bubbles, tutorials, "New" badges or other promo bubbles: `ProfileAllowsUserEducation` and `NonIphPromo` return false unless `--modal-browser-upstream-defaults` is set ([decision 51](DECISIONS.md#51-no-chromium-promo-bubbles)) |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before
