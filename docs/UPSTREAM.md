@@ -142,6 +142,7 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | Patch | Files | Purpose |
 | --- | --- | --- |
 | `0053-merlin-quit-without-hold.patch` | `chrome/browser/ui/cocoa/confirm_quit.cc` | `browser.confirm_to_quit` defaults to off, so Cmd-Q quits at once; Chrome menu > Warn Before Quitting turns the hold-to-quit panel back on ([decision 47](DECISIONS.md#47-cmd-q-quits-at-once-ctrl-tab-goes-to-the-last-used-tab)) |
+| `0055-merlin-picture-in-picture.patch` | `chrome/browser/ui/views/overlay/video_overlay_window_views.cc`, `playback_image_button.cc` | Merlin's picture-in-picture look: light veil, short gradients, site name without icon, frosted play/pause, white controls, one bottom row with a steady-width time label. Presentation only; controller, keys and accessibility unchanged ([decision 48](DECISIONS.md#48-site-controls-on-the-address-merlins-picture-in-picture-whole-workspaces)) |
 | `0054-merlin-tab-thumbnails.patch` | `chrome/browser/ui/tabs/tab_features.cc` | Every tab gets a `ThumbnailTabHelper`, also on macOS where `kTabHoverCardImages` is off, for the Ctrl-Tab switcher's cards. Hover cards still follow the feature and show no image ([decision 47](DECISIONS.md#47-cmd-q-quits-at-once-ctrl-tab-goes-to-the-last-used-tab)) |
 
 ## Rebase procedure

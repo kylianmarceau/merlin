@@ -83,8 +83,10 @@ class MerlinNavButton : public views::Button,
 // on sites, hidden on the start page, which has its own field. Not an
 // editor itself: clicking it (or ⌘L) puts Chromium's field, with its
 // suggestions, in its place (MerlinAddressEditor). "Not secure" or
-// "Dangerous" at the left opens the site's page info.
-class MerlinAddressField : public views::Button {
+// "Dangerous" at the left, a right-click, or :site opens the site's page
+// info. It is also what page info and permission prompts point to.
+class MerlinAddressField : public views::Button,
+                           public views::ContextMenuController {
   METADATA_HEADER(MerlinAddressField, views::Button)
 
  public:
@@ -107,6 +109,12 @@ class MerlinAddressField : public views::Button {
       const views::SizeBounds& available_size) const override;
   void PaintButtonContents(gfx::Canvas* canvas) override;
   void StateChanged(ButtonState old_state) override;
+
+  // views::ContextMenuController: a right-click opens the site's page info.
+  void ShowContextMenuForViewImpl(
+      views::View* source,
+      const gfx::Point& point,
+      ui::mojom::MenuSourceType source_type) override;
 
  private:
   enum class Security { kNone, kSecure, kNotSecure, kDangerous };

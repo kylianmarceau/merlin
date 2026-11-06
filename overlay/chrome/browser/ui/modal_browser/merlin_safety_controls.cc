@@ -41,12 +41,13 @@ namespace {
 
 // Text, not colour alone, identifies recording and private browsing. These
 // controls cannot be flexed away when the address field needs more room.
+// Site controls are on the address field itself (MerlinAddressField).
 class SafetyButton : public views::Button {
   METADATA_HEADER(SafetyButton, views::Button)
 
  public:
-  SafetyButton(PressedCallback callback, bool site)
-      : views::Button(std::move(callback)), site_(site) {
+  explicit SafetyButton(PressedCallback callback)
+      : views::Button(std::move(callback)) {
     SetFocusBehavior(FocusBehavior::ALWAYS);
     SetInstallFocusRingOnFocus(true);
     views::InstallRoundRectHighlightPathGenerator(this, gfx::Insets(), 6);
@@ -64,8 +65,7 @@ class SafetyButton : public views::Button {
     SchedulePaint();
   }
   gfx::Size CalculatePreferredSize(const views::SizeBounds&) const override {
-    return gfx::Size(
-        site_ ? 30 : 32 + gfx::GetStringWidth(text_, style::UiFont(-1)), 30);
+    return gfx::Size(32 + gfx::GetStringWidth(text_, style::UiFont(-1)), 30);
   }
   void StateChanged(ButtonState old_state) override {
     views::Button::StateChanged(old_state);
@@ -87,30 +87,16 @@ class SafetyButton : public views::Button {
     stroke.setStyle(cc::PaintFlags::kStroke_Style);
     stroke.setStrokeWidth(1.5f);
     stroke.setColor(ink.icon);
-    if (site_) {
-      // Sliders, rather than a lock suggesting that a site is trustworthy.
-      canvas->DrawLine(gfx::PointF(8, 11), gfx::PointF(22, 11), stroke);
-      canvas->DrawLine(gfx::PointF(8, 19), gfx::PointF(22, 19), stroke);
-      cc::PaintFlags fill = stroke;
-      fill.setStyle(cc::PaintFlags::kFill_Style);
-      fill.setColor(background);
-      for (const gfx::PointF p : {gfx::PointF(12, 11), gfx::PointF(18, 19)}) {
-        canvas->DrawCircle(p, 3, fill);
-        canvas->DrawCircle(p, 3, stroke);
-      }
-    } else {
-      // A ring stays visible even on a page whose colour matches the dot.
-      canvas->DrawCircle({12, 15}, 5, stroke);
-      stroke.setStyle(cc::PaintFlags::kFill_Style);
-      stroke.setColor(style::ColorsFor(this).error);
-      canvas->DrawCircle({12, 15}, 3, stroke);
-      canvas->DrawStringRect(text_, style::UiFont(-1), ink.text,
-                             gfx::Rect(24, 0, width() - 28, height()));
-    }
+    // A ring stays visible even on a page whose colour matches the dot.
+    canvas->DrawCircle({12, 15}, 5, stroke);
+    stroke.setStyle(cc::PaintFlags::kFill_Style);
+    stroke.setColor(style::ColorsFor(this).error);
+    canvas->DrawCircle({12, 15}, 3, stroke);
+    canvas->DrawStringRect(text_, style::UiFont(-1), ink.text,
+                           gfx::Rect(24, 0, width() - 28, height()));
   }
 
  private:
-  const bool site_;
   std::u16string text_;
   std::optional<SkColor> surface_;
 };
@@ -147,27 +133,16 @@ END_METADATA
 
 }  // namespace
 
-MerlinSafetyControls::MerlinSafetyControls(
-    BrowserWindowInterface* browser,
-    base::RepeatingClosure show_site_info)
+MerlinSafetyControls::MerlinSafetyControls(BrowserWindowInterface* browser)
     : browser_(browser),
       indicator_(MediaCaptureDevicesDispatcher::GetInstance()
                      ->GetMediaStreamCaptureIndicator()) {
   SetOrientation(views::BoxLayout::Orientation::kHorizontal);
   SetCrossAxisAlignment(views::BoxLayout::CrossAxisAlignment::kCenter);
   SetBetweenChildSpacing(4);
-  site_button_ = AddChildView(std::make_unique<SafetyButton>(
-      base::BindRepeating(
-          [](base::RepeatingClosure show, const ui::Event&) { show.Run(); },
-          std::move(show_site_info)),
-      true));
-  site_button_->SetProperty(views::kElementIdentifierKey,
-                            kLocationIconElementId);
-  site_button_->GetViewAccessibility().SetName(u"Site controls");
   capture_button_ = AddChildView(std::make_unique<SafetyButton>(
       base::BindRepeating(&MerlinSafetyControls::ShowCaptureMenu,
-                          base::Unretained(this)),
-      false));
+                          base::Unretained(this))));
   private_badge_ = AddChildView(std::make_unique<PrivateBadge>());
   private_badge_->SetVisible(browser_->GetProfile()->IsOffTheRecord());
   browser_->GetTabStripModel()->AddObserver(this);
@@ -211,21 +186,7 @@ std::vector<MerlinSafetyControls::Capture> MerlinSafetyControls::Captures()
   return out;
 }
 
-void MerlinSafetyControls::UpdateSiteInfo() {
-  auto* contents = browser_->GetTabStripModel()->GetActiveWebContents();
-  const bool web = contents && contents->GetVisibleURL().SchemeIsHTTPOrHTTPS();
-  site_button_->SetVisible(web);
-  const std::u16string site =
-      web ? u"Site controls for " +
-                base::UTF8ToUTF16(
-                    url::Origin::Create(contents->GetVisibleURL()).Serialize())
-          : u"Site controls";
-  site_button_->SetTooltipText(site);
-  site_button_->GetViewAccessibility().SetName(site);
-}
-
 void MerlinSafetyControls::Update() {
-  UpdateSiteInfo();
   const auto captures = Captures();
   capture_button_->SetVisible(!captures.empty());
   const bool sharing = std::ranges::any_of(captures, &Capture::sharing);
@@ -241,7 +202,6 @@ void MerlinSafetyControls::Update() {
 }
 
 void MerlinSafetyControls::SetSurface(std::optional<SkColor> surface) {
-  static_cast<SafetyButton*>(site_button_.get())->SetSurface(surface);
   static_cast<SafetyButton*>(capture_button_.get())->SetSurface(surface);
   static_cast<PrivateBadge*>(private_badge_.get())->SetSurface(surface);
 }

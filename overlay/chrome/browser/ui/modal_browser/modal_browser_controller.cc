@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/browser_tabrestore.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/bubble_anchor_util.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -61,6 +62,7 @@
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_change_type.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
@@ -88,6 +90,10 @@
 #include "components/sessions/core/serialized_user_agent_override.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
+#include "components/tab_groups/tab_group_color.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
+#include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_formatter/url_fixer.h"
@@ -114,6 +120,8 @@
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/compositor/layer.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/dom/dom_key.h"
@@ -130,6 +138,39 @@
 namespace modal_browser {
 
 DEFINE_USER_DATA(ModalBrowserController);
+
+// Keeps a view hidden that Chromium shows by itself. Hidden outright, not
+// squeezed to no width: the toolbar would count a squeezed button as
+// overflowed and show its » menu.
+class KeepHidden : public views::ViewObserver {
+ public:
+  explicit KeepHidden(views::View* view) : view_(view) {
+    observation_.Observe(view);
+    view->SetVisible(false);
+  }
+  ~KeepHidden() override = default;
+
+  const views::View* view() const { return view_; }
+
+  // views::ViewObserver:
+  void OnViewVisibilityChanged(views::View* observed,
+                               views::View* starting_from,
+                               bool visible) override {
+    // SetVisible has updated the view before it notifies, so hiding it
+    // again from here leaves it consistent.
+    if (observed == starting_from && visible) {
+      observed->SetVisible(false);
+    }
+  }
+  void OnViewIsDeleting(views::View* observed) override {
+    observation_.Reset();
+    view_ = nullptr;
+  }
+
+ private:
+  raw_ptr<views::View> view_;
+  base::ScopedObservation<views::View, views::ViewObserver> observation_{this};
+};
 
 namespace {
 
@@ -324,6 +365,60 @@ split_tabs::SplitTabLayout ToLayout(ffi::SplitLayout layout) {
 
 int64_t NowSeconds() {
   return base::Time::Now().ToTimeT();
+}
+
+// Chromium's tab group colors by the names workspace files use.
+constexpr std::pair<std::string_view, tab_groups::TabGroupColorId>
+    kGroupColors[] = {
+        {"grey", tab_groups::TabGroupColorId::kGrey},
+        {"blue", tab_groups::TabGroupColorId::kBlue},
+        {"red", tab_groups::TabGroupColorId::kRed},
+        {"yellow", tab_groups::TabGroupColorId::kYellow},
+        {"green", tab_groups::TabGroupColorId::kGreen},
+        {"pink", tab_groups::TabGroupColorId::kPink},
+        {"purple", tab_groups::TabGroupColorId::kPurple},
+        {"cyan", tab_groups::TabGroupColorId::kCyan},
+        {"orange", tab_groups::TabGroupColorId::kOrange},
+};
+
+std::string_view GroupColorName(tab_groups::TabGroupColorId color) {
+  for (const auto& [name, id] : kGroupColors) {
+    if (id == color) {
+      return name;
+    }
+  }
+  return "grey";
+}
+
+tab_groups::TabGroupColorId GroupColorFromName(std::string_view name) {
+  for (const auto& [n, id] : kGroupColors) {
+    if (n == name) {
+      return id;
+    }
+  }
+  return tab_groups::TabGroupColorId::kGrey;
+}
+
+// Saved window bounds moved fully onto the display they mostly cover, or
+// empty when no display shows enough of them (a monitor since removed).
+gfx::Rect OnScreenBounds(const gfx::Rect& saved) {
+  if (saved.IsEmpty()) {
+    return gfx::Rect();
+  }
+  display::Screen* screen = display::Screen::Get();
+  if (!screen) {
+    return gfx::Rect();
+  }
+  const display::Display display = screen->GetDisplayMatching(saved);
+  const gfx::Rect work = display.work_area();
+  gfx::Rect visible = work;
+  visible.Intersect(saved);
+  if (visible.width() < 100 || visible.height() < 100) {
+    return gfx::Rect();
+  }
+  gfx::Rect bounds = saved;
+  bounds.AdjustToFit(work);
+  return bounds;
 }
 
 // The set of windows that want browserctl, and the one server they share.
@@ -930,14 +1025,10 @@ void ModalBrowserController::InstallMerlinToolbar(
   field->SetProperty(views::kMarginsKey, gfx::Insets::VH(0, 2));
   address_field_ = row->AddChildViewAt(std::move(field), index++);
   toolbar_spacer_right_ = row->AddChildViewAt(flexible(), index++);
-  // Site controls sit at the right end, so site information and permission
-  // prompts open from the top right corner, as in Dia.
+  // Recording and private-window labels at the right end. Site
+  // information and permission prompts open from the address field.
   safety_controls_ = row->AddChildViewAt(
-      std::make_unique<MerlinSafetyControls>(
-          browser_.get(),
-          base::BindRepeating(&ModalBrowserController::ShowSiteInfo,
-                              weak_factory_.GetWeakPtr())),
-      index);
+      std::make_unique<MerlinSafetyControls>(browser_.get()), index);
   address_editor_ = std::make_unique<MerlinAddressEditor>(
       browser_view_, browser_.get(), address_field_,
       // The start page hides Merlin's field again.
@@ -958,9 +1049,6 @@ void ModalBrowserController::InstallMerlinToolbar(
 void ModalBrowserController::UpdateMerlinToolbar(
     content::WebContents* contents,
     bool start_page) {
-  if (safety_controls_) {
-    safety_controls_->UpdateSiteInfo();
-  }
   if (!address_field_) {
     return;
   }
@@ -1008,6 +1096,15 @@ void ModalBrowserController::HideChromiumToolbarButtons() {
   if (views::View* button = elements->GetView(kTabSearchButtonElementId);
       button && button->GetVisible()) {
     button->SetVisible(false);
+  }
+  // Chromium's media button (♫), which its controller shows whenever a tab
+  // plays sound. Media keys, the tab's speaker icon and macOS's Now Playing
+  // still control playback.
+  if (views::View* media = FindByElementId(browser_view_->toolbar(),
+                                           kToolbarMediaButtonElementId);
+      media && (!media_button_hidden_ ||
+                media_button_hidden_->view() != media)) {
+    media_button_hidden_ = std::make_unique<KeepHidden>(media);
   }
   // Back, forward, reload and home give way to Merlin's
   // (InstallMerlinToolbar). They sit in the row beside the address field.
@@ -1716,6 +1813,7 @@ void ModalBrowserController::SnapshotWorkspace(std::string_view name,
   TabStripModel* strip = browser_->GetTabStripModel();
   ::rust::Vec<ffi::WindowTab> tabs;
   std::map<split_tabs::SplitTabId, int32_t> split_numbers;
+  std::map<tab_groups::TabGroupId, int32_t> group_numbers;
   for (int i = 0; i < strip->count(); ++i) {
     tabs::TabInterface* tab = strip->GetTabAtIndex(i);
     content::WebContents* contents = tab ? tab->GetContents() : nullptr;
@@ -1724,13 +1822,33 @@ void ModalBrowserController::SnapshotWorkspace(std::string_view name,
     }
     int32_t split = -1;
     ffi::SplitLayout layout = ffi::SplitLayout::SideBySide;
+    double split_ratio = 0;
     if (std::optional<split_tabs::SplitTabId> id = strip->GetSplitForTab(i)) {
       auto [it, inserted] = split_numbers.try_emplace(
           *id, static_cast<int32_t>(split_numbers.size()));
       split = it->second;
-      if (strip->GetSplitData(*id)->visual_data()->split_layout() ==
-          split_tabs::SplitTabLayout::kStacked) {
+      const split_tabs::SplitTabVisualData* visual =
+          strip->GetSplitData(*id)->visual_data();
+      if (visual->split_layout() == split_tabs::SplitTabLayout::kStacked) {
         layout = ffi::SplitLayout::Stacked;
+      }
+      split_ratio = visual->split_ratio();
+    }
+    int32_t group = -1;
+    std::string group_title;
+    std::string_view group_color;
+    bool group_collapsed = false;
+    if (std::optional<tab_groups::TabGroupId> id = strip->GetTabGroupForTab(i);
+        id && strip->SupportsTabGroups()) {
+      auto [it, inserted] = group_numbers.try_emplace(
+          *id, static_cast<int32_t>(group_numbers.size()));
+      group = it->second;
+      if (const TabGroup* tab_group = strip->group_model()->GetTabGroup(*id)) {
+        const tab_groups::TabGroupVisualData* visual =
+            tab_group->visual_data();
+        group_title = Bounded(base::UTF16ToUTF8(visual->title()), 256);
+        group_color = GroupColorName(visual->color());
+        group_collapsed = visual->is_collapsed();
       }
     }
     tabs.push_back(ffi::WindowTab{
@@ -1738,10 +1856,21 @@ void ModalBrowserController::SnapshotWorkspace(std::string_view name,
             Bounded(contents->GetVisibleURL().spec(), 8 * 1024)),
         ::rust::String::lossy(
             Bounded(base::UTF16ToUTF8(contents->GetTitle()), kMaxTabTextBytes)),
-        strip->IsTabPinned(i), i == strip->active_index(), split, layout});
+        strip->IsTabPinned(i), i == strip->active_index(), split, layout,
+        split_ratio, group, ::rust::String::lossy(group_title),
+        ::rust::String(group_color.data(), group_color.size()),
+        group_collapsed});
   }
-  router_.OnWorkspaceSnapshot(name, quiet, std::move(tabs), NowSeconds(),
-                              *this);
+  // The window's normal bounds, so a zoomed window comes back zoomed over
+  // the same place it would return to.
+  ffi::WindowState window{0, 0, 0, 0, false};
+  if (browser_view_ && !browser_view_->IsFullscreen()) {
+    const gfx::Rect bounds = browser_view_->GetRestoredBounds();
+    window = ffi::WindowState{bounds.x(), bounds.y(), bounds.width(),
+                              bounds.height(), browser_view_->IsMaximized()};
+  }
+  router_.OnWorkspaceSnapshot(name, quiet, std::move(tabs), window,
+                              NowSeconds(), *this);
 }
 
 void ModalBrowserController::WriteWorkspace(std::string_view name,
@@ -1758,15 +1887,63 @@ void ModalBrowserController::WriteWorkspace(std::string_view name,
             if (!error.empty()) {
               self->ShowMessage(ffi::MessageLevel::Error,
                                 "Workspace: " + error);
-            } else if (!message.empty()) {
-              self->ShowMessage(ffi::MessageLevel::Info, message);
+            } else {
+              // One window per workspace: another window still kept under
+              // this name would write over it with its own tabs.
+              self->ReleaseWorkspaceInOtherWindows();
+              if (!message.empty()) {
+                self->ShowMessage(ffi::MessageLevel::Info, message);
+              }
             }
             self->PageWorkDone();
           },
           weak_factory_.GetWeakPtr(), std::string(message)));
 }
 
+ModalBrowserController* ModalBrowserController::WindowWithWorkspace(
+    std::string_view name) {
+  ModalBrowserController* found = nullptr;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        ModalBrowserController* c = From(browser);
+        if (c && c != this && !browser->GetProfile()->IsOffTheRecord() &&
+            c->router_.workspace() == name) {
+          found = c;
+          return false;
+        }
+        return true;
+      },
+      BrowserCollection::Order::kActivation);
+  return found;
+}
+
+void ModalBrowserController::ReleaseWorkspaceInOtherWindows() {
+  const std::string name = router_.workspace();
+  if (name.empty()) {
+    return;
+  }
+  while (ModalBrowserController* other = WindowWithWorkspace(name)) {
+    other->autosave_timer_.Stop();
+    other->router_.SetWorkspace("", "");
+  }
+}
+
 void ModalBrowserController::ReadWorkspace(std::string_view name) {
+  // Already open: show that window rather than a second copy, which would
+  // save over the first.
+  if (router_.workspace() == name) {
+    ShowMessage(ffi::MessageLevel::Info,
+                "Workspace " + std::string(name) + " is this window");
+    PageWorkDone();
+    return;
+  }
+  if (ModalBrowserController* other = WindowWithWorkspace(name)) {
+    other->browser_->GetWindow()->Activate();
+    other->ShowMessage(ffi::MessageLevel::Info,
+                       "Workspace " + std::string(name) + " is already open");
+    PageWorkDone();
+    return;
+  }
   workspace_store::Read(
       std::string(name),
       base::BindOnce(
@@ -1807,10 +1984,39 @@ void ModalBrowserController::DeleteWorkspace(std::string_view name) {
 
 void ModalBrowserController::RestoreWorkspace(
     const WorkspaceRestore& workspace) {
+  // Reuse this window only if it still holds a single tab, as the core saw
+  // when it chose; otherwise its tabs would be closed below.
+  const bool new_window =
+      workspace.new_window || browser_->GetTabStripModel()->count() != 1;
   BrowserWindowInterface* target = browser_;
-  if (workspace.new_window) {
-    target = chrome::OpenEmptyWindow(browser_->GetProfile(),
-                                     /*should_trigger_session_restore=*/false);
+  if (new_window && !workspace.new_window) {
+    // The core gave this window the workspace's name; the new window takes
+    // it instead.
+    router_.SetWorkspace("", "");
+  }
+  if (new_window) {
+    Profile* profile = browser_->GetProfile();
+    if (GetBrowserWindowCreationStatusForProfile(*profile) !=
+            BrowserWindowInterface::CreationStatus::kOk ||
+        profile->ShutdownStarted()) {
+      ShowMessage(ffi::MessageLevel::Error, "Could not open a window");
+      return;
+    }
+    BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_NORMAL,
+                                     profile, /*from_user_gesture=*/true);
+    // Where the window was when saved, if a display still shows it.
+    params.initial_bounds = OnScreenBounds(gfx::Rect(
+        workspace.x, workspace.y, workspace.width, workspace.height));
+    if (workspace.maximized) {
+      params.initial_show_state = ui::mojom::WindowShowState::kMaximized;
+    } else if (params.initial_bounds.IsEmpty() && browser_view_) {
+      // No saved place: beside this window rather than exactly over it, so
+      // it is plain that a window opened.
+      gfx::Rect bounds = browser_view_->GetRestoredBounds();
+      bounds.Offset(28, 28);
+      params.initial_bounds = OnScreenBounds(bounds);
+    }
+    target = CreateBrowserWindow(std::move(params));
     if (!target) {
       ShowMessage(ffi::MessageLevel::Error, "Could not open a window");
       return;
@@ -1854,31 +2060,94 @@ void ModalBrowserController::RestoreWorkspace(
           /*storage_namespace=*/nullptr, sessions::SerializedUserAgentOverride(),
           /*extra_data=*/{}, /*from_session_restore=*/false,
           /*is_active_browser=*/std::nullopt);
+      // Its icon from the favicon database, so an unloaded tab does not
+      // show the blank globe.
+      if (contents) {
+        if (auto* driver =
+                favicon::ContentFaviconDriver::FromWebContents(contents)) {
+          driver->FetchFavicon(url, /*is_same_document=*/false);
+        }
+      }
     }
     tabs::TabInterface* added_tab =
         contents ? tabs::TabInterface::MaybeGetFromContents(contents) : nullptr;
     added.push_back(added_tab ? added_tab->GetHandle() : tabs::TabHandle());
   }
+  auto index_of = [&](size_t i) {
+    tabs::TabInterface* tab = i < added.size() ? added[i].Get() : nullptr;
+    return tab ? strip->GetIndexOfTab(tab) : TabStripModel::kNoTab;
+  };
+  // Groups, before splits: a split lives inside its group. Collapsing
+  // waits until the active tab is chosen.
+  std::vector<tab_groups::TabGroupId> collapse;
+  if (strip->SupportsTabGroups()) {
+    std::map<int, std::vector<size_t>> members;
+    for (size_t i = 0; i < workspace.tabs.size(); ++i) {
+      if (workspace.tabs[i].group >= 0 && !workspace.tabs[i].pinned) {
+        members[workspace.tabs[i].group].push_back(i);
+      }
+    }
+    for (const auto& [group, tabs_in_group] : members) {
+      std::vector<int> indices;
+      for (size_t i : tabs_in_group) {
+        const int index = index_of(i);
+        if (index != TabStripModel::kNoTab && !strip->IsTabPinned(index) &&
+            !strip->GetTabGroupForTab(index)) {
+          indices.push_back(index);
+        }
+      }
+      if (indices.empty()) {
+        continue;
+      }
+      std::ranges::sort(indices);
+      const WorkspaceRestore::Tab& first = workspace.tabs[tabs_in_group[0]];
+      const tab_groups::TabGroupId id = strip->AddToNewGroup(indices);
+      strip->ChangeTabGroupVisuals(
+          id, tab_groups::TabGroupVisualData(
+                  base::UTF8ToUTF16(first.group_title),
+                  GroupColorFromName(first.group_color),
+                  /*is_collapsed=*/false));
+      if (first.group_collapsed) {
+        collapse.push_back(id);
+      }
+    }
+  }
   // Splits: pair each tab with the later tab it was split with.
   for (size_t i = 0; i < workspace.tabs.size(); ++i) {
     const int j = workspace.tabs[i].split_with;
-    if (j <= static_cast<int>(i) || !added[i].Get() || !added[j].Get()) {
+    if (j <= static_cast<int>(i)) {
       continue;
     }
-    const int a = strip->GetIndexOfTab(added[i].Get());
-    const int b = strip->GetIndexOfTab(added[j].Get());
+    const int a = index_of(i);
+    const int b = index_of(j);
     if (a == TabStripModel::kNoTab || b == TabStripModel::kNoTab ||
-        strip->GetSplitForTab(a) || strip->GetSplitForTab(b)) {
+        strip->GetSplitForTab(a) || strip->GetSplitForTab(b) ||
+        strip->IsTabPinned(a) != strip->IsTabPinned(b) ||
+        strip->GetTabGroupForTab(a) != strip->GetTabGroupForTab(b)) {
       continue;
     }
-    strip->AddToNewSplit(
-        {a, b}, split_tabs::SplitTabVisualData(ToLayout(workspace.tabs[i].layout)),
-        split_tabs::SplitTabCreatedSource::kKeyboardShortcut);
+    split_tabs::SplitTabVisualData visual(ToLayout(workspace.tabs[i].layout));
+    if (workspace.tabs[i].split_ratio > 0) {
+      visual.set_split_ratio(workspace.tabs[i].split_ratio);
+    }
+    strip->AddToNewSplit({a, b}, visual,
+                         split_tabs::SplitTabCreatedSource::kKeyboardShortcut);
   }
   if (workspace.active < added.size() && added[workspace.active].Get()) {
     strip->ActivateTab(added[workspace.active].Get(),
                        TabStripUserGestureDetails(
                            TabStripUserGestureDetails::GestureType::kOther));
+  }
+  for (const tab_groups::TabGroupId& id : collapse) {
+    TabGroup* group = strip->group_model()->GetTabGroup(id);
+    tabs::TabInterface* active = strip->GetActiveTab();
+    // The group holding the active tab stays open.
+    if (group && !(active && active->GetGroup() == id)) {
+      tab_groups::TabGroupVisualData visual = *group->visual_data();
+      strip->ChangeTabGroupVisuals(
+          id, tab_groups::TabGroupVisualData(visual.title(), visual.color(),
+                                             /*is_collapsed=*/true));
+    }
   }
   for (tabs::TabHandle handle : placeholders) {
     if (tabs::TabInterface* tab = handle.Get()) {
@@ -1888,10 +2157,11 @@ void ModalBrowserController::RestoreWorkspace(
       }
     }
   }
-  if (workspace.new_window) {
+  if (new_window) {
     if (ModalBrowserController* other = From(target)) {
       other->router_.SetWorkspace(workspace.name, workspace.project);
     }
+    target->GetWindow()->Show();
   }
 }
 
@@ -2027,6 +2297,9 @@ void ModalBrowserController::ShowBrowserPage(ffi::BrowserPage page) {
     case ffi::BrowserPage::ReadingMode:
       command = IDC_SHOW_READING_MODE;
       break;
+    case ffi::BrowserPage::SiteInfo:
+      ShowSiteInfo();
+      return;
     case ffi::BrowserPage::Settings:
     default:
       command = IDC_OPTIONS;
@@ -2803,13 +3076,19 @@ void ModalBrowserController::ScheduleAutosave() {
   if (router_.autosave_workspace().empty()) {
     return;
   }
+  // A closing window closes its tabs one by one: those are not changes to
+  // keep. Save what the window held before.
+  if (WindowClosing()) {
+    autosave_timer_.Stop();
+    return;
+  }
   // Restarting the timer batches a burst of changes into one write.
   autosave_timer_.Start(
       FROM_HERE, kAutosaveDelay,
       base::BindOnce(
           [](ModalBrowserController* self) {
             const std::string name = self->router_.autosave_workspace();
-            if (!name.empty()) {
+            if (!name.empty() && !self->WindowClosing()) {
               self->SnapshotWorkspace(name, /*quiet=*/true);
             }
           },
@@ -2932,6 +3211,13 @@ void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
   if (safety_controls_) {
     safety_controls_->SetSurface(color);
   }
+}
+
+bool ModalBrowserController::WindowClosing() const {
+  TabStripModel* strip = browser_->GetTabStripModel();
+  return !strip || strip->closing_all() || strip->empty() ||
+         (browser_view_ && browser_view_->GetWidget() &&
+          browser_view_->GetWidget()->IsClosed());
 }
 
 void ModalBrowserController::PageWorkDone() {

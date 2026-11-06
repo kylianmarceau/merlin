@@ -84,6 +84,9 @@ constexpr int kFlare = 8;             // its bottom corners, flaring out
 constexpr int kHoverRadius = 8;
 constexpr int kTabGap = 2;
 constexpr int kSplitGap = 1;
+// Extra room on each side of a split pair, so its shared capsule stands
+// apart from the tabs beside it.
+constexpr int kSplitMargin = 4;
 constexpr int kTabPadding = 12;
 constexpr int kIconSize = 16;
 constexpr int kIconGap = 8;
@@ -1337,6 +1340,11 @@ MerlinTabBar::Slots MerlinTabBar::ComputeSlots() const {
     } else if (!item.hidden) {
       ++visible;
       active_unpinned |= data.active;
+      // The first half of each split pair: room for the margins around it.
+      if (data.split && item.tab + 1 < static_cast<int>(order.size()) &&
+          SameSplit(order[item.tab], order[item.tab + 1])) {
+        header_room += 2 * kSplitMargin;
+      }
     }
   }
   const int start = leading_inset_ + kLeadingPad;
@@ -1375,7 +1383,10 @@ MerlinTabBar::Slots MerlinTabBar::ComputeSlots() const {
       if (previous_pinned && !pinned_item) {
         x += kCapsulePad + kAfterCapsule;
       } else if (!pinned_item) {
-        x += SameSplit(previous_tab, tab) ? kSplitGap : kTabGap;
+        const bool pair = SameSplit(previous_tab, tab);
+        const bool edge = !pair && ((previous_tab && previous_tab->data().split) ||
+                                    (tab && tab->data().split));
+        x += pair ? kSplitGap : kTabGap + (edge ? kSplitMargin : 0);
       }
     }
     int w = 0;
@@ -1688,6 +1699,41 @@ void MerlinTabBar::OnPaint(gfx::Canvas* canvas) {
     } else if (first && !first->data().active) {
       const int x = capsule.right() + kAfterCapsule / 2;
       canvas->FillRect(gfx::Rect(x, body_center - 8, 1, 16), c.divider);
+    }
+  }
+
+  // Split pairs: the two tabs share one capsule, with a hairline between
+  // them, so a split reads as one place whether or not it is the active
+  // tab. The active pair is drawn below, as one cut-out shape.
+  for (size_t i = 0; i + 1 < tabs_.size(); ++i) {
+    MerlinTab* tab = tabs_[i];
+    MerlinTab* next = tabs_[i + 1];
+    if (!SameSplit(tab, next)) {
+      continue;
+    }
+    ++i;
+    const bool active = tab->data().active || next->data().active;
+    if (active || tab->data().pinned || tab->closing() || next->closing() ||
+        tab->dragging() || next->dragging() || !tab->GetVisible() ||
+        !next->GetVisible() || tab->bounds().IsEmpty() ||
+        next->bounds().IsEmpty()) {
+      continue;
+    }
+    gfx::Rect pair = tab->bounds();
+    pair.Union(next->bounds());
+    if (vertical_) {
+      PaintRoundRect(canvas, pair, kRowRadius, c.capsule_fill,
+                     c.capsule_border);
+      canvas->FillRect(gfx::Rect(pair.x() + kTabPadding, next->y() - 1,
+                                 pair.width() - 2 * kTabPadding, 1),
+                       c.divider);
+    } else {
+      const gfx::Rect shared(pair.x(), body_center - kCapsuleHeight / 2,
+                             pair.width(), kCapsuleHeight);
+      PaintRoundRect(canvas, shared, kCapsuleRadius, c.capsule_fill,
+                     c.capsule_border);
+      canvas->FillRect(gfx::Rect(next->x() - 1, body_center - 8, 1, 16),
+                       c.divider);
     }
   }
 

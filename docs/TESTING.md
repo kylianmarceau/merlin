@@ -613,7 +613,7 @@ Tab bar and page color (decision 38):
 | 57 | Tabs hidden: drag the empty toolbar space or the space under the traffic lights | The window moves |
 | 58 | Cmd-S in Google Docs or in the Settings config editor | The page saves; the tabs stay. Shift-Cmd-S opens Save Page As |
 | 59 | Settings > Appearance > Hide tabs on; open a new window | Every window hides its tabs; the new one starts hidden. Off brings them back |
-| 60 | Open HTTPS; use F6/Tab to reach Site controls and press Space, in both layouts and with tabs hidden; also open the address card | Site controls stays available, opens Page Info at its own button, and shows permissions/cookies/certificate details; address editing does not hide it |
+| 60 | Open HTTPS; right-click the address, then type `:site`, in both layouts and with tabs hidden | Page Info opens under the address and shows permissions/cookies/certificate details; no sliders or ♫ button in the toolbar, even while a video plays |
 | 61 | Start microphone/camera capture in two tabs, then pin, compact, group-collapse and hide tabs | Sensitive tab badges remain where tabs are visible; Recording/Sharing stays in the toolbar, identifies capturing origins, and stops only the selected tab's user capture |
 | 62 | Start screen/window/tab sharing, navigate or move/close a capturing tab with the capture menu open | The indicator follows Chromium's capture state; stale menu entries cannot operate on replacement documents or tabs moved to another window; the current stream can be stopped |
 | 63 | Open a private window, switch tab layouts and hide tabs; enable high contrast/forced colours | Private stays explicit; page tint does not override the accessibility theme |

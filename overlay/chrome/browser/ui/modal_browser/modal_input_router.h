@@ -82,9 +82,23 @@ struct WorkspaceRestore {
     // Index of the tab this one shares a split with, or -1.
     int split_with = -1;
     ffi::SplitLayout layout = ffi::SplitLayout::SideBySide;
+    // The split's first tab's share of the window; 0 for an even split.
+    double split_ratio = 0;
+    // Index of this tab's group, or -1. Tabs of one group carry the same
+    // title, color name and collapsed state.
+    int group = -1;
+    std::string group_title;
+    std::string group_color;
+    bool group_collapsed = false;
   };
   std::vector<Tab> tabs;
   size_t active = 0;
+  // The window's normal bounds; empty to let the browser place it.
+  int x = 0;
+  int y = 0;
+  int width = 0;
+  int height = 0;
+  bool maximized = false;
   // Open in a new window rather than this (empty) one.
   bool new_window = true;
 };
@@ -297,6 +311,7 @@ class ModalInputRouter {
   void OnWorkspaceSnapshot(std::string_view name,
                            bool quiet,
                            ::rust::Vec<ffi::WindowTab> tabs,
+                           ffi::WindowState window,
                            int64_t now,
                            BrowserOps& ops);
   void OnMarkRecorded(std::string_view letter,

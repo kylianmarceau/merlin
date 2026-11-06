@@ -29,8 +29,9 @@ class MenuRunner;
 
 namespace modal_browser {
 
-// Always reachable site controls, explicit private-window identification and
-// recording/sharing controls independent of the tab strip's visibility.
+// Explicit private-window identification and recording/sharing controls,
+// independent of the tab strip's visibility. Site controls open from the
+// address field (MerlinAddressField) and :site.
 class MerlinSafetyControls : public views::BoxLayoutView,
                              public TabStripModelObserver,
                              public MediaStreamCaptureIndicator::Observer,
@@ -38,12 +39,10 @@ class MerlinSafetyControls : public views::BoxLayoutView,
   METADATA_HEADER(MerlinSafetyControls, views::BoxLayoutView)
 
  public:
-  MerlinSafetyControls(BrowserWindowInterface* browser,
-                       base::RepeatingClosure show_site_info);
+  explicit MerlinSafetyControls(BrowserWindowInterface* browser);
   ~MerlinSafetyControls() override;
 
   void Update();
-  void UpdateSiteInfo();
   void SetSurface(std::optional<SkColor> surface);
 
   // The model retains handles rather than WebContents pointers: actions
@@ -63,7 +62,6 @@ class MerlinSafetyControls : public views::BoxLayoutView,
   void OnIsCapturingWindowChanged(content::WebContents*, bool) override;
   void OnIsCapturingDisplayChanged(content::WebContents*, bool) override;
 
-  views::Button* site_button_for_testing() { return site_button_; }
   views::Button* capture_button_for_testing() { return capture_button_; }
   views::View* private_badge_for_testing() { return private_badge_; }
   ui::SimpleMenuModel* BuildCaptureMenuForTesting();
@@ -85,7 +83,6 @@ class MerlinSafetyControls : public views::BoxLayoutView,
   base::ScopedObservation<MediaStreamCaptureIndicator,
                           MediaStreamCaptureIndicator::Observer>
       observation_{this};
-  raw_ptr<views::Button> site_button_;
   raw_ptr<views::Button> capture_button_;
   raw_ptr<views::View> private_badge_;
   std::vector<Capture> menu_captures_;

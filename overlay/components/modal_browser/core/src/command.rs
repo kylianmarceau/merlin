@@ -921,6 +921,7 @@ const BOOKMARKS_USAGE: &str = ":bookmarks [search terms]";
 const DOWNLOADS_USAGE: &str = ":downloads";
 const SETTINGS_USAGE: &str = ":settings";
 const EXTENSIONS_USAGE: &str = ":extensions";
+const SITE_USAGE: &str = ":site";
 const DEVTOOLS_USAGE: &str = ":devtools";
 const BROWSER_USAGE: &str = ":browser <action> [download id]";
 const ADBLOCK_USAGE: &str = ":adblock [on|off|site toggle|status|update]";
@@ -1516,6 +1517,10 @@ fn cmd_settings(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> 
 
 fn cmd_extensions(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
     page(inv, EXTENSIONS_USAGE, BrowserPage::Extensions)
+}
+
+fn cmd_site(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
+    page(inv, SITE_USAGE, BrowserPage::SiteInfo)
 }
 
 fn cmd_read(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
@@ -2114,6 +2119,13 @@ fn builtin_specs() -> Vec<CommandSpec> {
             EXTENSIONS_USAGE,
             "manage extensions",
             cmd_extensions,
+        ),
+        available(
+            "site",
+            &["site-info", "permissions"],
+            SITE_USAGE,
+            "this site's connection, permissions and cookies",
+            cmd_site,
         ),
         available(
             "browser",

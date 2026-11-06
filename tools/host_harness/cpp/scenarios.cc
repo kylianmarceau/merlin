@@ -113,10 +113,13 @@ struct Window {
       tabs.push_back(ffi::WindowTab{
           ::rust::String(t.url()), ::rust::String(t.title), t.pinned,
           static_cast<int>(i) == browser.active_index,
-          t.split == 0 ? -1 : t.split, t.layout});
+          t.split == 0 ? -1 : t.split, t.layout, /*split_ratio=*/0,
+          /*group=*/-1, ::rust::String(), ::rust::String(),
+          /*group_collapsed=*/false});
     }
     router.OnWorkspaceSnapshot(browser.snapshot_request, browser.snapshot_quiet,
-                               std::move(tabs), now, browser);
+                               std::move(tabs), ffi::WindowState{0, 0, 0, 0, false},
+                               now, browser);
   }
 };
 

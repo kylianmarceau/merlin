@@ -44,7 +44,7 @@ answers are equal grey buttons.
 | Arrow | `BubbleDialogDelegate::CreateFrameView` (0049) | Bubbles that open downward from an anchor show an arrow, if they draw their own shadow and set no custom insets |
 | No close button | `BubbleFrameView::ResetWindowControls` (0049) | Hidden on anchored bubbles that close when you click elsewhere; Esc still closes them |
 | Panel and buttons | `merlin_theme.cc`, `branding/design_tokens.json` | `popover` panel, `popover_control` buttons, `popover_control_strong` for the default action; hairlines are a tint of the text color |
-| Top right | `modal_browser_controller.cc`, patch 0013 | Site controls sit at the right end of the toolbar; bubbles anchored there open toward the middle of the window (`TOP_RIGHT`) |
+| Address | `merlin_toolbar.cc`, patch 0013 | Page Info and permission prompts hang from the address field, where the site is named, and open toward the middle of the window (`TOP_LEFT`). Right-click the address or type `:site` for Page Info |
 
 `overlay/chrome/browser/ui/modal_browser/merlin_popup_kit.{h,cc}`
 (`:presentation` target) provides the icon circle, the decision row and the
@@ -84,7 +84,7 @@ Chromium 157.0.8103.26.
 | Identity captures | Refreshed in `visual-identity-evidence/` |
 
 `PermissionDecisionsAndSiteInfo` checks that site information and the
-permission prompt show an arrow, open `TOP_RIGHT` from the site controls,
+permission prompt show an arrow, open `TOP_LEFT` from the address field,
 have no close button, and that all three decisions still reach the
 delegate. `NativeTokensAndAccessibleOverrides` checks the popover and button
 greys.

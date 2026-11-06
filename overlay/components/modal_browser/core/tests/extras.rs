@@ -253,7 +253,7 @@ fn projects_are_saved_and_matched_by_folder() {
         url: "http://localhost:3000".into(),
         ..WindowTab::default()
     }];
-    let o = s.save_workspace("foo", true, &tabs, 0);
+    let o = s.save_workspace("foo", true, &tabs, None, 0);
     let Action::WriteWorkspace { contents, .. } = &o.actions[0] else {
         panic!("{:?}", o.actions)
     };
@@ -299,7 +299,7 @@ fn restored_workspace_context_preserves_and_clears_project() {
     let mut destination = ModalSession::new();
     destination.set_workspace("research", Some("/tmp/research/"));
     assert_eq!(destination.project(), Some("/tmp/research"));
-    let saved = destination.save_workspace("research", true, &tabs, 0);
+    let saved = destination.save_workspace("research", true, &tabs, None, 0);
     let Action::WriteWorkspace { contents, .. } = &saved.actions[0] else {
         panic!("{saved:?}")
     };

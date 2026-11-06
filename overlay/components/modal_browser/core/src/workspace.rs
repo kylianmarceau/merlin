@@ -1,5 +1,6 @@
-//! Named workspaces: a saved set of tabs with pin state, split pairs and
-//! the active tab, restored on demand.
+//! Named workspaces: a saved set of tabs with pin state, split pairs, tab
+//! groups, the active tab and the window's place on screen, restored on
+//! demand.
 //!
 //! A workspace is *not* a profile. Profiles are Chromium storage identities
 //! (cookies, credentials); a workspace is only a list of pages and how they
@@ -21,15 +22,21 @@
 //!   "active": 1,
 //!   "tabs": [
 //!     {"url": "https://docs.rs", "title": "Docs.rs", "pinned": true},
-//!     {"url": "https://github.com", "title": "GitHub"}
+//!     {"url": "https://github.com", "title": "GitHub", "group": 0},
+//!     {"url": "https://crates.io", "title": "crates.io", "group": 0}
 //!   ],
-//!   "splits": [{"tabs": [0, 1], "layout": "side-by-side"}],
+//!   "splits": [{"tabs": [1, 2], "layout": "side-by-side", "ratio": 0.5}],
+//!   "groups": [{"title": "Rust", "color": "blue", "collapsed": false}],
+//!   "window": {"x": 40, "y": 60, "width": 1400, "height": 900,
+//!              "maximized": false},
 //!   "project": "/Users/me/code/foo"
 //! }
 //! ```
 //!
 //! `project` is optional: the folder of the code this workspace is for, so
 //! `browserctl workspace here` in that folder (or below it) opens it.
+//! `groups`, `window` and a split's `ratio` are optional too: files written
+//! before they existed still open, with no groups and the default window.
 //!
 //! Newer versions are refused with a message rather than half-read, so a
 //! file written by a newer browser is never silently damaged by an older one.
@@ -77,8 +84,65 @@ impl SplitLayout {
     }
 }
 
-/// One tab as the host reports it when saving.
+/// A tab group's color, by the names Chromium's group editor shows.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum GroupColor {
+    #[default]
+    Grey,
+    Blue,
+    Red,
+    Yellow,
+    Green,
+    Pink,
+    Purple,
+    Cyan,
+    Orange,
+}
+
+impl GroupColor {
+    pub const ALL: [GroupColor; 9] = [
+        GroupColor::Grey,
+        GroupColor::Blue,
+        GroupColor::Red,
+        GroupColor::Yellow,
+        GroupColor::Green,
+        GroupColor::Pink,
+        GroupColor::Purple,
+        GroupColor::Cyan,
+        GroupColor::Orange,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            GroupColor::Grey => "grey",
+            GroupColor::Blue => "blue",
+            GroupColor::Red => "red",
+            GroupColor::Yellow => "yellow",
+            GroupColor::Green => "green",
+            GroupColor::Pink => "pink",
+            GroupColor::Purple => "purple",
+            GroupColor::Cyan => "cyan",
+            GroupColor::Orange => "orange",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<GroupColor> {
+        GroupColor::ALL.into_iter().find(|c| c.name() == name)
+    }
+}
+
+/// A tab group as the host reports it on each of its tabs.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct WindowGroup {
+    /// Tabs with the same id are in the same group.
+    pub id: i32,
+    pub title: String,
+    pub color: GroupColor,
+    pub collapsed: bool,
+}
+
+/// One tab as the host reports it when saving.
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct WindowTab {
     pub url: String,
     pub title: String,
@@ -87,6 +151,9 @@ pub struct WindowTab {
     /// Tabs with the same id share a split view; `None` when not split.
     pub split: Option<i32>,
     pub layout: SplitLayout,
+    /// The first tab's share of the split, from 0 to 1; `None` if unknown.
+    pub split_ratio: Option<f64>,
+    pub group: Option<WindowGroup>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -94,6 +161,8 @@ pub struct WorkspaceTab {
     pub url: String,
     pub title: String,
     pub pinned: bool,
+    /// Index into `Workspace::groups`. Pinned tabs are never grouped.
+    pub group: Option<usize>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -101,6 +170,54 @@ pub struct Split {
     /// Indices into `Workspace::tabs`, in order.
     pub tabs: [usize; 2],
     pub layout: SplitLayout,
+    /// The first tab's share of the window in thousandths; `None` for an
+    /// even split. Written to the file as a fraction (`0.5`).
+    pub ratio: Option<u16>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Group {
+    pub title: String,
+    pub color: GroupColor,
+    pub collapsed: bool,
+}
+
+/// Where the window was, in screen coordinates (its normal, unzoomed
+/// bounds).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WindowBounds {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    /// Zoomed to fill the screen.
+    pub maximized: bool,
+}
+
+/// Bounds on what a window can be: on screen somewhere sensible, and big
+/// enough to use.
+const MIN_WINDOW_SIDE: i32 = 200;
+const MAX_WINDOW_SIDE: i32 = 32_000;
+const MAX_WINDOW_OFFSET: i32 = 64_000;
+/// Longest group title kept.
+const MAX_GROUP_TITLE_LEN: usize = 256;
+
+impl WindowBounds {
+    /// `None` for bounds no screen could show.
+    pub fn validated(self) -> Option<WindowBounds> {
+        let side = MIN_WINDOW_SIDE..=MAX_WINDOW_SIDE;
+        let offset = -MAX_WINDOW_OFFSET..=MAX_WINDOW_OFFSET;
+        (side.contains(&self.width)
+            && side.contains(&self.height)
+            && offset.contains(&self.x)
+            && offset.contains(&self.y))
+        .then_some(self)
+    }
+}
+
+/// A split's ratio, in thousandths, if it is one Chromium would draw.
+fn usable_ratio(ratio: f64) -> Option<u16> {
+    (ratio.is_finite() && (0.05..=0.95).contains(&ratio)).then(|| (ratio * 1000.0).round() as u16)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -114,6 +231,9 @@ pub struct Workspace {
     pub active: usize,
     pub tabs: Vec<WorkspaceTab>,
     pub splits: Vec<Split>,
+    pub groups: Vec<Group>,
+    /// `None` when the file does not say (the host picks).
+    pub window: Option<WindowBounds>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -235,12 +355,13 @@ fn bounded(s: &str, max: usize) -> String {
 impl Workspace {
     /// Builds a workspace from a window's tabs. Tabs whose URL cannot be
     /// restored (a `data:` page) are left out; splits whose two tabs are not
-    /// both kept are dropped.
+    /// both kept are dropped, and so are groups with no tab kept.
     pub fn from_window(
         name: &str,
         saved: i64,
         tabs: &[WindowTab],
         project: Option<&str>,
+        window: Option<WindowBounds>,
     ) -> Result<Self, WorkspaceError> {
         let name = validate_name(name)?.to_string();
         let mut out = Workspace {
@@ -250,31 +371,57 @@ impl Workspace {
             active: 0,
             tabs: Vec::new(),
             splits: Vec::new(),
+            groups: Vec::new(),
+            window: window.and_then(WindowBounds::validated),
         };
         // Index in `out.tabs` of the first tab seen for each split id.
-        let mut open_splits: Vec<(i32, usize, SplitLayout)> = Vec::new();
+        let mut open_splits: Vec<(i32, usize, SplitLayout, Option<f64>)> = Vec::new();
+        // Host group id -> index in `out.groups`.
+        let mut group_ids: Vec<i32> = Vec::new();
         for tab in tabs.iter().take(MAX_WORKSPACE_TABS) {
             if !restorable_url(&tab.url) {
                 continue;
             }
             let index = out.tabs.len();
+            let group = tab.group.as_ref().filter(|_| !tab.pinned).map(|g| {
+                group_ids
+                    .iter()
+                    .position(|id| *id == g.id)
+                    .unwrap_or_else(|| {
+                        group_ids.push(g.id);
+                        out.groups.push(Group {
+                            title: bounded(&g.title, MAX_GROUP_TITLE_LEN),
+                            color: g.color,
+                            collapsed: g.collapsed,
+                        });
+                        out.groups.len() - 1
+                    })
+            });
             out.tabs.push(WorkspaceTab {
                 url: bounded(&tab.url, MAX_URL_LEN),
                 title: bounded(&tab.title, MAX_TITLE_LEN),
                 pinned: tab.pinned,
+                group,
             });
             if tab.active {
                 out.active = index;
             }
             if let Some(id) = tab.split {
-                if let Some(pos) = open_splits.iter().position(|(s, _, _)| *s == id) {
-                    let (_, first, layout) = open_splits.remove(pos);
+                if let Some(pos) = open_splits.iter().position(|(s, ..)| *s == id) {
+                    let (_, first, layout, ratio) = open_splits.remove(pos);
+                    // The browser keeps both halves in one pin state and
+                    // group; a pair that is not cannot be restored as one.
+                    let (a, b) = (&out.tabs[first], &out.tabs[index]);
+                    if a.pinned != b.pinned || a.group != b.group {
+                        continue;
+                    }
                     out.splits.push(Split {
                         tabs: [first, index],
                         layout,
+                        ratio: ratio.and_then(usable_ratio),
                     });
                 } else {
-                    open_splits.push((id, index, tab.layout));
+                    open_splits.push((id, index, tab.layout, tab.split_ratio));
                 }
             }
         }
@@ -296,6 +443,9 @@ impl Workspace {
                 if t.pinned {
                     entries.push(("pinned", Value::Bool(true)));
                 }
+                if let Some(group) = t.group {
+                    entries.push(("group", Value::from(group)));
+                }
                 Value::object(entries)
             })
             .collect();
@@ -303,12 +453,27 @@ impl Workspace {
             .splits
             .iter()
             .map(|s| {
-                Value::object([
+                let mut entries = vec![
                     (
                         "tabs",
                         Value::Array(vec![s.tabs[0].into(), s.tabs[1].into()]),
                     ),
                     ("layout", Value::string(s.layout.name())),
+                ];
+                if let Some(ratio) = s.ratio {
+                    entries.push(("ratio", Value::Number(f64::from(ratio) / 1000.0)));
+                }
+                Value::object(entries)
+            })
+            .collect();
+        let groups = self
+            .groups
+            .iter()
+            .map(|g| {
+                Value::object([
+                    ("title", Value::string(&g.title)),
+                    ("color", Value::string(g.color.name())),
+                    ("collapsed", Value::Bool(g.collapsed)),
                 ])
             })
             .collect();
@@ -320,7 +485,20 @@ impl Workspace {
             ("active", Value::from(self.active)),
             ("tabs", Value::Array(tabs)),
             ("splits", Value::Array(splits)),
+            ("groups", Value::Array(groups)),
         ];
+        if let Some(w) = self.window {
+            fields.push((
+                "window",
+                Value::object([
+                    ("x", Value::from(w.x)),
+                    ("y", Value::from(w.y)),
+                    ("width", Value::from(w.width)),
+                    ("height", Value::from(w.height)),
+                    ("maximized", Value::Bool(w.maximized)),
+                ]),
+            ));
+        }
         if let Some(project) = &self.project {
             fields.push(("project", Value::string(project)));
         }
@@ -366,6 +544,27 @@ impl Workspace {
             .and_then(Value::as_array)
             .ok_or_else(|| field("tabs", "expected an array"))?;
 
+        // Groups first: tabs refer to them by index.
+        let groups: Vec<Group> = root
+            .get("groups")
+            .and_then(Value::as_array)
+            .unwrap_or(&[])
+            .iter()
+            .take(MAX_WORKSPACE_TABS)
+            .map(|g| Group {
+                title: bounded(
+                    g.get("title").and_then(Value::as_str).unwrap_or(""),
+                    MAX_GROUP_TITLE_LEN,
+                ),
+                color: g
+                    .get("color")
+                    .and_then(Value::as_str)
+                    .and_then(GroupColor::from_name)
+                    .unwrap_or_default(),
+                collapsed: g.get("collapsed").and_then(Value::as_bool).unwrap_or(false),
+            })
+            .collect();
+
         // Old index -> new index for kept tabs.
         let mut remap: Vec<Option<usize>> = Vec::with_capacity(tabs_in.len());
         let mut tabs = Vec::new();
@@ -378,13 +577,20 @@ impl Workspace {
                 continue;
             }
             remap.push(Some(tabs.len()));
+            let pinned = t.get("pinned").and_then(Value::as_bool).unwrap_or(false);
+            let group = t
+                .get("group")
+                .and_then(Value::as_u64)
+                .and_then(|g| usize::try_from(g).ok())
+                .filter(|g| *g < groups.len() && !pinned);
             tabs.push(WorkspaceTab {
                 url: url.trim().to_string(),
                 title: bounded(
                     t.get("title").and_then(Value::as_str).unwrap_or(""),
                     MAX_TITLE_LEN,
                 ),
-                pinned: t.get("pinned").and_then(Value::as_bool).unwrap_or(false),
+                pinned,
+                group,
             });
         }
         if tabs.is_empty() {
@@ -403,9 +609,15 @@ impl Workspace {
             let (Some(a), Some(b)) = (mapped(a.as_u64()), mapped(b.as_u64())) else {
                 continue;
             };
-            // A tab can be in one split only, and not with itself.
+            // A tab can be in one split only, and not with itself. Both
+            // halves share a pin state and a group, as in the browser.
             let used = |i: usize| splits.iter().any(|s| s.tabs.contains(&i));
-            if a == b || used(a) || used(b) {
+            if a == b
+                || used(a)
+                || used(b)
+                || tabs[a].pinned != tabs[b].pinned
+                || tabs[a].group != tabs[b].group
+            {
                 continue;
             }
             let layout = s
@@ -413,11 +625,42 @@ impl Workspace {
                 .and_then(Value::as_str)
                 .and_then(SplitLayout::from_name)
                 .unwrap_or_default();
+            let ratio = s
+                .get("ratio")
+                .and_then(Value::as_f64)
+                .and_then(usable_ratio);
             splits.push(Split {
                 tabs: [a.min(b), a.max(b)],
                 layout,
+                // The ratio belongs to the tab listed first.
+                ratio: ratio.map(|r| if a <= b { r } else { 1000 - r }),
             });
         }
+        // Groups no kept tab uses are dropped; indices are renumbered.
+        let mut used_groups: Vec<usize> = tabs.iter().filter_map(|t| t.group).collect();
+        used_groups.sort_unstable();
+        used_groups.dedup();
+        for t in &mut tabs {
+            t.group = t
+                .group
+                .and_then(|g| used_groups.iter().position(|u| *u == g));
+        }
+        let groups: Vec<Group> = used_groups.iter().map(|g| groups[*g].clone()).collect();
+        let window = root.get("window").and_then(|w| {
+            let side = |key: &str| {
+                w.get(key)
+                    .and_then(Value::as_i64)
+                    .and_then(|v| i32::try_from(v).ok())
+            };
+            WindowBounds {
+                x: side("x")?,
+                y: side("y")?,
+                width: side("width")?,
+                height: side("height")?,
+                maximized: w.get("maximized").and_then(Value::as_bool).unwrap_or(false),
+            }
+            .validated()
+        });
         let project = root
             .get("project")
             .and_then(Value::as_str)
@@ -430,6 +673,8 @@ impl Workspace {
                 active,
                 tabs,
                 splits,
+                groups,
+                window,
             },
             skipped,
         ))

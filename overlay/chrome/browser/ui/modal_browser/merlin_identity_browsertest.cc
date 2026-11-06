@@ -626,19 +626,19 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest,
   for (bool dark : {false, true}) {
     SetDark(dark);
     auto* controller = ModalBrowserController::From(browser());
-    auto* button =
-        controller->safety_controls_for_testing()->site_button_for_testing();
-    views::test::ButtonTestApi(button).NotifyDefaultMouseClick();
+    ASSERT_EQ(controller->RunCommandLine("site"), "");
     ASSERT_TRUE(base::test::RunUntil([&] {
       return PageInfoBubbleViewBase::GetPageInfoBubbleForTesting(contents()) !=
              nullptr;
     }));
     auto* site_info =
         PageInfoBubbleViewBase::GetPageInfoBubbleForTesting(contents());
-    // Site information hangs from the site controls at the right end of the
-    // toolbar, with an arrow pointing at them.
+    // Site information hangs from the address, where the site is named,
+    // with an arrow pointing at it.
     EXPECT_TRUE(site_info->GetBubbleFrameView()->GetDisplayVisibleArrow());
-    EXPECT_EQ(site_info->arrow(), views::BubbleBorder::TOP_RIGHT);
+    EXPECT_EQ(site_info->GetAnchorView(),
+              controller->address_field_for_testing());
+    EXPECT_EQ(site_info->arrow(), views::BubbleBorder::TOP_LEFT);
     SnapWidget(site_info->GetWidget(),
                dark ? "dark-site-info" : "light-site-info");
     site_info->GetWidget()->CloseNow();

@@ -79,8 +79,9 @@ Markdown and `yc` copies a code block.
 **Tabs and splits.** Tabs in a sidebar or along the top, or hidden entirely
 with `⌘S`. Split the window with `<C-w>v` or `<C-w>s`. Pin tabs with `gp`.
 
-**Workspaces.** Save a set of tabs with `:workspace save research` and
-reopen it later with `gw`. Workspaces save as you go, and your last
+**Workspaces.** Save a window with `:workspace save research` and reopen
+it later with `gw`: its tabs, pins, splits, tab groups and the window's
+place on screen come back. Workspaces save as you go, and your last
 session comes back on launch, even after a crash. A workspace can be tied
 to a project folder and reopened from that folder's terminal.
 

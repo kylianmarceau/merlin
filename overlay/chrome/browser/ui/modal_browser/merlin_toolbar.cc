@@ -12,6 +12,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/modal_style.h"
@@ -279,8 +280,19 @@ MerlinAddressField::MerlinAddressField(base::RepeatingClosure edit_address,
   SetInstallFocusRingOnFocus(true);
   views::InstallRoundRectHighlightPathGenerator(this, gfx::Insets(),
                                                 kFieldRadius);
+  // Page info and permission prompts open from the address, where the
+  // site is named (patch 0013 looks for this identifier).
+  SetProperty(views::kElementIdentifierKey, kLocationIconElementId);
+  set_context_menu_controller(this);
   SetTooltipText(u"Edit address  ⌘L");
   GetViewAccessibility().SetName(u"Address");
+}
+
+void MerlinAddressField::ShowContextMenuForViewImpl(
+    views::View* source,
+    const gfx::Point& point,
+    ui::mojom::MenuSourceType source_type) {
+  show_site_info_.Run();
 }
 
 MerlinAddressField::~MerlinAddressField() = default;
@@ -357,7 +369,9 @@ void MerlinAddressField::Update(content::WebContents* contents) {
   title_ = std::move(title);
   security_ = security;
   GetViewAccessibility().SetName(u"Address: " + host_ + rest_);
-  SetTooltipText(host_ + rest_);
+  GetViewAccessibility().SetDescription(
+      u"Press to edit. Site settings: right-click, or type :site");
+  SetTooltipText(host_ + rest_ + u"\nRight-click for site settings");
   SchedulePaint();
 }
 

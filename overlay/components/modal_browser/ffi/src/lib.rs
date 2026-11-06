@@ -30,6 +30,7 @@ use modal_browser_core as core_api;
 use core_api::document::utf16_to_char_offsets;
 use core_api::ipc::{self, OpenPlace, Request as IpcCoreRequest, WorkspaceRequest};
 use core_api::json::Value as JsonValue;
+use core_api::workspace::{GroupColor, WindowBounds, WindowGroup};
 use core_api::{
     Action as CoreAction, BlockJump as CoreBlockJump, BlockKind as CoreBlockKind,
     BrowserPage as CoreBrowserPage, Disposition as CoreDisposition, Editable,
@@ -218,6 +219,7 @@ mod ffi {
         Settings,
         Extensions,
         ReadingMode,
+        SiteInfo,
     }
 
     #[derive(Debug)]
@@ -420,6 +422,25 @@ mod ffi {
         /// Tabs with the same value share a split; -1 when not split.
         split: i32,
         layout: SplitLayout,
+        /// The split's first tab's share of the window, 0 to 1; 0 when
+        /// unknown.
+        split_ratio: f64,
+        /// Tabs with the same value share a tab group; -1 when ungrouped.
+        group: i32,
+        group_title: String,
+        /// A Chromium group color name: grey, blue, red, ...
+        group_color: String,
+        group_collapsed: bool,
+    }
+
+    /// A window's place on screen (its normal bounds); width 0 = unknown.
+    #[derive(Debug, Default)]
+    struct WindowState {
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        maximized: bool,
     }
 
     /// One tab of a workspace being restored.
@@ -431,6 +452,15 @@ mod ffi {
         /// Index of the tab this one is split with; -1 when not split.
         split_with: i32,
         layout: SplitLayout,
+        /// The share of the window of the split's first tab, 0 to 1; 0 for
+        /// an even split.
+        split_ratio: f64,
+        /// Index of its group in the workspace; -1 when ungrouped. Tabs of
+        /// one group carry the same title, color and collapsed state.
+        group: i32,
+        group_title: String,
+        group_color: String,
+        group_collapsed: bool,
     }
 
     #[derive(Debug)]
@@ -529,6 +559,9 @@ mod ffi {
         workspace_tabs: Vec<WorkspaceTab>,
         /// RestoreWorkspace: project folder, empty when unassociated.
         workspace_project: String,
+        /// RestoreWorkspace: where the window was; width 0 = let the
+        /// browser choose.
+        workspace_window: WindowState,
         /// GoToMark: scroll position.
         x: i64,
         y: i64,
@@ -702,6 +735,7 @@ mod ffi {
             name: &str,
             quiet: bool,
             tabs: Vec<WindowTab>,
+            window: WindowState,
             now: i64,
         ) -> Outcome;
         fn workspace_read(self: &mut Session, name: &str, found: bool, text: &str) -> Outcome;
@@ -738,7 +772,7 @@ pub use ffi::{
     IpcRequest, IpcTab, ItemSource, KeyDisposition, KeyHint, ListItem, MessageLevel, Mode,
     Modifiers, OpenDisposition, Outcome, PageBlock, PageSpan, PaletteKey, PaletteKind, PaletteRow,
     PaletteState, ScrollKind, SelectUnit, SpanKind, SplitLayout, Switch, TabInfo, TargetKind,
-    WindowTab, WorkspaceTab, YankKind,
+    WindowState, WindowTab, WorkspaceTab, YankKind,
 };
 
 /// Opaque per-window session handed to C++ as `rust::Box<Session>`.
@@ -1089,8 +1123,16 @@ impl Session {
         name: &str,
         quiet: bool,
         tabs: Vec<WindowTab>,
+        window: WindowState,
         now: i64,
     ) -> Outcome {
+        let window = (window.width > 0).then_some(WindowBounds {
+            x: window.x,
+            y: window.y,
+            width: window.width,
+            height: window.height,
+            maximized: window.maximized,
+        });
         let tabs: Vec<CoreWindowTab> = tabs
             .into_iter()
             .take(core_api::workspace::MAX_WORKSPACE_TABS)
@@ -1105,9 +1147,18 @@ impl Session {
                 } else {
                     CoreSplitLayout::SideBySide
                 },
+                split_ratio: (t.split_ratio > 0.0).then_some(t.split_ratio),
+                group: (t.group >= 0).then(|| WindowGroup {
+                    id: t.group,
+                    title: t.group_title,
+                    color: GroupColor::from_name(&t.group_color).unwrap_or_default(),
+                    collapsed: t.group_collapsed,
+                }),
             })
             .collect();
-        self.inner.save_workspace(name, quiet, &tabs, now).into()
+        self.inner
+            .save_workspace(name, quiet, &tabs, window, now)
+            .into()
     }
 
     fn workspace_read(&mut self, name: &str, found: bool, text: &str) -> Outcome {
@@ -1526,6 +1577,7 @@ impl From<CoreBrowserPage> for BrowserPage {
             CoreBrowserPage::Settings => BrowserPage::Settings,
             CoreBrowserPage::Extensions => BrowserPage::Extensions,
             CoreBrowserPage::ReadingMode => BrowserPage::ReadingMode,
+            CoreBrowserPage::SiteInfo => BrowserPage::SiteInfo,
         }
     }
 }
@@ -1587,6 +1639,7 @@ impl Action {
             argv: Vec::new(),
             workspace_tabs: Vec::new(),
             workspace_project: String::new(),
+            workspace_window: WindowState::default(),
             x: 0,
             y: 0,
         }
@@ -1769,6 +1822,7 @@ impl From<CoreAction> for Action {
                     .enumerate()
                     .map(|(i, t)| {
                         let split = workspace.split_of(i);
+                        let group = t.group.and_then(|g| workspace.groups.get(g));
                         WorkspaceTab {
                             url: t.url.clone(),
                             title: t.title.clone(),
@@ -1777,14 +1831,33 @@ impl From<CoreAction> for Action {
                                 .map(|s| if s.tabs[0] == i { s.tabs[1] } else { s.tabs[0] })
                                 .map_or(-1, |j| j as i32),
                             layout: split.map(|s| s.layout).unwrap_or_default().into(),
+                            split_ratio: split
+                                .and_then(|s| s.ratio)
+                                .map_or(0.0, |r| f64::from(r) / 1000.0),
+                            group: t.group.filter(|_| group.is_some()).map_or(-1, |g| g as i32),
+                            group_title: group.map(|g| g.title.clone()).unwrap_or_default(),
+                            group_color: group
+                                .map(|g| g.color.name().to_string())
+                                .unwrap_or_default(),
+                            group_collapsed: group.is_some_and(|g| g.collapsed),
                         }
                     })
                     .collect();
+                let window = workspace
+                    .window
+                    .map_or_else(WindowState::default, |w| WindowState {
+                        x: w.x,
+                        y: w.y,
+                        width: w.width,
+                        height: w.height,
+                        maximized: w.maximized,
+                    });
                 Action {
                     index: workspace.active as u32,
                     flag: new_window,
                     workspace_tabs: tabs,
                     workspace_project: workspace.project.unwrap_or_default(),
+                    workspace_window: window,
                     ..Action::named(K::RestoreWorkspace, workspace.name)
                 }
             }

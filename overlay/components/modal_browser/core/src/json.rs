@@ -59,6 +59,14 @@ impl Value {
         }
     }
 
+    /// Any finite number.
+    pub fn as_f64(&self) -> Option<f64> {
+        match self {
+            Value::Number(n) if n.is_finite() => Some(*n),
+            _ => None,
+        }
+    }
+
     /// The number, if it is a whole number within ±2^53.
     pub fn as_i64(&self) -> Option<i64> {
         match self {

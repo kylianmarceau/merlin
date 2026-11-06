@@ -125,6 +125,8 @@ pub enum BrowserPage {
     Extensions,
     /// Chromium's Reading mode side panel.
     ReadingMode,
+    /// The site's connection, permissions and cookies (Page Info).
+    SiteInfo,
 }
 
 /// Structural units `:jump` moves between.

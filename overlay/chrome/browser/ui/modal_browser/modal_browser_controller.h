@@ -58,6 +58,7 @@ inline constexpr char kUpstreamDefaultsSwitch[] =
 
 class ExternalEditor;
 class HintHost;
+class KeepHidden;
 class MerlinAddressEditor;
 class CtrlTabSwitcher;
 class MerlinTabBarHost;
@@ -291,6 +292,13 @@ class ModalBrowserController : public BrowserOps,
   void InstallMerlinToolbar(LocationBarView* location_bar);
   void UpdateMerlinToolbar(content::WebContents* contents, bool start_page);
   void ShowSiteInfo();
+  // Another normal window kept under workspace `name`, front first.
+  ModalBrowserController* WindowWithWorkspace(std::string_view name);
+  // Detaches other windows from this window's workspace, so only this one
+  // keeps saving it.
+  void ReleaseWorkspaceInOtherWindows();
+  // The window is closing its tabs on its way out.
+  bool WindowClosing() const;
   bool ToolbarHidden() const { return toolbar_hidden_; }
   // Puts the cursor where the address is typed: the toolbar row's field on
   // sites (MerlinAddressEditor), the start page's own field there.
@@ -358,6 +366,8 @@ class ModalBrowserController : public BrowserOps,
   raw_ptr<MerlinNavButton> reload_button_ = nullptr;
   raw_ptr<MerlinAddressField> address_field_ = nullptr;
   raw_ptr<MerlinSafetyControls> safety_controls_ = nullptr;
+  // Keeps Chromium's media toolbar button hidden.
+  std::unique_ptr<KeepHidden> media_button_hidden_;
   // Swaps Chromium's field in while the address is edited.
   std::unique_ptr<MerlinAddressEditor> address_editor_;
   // Merlin's tab bar over Chromium's, with tabs on top.

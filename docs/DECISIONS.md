@@ -799,6 +799,44 @@ turning those images on: a small compressed capture when a tab is left (as
 Chrome on Windows does by default), and a short capture of tabs that have
 none while the cards are up. A tab with no capture shows its icon.
 
+## 48. Site controls on the address; Merlin's picture-in-picture; whole workspaces
+
+Supersedes the separate site-controls button of decision 42.
+
+**Toolbar.** The sliders button and Chromium's media button (♫) read as
+Chrome and are gone. Page Info opens from the address itself: right-click
+it, click its Not secure / Dangerous chip, or type `:site` (also
+`:site-info`, `:permissions`). The address field carries the
+location-icon identifier, so patch 0013 points Page Info and permission
+prompts at it (they open `TOP_LEFT`, under the site's name). On the start
+page, where there is no address field, Chromium's own fallback anchor is
+used, as before for non-web pages. The Recording/Sharing control and the
+Private label stay at the right end. The media button is hidden outright,
+and hidden again whenever Chromium shows it; squeezing it to no width made
+the toolbar show its » overflow menu. Media keys, the tab's speaker icon
+and macOS Now Playing still control playback.
+
+**Picture-in-picture.** Patch 0055 restyles Chromium's video window rather
+than replacing it, so its controller, keyboard handling, accessibility and
+security behavior stay: a light veil over the video instead of a dark one,
+shorter gradients, the site's name without its icon, a frosted play/pause
+circle, white controls instead of the accent color, and one bottom row
+(time, progress, mute, captions) instead of a bar above a second row. The
+time keeps a steady width so the progress bar does not shift each second.
+
+**Workspaces.** A workspace now also keeps its tab groups (name, color,
+collapsed), each split's proportions, and the window's place and zoom. Files
+without them still open (the fields are optional; the format version stays
+1). One window holds a workspace at a time: opening one that is open shows
+its window, saving under a name takes it from any other window, and a window
+that the core chose to reuse but that has changed opens a new one instead
+of closing its tabs. Before this, two windows could both autosave one
+workspace and write over each other's tabs. A closing window no longer
+autosaves the tabs it closes on the way out. With no saved place, a restored
+window opens 28 px down and right of the current one, not exactly over it.
+Unloaded restored tabs show their favicon from history. Split pairs share
+one capsule in the tab row and sidebar whether or not they are active.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing

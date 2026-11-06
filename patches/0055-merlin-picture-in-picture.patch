@@ -1,0 +1,275 @@
+diff --git a/chrome/browser/ui/views/overlay/playback_image_button.cc b/chrome/browser/ui/views/overlay/playback_image_button.cc
+index f18618340f..7440bd8884 100644
+--- a/chrome/browser/ui/views/overlay/playback_image_button.cc
++++ b/chrome/browser/ui/views/overlay/playback_image_button.cc
+@@ -35,7 +35,7 @@ PlaybackImageButton::PlaybackImageButton(PressedCallback callback)
+       features::IsRoundedIconsEnabled()
+           ? vector_icons::kPlayArrowFilledFlippableIcon
+           : vector_icons::kPlayArrowOldIcon,
+-      ui::kColorSysOnSecondaryContainer, kPlaybackButtonIconSize);
++      kColorPipWindowForeground, kPlaybackButtonIconSize);
+   pause_image_ = ui::ImageModel::FromVectorIcon(
+       features::IsRoundedIconsEnabled() ? vector_icons::kPauseFilledIcon
+                                         : vector_icons::kPauseOldIcon,
+@@ -98,13 +98,15 @@ void PlaybackImageButton::UpdateImageAndText() {
+   SchedulePaint();
+ }
+ 
++// Merlin: the same frosted circle playing or paused; the icon tells which.
+ void PlaybackImageButton::SetPlayButtonBackground() {
+-  SetBackground(views::CreatePillBackground(ui::kColorSysSecondaryContainer));
++  SetBackground(
++      views::CreatePillBackground(SkColorSetARGB(0x3D, 0xFF, 0xFF, 0xFF)));
+ }
+ 
+ void PlaybackImageButton::SetPauseButtonBackground() {
+   SetBackground(
+-      views::CreatePillBackground(SkColorSetARGB(0x33, 0xFF, 0xFF, 0xFF)));
++      views::CreatePillBackground(SkColorSetARGB(0x3D, 0xFF, 0xFF, 0xFF)));
+ }
+ 
+ BEGIN_METADATA(PlaybackImageButton)
+diff --git a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
+index 0afdeb691c..da9441dd55 100644
+--- a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
++++ b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
+@@ -72,6 +72,7 @@
+ #include "ui/gfx/geometry/resize_utils.h"
+ #include "ui/gfx/geometry/skia_conversions.h"
+ #include "ui/gfx/text_constants.h"
++#include "ui/gfx/text_utils.h"
+ #include "ui/views/background.h"
+ #include "ui/views/controls/image_view.h"
+ #include "ui/views/controls/label.h"
+@@ -125,6 +126,18 @@ constexpr gfx::Size kFaviconSize(24, 24);
+ // The size of the favicon image itself.
+ constexpr gfx::Size kFaviconIconSize(16, 16);
+ 
++// Merlin: room for the time label as it is now, with every digit as wide
++// as a zero, so the progress bar beside it does not shift each second.
++int TimestampWidth(const views::Label* label) {
++  std::u16string text(label->GetText());
++  for (char16_t& c : text) {
++    if (c >= u'0' && c <= u'9') {
++      c = u'0';
++    }
++  }
++  return gfx::GetStringWidth(text, label->font_list()) + 2;
++}
++
+ gfx::Size ScaleImageSizeToFitView(const gfx::Size& image_size,
+                                   const gfx::Size& view_size) {
+   const float scale =
+@@ -1068,8 +1081,10 @@ void VideoOverlayWindowViews::SetUpViews() {
+   auto video_view = std::make_unique<views::View>();
+ 
+   auto controls_scrim_view = std::make_unique<views::View>();
++  // Merlin: a light veil, so the video stays visible under the controls;
++  // the gradients at the top and bottom carry the contrast.
+   controls_scrim_view->SetBackground(
+-      views::CreateSolidBackground(kColorPipWindowScrimFull));
++      views::CreateSolidBackground(SkColorSetA(SK_ColorBLACK, 0x29)));
+ 
+   auto controls_container_view = std::make_unique<views::View>();
+   auto title_view = std::make_unique<views::View>();
+@@ -1195,10 +1210,11 @@ void VideoOverlayWindowViews::SetUpViews() {
+   auto progress_view =
+       std::make_unique<global_media_controls::MediaProgressView>(
+           /*use_squiggly_line=*/false,
+-          /*playing_foreground_color_id=*/ui::kColorSysPrimary,
+-          /*playing_background_color_id=*/ui::kColorSysStateDisabled,
+-          /*paused_foreground_color_id=*/ui::kColorSysStateDisabled,
+-          /*paused_background_color_id=*/ui::kColorSysStateDisabled,
++          // Merlin: white on a dim track, as the other controls are.
++          /*playing_foreground_color_id=*/kColorPipWindowForeground,
++          /*playing_background_color_id=*/kColorPipWindowForegroundInactive,
++          /*paused_foreground_color_id=*/kColorPipWindowForeground,
++          /*paused_background_color_id=*/kColorPipWindowForegroundInactive,
+           /*focus_ring_color_id=*/ui::kColorSysStateFocusRing,
+           /*drag_state_change_callback=*/
+           base::BindRepeating(
+@@ -1220,7 +1236,8 @@ void VideoOverlayWindowViews::SetUpViews() {
+   auto timestamp = std::make_unique<views::Label>(std::u16string(),
+                                                   views::style::CONTEXT_LABEL,
+                                                   views::style::STYLE_BODY_4);
+-  timestamp->SetEnabledColor(ui::kColorSysOnSurfaceSubtle);
++  // Merlin: as bright as the other controls, to read over bright video.
++  timestamp->SetEnabledColor(kColorPipWindowForeground);
+   timestamp->SetBackgroundColor(SK_ColorTRANSPARENT);
+   timestamp->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+ 
+@@ -1497,22 +1514,20 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
+   UpdateResizeHandleBounds(quadrant);
+ #endif
+ 
++  // Merlin: shorter gradients and one row of controls along the bottom.
+   constexpr int kTopControlsHeight = 34;
+-  constexpr int kBottomControlsHeight = 64;
+-  constexpr int kTopScrimHeight = 160;
+-  constexpr int kBottomScrimHeight = 160;
+-  constexpr int kFaviconLeftMargin = 8;
++  constexpr int kBottomControlsHeight = 48;
++  constexpr int kTopScrimHeight = 84;
++  constexpr int kBottomScrimHeight = 104;
+   constexpr int kFaviconTopMargin = 5;
+-  constexpr int kFaviconRightMargin = 4;
+-  constexpr int kOriginTopMargin = 5;
++  constexpr int kOriginLeftMargin = 12;
++  constexpr int kOriginTopMargin = 6;
+   constexpr int kOriginHeight = 24;
+   constexpr int kOriginRightMargin = 80;
+   constexpr int kProgressBarHeight = 26;
+-  constexpr int kCenterControlMargin = 16;
+-  constexpr int kBottomControlsHorizontalMargin = 12;
+-  constexpr int kBottomControlsVerticalMargin = 4;
+-  constexpr int kTimestampHorizontalMargin = 16;
+-  constexpr int kTimestampVerticalMargin = 10;
++  constexpr int kCenterControlMargin = 20;
++  constexpr int kRowMargin = 10;
++  constexpr int kRowGap = 6;
+   constexpr int kTimestampHeight = 16;
+ 
+   gfx::Rect bounds = GetBounds();
+@@ -1561,12 +1576,9 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
+            kBottomScrimHeight,
+        bottom_controls_bounds.width(), kBottomScrimHeight});
+ 
+-  gfx::Rect favicon_view_bounds({top_controls_bounds.x() + kFaviconLeftMargin,
+-                                 top_controls_bounds.y() + kFaviconTopMargin},
+-                                kFaviconSize);
+-  favicon_view_->SetPosition(favicon_view_bounds.origin());
+-
+-  gfx::Point origin_position(favicon_view_bounds.right() + kFaviconRightMargin,
++  // Merlin: the site's name alone, without its icon.
++  favicon_view_->SetVisible(false);
++  gfx::Point origin_position(top_controls_bounds.x() + kOriginLeftMargin,
+                              kOriginTopMargin);
+   origin_->SetPosition(origin_position);
+   origin_->SetSize(
+@@ -1618,16 +1630,6 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
+   replay_10_seconds_button_->SetPosition(center_left_control_position);
+   forward_10_seconds_button_->SetPosition(center_right_control_position);
+ 
+-  // The previous and next track buttons are placed on the top left/right
+-  // edges of the bottom controls area.
+-  previous_track_controls_view_->SetPosition(
+-      {bottom_controls_bounds.x() + kBottomControlsHorizontalMargin,
+-       bottom_controls_bounds.y() + kBottomControlsVerticalMargin});
+-  next_track_controls_view_->SetPosition(
+-      {bottom_controls_bounds.x() + bottom_controls_bounds.width() -
+-           (kBottomControlsHorizontalMargin + kActionButtonSize.width()),
+-       bottom_controls_bounds.y() + kBottomControlsVerticalMargin});
+-
+   // The previous and next track buttons are always both visible if at least
+   // one of them is visible.
+   const bool should_enable_prev =
+@@ -1640,58 +1642,56 @@ void VideoOverlayWindowViews::OnUpdateControlsBounds() {
+   previous_track_controls_view_->SetEnabled(should_enable_prev);
+   next_track_controls_view_->SetEnabled(should_enable_next);
+ 
+-  // The progress bars should take up all the space that is left after the
+-  // previous and next buttons. Here we calculate how much horizontal space
+-  // one of those buttons takes up and use that to calculate the width and x
+-  // position of the progress view.
+-  constexpr int kPreviousNextTrackWidthPlusHorizontalMargins =
+-      kBottomControlsHorizontalMargin + kActionButtonSize.width();
+-  const int used_horizontal_space_left_of_progress_bar =
+-      should_show_prev_next ? kPreviousNextTrackWidthPlusHorizontalMargins
+-                            : kBottomControlsHorizontalMargin;
+-  progress_view_->SetPosition(
+-      {bottom_controls_bounds.x() + used_horizontal_space_left_of_progress_bar,
+-       bottom_controls_bounds.y() + kBottomControlsVerticalMargin});
+-  progress_view_->SetSize(
+-      {bounds.width() - (2 * used_horizontal_space_left_of_progress_bar),
+-       kProgressBarHeight});
+-
+-  gfx::Point timestamp_position(
+-      bottom_controls_bounds.x() + kTimestampHorizontalMargin,
+-      bottom_controls_bounds.y() + bottom_controls_bounds.height() -
+-          kTimestampVerticalMargin - kTimestampHeight);
+-  const int max_timestamp_width =
+-      bottom_controls_bounds.width() - (2 * kTimestampHorizontalMargin);
+-  timestamp_->SetPosition(timestamp_position);
+-  timestamp_->SetSize({max_timestamp_width, kTimestampHeight});
++  // Merlin: one row along the bottom, left to right: [previous] time,
++  // progress, [next], mute, captions. The progress bar takes what is left.
++  const int row_y =
++      bottom_controls_bounds.bottom() - kRowMargin - kActionButtonSize.height();
++  const int row_center = row_y + kActionButtonSize.height() / 2;
++  int left = bottom_controls_bounds.x() + kRowMargin;
++  int right = bottom_controls_bounds.right() - kRowMargin;
++  if (should_show_prev_next) {
++    previous_track_controls_view_->SetPosition({left, row_y});
++    left += kActionButtonSize.width() + kRowGap;
++  }
++
++  const int max_label_width = bottom_controls_bounds.width() / 2;
++  const gfx::Point label_position(left, row_center - kTimestampHeight / 2);
++  timestamp_->SetPosition(label_position);
++  timestamp_->SetSize(
++      {std::min(TimestampWidth(timestamp_), max_label_width), kTimestampHeight});
+   timestamp_->SetVisible(!is_live_);
+ 
+-  live_status_->SetPosition(timestamp_position);
+-  live_status_->SetMaximumWidthSingleLine(max_timestamp_width);
++  live_status_->SetPosition(label_position);
++  live_status_->SetMaximumWidthSingleLine(max_label_width);
+   live_status_->SetSize(
+-      {live_status_->GetPreferredSize({max_timestamp_width, kTimestampHeight})
++      {live_status_->GetPreferredSize({max_label_width, kTimestampHeight})
+            .width(),
+        kTimestampHeight});
+   live_status_->SetVisible(is_live_);
++  left += (is_live_ ? live_status_->width() : timestamp_->width()) + kRowGap;
+ 
+-  gfx::Rect live_caption_button_bounds(
+-      bottom_controls_bounds.right() - kBottomControlsHorizontalMargin -
+-          kActionButtonSize.width(),
+-      bottom_controls_bounds.bottom() - kBottomControlsVerticalMargin -
+-          kActionButtonSize.height(),
+-      live_caption_button_->width(), live_caption_button_->height());
+-
+-  live_caption_button_->SetPosition(live_caption_button_bounds.origin());
+-
++  right -= kActionButtonSize.width();
++  live_caption_button_->SetPosition({right, row_y});
++  if (live_caption_button_->GetVisible()) {
++    right -= 2;
++  } else {
++    right += kActionButtonSize.width();
++  }
+   if (toggle_mute_button_) {
+-    toggle_mute_button_->SetPosition(
+-        {live_caption_button_bounds.x() - kActionButtonSize.width() - 4,
+-         live_caption_button_bounds.y()});
++    right -= kActionButtonSize.width();
++    toggle_mute_button_->SetPosition({right, row_y});
++  }
++  if (should_show_prev_next) {
++    right -= kActionButtonSize.width() + kRowGap;
++    next_track_controls_view_->SetPosition({right, row_y});
+   }
++  right -= kRowGap;
++  progress_view_->SetPosition({left, row_center - kProgressBarHeight / 2});
++  progress_view_->SetSize({std::max(0, right - left), kProgressBarHeight});
+ 
+   live_caption_dialog_->SetPosition(
+-      {live_caption_button_bounds.right() - live_caption_dialog_->width(),
+-       live_caption_button_bounds.y() - live_caption_dialog_->height()});
++      {live_caption_button_->bounds().right() - live_caption_dialog_->width(),
++       row_y - live_caption_dialog_->height()});
+ 
+   // The play/pause button and replay/forward 10 seconds buttons should not be
+   // visible while dragging the progress bar or for live media.
+@@ -2403,7 +2403,10 @@ void VideoOverlayWindowViews::UpdateTimestampLabel(base::TimeDelta current_time,
+         {global_media_controls::GetFormattedDuration(current_time), u" / ",
+          global_media_controls::GetFormattedDuration(duration)}));
+   }
+-  if (was_live != is_live_) {
++  // Merlin: the progress bar sits beside the time, so it moves over when
++  // the time gains a digit.
++  if (was_live != is_live_ ||
++      (!is_live_ && TimestampWidth(timestamp_) != timestamp_->width())) {
+     OnUpdateControlsBounds();
+   }
+ }

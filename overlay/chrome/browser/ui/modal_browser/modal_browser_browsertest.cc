@@ -87,6 +87,7 @@
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/thumbnails/thumbnail_tab_helper.h"
@@ -122,7 +123,11 @@
 #include "components/security_state/core/security_state.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
+#include "components/tab_groups/tab_group_color.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/split_tab_data.h"
+#include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "components/zoom/zoom_controller.h"
@@ -401,6 +406,19 @@ class ModalBrowserBrowserTest : public InProcessBrowserTest {
     EXPECT_EQ(target->RunCommandLine(line), "") << line;
     loop.Run();
     target->set_page_work_done_callback_for_testing({});
+  }
+
+  // A workspace file for `project`, as an earlier save would leave it.
+  void WriteProjectWorkspace(const std::string& name,
+                             const std::string& project) {
+    base::ScopedAllowBlockingForTesting allow;
+    const base::FilePath path = workspace_store::PathFor(name);
+    ASSERT_TRUE(base::CreateDirectory(path.DirName()));
+    ASSERT_TRUE(base::WriteFile(
+        path, R"({"format":"modal_browser.workspace","version":1,"name":")" +
+                  name + R"(","tabs":[{"url":")" +
+                  embedded_test_server()->GetURL("/doc").spec() +
+                  R"("}],"project":")" + project + R"("})"));
   }
 
   std::u16string StatusMessage() {
@@ -2072,6 +2090,17 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, WorkspaceSaveAndRestore) {
   ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
       browser(), form, WindowOpenDisposition::NEW_BACKGROUND_TAB,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
+  // In a named, colored group, and the split drawn at 30/70.
+  {
+    TabStripModel* source = browser()->tab_strip_model();
+    const tab_groups::TabGroupId group = source->AddToNewGroup({2});
+    source->ChangeTabGroupVisuals(
+        group, tab_groups::TabGroupVisualData(
+                   u"Forms", tab_groups::TabGroupColorId::kGreen));
+    source->GetSplitData(*source->GetSplitForTab(0))
+        ->visual_data()
+        ->set_split_ratio(0.3);
+  }
 
   RunAndWait("workspace save research");
   EXPECT_EQ(StatusMessage(), u"Saved workspace research (3 tabs)");
@@ -2083,10 +2112,19 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, WorkspaceSaveAndRestore) {
         workspace_store::PathFor("research"), &file));
     EXPECT_NE(file.find(doc.spec()), std::string::npos);
     EXPECT_NE(file.find("\"splits\""), std::string::npos);
+    EXPECT_NE(file.find("\"ratio\": 0.3"), std::string::npos) << file;
+    EXPECT_NE(file.find("\"title\": \"Forms\""), std::string::npos) << file;
+    EXPECT_NE(file.find("\"window\""), std::string::npos) << file;
   }
 
-  // This window has real tabs, so the workspace opens in a new one.
+  // This window is that workspace now: opening it again opens nothing.
   const size_t windows_before = GlobalBrowserCollection::GetInstance()->GetSize();
+  RunAndWait("workspace open research");
+  EXPECT_EQ(StatusMessage(), u"Workspace research is this window");
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), windows_before);
+  // Saved under another name, it lets go of research. It has real tabs, so
+  // research opens in a new window.
+  RunAndWait("workspace save other");
   RunAndWait("workspace open research");
   ASSERT_TRUE(base::test::RunUntil([&] {
     return GlobalBrowserCollection::GetInstance()->GetSize() ==
@@ -2105,8 +2143,20 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, WorkspaceSaveAndRestore) {
   EXPECT_TRUE(strip->IsTabPinned(0));
   EXPECT_TRUE(strip->GetSplitForTab(0));
   EXPECT_EQ(strip->GetSplitForTab(0), strip->GetSplitForTab(1));
+  EXPECT_NEAR(strip->GetSplitData(*strip->GetSplitForTab(0))
+                  ->visual_data()
+                  ->split_ratio(),
+              0.3, 0.001);
+  // The group comes back with its name and color.
+  std::optional<tab_groups::TabGroupId> group = strip->GetTabGroupForTab(2);
+  ASSERT_TRUE(group);
+  const tab_groups::TabGroupVisualData* group_visual =
+      strip->group_model()->GetTabGroup(*group)->visual_data();
+  EXPECT_EQ(group_visual->title(), u"Forms");
+  EXPECT_EQ(group_visual->color(), tab_groups::TabGroupColorId::kGreen);
   EXPECT_EQ(ModalBrowserController::From(restored)->workspace_for_testing(),
             "research");
+  EXPECT_EQ(controller()->workspace_for_testing(), "other");
   // A new window must retain the project through its next save, not just
   // restore the name and tabs. This is what workspace here matches later.
   RunAndWaitOn(ModalBrowserController::From(restored),
@@ -2121,6 +2171,19 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, WorkspaceSaveAndRestore) {
     ASSERT_TRUE(saved->GetDict().FindString("project"));
     EXPECT_EQ(*saved->GetDict().FindString("project"), "/tmp/modal-project");
   }
+  // Saving research in the first window takes the name from the restored
+  // one, so the two never write over each other.
+  RunAndWait("workspace save research");
+  EXPECT_EQ(controller()->workspace_for_testing(), "research");
+  EXPECT_EQ(ModalBrowserController::From(restored)->workspace_for_testing(),
+            "");
+  // Opening it from the other window shows the one that has it, not a copy.
+  const size_t windows_now = GlobalBrowserCollection::GetInstance()->GetSize();
+  RunAndWaitOn(ModalBrowserController::From(restored),
+               "workspace open research");
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), windows_now);
+  EXPECT_EQ(ModalBrowserController::From(restored)->workspace_for_testing(),
+            "");
 }
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, BrowserctlOverTheSocket) {
@@ -2458,9 +2521,8 @@ editor = ["/bin/sh", "-c", "printf 'from the edit key' > \"$1\"", "sh", "{file}"
 }
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, BrowserctlWorkspaceHere) {
-  EXPECT_EQ(controller()->RunCommandLine("workspace project /tmp/modal-proj"),
-            "");
-  RunAndWait("workspace save proj");
+  // Saved earlier and not open in any window.
+  WriteProjectWorkspace("proj", "/tmp/modal-proj");
   const size_t windows = GlobalBrowserCollection::GetInstance()->GetSize();
   const std::string reply = Browserctl(
       R"({"cmd":"workspace","action":"here","dir":"/tmp/modal-proj/src"})");
@@ -2468,6 +2530,11 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, BrowserctlWorkspaceHere) {
   ASSERT_TRUE(base::test::RunUntil([&] {
     return GlobalBrowserCollection::GetInstance()->GetSize() == windows + 1;
   }));
+  // Asked again, it shows that window rather than opening a copy.
+  EXPECT_EQ(Browserctl(
+                R"({"cmd":"workspace","action":"here","dir":"/tmp/modal-proj"})"),
+            "{\"v\":1,\"ok\":true,\"result\":\"proj\"}\n");
+  EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), windows + 1);
   EXPECT_NE(Browserctl(
                 R"({"cmd":"workspace","action":"here","dir":"/elsewhere"})")
                 .find("no workspace has a project folder"),
@@ -2561,10 +2628,10 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
   ASSERT_TRUE(security);
   ASSERT_EQ(security_state::GetSecurityLevel(*security),
             security_state::SECURE);
-  auto* controls = controller()->safety_controls_for_testing();
-  ASSERT_TRUE(controls);
-  auto* button = controls->site_button_for_testing();
-  EXPECT_EQ(button->GetFocusBehavior(), views::View::FocusBehavior::ALWAYS);
+  // Site controls are the address itself: page info and permission prompts
+  // point at it, a right-click or :site opens page info.
+  views::View* button = controller()->address_field_for_testing();
+  ASSERT_TRUE(button);
   for (const char* layout : {"set tabs=top", "set tabs=side", "hide-tabs on"}) {
     ASSERT_EQ(controller()->RunCommandLine(layout), "");
     ASSERT_TRUE(base::test::RunUntil(
@@ -2573,13 +2640,8 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
         bubble_anchor_util::GetPermissionPromptBubbleAnchorConfiguration(
             contents());
     EXPECT_EQ(anchor.anchor.GetIfView(), button);
-    // Exercise the button's keyboard handler, rather than clicking the
-    // address field's old warning-only hit target.
-    ui::KeyEvent press(ui::EventType::kKeyPressed, ui::VKEY_SPACE, ui::EF_NONE);
-    ui::KeyEvent release(ui::EventType::kKeyReleased, ui::VKEY_SPACE,
-                         ui::EF_NONE);
-    button->OnKeyEvent(&press);
-    button->OnKeyEvent(&release);
+    button->ShowContextMenu(button->GetLocalBounds().CenterPoint(),
+                            ui::mojom::MenuSourceType::kMouse);
     ASSERT_TRUE(base::test::RunUntil([&] {
       return PageInfoBubbleViewBase::GetPageInfoBubbleForTesting(contents()) !=
              nullptr;
@@ -2719,7 +2781,7 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
   for (const char* layout : {"set tabs=top", "set tabs=side", "hide-tabs on"}) {
     ASSERT_EQ(private_controller->RunCommandLine(layout), "");
     EXPECT_TRUE(controls->private_badge_for_testing()->IsDrawn());
-    EXPECT_TRUE(controls->site_button_for_testing()->IsDrawn());
+    EXPECT_TRUE(private_controller->address_field_for_testing()->IsDrawn());
     ui::AXNodeData accessible;
     controls->private_badge_for_testing()
         ->GetViewAccessibility()
@@ -2768,9 +2830,7 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
     return Browserctl(R"({"cmd":"ping"})").find("protocol") !=
            std::string::npos;
   }));
-  EXPECT_EQ(controller()->RunCommandLine("workspace project /tmp/modal-proj"),
-            "");
-  RunAndWait("workspace save proj");
+  WriteProjectWorkspace("proj", "/tmp/modal-proj");
   auto* disabled = CreateBrowser(browser()->GetProfile());
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(disabled, GURL(chrome::kChromeUINewTabURL)));

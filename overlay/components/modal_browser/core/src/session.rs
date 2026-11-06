@@ -53,7 +53,7 @@ use crate::palette::{
     TabInfo,
 };
 use crate::target;
-use crate::workspace::{self, WindowTab, Workspace};
+use crate::workspace::{self, WindowBounds, WindowTab, Workspace};
 
 /// Command-line history entries kept per session.
 const MAX_HISTORY: usize = 100;
@@ -1174,6 +1174,7 @@ impl ModalSession {
         name: &str,
         quiet: bool,
         tabs: &[WindowTab],
+        window: Option<WindowBounds>,
         now: i64,
     ) -> Outcome {
         let before = self.mode;
@@ -1183,7 +1184,7 @@ impl ModalSession {
                 text: "Private windows are not saved to disk".into(),
             }
         } else {
-            match Workspace::from_window(name, now, tabs, self.project.as_deref()) {
+            match Workspace::from_window(name, now, tabs, self.project.as_deref(), window) {
                 Ok(ws) => {
                     self.workspace = Some(ws.name.clone());
                     let count = ws.tabs.len();

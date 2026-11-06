@@ -103,11 +103,12 @@ Chromium-side files: `modal_browser_controller` (BrowserOps, observers),
 (temporary file, editor process, save watching), `browserctl_server`
 (Unix socket on the IO thread).
 
-`merlin_safety_controls` supplies the independent site-controls button,
-private-window label and per-window capture menu. It observes Chromium's media
+`merlin_safety_controls` supplies the private-window label and per-window
+capture menu; site controls are the address field itself (`:site`, or a
+right-click). It observes Chromium's media
 capture service and the tab model; the tab bar separately subscribes to tab-alert
 changes. Neither control depends on modal keys or the tab strip being visible.
-Patch 0013 routes Page Info and permission anchors to the visible site control
+Patch 0013 routes Page Info and permission anchors to the address field
 when Chromium's location bar is hidden. Capture actions use validated tab
 handles and Chromium's stop callbacks.
 

@@ -163,9 +163,11 @@ void ModalInputRouter::OnFieldInfo(ffi::FieldInfo info,
 void ModalInputRouter::OnWorkspaceSnapshot(std::string_view name,
                                            bool quiet,
                                            ::rust::Vec<ffi::WindowTab> tabs,
+                                           ffi::WindowState window,
                                            int64_t now,
                                            BrowserOps& ops) {
-  Apply(session_->save_workspace(ToStr(name), quiet, std::move(tabs), now),
+  Apply(session_->save_workspace(ToStr(name), quiet, std::move(tabs), window,
+                                 now),
         ops);
 }
 
@@ -502,12 +504,27 @@ void ModalInputRouter::Perform(const ffi::Action& action, BrowserOps& ops) {
       restore.name = std::string(View(action.name));
       restore.project = std::string(View(action.workspace_project));
       restore.new_window = action.flag;
+      restore.x = action.workspace_window.x;
+      restore.y = action.workspace_window.y;
+      restore.width = action.workspace_window.width;
+      restore.height = action.workspace_window.height;
+      restore.maximized = action.workspace_window.maximized;
       for (const ffi::WorkspaceTab& t : action.workspace_tabs) {
         const int n = static_cast<int>(action.workspace_tabs.size());
-        restore.tabs.push_back(
-            {std::string(View(t.url)), std::string(View(t.title)), t.pinned,
-             (t.split_with >= 0 && t.split_with < n) ? t.split_with : -1,
-             t.layout});
+        WorkspaceRestore::Tab tab;
+        tab.url = std::string(View(t.url));
+        tab.title = std::string(View(t.title));
+        tab.pinned = t.pinned;
+        tab.split_with =
+            (t.split_with >= 0 && t.split_with < n) ? t.split_with : -1;
+        tab.layout = t.layout;
+        tab.split_ratio =
+            (t.split_ratio > 0 && t.split_ratio < 1) ? t.split_ratio : 0;
+        tab.group = t.group >= 0 && t.group < n ? t.group : -1;
+        tab.group_title = std::string(View(t.group_title));
+        tab.group_color = std::string(View(t.group_color));
+        tab.group_collapsed = t.group_collapsed;
+        restore.tabs.push_back(std::move(tab));
       }
       restore.active = std::min<size_t>(
           action.index, restore.tabs.empty() ? 0 : restore.tabs.size() - 1);

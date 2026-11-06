@@ -150,7 +150,7 @@ fn workspace_save_needs_a_name_until_it_has_one() {
             ..WindowTab::default()
         },
     ];
-    let o = s.save_workspace("research", false, &tabs, 100);
+    let o = s.save_workspace("research", false, &tabs, None, 100);
     let [
         Action::WriteWorkspace {
             name,
@@ -174,7 +174,7 @@ fn workspace_save_needs_a_name_until_it_has_one() {
         }]
     );
     assert_eq!(s.autosave_workspace(), Some("research"));
-    let o = s.save_workspace("research", true, &tabs, 100);
+    let o = s.save_workspace("research", true, &tabs, None, 100);
     assert!(
         matches!(&o.actions[..], [Action::WriteWorkspace { message, .. }] if message.is_empty())
     );
@@ -196,7 +196,7 @@ fn private_windows_never_save() {
         url: "https://a.b".into(),
         ..WindowTab::default()
     }];
-    let o = s.save_workspace("x", false, &tabs, 0);
+    let o = s.save_workspace("x", false, &tabs, None, 0);
     assert_eq!(message(&o).unwrap().0, MessageLevel::Error);
 }
 
@@ -217,7 +217,7 @@ fn workspace_open_restores_in_place_or_in_a_new_window() {
                 ..WindowTab::default()
             },
         ];
-        match &s.save_workspace("pair", true, &tabs, 0).actions[0] {
+        match &s.save_workspace("pair", true, &tabs, None, 0).actions[0] {
             Action::WriteWorkspace { contents, .. } => contents.clone(),
             other => panic!("{other:?}"),
         }

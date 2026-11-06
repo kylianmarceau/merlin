@@ -54,4 +54,7 @@ pub use mode::Mode;
 pub use palette::{ItemSource, ListItem, Palette, PaletteKey, PaletteKind, PaletteRow, TabInfo};
 pub use session::{ConfigReport, KeyDisposition, KeyHint, ModalSession, Outcome, SessionConfig};
 pub use target::{OpenTarget, TargetError};
-pub use workspace::{SplitLayout, WindowTab, Workspace, WorkspaceError, WorkspaceTab};
+pub use workspace::{
+    Group, GroupColor, SplitLayout, WindowBounds, WindowGroup, WindowTab, Workspace,
+    WorkspaceError, WorkspaceTab,
+};
