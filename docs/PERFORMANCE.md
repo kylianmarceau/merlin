@@ -33,8 +33,13 @@ Dia are the 2026-11-05 figures. Raw results are in
   vs 2,871 MB with it off) and makes Merlin lightest on real sites too.
 - **A new profile's first launch costs about 220 ms more** with the blocker
   on (0.78 s vs 0.56 s); launches of an existing profile are unchanged.
-  The likely cause is the blocker setting up its filter lists for the new
-  profile.
+  A new profile has no saved engine, so the blocker builds one from the
+  bundled lists (`MerlinAdblock.Build`, 267 ms in a startup trace) and the
+  first web page's commit waits for it, up to the 2-second cap. Standalone,
+  the parts are: compiling 6 MB of rules 165 ms, list digests about 20 ms,
+  writing the 14 MB cache with SHA-256 and atomic writes, then loading the
+  serialized engine 30–45 ms. It happens once per profile, and again only
+  when an update changes the engine or its resources.
 - 30-tab memory moves with Memory Saver's timing (see below); it is within
   the spread of earlier runs.
 
