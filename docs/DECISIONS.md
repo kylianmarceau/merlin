@@ -981,6 +981,38 @@ features they advertise stay in menus and settings.
 | "Restore pages?" after a crash | Functional: reopens the lost session |
 | Permission, password, download and site bubbles | Functional, anchored to Merlin's own controls (patch 0013) and restyled (patches 0049, 0059) |
 
+## 52. Merlin's find bar
+
+Cmd-F opened Chromium's find bar: an opaque cream box in the page's top
+right with arrow and close buttons, which looked like Chrome next to
+Merlin's frosted pop-ups (reported 2026-11-06). The maintainer picked a
+slim bar with key hints (option C of three mockups) on 2026-11-06.
+
+**Look.** A 420 DIP by 36 DIP bar with 12 DIP corners, centred under the
+toolbar: a search icon, the search text, the match count ("2/3"), a
+hairline, then three key hints: "⏎ next", "⇧⏎ prev" and "esc". It is
+frosted like Merlin's other pop-ups (decision 50): the pop-up grey as a
+tint over the system blur, a hairline edge and a soft drawn shadow. It
+follows `popup_transparency`; on Solid it is the flat pop-up grey.
+
+**Hints are buttons.** Clicking a hint does what its keys do, so the mouse
+can still step through matches and close the bar. The hints are not in
+the Tab order, since the keys they name already reach the same actions.
+Next and prev dim when there is nothing to step through. Chromium's arrow
+and close buttons are kept but hidden, so code and tests that look them up
+by ID still find them.
+
+**How.** Patch 0061 changes `FindBarView` (layout, panel painting, hints)
+and `FindBarHost::GetDialogPosition` (centred instead of top right). Both
+check `views::merlin_style::IsEnabled()`, so
+`--modal-browser-upstream-defaults` and Chromium's own find tests get the
+stock bar. The bar keeps Chromium's behaviour otherwise: it still slides
+in, moves aside when a match would sit under it, and keeps the Mac's
+shared find text.
+
+**Not changed.** The highlight colours on the page (yellow, with orange
+for the current match) are drawn by Blink, not the bar.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing

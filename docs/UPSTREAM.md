@@ -165,6 +165,12 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | --- | --- | --- |
 | `0060-merlin-no-chromium-promos.patch` | `chrome/browser/user_education/user_education_service_factory.cc`, `chrome/browser/user_education/BUILD.gn`, `chrome/browser/feature_engagement/non_iph_promo.cc`, `chrome/browser/feature_engagement/BUILD.gn` | No in-product help bubbles, tutorials, "New" badges or other promo bubbles: `ProfileAllowsUserEducation` and `NonIphPromo` return false unless `--modal-browser-upstream-defaults` is set ([decision 51](DECISIONS.md#51-no-chromium-promo-bubbles)) |
 
+## Find bar patch (2026-11-06)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0061-merlin-find-bar.patch` | `chrome/browser/ui/views/find_bar_view.{h,cc}`, `chrome/browser/ui/views/find_bar_host.cc` | With Merlin's style on, the find bar is a slim frosted bar centred under the toolbar: search icon, text, count, then clickable key hints ("⏎ next", "⇧⏎ prev", "esc") in place of the hidden arrow and close buttons. Off with `--modal-browser-upstream-defaults` ([decision 52](DECISIONS.md#52-merlins-find-bar)) |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before

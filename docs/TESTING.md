@@ -13,11 +13,27 @@ component development build. The change is
 | New case | `NoChromiumPromos`: the policy is off, the profile gets no in-product help and `NonIphPromo` refuses the high memory usage alert; passed with `NoSearchPrewarm` and `MemorySaverOnByDefault` |
 | Upstream `UserEducationServiceBrowserTest.*`, `BrowserUserEducationServiceBrowserTest.*` with `--modal-browser-upstream-defaults` | 5 of 6 passed under `scripts/run_browser_tests.sh`. `TestServicePresent` expects a promo controller, which Chromium never creates in headless mode; it passed without `--headless` |
 | GN header checks | Passed for `//chrome/browser/ui/modal_browser/*` (after adding the test target's missing `//chrome/browser/ui/views/download` dep), `//chrome/browser/user_education/*` and `//chrome/browser/feature_engagement/*` |
-| Patch series | **60 patches** verified with `apply_patches.py --check` and `verify_patches.sh` |
+| Patch series | **60 patches** verified with `apply_patches.py --check` and `verify_patches.sh` (61 after the find bar, below) |
 
 Browser tests block in-product help by default, so `NoChromiumPromos` pins
 Merlin's policy rather than reproducing the bubble. The full default suite
 was not rerun.
+
+## Results, 2026-11-06: Merlin's find bar
+
+Same build base. Cmd-F opens a slim frosted bar with key hints, centred
+under the toolbar ([decision 52](DECISIONS.md#52-merlins-find-bar), patch
+0061 in [Upstream](UPSTREAM.md#find-bar-patch-2026-11-06)).
+
+| Check | Result |
+| --- | --- |
+| Native `chrome` and `browser_tests` rebuild | Passed |
+| New case | `MerlinFindBar`: Chromium's buttons hidden, three hints shown, bar centred over the page, glass on macOS, the next hint steps 1/3 to 2/3 and the esc hint closes the bar; passed |
+| Merlin's default suite | 162 of 162 passed |
+| Upstream `FindInPageControllerTest.*` with `--modal-browser-upstream-defaults` | 44 of 44 passed (the stock bar) |
+| GN header checks | Passed for `//chrome/browser/ui/modal_browser/*` and `//chrome/browser/ui/views:find_bar_views` |
+| Patch series | **61 patches** verified with `verify_patches.sh` |
+| Snapshot | `find_bar.png` shows the layout as designed. The real blur was not checked by eye in a running window |
 
 ## Results, 2026-11-06: pop-up transparency setting
 
@@ -564,7 +580,9 @@ were not run.
 MODAL_SNAPSHOT_DIR=/tmp/modal-snapshots scripts/run_browser_tests.sh 'ModalBrowserBrowserTest.Snapshots'
 ```
 
-It writes `hints.png` (labels over the page), `palette_tabs*.png`,
+It writes `hints.png` (labels over the page), `find_bar.png` (the find bar
+over a page with matches; a painted copy has no system blur, so the glass
+shows as its tint alone), `menu.png`, `palette_tabs*.png`,
 `palette_commands*.png`, `palette_cmdline.png`, `palette_error.png`,
 `status_which_key.png` and `status_insert.png`, then `dark_*.png` for the
 same surfaces with Chrome's appearance set to dark.

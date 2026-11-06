@@ -62,6 +62,8 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/find_bar/find_bar.h"
+#include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "chrome/browser/ui/modal_browser/config_file.h"
 #include "chrome/browser/ui/modal_browser/external_editor.h"
@@ -93,9 +95,13 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/thumbnails/thumbnail_tab_helper.h"
+#include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
+#include "chrome/browser/ui/views/find_bar_host.h"
+#include "chrome/browser/ui/views/find_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -115,6 +121,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/find_in_page/find_types.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/keyed_service/core/service_access_type.h"
@@ -128,6 +135,7 @@
 #include "components/security_state/core/security_state.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -162,10 +170,12 @@
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/clipboard/test/test_clipboard.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/color/color_provider.h"
 #include "ui/color/color_provider_key.h"
+#include "ui/compositor/canvas_painter.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/keycodes/dom/dom_code.h"
@@ -187,6 +197,7 @@
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/merlin_style.h"
+#include "ui/views/paint_info.h"
 #include "ui/views/test/ax_event_counter.h"
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/test/views_drawing_test_utils.h"
@@ -2012,6 +2023,64 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, Snapshots) {
   page_with(hints()->view_for_testing(), "hints.png");
   PressEscape();
 
+  // The find bar where it sits over the page. A painted copy has no system
+  // blur, so its glass shows as the tint alone.
+  {
+    auto no_animation = FindBarHost::SetEnableAnimationsForTesting(false);
+    ui_test_utils::NavigateToURLWithDisposition(
+        browser(),
+        GURL("data:text/html,<body style='font:16px -apple-system;margin:40px'>"
+             "<h1>Electric car range test</h1><div style='display:flex;gap:12px'>"
+             "<div style='width:220px;height:110px;background:%237F77DD'></div>"
+             "<div style='width:160px;height:110px;background:%23EF9F27'></div>"
+             "</div><p>We drove each car until the battery ran flat. The "
+             "battery in the long-range model held up best.</p><p>Charging "
+             "the battery took 28 minutes.</p>"),
+        WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
+    chrome::Find(browser());
+    FindBarController* find = FindBarController::From(browser());
+    ASSERT_TRUE(base::test::RunUntil(
+        [&] { return find->find_bar()->IsFindBarVisible(); }));
+    auto* host = static_cast<FindBarHost*>(find->find_bar());
+    host->GetFindBarViewForTesting()->SetFindTextAndSelectedRange(
+        u"battery", gfx::Range());
+    int ordinal = 0;
+    ui_test_utils::FindInPage(contents(), u"battery", true, false, &ordinal,
+                              nullptr);
+    ui_test_utils::FindInPage(contents(), u"battery", true, false, &ordinal,
+                              nullptr);
+    base::RunLoop().RunUntilIdle();
+    base::test::TestFuture<const content::CopyFromSurfaceResult&> copy;
+    contents()->GetRenderWidgetHostView()->CopyFromSurface(
+        gfx::Rect(), gfx::Size(), base::Seconds(5), copy.GetCallback());
+    ASSERT_TRUE(copy.Get().has_value());
+    SkBitmap page = copy.Get()->bitmap;
+    // The view holding the bar: its window paints it into a layer, which a
+    // painted copy of the window would leave out.
+    views::View* bar = host->GetFindBarViewForTesting()->parent();
+    const gfx::Rect page_bounds = contents()->GetContainerBounds();
+    const gfx::Vector2d offset =
+        bar->GetBoundsInScreen().origin() - page_bounds.origin();
+    SkCanvas canvas(page);
+    const float scale = static_cast<float>(page.width()) /
+                        std::max(1, page_bounds.width());
+    canvas.scale(scale, scale);
+    SkBitmap bar_bitmap;
+    {
+      // Like views::test::PaintViewToBitmap, on a clear background.
+      ui::CanvasPainter painter(&bar_bitmap, bar->size(), 1.f,
+                                SK_ColorTRANSPARENT, false);
+      bar->Paint(views::PaintInfo::CreateRootPaintInfo(painter.context(),
+                                                       bar->size()));
+    }
+    canvas.drawImage(bar_bitmap.asImage(), offset.x(), offset.y());
+    save(page, "find_bar.png");
+    find->EndFindSession(find_in_page::SelectionAction::kKeep,
+                         find_in_page::ResultAction::kKeep);
+    chrome::CloseTab(browser());
+  }
+
   PressLetter('b');
   save(Snap(palette_view()), "palette_tabs.png");
   TypeInPalette(u"hin", ui::VKEY_UNKNOWN);
@@ -3148,6 +3217,93 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, FirstOpenFocusesInput) {
     PressEscape();
     ASSERT_FALSE(palette()->IsVisible());
   }
+}
+
+// Merlin's find bar: a slim frosted bar centred under the toolbar, with key
+// hints that also work as buttons in place of Chromium's arrows and close
+// button.
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinFindBar) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      GURL("data:text/html,<p>battery</p><p>battery</p><p>battery</p>")));
+  chrome::Find(browser());
+  FindBarController* find = FindBarController::From(browser());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return find->find_bar()->IsFindBarVisible(); }));
+  auto* host = static_cast<FindBarHost*>(find->find_bar());
+  FindBarView* bar = host->GetFindBarViewForTesting();
+
+  for (int id : {VIEW_ID_FIND_IN_PAGE_PREVIOUS_BUTTON,
+                 VIEW_ID_FIND_IN_PAGE_NEXT_BUTTON,
+                 VIEW_ID_FIND_IN_PAGE_CLOSE_BUTTON}) {
+    views::View* button = bar->GetViewByID(id);
+    ASSERT_TRUE(button) << id;
+    EXPECT_FALSE(button->GetVisible()) << "Chromium's button " << id;
+  }
+  auto hint = [&](int tooltip_id) -> views::Button* {
+    const std::u16string name = l10n_util::GetStringUTF16(tooltip_id);
+    std::vector<views::View*> stack = {bar};
+    while (!stack.empty()) {
+      views::View* view = stack.back();
+      stack.pop_back();
+      if (auto* button = views::AsViewClass<views::Button>(view);
+          button && button->GetVisible() &&
+          button->GetViewAccessibility().GetCachedName() == name) {
+        return button;
+      }
+      for (views::View* child : view->children()) {
+        stack.push_back(child);
+      }
+    }
+    return nullptr;
+  };
+  views::Button* next = hint(IDS_FIND_IN_PAGE_NEXT_TOOLTIP);
+  views::Button* close = hint(IDS_FIND_IN_PAGE_CLOSE_TOOLTIP);
+  ASSERT_TRUE(next);
+  ASSERT_TRUE(hint(IDS_FIND_IN_PAGE_PREVIOUS_TOOLTIP));
+  ASSERT_TRUE(close);
+  // Enabled exactly when Chromium's hidden arrow would be. (The bar can open
+  // with the Mac's shared find text, so it may have matches already.)
+  EXPECT_EQ(next->GetEnabled(),
+            bar->GetViewByID(VIEW_ID_FIND_IN_PAGE_NEXT_BUTTON)->GetEnabled());
+
+  // Centred over the page, not in its top-right corner.
+  const gfx::Rect page = BrowserView::GetBrowserViewForBrowser(browser())
+                             ->contents_web_view_for_testing()
+                             ->GetBoundsInScreen();
+  const gfx::Rect card = bar->GetBoundsInScreen();
+  EXPECT_NEAR(card.CenterPoint().x(), page.CenterPoint().x(), 12)
+      << card.ToString() << " in " << page.ToString();
+
+#if BUILDFLAG(IS_MAC)
+  EXPECT_TRUE(views::merlin_style::HasPopoverGlass(host->GetHostWidget()))
+      << "frosted like Merlin's other pop-ups";
+#endif
+
+  // The hints step through matches and close the bar, like the keys.
+  bar->SetFindTextAndSelectedRange(u"battery", gfx::Range());
+  int ordinal = 0;
+  EXPECT_EQ(ui_test_utils::FindInPage(
+                browser()->tab_strip_model()->GetActiveWebContents(),
+                u"battery", true, false, &ordinal, nullptr),
+            3);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return bar->GetMatchCountText() == u"1/3"; }))
+      << bar->GetMatchCountText();
+  EXPECT_TRUE(next->GetEnabled());
+  views::test::ButtonTestApi(next).NotifyClick(ui::MouseEvent(
+      ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
+      base::TimeTicks::Now(), ui::EF_LEFT_MOUSE_BUTTON,
+      ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_TRUE(base::test::RunUntil(
+      [&] { return bar->GetMatchCountText() == u"2/3"; }))
+      << bar->GetMatchCountText();
+  views::test::ButtonTestApi(close).NotifyClick(ui::MouseEvent(
+      ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
+      base::TimeTicks::Now(), ui::EF_LEFT_MOUSE_BUTTON,
+      ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_TRUE(base::test::RunUntil(
+      [&] { return !find->find_bar()->IsFindBarVisible(); }));
 }
 
 }  // namespace modal_browser

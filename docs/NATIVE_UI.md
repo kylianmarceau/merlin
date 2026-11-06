@@ -73,6 +73,7 @@ Pop-up windows on macOS are frosted glass, after Dia
 | Text | `label.cc` | Labels over glass draw greyscale-smoothed text, since subpixel text needs an opaque background |
 | Menus | `menu_scroll_view_container.cc` | Menus Chromium draws itself paint the same tinted, rounded panel over the blur, unless the caller set its own colour |
 | Address dropdown | `paint_util.cc` (`DrawGlassCard`), `merlin_address_editor.cc` | The card in its own child window gets the same blur; its drawn shadow stays outside the card |
+| Find bar | `find_bar_view.cc` (patch 0061) | The bar's own child window gets the same blur, tint, edge and outside shadow as the address card; on solid it removes any blur left from before ([decision 52](DECISIONS.md#52-merlins-find-bar)) |
 | Command menu | `palette_view.cc` | The palette's card uses `DrawGlassCard` too |
 | Start page | `merlin_start_page.cc` | The suggestion list is web content, so it uses a translucent pop-up grey with a CSS `backdrop-filter` blur, at the same level |
 | Setting | `merlin_style.cc`, `modal_browser_controller.cc` | `popup_transparency` (Settings > Appearance > Pop-up transparency) sets `SetPopoverTransparency()` when the config is read. Low, medium and high change the tint; solid adds no blur, so pop-ups keep their opaque panel. The address card and command menu keep their window between uses, so on solid they remove any blur left from before (`RemovePopoverGlass`) |
