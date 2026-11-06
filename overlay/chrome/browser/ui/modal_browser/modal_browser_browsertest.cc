@@ -3005,15 +3005,18 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, DragTabOntoPageSplits) {
   EXPECT_FALSE(first->IsSplit());
 }
 
-// Merlin's downloads button appears with a download and opens its pop-up;
+// Merlin's downloads button is always there and opens its pop-up;
 // Chromium's own button stays away.
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, DownloadsButtonAndPopover) {
   MerlinDownloadsButton* button = controller()->downloads_button_for_testing();
   ASSERT_TRUE(button);
-  EXPECT_FALSE(button->GetVisible());
+  EXPECT_TRUE(button->GetVisible()) << "shown with nothing downloaded";
   ui_test_utils::DownloadURL(
       browser(), embedded_test_server()->GetURL("/report-2026.pdf"));
-  ASSERT_TRUE(base::test::RunUntil([&] { return button->GetVisible(); }));
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return !MerlinDownloadsButton::Recent(browser()->GetProfile()).empty();
+  }));
+  EXPECT_TRUE(button->GetVisible());
   EXPECT_FALSE(button->progress_for_testing()) << "nothing still running";
   EXPECT_FALSE(browser()->GetProfile()->GetPrefs()->GetBoolean(
       prefs::kDownloadBubblePartialViewEnabled));
@@ -3046,10 +3049,10 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, DownloadsButtonAndPopover) {
   }
   EXPECT_TRUE(found) << "the download has a row";
 
-  // Clear empties the pop-up's list of finished files, and the button goes.
+  // Clear empties the pop-up's list of finished files; the button stays.
   MerlinDownloadsButton::ClearRecent(browser()->GetProfile());
-  ASSERT_TRUE(base::test::RunUntil([&] { return !button->GetVisible(); }));
   EXPECT_TRUE(MerlinDownloadsButton::Recent(browser()->GetProfile()).empty());
+  EXPECT_TRUE(button->GetVisible());
 }
 
 // `popup_transparency` sets how frosted pop-ups are; "solid" turns the glass

@@ -27,6 +27,7 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/download_manager.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/color/color_id.h"
@@ -570,9 +571,11 @@ class Header : public views::View {
   METADATA_HEADER(Header, views::View)
 
  public:
-  explicit Header(views::Button::PressedCallback clear) {
+  // Clear shows only when there is something to clear.
+  Header(views::Button::PressedCallback clear, bool can_clear) {
     clear_ = AddChildView(std::make_unique<TextButton>(
         TextButton::Kind::kPill, u"Clear", std::move(clear)));
+    clear_->SetVisible(can_clear);
   }
 
   gfx::Size CalculatePreferredSize(const views::SizeBounds&) const override {
@@ -597,6 +600,31 @@ class Header : public views::View {
 };
 
 BEGIN_METADATA(Header)
+END_METADATA
+
+// The pop-up's one line when nothing was downloaded lately.
+class EmptyNote : public views::View {
+  METADATA_HEADER(EmptyNote, views::View)
+
+ public:
+  EmptyNote() {
+    GetViewAccessibility().SetRole(ax::mojom::Role::kStaticText);
+    GetViewAccessibility().SetName(u"No recent downloads");
+  }
+
+  gfx::Size CalculatePreferredSize(const views::SizeBounds&) const override {
+    return {kPopoverWidth, kRowHeight};
+  }
+
+  void OnPaint(gfx::Canvas* canvas) override {
+    canvas->DrawStringRect(u"No recent downloads", style::UiFont(),
+                           InkFor(this).dim,
+                           gfx::Rect(kSideInset + 10, 0,
+                                     width() - 2 * (kSideInset + 10), height()));
+  }
+};
+
+BEGIN_METADATA(EmptyNote)
 END_METADATA
 
 // The pop-up's contents; the bubble around it is Merlin's restyled one.
@@ -651,14 +679,19 @@ class DownloadsPopover : public views::View,
   void Rebuild() {
     rows_.clear();
     RemoveAllChildViews();
-    AddChildView(std::make_unique<Header>(base::BindRepeating(
-        [](DownloadsPopover* self) {
-          ClearRecent(self->profile_);
-          self->Close();
-        },
-        base::Unretained(this))));
     const std::vector<download::DownloadItem*> recent =
         MerlinDownloadsButton::Recent(profile_);
+    AddChildView(std::make_unique<Header>(
+        base::BindRepeating(
+            [](DownloadsPopover* self) {
+              ClearRecent(self->profile_);
+              self->Close();
+            },
+            base::Unretained(this)),
+        !recent.empty()));
+    if (recent.empty()) {
+      AddChildView(std::make_unique<EmptyNote>());
+    }
     for (size_t i = 0; i < recent.size() && i < kMaxRows; ++i) {
       rows_.push_back(AddChildView(std::make_unique<DownloadRow>(
           profile_, recent[i]->GetId(), show_all_,
@@ -779,10 +812,6 @@ void MerlinDownloadsButton::Update() {
   if (progress != progress_) {
     progress_ = progress;
     SchedulePaint();
-  }
-  const bool show = !recent.empty();
-  if (GetVisible() != show) {
-    SetVisible(show);
   }
   std::u16string name = u"Downloads";
   if (progress_) {

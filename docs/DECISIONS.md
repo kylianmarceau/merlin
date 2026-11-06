@@ -865,12 +865,13 @@ it with Merlin's falcon as a template image, so it follows the menu bar's
 colour, instead of Chromium's magnifier.
 
 **Downloads.** Merlin's toolbar has its own downloads button: an arrow over
-a small progress pill, shown while there are downloads from the last day
-(running and held-back ones always). It opens a pop-up with a "RECENT
+a small progress pill, always shown. It opens a pop-up with a "RECENT
 DOWNLOADS" header and a Clear pill, rows with a progress ring or the file's
 own icon, the name elided in the middle so the extension shows, a status
 line ("141.8/317.5 MB · 21s"), cancel (⊗), show in Finder on hover or retry,
-and "View all downloads ↗" to the Downloads page. Clear hides finished ones
+and "View all downloads ↗" to the Downloads page. With nothing from the
+last day (running and held-back ones always count) it says "No recent
+downloads" and drops Clear. Clear hides finished ones
 from the pop-up only. Patch 0057 keeps Chromium's download button from
 appearing, and Merlin turns off Chromium's bubble that opened by itself on
 each download. Held-back files open the Downloads page, which explains the
