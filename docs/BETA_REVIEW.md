@@ -211,7 +211,7 @@ Record build hash, args, OS and results for:
   blocker, and service-worker extension permissions/commands. The unpacked
   test extension does not validate the actual compatibility matrix.
 - Downloads, uploads, PDFs and the intended site's media/calling workflows.
-  Keep no-Widevine/no-proprietary-codec limitations visible to testers.
+  Keep the Netflix (unsigned Widevine) limitation visible to testers.
 
 ## Verdict on the latest tab/page-colour changes
 

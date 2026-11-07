@@ -197,7 +197,7 @@ captures qualify sampled states, not every family in the source inventory.
   branding, memory/YouTube TODOs, patch/test counts and GN `UNVERIFIED`
   comments should not be mistaken for current requirements.
 - [ ] Publish supported macOS/arm64 requirements and clear limitations: no
-  Google Sync, Widevine/proprietary codecs or binary auto-updater; extension
+  Google Sync, Netflix (unsigned Widevine) or binary auto-updater; extension
   installation limitations; measured API-dependent protection limitations.
 
 ### 5. Make security delivery operational

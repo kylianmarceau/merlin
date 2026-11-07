@@ -1,5 +1,39 @@
 # Testing
 
+## Results, 2026-11-07: pop-ups hang from the address
+
+`main` after `eea409a` (with the uncommitted mode-in-toolbar work in the
+same tree), Chromium **157.0.8103.26**, macOS arm64 `out/Modal`. The change
+is [decision 54](DECISIONS.md#54-pop-ups-hang-from-the-address) and patch
+0062 in [Upstream](UPSTREAM.md#pop-up-placement-patch-2026-11-07).
+
+| Check | Result |
+| --- | --- |
+| Native `chrome` and `browser_tests` rebuild | Passed |
+| New case | `PopoversHangFromAddress`: save password and restore pages hang from the address field with `TOP_LEFT` and an arrow, save password has no header; on the start page restore pages is centred under the toolbar with no arrow; passed |
+| Pop-up cases | `PasswordPromptSaveAndCancel`, `PasswordSuccessHeader`, `PasswordReviewHeader`, `PermissionDecisionsAndSiteInfo` passed |
+| Merlin's default suite | 162 of 164 passed in the full run. `PassthroughForwardsEscape` passed when rerun alone; `InheritedWebUIPages` passed alone in 55 s with `--test-launcher-timeout=600000` (over the 45 s default) |
+| Manual, dev build | Crash then relaunch: "Restore pages?" centred under the toolbar on the start page, frosted (glass view logged), no arrow |
+| GN header checks | Passed for `app_menu_button_impl`, `toolbar:impl`, `bubble_anchor_util_views_impl`, `//ui/views:views`, `passwords/*` and `modal_browser/*` (after adding `//chrome/browser/ui:session_crashed_bubble` to the test target) |
+| Patch series | **62 patches** verified with `verify_patches.sh` |
+
+## Results, 2026-11-07: the mode in the toolbar
+
+Same build base. The mode moves from the bottom-left pill to the right end
+of the toolbar as a dot and a lowercase name with no box
+([decision 53](DECISIONS.md#53-the-mode-in-the-toolbar)).
+
+| Check | Result |
+| --- | --- |
+| Native `chrome` and `browser_tests` rebuild, GN header checks | Passed |
+| New case | `ModeIndicatorInToolbar`: hidden in Normal mode, "insert" after `i`, clear of the address field, typed keys alone in Normal mode, which-key and messages still bottom left; passed |
+| Updated cases | `TypingInTextFieldIsNotHijacked`, `HintsLabelVisibleTargets`, `WhichKeyAppearsAfterAPause` read the status state, since the pill is no longer built for a mode alone; passed |
+| Default suite (`scripts/run_browser_tests.sh`) | 163 of 164 passed, 2,603 seconds. `MerlinIdentityBrowserTest.InheritedWebUIPages` timed out and passed alone in 31 seconds |
+| Snapshot | `toolbar_mode_insert.png` draws the address and the mode as the toolbar does (light theme) |
+
+Not checked by eye in a running window: dark mode, page colours behind the
+toolbar, narrow windows and fullscreen, where the pill shows the mode.
+
 ## Results, 2026-11-06: no Chromium promo bubbles
 
 `main` after `79f4572`, Chromium **157.0.8103.26**, macOS arm64 `out/Modal`

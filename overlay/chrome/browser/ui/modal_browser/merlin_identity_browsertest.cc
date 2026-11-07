@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/passwords/manage_passwords_test.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/ui/permission_bubble/permission_bubble_test_util.h"
+#include "chrome/browser/ui/session_crashed_bubble.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/autofill/payments/save_card_offer_bubble_views.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -47,6 +48,7 @@
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_view_factory.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_coordinator.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
+#include "chrome/browser/ui/views/session_crashed_bubble_view.h"  // nogncheck
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/webauthn/authenticator_request_dialog_view.h"
 #include "chrome/browser/ui/views/webauthn/authenticator_request_dialog_view_controller_views.h"
@@ -402,6 +404,77 @@ IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest, PasswordReviewHeader) {
     PasswordBubbleViewBase::CloseCurrentBubble();
     base::RunLoop().RunUntilIdle();
   }
+}
+
+// Pop-ups whose Chromium control is hidden behind Merlin's toolbar (the
+// location bar's key icon, the app menu) hang from the address field and
+// open toward the middle, as site information does; on the start page,
+// where the address field is hidden, they sit centred under the toolbar with
+// no arrow. The save-password pop-up has no header above its title.
+IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest, PopoversHangFromAddress) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/empty.html")));
+  auto* controller = ModalBrowserController::From(browser());
+  ASSERT_TRUE(controller);
+  views::View* field = controller->address_field_for_testing();
+  ASSERT_TRUE(field && field->IsDrawn());
+
+  SetupPendingPassword();
+  ASSERT_TRUE(base::test::RunUntil([] {
+    return PasswordBubbleViewBase::manage_password_bubble() != nullptr;
+  }));
+  auto* password = PasswordBubbleViewBase::manage_password_bubble();
+  EXPECT_EQ(password->GetAnchorView(), field);
+  EXPECT_EQ(password->arrow(), views::BubbleBorder::TOP_LEFT);
+  EXPECT_TRUE(password->GetBubbleFrameView()->GetDisplayVisibleArrow());
+  EXPECT_EQ(password->GetBubbleFrameView()->GetHeaderViewForTesting(),
+            nullptr);
+  // It opens beside the address, not at the far end of the window.
+  const gfx::Rect field_bounds = field->GetBoundsInScreen();
+  const gfx::Rect password_bounds =
+      password->GetWidget()->GetWindowBoundsInScreen();
+  EXPECT_LT(password_bounds.x(), field_bounds.CenterPoint().x());
+  EXPECT_GE(password_bounds.y(), field_bounds.bottom());
+  SnapWidget(password->GetWidget(), "light-password-anchored");
+  PasswordBubbleViewBase::CloseCurrentBubble();
+  base::RunLoop().RunUntilIdle();
+
+  SessionCrashedBubble::ShowIfNotOffTheRecordProfile(browser(),
+                                                     /*skip_tab_checking=*/true);
+  ASSERT_TRUE(base::test::RunUntil(
+      [] { return SessionCrashedBubbleView::GetInstanceForTest() != nullptr; }));
+  views::BubbleDialogDelegate* restore =
+      SessionCrashedBubbleView::GetInstanceForTest();
+  EXPECT_EQ(restore->GetAnchorView(), field);
+  EXPECT_EQ(restore->arrow(), views::BubbleBorder::TOP_LEFT);
+  EXPECT_TRUE(restore->GetBubbleFrameView()->GetDisplayVisibleArrow());
+  SnapWidget(restore->GetWidget(), "light-restore-anchored");
+  restore->GetWidget()->CloseNow();
+  base::RunLoop().RunUntilIdle();
+
+  // The start page hides the address field.
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("chrome://newtab/")));
+  ASSERT_TRUE(base::test::RunUntil([&] { return !field->IsDrawn(); }));
+  SessionCrashedBubble::ShowIfNotOffTheRecordProfile(browser(),
+                                                     /*skip_tab_checking=*/true);
+  ASSERT_TRUE(base::test::RunUntil(
+      [] { return SessionCrashedBubbleView::GetInstanceForTest() != nullptr; }));
+  restore = SessionCrashedBubbleView::GetInstanceForTest();
+  ToolbarView* toolbar =
+      BrowserView::GetBrowserViewForBrowser(browser())->toolbar();
+  EXPECT_EQ(restore->GetAnchorView(), toolbar);
+  EXPECT_EQ(restore->arrow(), views::BubbleBorder::NONE);
+  EXPECT_FALSE(restore->GetBubbleFrameView()->GetDisplayVisibleArrow());
+  const gfx::Rect toolbar_bounds = toolbar->GetBoundsInScreen();
+  const gfx::Rect restore_bounds =
+      restore->GetWidget()->GetWindowBoundsInScreen();
+  EXPECT_NEAR(restore_bounds.CenterPoint().x(),
+              toolbar_bounds.CenterPoint().x(), 1);
+  EXPECT_GE(restore_bounds.y(), toolbar_bounds.bottom());
+  SnapWidget(restore->GetWidget(), "light-restore-centered");
+  restore->GetWidget()->CloseNow();
+  base::RunLoop().RunUntilIdle();
 }
 
 IN_PROC_BROWSER_TEST_F(MerlinIdentityBrowserTest, MediaPlaybackControls) {

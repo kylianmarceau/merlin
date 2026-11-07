@@ -55,7 +55,7 @@ hairline.
 | Permission prompt | "site wants to" as a plain sentence with the site in medium weight; each request is a sentence led by its icon in a grey circle; "Never allow" and "Allow" side by side at equal width; "Allow this time" as a quiet link below. "Allow" is the same lasting grant as Chromium's "Allow while visiting the site", which stays as its tooltip. No close button: Esc dismisses. |
 | Site information | Host as the heading, no close button, rows separated by inset hairlines instead of cards. |
 | Profile menu | Not offered since patch 0051 (one profile). The restyle stays in patch 0050 in case a Chromium flow opens it. |
-| Save password, media and other bubbles | Arrow, grey panel, grey buttons and no close button come from the frame and theme. |
+| Save password, media and other bubbles | Arrow, grey panel, grey buttons and no close button come from the frame and theme. Bubbles whose Chromium control is hidden (password key, app menu) hang from the address field toward the middle, or centred under the toolbar on the start page (patch 0062). Save password has no header; footnotes are part of the frosted panel. |
 
 Every Chromium view keeps its controller, callbacks, IDs, element
 identifiers, accessible names/roles and strings. Only presentation changes.

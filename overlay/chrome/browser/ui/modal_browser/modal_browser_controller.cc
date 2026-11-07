@@ -1041,7 +1041,22 @@ void ModalBrowserController::InstallMerlinToolbar(
           .WithOrder(1));
   field->SetProperty(views::kMarginsKey, gfx::Insets::VH(0, 2));
   address_field_ = row->AddChildViewAt(std::move(field), index++);
+  // Pop-ups whose Chromium control is hidden hang from the address field,
+  // or are centred under the toolbar while the field is hidden
+  // (bubble_anchor_util::GetMerlinPopupAnchorView).
+  if (ToolbarView* toolbar = browser_view_->toolbar()) {
+    toolbar->SetProperty(views::merlin_style::kPopoverPlacementKey,
+                         views::merlin_style::PopoverPlacement::kCentered);
+  }
   toolbar_spacer_right_ = row->AddChildViewAt(flexible(), index++);
+  // The mode at the right end, in the space the address does not use; the
+  // address shrinks before it does.
+  auto mode = std::make_unique<MerlinModeIndicator>();
+  mode->SetProperty(views::kMarginsKey, gfx::Insets::TLBR(0, 6, 0, 4));
+  mode->SetState(status_->state().mode, status_->state().indicator,
+                 status_->state().pending);
+  mode_indicator_ = row->AddChildViewAt(std::move(mode), index++);
+  status_->SetModeInToolbar(true);
   // Recording and private-window labels at the right end. Site
   // information and permission prompts open from the address field.
   safety_controls_ = row->AddChildViewAt(
@@ -1710,6 +1725,10 @@ void ModalBrowserController::UpdateStatus(
   }
   status_->UpdateStatus(mode, ToU16(indicator), ToU16(pending),
                         std::move(entries));
+  if (mode_indicator_) {
+    mode_indicator_->SetState(mode, status_->state().indicator,
+                              status_->state().pending);
+  }
   // Commands may have switched workspace or tab layout.
   UpdatePageContext();
 }
@@ -3248,6 +3267,9 @@ void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
   }
   if (downloads_button_) {
     downloads_button_->SetSurface(color);
+  }
+  if (mode_indicator_) {
+    mode_indicator_->SetSurface(color);
   }
 }
 

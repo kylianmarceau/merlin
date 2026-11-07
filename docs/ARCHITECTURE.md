@@ -37,7 +37,8 @@ keeps a single Chromium profile and offers no profile UI (patch 0051).
  and owns three Views surfaces (child widgets over the web contents):
    PaletteHost  floating card: ':' line, tabs, commands, history,
                 bookmarks, workspaces, downloads, outline, links
-   StatusHost   bottom-left pill: mode, pending keys, messages, which-key
+   StatusHost   bottom-left pill: messages, downloads, which-key (the
+                mode and pending keys are in the toolbar; decision 53)
    HintHost     click-through layer with hint labels
  plus, per window: an ExternalEditor session for :edit, and a share of
  the process-wide BrowserctlServer.

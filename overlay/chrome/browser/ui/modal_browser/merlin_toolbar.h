@@ -8,9 +8,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "components/modal_browser/ffi/src/lib.rs.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/button.h"
@@ -130,6 +133,49 @@ class MerlinAddressField : public views::Button,
   std::u16string rest_;
   std::u16string title_;
   Security security_ = Security::kNone;
+  std::optional<SkColor> surface_;
+};
+
+// The input mode at the right end of the toolbar row, after the space the
+// address does not use, so it never covers the address or the page: a dot
+// and the mode's name ("insert") in the mode's color, written on the toolbar
+// with no box, then the keys typed so far. In Normal mode it shows only typed keys, and
+// with none it is hidden. Messages and the which-key panel stay in the
+// bottom-left status (StatusView). Never takes clicks.
+class MerlinModeIndicator : public views::View {
+  METADATA_HEADER(MerlinModeIndicator, views::View)
+
+ public:
+  MerlinModeIndicator();
+  MerlinModeIndicator(const MerlinModeIndicator&) = delete;
+  MerlinModeIndicator& operator=(const MerlinModeIndicator&) = delete;
+  ~MerlinModeIndicator() override;
+
+  // `indicator` is the mode's label from the session ("INSERT").
+  void SetState(ffi::Mode mode,
+                std::u16string_view indicator,
+                std::u16string_view pending);
+  // As MerlinNavButton::SetSurface.
+  void SetSurface(std::optional<SkColor> surface);
+
+  ffi::Mode mode() const { return mode_; }
+  const std::u16string& label_for_testing() const { return label_; }
+  const std::u16string& pending_for_testing() const { return pending_; }
+
+  // views::View:
+  gfx::Size CalculatePreferredSize(
+      const views::SizeBounds& available_size) const override;
+  void OnPaint(gfx::Canvas* canvas) override;
+  void OnThemeChanged() override;
+
+ private:
+  // The mode's name shows outside Normal mode.
+  bool ShowsLabel() const;
+  void UpdateVisibility();
+
+  ffi::Mode mode_ = ffi::Mode::Normal;
+  std::u16string label_;
+  std::u16string pending_;
   std::optional<SkColor> surface_;
 };
 

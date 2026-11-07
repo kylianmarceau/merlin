@@ -27,6 +27,9 @@ namespace modal_browser {
 // The bottom-left status: a pill with the mode, pending keys, the latest
 // message and running downloads, and above it a panel listing either what a pending prefix can
 // continue with (which-key) or a multi-line message such as `:help open`.
+// When Merlin's toolbar shows the mode and keys (MerlinModeIndicator), the
+// pill carries only messages and downloads, and the panel stands alone when
+// there are none.
 // Painted by hand so its look is fully ours; text stays readable in light
 // and dark themes. Never takes clicks.
 class StatusView : public views::View {
@@ -43,6 +46,8 @@ class StatusView : public views::View {
     bool show_which_key = false;
     // Running downloads ("↓ 2 · 45%"), at the end of the pill.
     std::u16string downloads;
+    // The toolbar shows the mode and pending keys, so the pill does not.
+    bool mode_in_toolbar = false;
   };
 
   StatusView();
@@ -67,8 +72,11 @@ class StatusView : public views::View {
  private:
   std::vector<std::u16string> PanelLines() const;
   gfx::Size PillSize() const;
-  // The mode shows unless the pill only reports downloads.
+  // The mode shows unless the pill only reports downloads or the toolbar
+  // shows it.
   bool ShowsMode() const;
+  bool ShowsPending() const;
+  bool PillVisible() const;
   int MessageWidth() const;
   gfx::Size PanelSize() const;
   void PaintPanel(gfx::Canvas* canvas,
@@ -106,10 +114,15 @@ class StatusHost : public views::ViewObserver {
   void SetFullBleed(bool on);
   // Running downloads; empty hides the indicator.
   void SetDownloads(std::u16string text);
+  // Merlin's toolbar has a mode indicator. While the page card shows (not in
+  // fullscreen, where the toolbar can be hidden), the pill leaves the mode
+  // and pending keys to it.
+  void SetModeInToolbar(bool on);
   // Re-anchors after the browser layout changed (tab strip moved, window
   // entered or left fullscreen).
   void Relayout();
   bool card_mode() const { return card_mode_; }
+  const StatusView::State& state() const { return state_; }
 
   // views::ViewObserver (the page area):
   void OnViewBoundsChanged(views::View* observed_view) override;
@@ -128,6 +141,7 @@ class StatusHost : public views::ViewObserver {
   OverlayHost host_;
   bool card_mode_ = false;
   bool full_bleed_ = false;
+  bool mode_in_toolbar_ = false;
   raw_ptr<StatusView> view_ = nullptr;
   StatusView::State state_;
   bool suppressed_ = false;

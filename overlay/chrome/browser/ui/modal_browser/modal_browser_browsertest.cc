@@ -174,6 +174,8 @@
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/color/color_provider.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/scoped_canvas.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/compositor/canvas_painter.h"
 #include "ui/events/event.h"
@@ -554,6 +556,16 @@ class ModalBrowserBrowserTest : public InProcessBrowserTest {
   StatusView* status() {
     return controller()->status_for_testing()->view_for_testing();
   }
+  // The status state, which exists before the pill's widget does (the pill
+  // is built on first content, and the mode alone shows in the toolbar).
+  const StatusView::State& status_state() {
+    return controller()->status_for_testing()->state();
+  }
+  bool PillShown() {
+    views::Widget* widget =
+        controller()->status_for_testing()->widget_for_testing();
+    return widget && widget->IsVisible();
+  }
   HintHost* hints() { return controller()->hints_for_testing(); }
 
   // Types into the palette's real text field (replacing its text) the way
@@ -692,10 +704,52 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, TypingInTextFieldIsNotHijacked) 
   EXPECT_EQ(browser()->tab_strip_model()->count(), 1);
   EXPECT_EQ(mode(), ffi::Mode::Insert);
   EXPECT_EQ(ScrollY(), 0);
-  // The mode pill is the visible affordance for Insert.
-  ASSERT_TRUE(status());
-  EXPECT_TRUE(controller()->status_for_testing()->widget_for_testing()->IsVisible());
-  EXPECT_EQ(status()->state().indicator, u"INSERT");
+  // The mode in the toolbar is the visible affordance for Insert.
+  MerlinModeIndicator* indicator = controller()->mode_indicator_for_testing();
+  ASSERT_TRUE(indicator);
+  EXPECT_TRUE(indicator->GetVisible());
+  EXPECT_EQ(indicator->label_for_testing(), u"insert");
+  EXPECT_EQ(status_state().indicator, u"INSERT");
+  EXPECT_FALSE(PillShown()) << "the mode is not repeated bottom left";
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, ModeIndicatorInToolbar) {
+  NavigateTo("/hints");
+  MerlinModeIndicator* indicator = controller()->mode_indicator_for_testing();
+  MerlinAddressField* field = controller()->address_field_for_testing();
+  ASSERT_TRUE(indicator);
+  ASSERT_TRUE(field);
+  // Normal mode with nothing typed: nothing shows.
+  EXPECT_FALSE(indicator->GetVisible());
+
+  PressLetter('i');
+  EXPECT_EQ(mode(), ffi::Mode::Insert);
+  EXPECT_TRUE(indicator->GetVisible());
+  EXPECT_EQ(indicator->label_for_testing(), u"insert");
+  EXPECT_FALSE(PillShown());
+  // At the right end of the row, clear of the address.
+  ASSERT_EQ(indicator->parent(), field->parent());
+  field->GetWidget()->LayoutRootViewIfNecessary();
+  EXPECT_GE(indicator->x(), field->bounds().right());
+  EXPECT_FALSE(indicator->bounds().IsEmpty());
+  PressEscape();
+  EXPECT_FALSE(indicator->GetVisible());
+
+  // Keys typed in Normal mode show alone; the which-key panel stays bottom
+  // left without a pill under it.
+  PressLetter('g');
+  EXPECT_TRUE(indicator->GetVisible());
+  EXPECT_EQ(indicator->pending_for_testing(), u"g");
+  EXPECT_EQ(indicator->mode(), ffi::Mode::Normal);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return status() && status()->PanelVisible(); }));
+  EXPECT_TRUE(PillShown());
+  PressEscape();
+  EXPECT_FALSE(indicator->GetVisible());
+
+  // Messages keep the bottom-left pill.
+  controller()->ShowMessage(ffi::MessageLevel::Info, "Copied");
+  EXPECT_TRUE(PillShown());
 }
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, RichEditorIsNotHijacked) {
@@ -781,7 +835,9 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, HintsLabelVisibleTargets) {
   std::vector<std::u16string> labels = ShowHints("f");
   // one, two, three, field; the hidden and covered links get no label.
   EXPECT_EQ(labels, (std::vector<std::u16string>{u"s", u"a", u"d", u"f"}));
-  EXPECT_EQ(status()->state().indicator, u"HINT");
+  EXPECT_EQ(status_state().indicator, u"HINT");
+  EXPECT_EQ(controller()->mode_indicator_for_testing()->label_for_testing(),
+            u"hint");
   PressEscape();
   EXPECT_EQ(mode(), ffi::Mode::Normal);
   EXPECT_FALSE(hints()->IsVisible());
@@ -1050,11 +1106,12 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, ClickingPageClosesPalette) {
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, WhichKeyAppearsAfterAPause) {
   PressLetter('g');
-  EXPECT_EQ(status()->state().pending, u"g");
-  EXPECT_FALSE(status()->PanelVisible()) << "not before the delay";
-  ASSERT_TRUE(base::test::RunUntil([&] { return status()->PanelVisible(); }));
+  EXPECT_EQ(status_state().pending, u"g");
+  EXPECT_FALSE(status() && status()->PanelVisible()) << "not before the delay";
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return status() && status()->PanelVisible(); }));
   bool has_top = false;
-  for (const auto& [keys, desc] : status()->state().which_key) {
+  for (const auto& [keys, desc] : status_state().which_key) {
     has_top |= keys == u"g" && desc == u"Top of page";
   }
   EXPECT_TRUE(has_top);
@@ -2133,12 +2190,34 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, Snapshots) {
   TypeInPalette(u"", ui::VKEY_ESCAPE);
 
   PressLetter('g');
-  ASSERT_TRUE(base::test::RunUntil([&] { return status()->PanelVisible(); }));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return status() && status()->PanelVisible(); }));
   save(Snap(status()), "status_which_key.png");
   PressEscape();
 
+  // The toolbar row's address and mode as they are drawn there (the row
+  // itself is on a layer, which the paint helpers do not draw).
+  NavigateTo("/hints");
   PressLetter('i');
-  save(Snap(status()), "status_insert.png");
+  {
+    MerlinModeIndicator* mode_view = controller()->mode_indicator_for_testing();
+    views::View* row = mode_view->parent();
+    row->GetWidget()->LayoutRootViewIfNecessary();
+    gfx::Canvas canvas(row->size(), 2.f, /*is_opaque=*/false);
+    canvas.DrawColor(row->GetColorProvider()->GetColor(kColorToolbar));
+    if (MerlinAddressField* field = controller()->address_field_for_testing();
+        field->GetVisible()) {
+      gfx::ScopedCanvas scoped(&canvas);
+      canvas.Translate(field->bounds().OffsetFromOrigin());
+      field->PaintButtonContents(&canvas);
+    }
+    {
+      gfx::ScopedCanvas scoped(&canvas);
+      canvas.Translate(mode_view->bounds().OffsetFromOrigin());
+      mode_view->OnPaint(&canvas);
+    }
+    save(canvas.GetBitmap(), "toolbar_mode_insert.png");
+  }
   PressEscape();
 
   // The same surfaces in dark mode (Chrome's own appearance setting).
@@ -2160,7 +2239,8 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, Snapshots) {
   save(Snap(palette_view()), "dark_palette_error.png");
   TypeInPalette(u"", ui::VKEY_ESCAPE);
   PressLetter('g');
-  ASSERT_TRUE(base::test::RunUntil([&] { return status()->PanelVisible(); }));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return status() && status()->PanelVisible(); }));
   save(Snap(status()), "dark_status_which_key.png");
   PressEscape();
 }

@@ -171,6 +171,12 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | --- | --- | --- |
 | `0061-merlin-find-bar.patch` | `chrome/browser/ui/views/find_bar_view.{h,cc}`, `chrome/browser/ui/views/find_bar_host.cc` | With Merlin's style on, the find bar is a slim frosted bar centred under the toolbar: search icon, text, count, then clickable key hints ("⏎ next", "⇧⏎ prev", "esc") in place of the hidden arrow and close buttons. Off with `--modal-browser-upstream-defaults` ([decision 52](DECISIONS.md#52-merlins-find-bar)) |
 
+## Pop-up placement patch (2026-11-07)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0062-merlin-popup-placement.patch` | `ui/views/merlin_style.{h,cc}`, `ui/views/bubble/bubble_dialog_delegate_view.cc`, `bubble_frame_view.cc`, `chrome/browser/ui/views/bubble_anchor_util_views.{h,cc}`, `chrome/browser/ui/views/toolbar/toolbar_view.cc`, `chrome/browser/ui/views/toolbar/BUILD.gn`, `chrome/browser/ui/views/frame/app_menu_button.cc`, `chrome/browser/ui/views/frame/BUILD.gn`, `chrome/browser/ui/views/passwords/password_bubble_view_base.cc` | Pop-ups whose Chromium control is hidden behind Merlin's toolbar (location bar icons such as the password key, the app menu) hang from Merlin's address field and open toward the middle of the window, or sit centred under the toolbar with no arrow when the address field is hidden. `merlin_style::kPopoverPlacementKey` marks the two views; `BubbleDialogDelegate::GetBubbleBounds` applies it. The save-password pop-up loses its decorative header ([decision 54](DECISIONS.md#54-pop-ups-hang-from-the-address)) |
+
 ## Rebase procedure
 
 1. Pick the new Mac Stable tag from chromiumdash. Verify patches before
@@ -218,8 +224,8 @@ Before any public build:
   permission checks weakened.
 * Own branding and bundle ID; no Google Chrome trademarks
   or assets. Both build configs set `branding_file_path` to Merlin's
-  `BRANDING` (overlay/chrome/app/theme/merlin) and build without
-  proprietary codecs or Widevine. Patch 0004 makes the Mac icon follow that
+  `BRANDING` (overlay/chrome/app/theme/merlin) and, since 2026-11-07,
+  build with proprietary codecs and Widevine (decision 55). Patch 0004 makes the Mac icon follow that
   file, names the product in `chromium_strings.grd` and gives the profile
   its own folder (`CrProductDirName`); patch 0007 renames the product in
   the remaining desktop string files (see the inventory).

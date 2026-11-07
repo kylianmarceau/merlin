@@ -318,6 +318,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/startup",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui:session_crashed_bubble",
     "//chrome/browser/ui/global_media_controls",
     "//chrome/browser/ui/passwords",
     "//chrome/browser/ui/passwords:test_support",

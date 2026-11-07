@@ -56,8 +56,11 @@ Press `?` in the browser for every key, or read the
 * **No Google services:** no Sync, and features that need Google API keys
   don't work: Safe Browsing lookups, spell-check dictionary downloads,
   Translate and Google location.
-* **No DRM or proprietary codecs.** Netflix, Spotify's web player, Disney+
-  and some H.264-only video won't play.
+* **No Netflix.** Widevine (DRM) and H.264/AAC are included, so Spotify's
+  web player and similar sites play. Widevine arrives a few minutes after
+  the first launch. Netflix
+  refuses browsers that Google hasn't signed for Widevine's verified media
+  path, and some other services may cap quality for the same reason.
 * **Chrome Web Store installs may be refused** or need manual steps;
   unpacked and `.crx` extensions work.
 * **One profile.** Use workspaces and private windows to separate things.

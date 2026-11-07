@@ -69,12 +69,15 @@ void StatusView::SetState(State state) {
   const bool new_message =
       !state.message.empty() && state.message != state_.message;
   state_ = std::move(state);
-  std::u16string name = state_.indicator;
-  if (!state_.pending.empty()) {
-    name += u" " + state_.pending;
+  std::u16string name;
+  if (!state_.mode_in_toolbar) {
+    name = state_.indicator;
+    if (!state_.pending.empty()) {
+      name += u" " + state_.pending;
+    }
   }
   if (!state_.message.empty()) {
-    name += u". " + state_.message;
+    name += (name.empty() ? u"" : u". ") + state_.message;
   }
   GetViewAccessibility().SetName(name);
   if (new_message) {
@@ -86,15 +89,29 @@ void StatusView::SetState(State state) {
 
 // static
 bool StatusView::HasContent(const State& state) {
-  return state.mode != ffi::Mode::Normal || !state.pending.empty() ||
-         !state.message.empty() || !state.downloads.empty();
+  if (!state.message.empty() || !state.downloads.empty()) {
+    return true;
+  }
+  if (state.mode_in_toolbar) {
+    return state.show_which_key && !state.which_key.empty();
+  }
+  return state.mode != ffi::Mode::Normal || !state.pending.empty();
 }
 
 bool StatusView::ShowsMode() const {
   // Normal mode is the quiet default: its name shows only in front of keys
   // being typed, not in front of a message or downloads.
-  return !state_.indicator.empty() &&
+  return !state_.mode_in_toolbar && !state_.indicator.empty() &&
          (state_.mode != ffi::Mode::Normal || !state_.pending.empty());
+}
+
+bool StatusView::ShowsPending() const {
+  return !state_.mode_in_toolbar && !state_.pending.empty();
+}
+
+bool StatusView::PillVisible() const {
+  return ShowsMode() || ShowsPending() || !state_.message.empty() ||
+         !state_.downloads.empty();
 }
 
 bool StatusView::HasContent() const {
@@ -130,6 +147,9 @@ int StatusView::MessageWidth() const {
 }
 
 gfx::Size StatusView::PillSize() const {
+  if (!PillVisible()) {
+    return gfx::Size();
+  }
   int width = kPillPaddingX;
   bool first = true;
   if (ShowsMode()) {
@@ -137,7 +157,7 @@ gfx::Size StatusView::PillSize() const {
              gfx::Canvas::GetStringWidth(state_.indicator, ModeFont());
     first = false;
   }
-  if (!state_.pending.empty()) {
+  if (ShowsPending()) {
     width += (first ? 0 : kGap) +
              gfx::Canvas::GetStringWidth(state_.pending, PendingFont());
     first = false;
@@ -181,7 +201,8 @@ gfx::Size StatusView::CalculatePreferredSize(
   const gfx::Size pill = PillSize();
   const int width = std::max(pill.width(), panel.width());
   const int height =
-      pill.height() + (panel.IsEmpty() ? 0 : panel.height() + kGap);
+      pill.height() +
+      (panel.IsEmpty() ? 0 : panel.height() + (pill.IsEmpty() ? 0 : kGap));
   return gfx::Size(width + 2 * style::kShadowMargin,
                    height + 2 * style::kShadowMargin);
 }
@@ -194,12 +215,17 @@ void StatusView::OnPaint(gfx::Canvas* canvas) {
   const int left = style::kShadowMargin;
   const int pill_top = height() - style::kShadowMargin - pill_size.height();
 
-  // Panel above the pill.
+  // Panel above the pill, or alone at the bottom.
   if (!panel_size.IsEmpty()) {
     PaintPanel(canvas,
-               gfx::Rect(left, pill_top - kGap - panel_size.height(),
+               gfx::Rect(left,
+                         pill_top - (pill_size.IsEmpty() ? 0 : kGap) -
+                             panel_size.height(),
                          panel_size.width(), panel_size.height()),
                colors);
+  }
+  if (pill_size.IsEmpty()) {
+    return;
   }
 
   // The pill: the mode and its dot, the keys typed so far, the latest
@@ -232,7 +258,7 @@ void StatusView::OnPaint(gfx::Canvas* canvas) {
     x += mode_width;
     first = false;
   }
-  if (!state_.pending.empty()) {
+  if (ShowsPending()) {
     x += first ? 0 : kGap;
     const int w = gfx::Canvas::GetStringWidth(state_.pending, PendingFont());
     canvas->DrawStringRect(state_.pending, PendingFont(), colors.text,
@@ -392,6 +418,14 @@ void StatusHost::SetDownloads(std::u16string text) {
   Apply();
 }
 
+void StatusHost::SetModeInToolbar(bool on) {
+  if (mode_in_toolbar_ == on) {
+    return;
+  }
+  mode_in_toolbar_ = on;
+  Apply();
+}
+
 void StatusHost::Relayout() {
   UpdateCard();
   Apply();
@@ -421,6 +455,8 @@ void StatusHost::UpdateCard() {
 }
 
 void StatusHost::Apply() {
+  // Fullscreen can hide the toolbar, so the pill shows the mode there.
+  state_.mode_in_toolbar = mode_in_toolbar_ && CardActive();
   if (!view_) {
     // Create the widget on first content only.
     if (!StatusView::HasContent(state_)) {

@@ -16,6 +16,13 @@ follow Chromium's setting for them. Chromium's search prewarm, which
 loads a hidden Google page in each tab when Google is the default search
 engine, is off (patch 0052).
 
+Widevine, the DRM module protected video and music sites use, is not in
+the app bundle. Chromium's component updater downloads it from Google's
+update service (update.googleapis.com) shortly after launch and checks it
+for updates, as it does for Chromium's other components; the request names
+the component and platform, not pages visited. Sites that use DRM talk to
+their own licence servers through it ([decision 55](DECISIONS.md#55-widevine-and-proprietary-codecs)).
+
 When the native ad blocker is enabled, normal profiles can automatically
 refresh selected filter sources with Chromium's networking. The fixed catalog
 uses **easylist.to** and **raw.githubusercontent.com** over HTTPS. Requests omit

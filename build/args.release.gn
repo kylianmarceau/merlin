@@ -22,9 +22,14 @@ enable_stripping = true
 # (scripts/bootstrap_chromium.sh does); scripts/build_release.sh checks it.
 # Never Google Chrome branding; Merlin's comes from branding_file_path.
 is_chrome_branded = false
-# No proprietary codecs or Widevine: both need licensing decisions first.
-proprietary_codecs = false
-enable_widevine = false
+# Widevine, Google's DRM module, which Chromium's component updater downloads
+# after launch, and the AAC and H.264 formats that DRM sites (Spotify,
+# Disney+, Prime Video) and many ordinary videos use, as Brave, Thorium and
+# ungoogled-chromium ship them (decision 55). Netflix still refuses builds
+# Google has not signed for Widevine's verified media path.
+proprietary_codecs = true
+ffmpeg_branding = "Chrome"
+enable_widevine = true
 # Merlin's name, bundle ID and icon (overlay/chrome/app/theme/merlin,
 # linked in by scripts/apply_overlay.sh; patch 0004 makes the icon follow).
 branding_file_path = "//chrome/app/theme/merlin/BRANDING"

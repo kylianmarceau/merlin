@@ -210,8 +210,11 @@ Chrome. Some things are missing:
 
 - **No automatic updates.** Watch the repository for releases, which
   include Chromium security fixes.
-- **No DRM or proprietary codecs.** Netflix, Spotify's web player and some
-  H.264-only video won't play.
+- **No Netflix.** Merlin includes Widevine (downloaded a few minutes after
+  first launch) and H.264/AAC, so Spotify's web player and similar sites
+  play, but Netflix refuses browsers Google hasn't signed for Widevine's
+  verified media path. Some other services may cap quality for the same
+  reason.
 - **No Google Sync.** Bookmarks and passwords stay on your Mac.
 - **Chrome Web Store installs may need extra steps.** Unpacked and `.crx`
   extensions work.

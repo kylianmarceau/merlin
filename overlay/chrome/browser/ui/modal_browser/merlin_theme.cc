@@ -87,7 +87,9 @@ void AddMerlinColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorDialogBackground] = {p.surface};
   // Pop-ups are plain grey panels, like macOS popovers.
   mixer[ui::kColorBubbleBackground] = {p.popover};
-  mixer[ui::kColorBubbleFooterBackground] = {p.popover};
+  // The footnote is part of the panel (a hairline above it), not a band of
+  // its own: transparent, so it shows the panel or its frosted glass.
+  mixer[ui::kColorBubbleFooterBackground] = {SK_ColorTRANSPARENT};
   mixer[ui::kColorBubbleFooterBorder] = {p.divider};
   mixer[ui::kColorToggleButtonTrackOn] = {p.accent};
   mixer[ui::kColorToggleButtonThumbOn] = {p.on_accent};

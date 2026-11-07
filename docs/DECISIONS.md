@@ -1013,6 +1013,75 @@ shared find text.
 **Not changed.** The highlight colours on the page (yellow, with orange
 for the current match) are drawn by Blink, not the bar.
 
+## 53. The mode in the toolbar
+
+The input mode was a floating pill in the page's bottom-left corner, with a
+dot, an uppercase name ("INSERT"), a shadow and an outline, over the page.
+The maintainer found it untidy and picked the toolbar (option C of five
+mockups) on 2026-11-07, at the right end so it never covers the address.
+
+**Look.** After the space the address does not use, before the
+private-window label and the downloads button: a 6 DIP dot and the mode's
+name in lowercase ("insert") in the mode's colour, written on the toolbar
+with no box, as the address is. A tinted capsule was tried and dropped at
+the maintainer's request. Keys typed so far follow in monospace. In Normal
+mode it shows only typed keys, and is hidden when there are none. Its colours follow the page colour the
+toolbar takes (as the other toolbar items do), and the mode colour is
+darkened or lightened as needed to stay readable on it. The address field
+shrinks before the mode does.
+
+**What stays bottom left.** Messages, running downloads and the which-key
+panel. The panel stands alone when nothing else is in the pill. In
+fullscreen, where the toolbar can be hidden, and in windows without
+Merlin's toolbar (`--modal-browser-upstream-defaults`), the pill shows the
+mode and keys as before.
+
+## 54. Pop-ups hang from the address
+
+The save-password and restore-pages pop-ups opened at the far right of the
+window with an arrow pointing at nothing (reported 2026-11-07). Chromium
+anchors them to its location bar's key icon and its app menu button, which
+Merlin hides; the fallbacks were the whole top of the window and its top
+right corner.
+
+**Placement.** Any pop-up whose Chromium control is hidden now hangs from
+Merlin's address field, with the arrow pointing at it, and opens toward the
+middle of the window whichever side it asked for, as site information and
+permission prompts already did (patch 0013). On the start page, where the
+address field is hidden, it sits centred 6 DIP under the toolbar with no
+arrow, like the find bar (decision 52). In fullscreen, where neither is
+drawn, Chromium's own fallback stays.
+
+**Cleaner password pop-up.** The bird-and-key header above "Save password?"
+is gone (the title already leads with the key), and the footnote ("Passwords
+are saved to...") is part of the panel under a hairline rather than an
+opaque band, so it is frosted with the rest.
+
+## 55. Widevine and proprietary codecs
+
+Merlin was built without Widevine and without H.264/AAC
+(`enable_widevine = false`, `proprietary_codecs = false`), so Netflix,
+Spotify's web player and other protected or H.264-only media failed. On
+2026-11-07 the maintainer chose to turn both on, as Brave, Thorium and
+ungoogled-chromium do; both build configs now set `enable_widevine = true`,
+`proprietary_codecs = true` and `ffmpeg_branding = "Chrome"`.
+
+**How Widevine arrives.** Only Google Chrome bundles the Widevine CDM.
+Merlin registers it as a component, and Chromium's component updater
+downloads it from Google a few minutes after first launch, then keeps it
+current (docs/PRIVACY.md). Until then protected sites report that
+protected content is unavailable.
+
+**Netflix still fails.** On macOS the CDM reports whether the browser was
+signed through Google's Widevine verified media path (VMP). Only builds
+Google signs pass; Netflix refuses the rest, and some services cap
+resolution. VMP signing needs an agreement with Google, outside this
+release scope.
+
+**Licensing.** H.264 and AAC are patent-encumbered. Merlin ships the same
+FFmpeg configuration as other Chromium forks; `scripts/licenses.sh` lists
+FFmpeg's components in the credits.
+
 ## Native ad blocker integration (2026-11-02)
 
 Embed pinned `adblock` 0.13.3 through its own Cargo/GN wrapper and nonthrowing

@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/strings/escape.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -23,6 +24,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "third_party/skia/include/core/SkPath.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/window_open_disposition_utils.h"
@@ -33,6 +35,7 @@
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/gfx/text_utils.h"
+#include "ui/views/merlin_style.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
@@ -58,6 +61,18 @@ constexpr int kFieldRadius = 8;
 constexpr int kFieldPadding = 8;
 constexpr int kFieldPreferredWidth = 640;
 constexpr int kChipGap = 8;
+
+// The mode (MerlinModeIndicator).
+constexpr int kModePadding = 4;
+constexpr int kModeDot = 6;
+constexpr int kModeGap = 6;
+
+const gfx::FontList& ModeFont() {
+  return style::UiFont(-1, gfx::Font::Weight::MEDIUM);
+}
+const gfx::FontList& ModeKeysFont() {
+  return style::MonoFont(-1, gfx::Font::Weight::SEMIBOLD);
+}
 
 cc::PaintFlags StrokeFlags(SkColor color, float width = kStroke) {
   cc::PaintFlags flags;
@@ -283,6 +298,10 @@ MerlinAddressField::MerlinAddressField(base::RepeatingClosure edit_address,
   // Page info and permission prompts open from the address, where the
   // site is named (patch 0013 looks for this identifier).
   SetProperty(views::kElementIdentifierKey, kLocationIconElementId);
+  // Pop-ups open from here toward the middle of the window, whichever side
+  // they asked for (passwords, bookmarks, restore pages).
+  SetProperty(views::merlin_style::kPopoverPlacementKey,
+              views::merlin_style::PopoverPlacement::kTowardMiddle);
   set_context_menu_controller(this);
   SetTooltipText(u"Edit address  ⌘L");
   GetViewAccessibility().SetName(u"Address");
@@ -484,6 +503,109 @@ void MerlinAddressField::OnPressed(const ui::Event& event) {
 }
 
 BEGIN_METADATA(MerlinAddressField)
+END_METADATA
+
+// MerlinModeIndicator ------------------------------------------------------
+
+MerlinModeIndicator::MerlinModeIndicator() {
+  SetCanProcessEventsWithinSubtree(false);
+  SetFocusBehavior(FocusBehavior::NEVER);
+  GetViewAccessibility().SetRole(ax::mojom::Role::kStatus);
+  UpdateVisibility();
+}
+
+MerlinModeIndicator::~MerlinModeIndicator() = default;
+
+void MerlinModeIndicator::SetState(ffi::Mode mode,
+                                   std::u16string_view indicator,
+                                   std::u16string_view pending) {
+  std::u16string label = base::ToLowerASCII(indicator);
+  if (mode == mode_ && label == label_ && pending == pending_) {
+    return;
+  }
+  mode_ = mode;
+  label_ = std::move(label);
+  pending_ = std::u16string(pending);
+  std::u16string name;
+  if (ShowsLabel()) {
+    name = label_ + u" mode";
+    name[0] = base::ToUpperASCII(name[0]);
+  }
+  if (!pending_.empty()) {
+    name += (name.empty() ? u"Keys " : u", keys ") + pending_;
+  }
+  GetViewAccessibility().SetName(name);
+  UpdateVisibility();
+  PreferredSizeChanged();
+  SchedulePaint();
+}
+
+void MerlinModeIndicator::SetSurface(std::optional<SkColor> surface) {
+  surface_ = surface;
+  SchedulePaint();
+}
+
+bool MerlinModeIndicator::ShowsLabel() const {
+  return mode_ != ffi::Mode::Normal && !label_.empty();
+}
+
+void MerlinModeIndicator::UpdateVisibility() {
+  const bool visible = ShowsLabel() || !pending_.empty();
+  if (GetVisible() != visible) {
+    SetVisible(visible);
+  }
+}
+
+gfx::Size MerlinModeIndicator::CalculatePreferredSize(
+    const views::SizeBounds& available_size) const {
+  int width = kModePadding;
+  if (ShowsLabel()) {
+    width += kModeDot + kModeGap + gfx::GetStringWidth(label_, ModeFont());
+  }
+  if (!pending_.empty()) {
+    width += (ShowsLabel() ? kModeGap : 0) +
+             gfx::GetStringWidth(pending_, ModeKeysFont());
+  }
+  width += kModePadding + 1;
+  return gfx::Size(width, kFieldHeight);
+}
+
+void MerlinModeIndicator::OnPaint(gfx::Canvas* canvas) {
+  const SkColor surface = style::PageSurface(this, surface_)
+                              .value_or(Color(this, kColorToolbar));
+  const style::Ink ink = style::InkOn(surface);
+  const bool dark = ink.text == SK_ColorWHITE;
+  // Written on the toolbar with no box, as the address is.
+  float x = kModePadding;
+  if (ShowsLabel()) {
+    // The mode's color, kept readable on whatever color the page gives the
+    // toolbar.
+    const SkColor color =
+        color_utils::BlendForMinContrast(style::ModeColor(mode_, dark),
+                                         surface)
+            .color;
+    canvas->DrawCircle(gfx::PointF(x + kModeDot / 2.f, height() / 2.f),
+                       kModeDot / 2.f, FillFlags(color));
+    x += kModeDot + kModeGap;
+    const int label_width = gfx::GetStringWidth(label_, ModeFont());
+    canvas->DrawStringRect(label_, ModeFont(), color,
+                           gfx::Rect(x, 0, label_width + 1, height()));
+    x += label_width + kModeGap;
+  }
+  if (!pending_.empty()) {
+    canvas->DrawStringRect(
+        pending_, ModeKeysFont(), ink.text,
+        gfx::Rect(x, 0, gfx::GetStringWidth(pending_, ModeKeysFont()) + 1,
+                  height()));
+  }
+}
+
+void MerlinModeIndicator::OnThemeChanged() {
+  views::View::OnThemeChanged();
+  SchedulePaint();
+}
+
+BEGIN_METADATA(MerlinModeIndicator)
 END_METADATA
 
 // MerlinToolbarBackdrop ----------------------------------------------------
