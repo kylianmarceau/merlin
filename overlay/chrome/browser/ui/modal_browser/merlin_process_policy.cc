@@ -4,8 +4,14 @@
 
 #include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
 
+#include <string>
+
+#include "base/base_switches.h"
 #include "base/command_line.h"
+#include "base/containers/flat_set.h"
 #include "base/feature_list.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
 
 namespace modal_browser {
 
@@ -46,6 +52,27 @@ bool ShouldPrewarmDefaultSearch() {
 
 bool ShouldShowChromiumPromos() {
   return UpstreamDefaults();
+}
+
+void AddMerlinDisabledFeatures(base::CommandLine& command_line) {
+  if (command_line.HasSwitch(kUpstreamDefaults)) {
+    return;
+  }
+  // Entries look like "Name", "Name<Trial" or "Name:param/value".
+  base::flat_set<std::string> enabled;
+  for (std::string_view entry : base::SplitStringPiece(
+           command_line.GetSwitchValueASCII(switches::kEnableFeatures), ",",
+           base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
+    enabled.emplace(entry.substr(0, entry.find_first_of("<:")));
+  }
+  std::string disabled =
+      command_line.GetSwitchValueASCII(switches::kDisableFeatures);
+  for (const char* feature : kMerlinDisabledFeatures) {
+    if (!enabled.contains(feature)) {
+      base::StrAppend(&disabled, {disabled.empty() ? "" : ",", feature});
+    }
+  }
+  command_line.AppendSwitchASCII(switches::kDisableFeatures, disabled);
 }
 
 }  // namespace modal_browser

@@ -176,6 +176,14 @@ Two one-call hooks into `merlin_process_policy` (a leaf target with only
 | Patch | Files | Purpose |
 | --- | --- | --- |
 | `0062-merlin-popup-placement.patch` | `ui/views/merlin_style.{h,cc}`, `ui/views/bubble/bubble_dialog_delegate_view.cc`, `bubble_frame_view.cc`, `chrome/browser/ui/views/bubble_anchor_util_views.{h,cc}`, `chrome/browser/ui/views/toolbar/toolbar_view.cc`, `chrome/browser/ui/views/toolbar/BUILD.gn`, `chrome/browser/ui/views/frame/app_menu_button.cc`, `chrome/browser/ui/views/frame/BUILD.gn`, `chrome/browser/ui/views/passwords/password_bubble_view_base.cc` | Pop-ups whose Chromium control is hidden behind Merlin's toolbar (location bar icons such as the password key, the app menu) hang from Merlin's address field and open toward the middle of the window, or sit centred under the toolbar with no arrow when the address field is hidden. `merlin_style::kPopoverPlacementKey` marks the two views; `BubbleDialogDelegate::GetBubbleBounds` applies it. The save-password pop-up loses its decorative header ([decision 54](DECISIONS.md#54-pop-ups-hang-from-the-address)) |
+| `0063-merlin-popover-width.patch` | `ui/views/merlin_style.h`, `ui/views/layout/layout_provider.cc`, `chrome/browser/ui/views/page_info/page_info_bubble_view.cc` | Every pop-up shares Dia's 260 DIP width: `merlin_style::kPopoverWidth` backs `DISTANCE_BUBBLE_PREFERRED_WIDTH` and site information's minimum width when Merlin's style is on ([decision 56](DECISIONS.md#56-one-pop-up-width-after-dia)) |
+
+## Widevine download patch (2026-11-07)
+
+| Patch | Files | Purpose |
+| --- | --- | --- |
+| `0064-merlin-component-foreground-downloads.patch` | `chrome/browser/component_updater/chrome_component_updater_configurator.cc` | `EnabledBackgroundDownloader()` returns false: components, Widevine among them, download through Chromium's network stack, since macOS's background download service never ran them for Merlin's ad-hoc signed app ([decision 55](DECISIONS.md#55-widevine-and-proprietary-codecs)) |
+| `0065-merlin-features-off-by-default.patch` | `chrome/browser/metrics/chrome_feature_list_creator.cc`, its `BUILD.gn` | Before the feature list is built, adds `kMerlinDisabledFeatures` (Gemini, Lens, Help me write, Cast, the built-in AI APIs) to `--disable-features` unless enabled by name ([decision 57](DECISIONS.md#57-a-lighter-chromium-no-test-experiments-google-ai-or-casting)) |
 
 ## Rebase procedure
 

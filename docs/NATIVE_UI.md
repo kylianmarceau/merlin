@@ -44,6 +44,7 @@ answers are equal grey buttons.
 | Arrow | `BubbleDialogDelegate::CreateFrameView` (0049) | Bubbles that open downward from an anchor show an arrow, if they draw their own shadow and set no custom insets |
 | No close button | `BubbleFrameView::ResetWindowControls` (0049) | Hidden on anchored bubbles that close when you click elsewhere; Esc still closes them |
 | Panel and buttons | `merlin_theme.cc`, `branding/design_tokens.json` | `popover` panel, `popover_control` buttons, `popover_control_strong` for the default action; hairlines are a tint of the text color |
+| Width | `ui/views/merlin_style.h`, patch 0063 | Every pop-up is 260 DIP wide (`kPopoverWidth`), after Dia; content that needs more still grows the bubble |
 | Address | `merlin_toolbar.cc`, patch 0013 | Page Info and permission prompts hang from the address field, where the site is named, and open toward the middle of the window (`TOP_LEFT`). Right-click the address or type `:site` for Page Info |
 
 `overlay/chrome/browser/ui/modal_browser/merlin_popup_kit.{h,cc}`

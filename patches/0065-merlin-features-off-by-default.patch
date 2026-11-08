@@ -1,0 +1,42 @@
+diff --git a/chrome/browser/metrics/BUILD.gn b/chrome/browser/metrics/BUILD.gn
+--- a/chrome/browser/metrics/BUILD.gn
++++ b/chrome/browser/metrics/BUILD.gn
+@@ -507,6 +507,11 @@ source_set("impl") {
+     deps += [ "//chrome/browser/updates:update_metrics" ]
+   }
+ 
++  # Merlin: features off by default (merlin_process_policy.h).
++  if (is_mac || is_win || is_linux) {
++    deps += [ "//chrome/browser/ui/modal_browser:process_policy" ]
++  }
++
+   if (is_win || is_android || is_linux) {
+     sources += [ "chrome_metrics_service_crash_reporter.cc" ]
+   }
+diff --git a/chrome/browser/metrics/chrome_feature_list_creator.cc b/chrome/browser/metrics/chrome_feature_list_creator.cc
+--- a/chrome/browser/metrics/chrome_feature_list_creator.cc
++++ b/chrome/browser/metrics/chrome_feature_list_creator.cc
+@@ -43,6 +43,10 @@
+ #include "services/network/public/cpp/shared_url_loader_factory.h"
+ #include "ui/base/resource/resource_bundle.h"
+ 
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++#include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
++#endif
++
+ #if BUILDFLAG(IS_ANDROID)
+ #include "components/variations/android/variations_seed_bridge.h"
+ #endif
+@@ -237,6 +241,12 @@ void ChromeFeatureListCreator::CreateNetworkTimeTracker() {
+ }
+ 
+ void ChromeFeatureListCreator::SetUpFieldTrials() {
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
++  // Merlin: Gemini, Lens, Help me write, Cast and the built-in AI APIs off
++  // unless enabled by name (merlin_process_policy.h).
++  modal_browser::AddMerlinDisabledFeatures(
++      *base::CommandLine::ForCurrentProcess());
++#endif
+   browser_field_trials_ =
+       std::make_unique<ChromeBrowserFieldTrials>(local_state_.get());
+ 

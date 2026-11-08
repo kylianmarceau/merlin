@@ -1068,9 +1068,16 @@ ungoogled-chromium do; both build configs now set `enable_widevine = true`,
 
 **How Widevine arrives.** Only Google Chrome bundles the Widevine CDM.
 Merlin registers it as a component, and Chromium's component updater
-downloads it from Google a few minutes after first launch, then keeps it
+downloads it from Google about a minute after first launch, then keeps it
 current (docs/PRIVACY.md). Until then protected sites report that
 protected content is unavailable.
+
+**Downloads in the foreground.** On macOS Chromium hands large component
+downloads to the system's background download service (`NSURLSession`
+background sessions). For Merlin's ad-hoc signed app it never ran them:
+Widevine stayed at "Downloading" for over ten minutes while small
+components arrived. Patch 0064 makes the component updater use Chromium's
+own network stack instead; Widevine then installed within seconds.
 
 **Netflix still fails.** On macOS the CDM reports whether the browser was
 signed through Google's Widevine verified media path (VMP). Only builds
@@ -1081,6 +1088,62 @@ release scope.
 **Licensing.** H.264 and AAC are patent-encumbered. Merlin ships the same
 FFmpeg configuration as other Chromium forks; `scripts/licenses.sh` lists
 FFmpeg's components in the credits.
+
+## 56. One pop-up width, after Dia
+
+Merlin's pop-ups were wider than Dia's: the downloads pop-up was 340 DIP
+with 50 DIP rows, and Chromium's bubbles (permission prompts, save
+password, site information) used Chromium's 320. Dia's popovers are about
+260 DIP with tighter rows. Every pop-up that hangs from the toolbar or the
+address field now shares `merlin_style::kPopoverWidth` (260 DIP): patch 0063
+points `DISTANCE_BUBBLE_PREFERRED_WIDTH` and site information's minimum width
+at it, and the downloads pop-up uses it with a 30 DIP header, 40 DIP rows and
+a 32 DIP footer. Text sizes are unchanged. Bubbles whose content is wider
+(a long site name, cookie details) still grow to fit. The media pop-up keeps
+its 352 DIP width, since its row of eight playback controls does not fit in
+260. `--modal-browser-upstream-defaults` keeps Chromium's widths.
+
+## 57. A lighter Chromium: no test experiments, Google AI or casting
+
+The maintainer chose to keep the PDF viewer, its text recognition for
+scanned PDFs (Screen AI, used by accessibility), page snapshots (paint
+preview), printing and installable extensions, and to remove the rest of
+what a 2026-11-07 audit found running unasked:
+
+- **Google's test experiments.** Unbranded Chromium builds apply
+  `testing/variations/fieldtrial_testing_config.json`, meant for Google's
+  test bots: 566 studies and 674 unfinished features on Mac, among them
+  Gemini in Chrome, a web-based toolbar and address popup in hidden
+  renderers, spare renderers and a preemptive download of the live caption
+  speech model. A new profile held 471 MB after 40 seconds, 450 MB of it
+  that model and its cached installer. `disable_fieldtrial_testing_config`
+  turns them off, as Brave and ungoogled-chromium do; the profile held
+  23 MB. Chromium's own defaults apply instead.
+- **Compiled out:** the remote desktop host (`enable_remoting`), Cast and
+  printer discovery on the local network (`enable_service_discovery`) and
+  legacy hosted apps (`enable_hosted_apps`).
+- **Off at run time,** because desktop Chromium does not build without
+  them (`gn gen` asserts): Gemini (`Glic`, and `ApiGlicPrivate` for its
+  component extension, which loads without it), Lens (`LensOverlay`,
+  `LensStandalone`), Help me write (`Compose`), Cast (`MediaRouter`) and
+  the built-in AI APIs pages can call (Prompt, Summarizer, Writer,
+  Rewriter, Proofreader). Patch 0065 adds them to `--disable-features` as
+  the feature list is built (`kMerlinDisabledFeatures` in
+  `merlin_process_policy.h`); `--enable-features=<name>` brings one back,
+  `--modal-browser-upstream-defaults` all of them. The on-device model
+  those APIs download (several GB) is disallowed and background mode is
+  off, as defaults that a policy still overrides.
+- **Kept, required by extensions:** background mode's code and supervised
+  users (Family Link); both stay dormant.
+- **English only:** `scripts/package_mac.sh` removes the other 53
+  translations (46.6 MB) before signing. Chromium has no build switch
+  for its locale list.
+
+The release benchmark ran with the test experiments on, and a few of them
+were performance work (allocator and startup changes), so Speedometer,
+startup and memory need a rerun on the next release build. Measured with
+the 0.1.0-beta.1 build and the equivalent switches, Wikipedia plus a PDF
+used 461 MB in 10 processes against 507 MB in 11.
 
 ## Native ad blocker integration (2026-11-02)
 

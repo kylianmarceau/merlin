@@ -22,6 +22,7 @@
 #include <string>
 
 #include "base/base_paths.h"
+#include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/files/file_path.h"
@@ -126,6 +127,7 @@
 #include "components/input/native_web_keyboard_event.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/permissions/permission_prompt.h"
 #include "components/permissions/request_type.h"
@@ -1555,6 +1557,49 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MemorySaverOnByDefault) {
   EXPECT_EQ(tuning::GetCurrentMemorySaverModeState(local),
             tuning::MemorySaverModeState::kDisabled);
   local->ClearPref(tuning::kMemorySaverModeState);
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, ChromiumAiFeaturesOff) {
+  // Added to --disable-features, after any the user passed.
+  base::CommandLine plain(base::CommandLine::NO_PROGRAM);
+  plain.AppendSwitchASCII(switches::kDisableFeatures, "Foo");
+  AddMerlinDisabledFeatures(plain);
+  const std::string disabled =
+      plain.GetSwitchValueASCII(switches::kDisableFeatures);
+  EXPECT_TRUE(disabled.starts_with("Foo,Glic,"));
+  for (const char* feature : kMerlinDisabledFeatures) {
+    EXPECT_NE(disabled.find(feature), std::string::npos) << feature;
+  }
+  // A feature enabled by name stays enabled.
+  base::CommandLine enabled(base::CommandLine::NO_PROGRAM);
+  enabled.AppendSwitchASCII(switches::kEnableFeatures,
+                            "Glic,MediaRouter<Trial");
+  AddMerlinDisabledFeatures(enabled);
+  const std::string rest =
+      enabled.GetSwitchValueASCII(switches::kDisableFeatures);
+  EXPECT_FALSE(rest.starts_with("Glic"));
+  EXPECT_EQ(rest.find("MediaRouter"), std::string::npos);
+  EXPECT_NE(rest.find("LensOverlay"), std::string::npos);
+  // Chromium's behaviour with --modal-browser-upstream-defaults.
+  base::CommandLine upstream(base::CommandLine::NO_PROGRAM);
+  upstream.AppendSwitch(kUpstreamDefaultsSwitch);
+  AddMerlinDisabledFeatures(upstream);
+  EXPECT_FALSE(upstream.HasSwitch(switches::kDisableFeatures));
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, LeanDefaults) {
+  namespace model_prefs = optimization_guide::model_execution::prefs;
+  PrefService* local = g_browser_process->local_state();
+  const char* const model =
+      model_prefs::localstate::kGenAILocalFoundationalModelEnterprisePolicySettings;
+  EXPECT_TRUE(local->FindPreference(model)->IsDefaultValue());
+  EXPECT_EQ(local->GetInteger(model),
+            static_cast<int>(model_prefs::
+                                 GenAILocalFoundationalModelEnterprisePolicySettings::
+                                     kDisallowed));
+  EXPECT_TRUE(
+      local->FindPreference(prefs::kBackgroundModeEnabled)->IsDefaultValue());
+  EXPECT_FALSE(local->GetBoolean(prefs::kBackgroundModeEnabled));
 }
 
 IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,

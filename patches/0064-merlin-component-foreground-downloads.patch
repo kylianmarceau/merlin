@@ -1,0 +1,16 @@
+diff --git a/chrome/browser/component_updater/chrome_component_updater_configurator.cc b/chrome/browser/component_updater/chrome_component_updater_configurator.cc
+--- a/chrome/browser/component_updater/chrome_component_updater_configurator.cc
++++ b/chrome/browser/component_updater/chrome_component_updater_configurator.cc
+@@ -268,7 +268,11 @@
+ 
+ bool ChromeConfigurator::EnabledBackgroundDownloader() const {
+   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+-  return configurator_impl_.EnabledBackgroundDownloader();
++  // Merlin: components download with Chromium's own network stack. macOS's
++  // background download service never ran the downloads for Merlin's
++  // ad-hoc signed app, so large components such as Widevine stayed at
++  // "Downloading" and DRM sites never played.
++  return false;
+ }
+ 
+ bool ChromeConfigurator::EnabledCupSigning() const {

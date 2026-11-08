@@ -44,6 +44,7 @@
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/merlin_style.h"
 #include "ui/views/widget/widget.h"
 
 namespace modal_browser {
@@ -51,14 +52,15 @@ namespace modal_browser {
 namespace {
 
 constexpr int kButtonSize = 30;
-constexpr int kPopoverWidth = 340;
+// Dia's size, shared with every other pop-up.
+constexpr int kPopoverWidth = views::merlin_style::kPopoverWidth;
 constexpr int kMaxRows = 6;
-constexpr int kRowHeight = 50;
-constexpr int kHeaderHeight = 38;
-constexpr int kFooterHeight = 38;
+constexpr int kRowHeight = 40;
+constexpr int kHeaderHeight = 30;
+constexpr int kFooterHeight = 32;
 constexpr int kSideInset = 8;
-constexpr int kIconSize = 26;
-constexpr int kActionSize = 24;
+constexpr int kIconSize = 22;
+constexpr int kActionSize = 20;
 constexpr float kHoverRadius = 8;
 constexpr base::TimeDelta kRecentFor = base::Days(1);
 
@@ -371,7 +373,7 @@ class DownloadRow : public views::Button {
       flags.setStrokeJoin(cc::PaintFlags::kRound_Join);
       flags.setColor(trouble ? Color(this, ui::kColorAlertHighSeverity)
                              : ink.dim);
-      const float l = icon.x() + 6, t = icon.y() + 3, r = icon.right() - 6,
+      const float l = icon.x() + 5, t = icon.y() + 3, r = icon.right() - 5,
                   b = icon.bottom() - 3;
       SkPathBuilder page;
       page.moveTo(l, t).lineTo(r - 5, t).lineTo(r, t + 5).lineTo(r, b).lineTo(

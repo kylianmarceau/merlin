@@ -7,6 +7,10 @@
 
 #include <string_view>
 
+namespace base {
+class CommandLine;
+}
+
 namespace modal_browser {
 
 // Merlin's start page, chrome://merlin-start (merlin_start_page.cc).
@@ -47,6 +51,31 @@ bool ShouldPrewarmDefaultSearch();
 // at nothing. Every feature they advertise stays reachable from menus and
 // settings. False unless --modal-browser-upstream-defaults is set.
 bool ShouldShowChromiumPromos();
+
+// Chromium features Merlin switches off by default: Gemini in Chrome, Google
+// Lens, Help me write, casting, and the built-in AI APIs pages can call
+// (which download an on-device model of several GB). Chromium's desktop code
+// can't be built without them, so they are off at run time instead.
+inline constexpr const char* kMerlinDisabledFeatures[] = {
+    "Glic",                // Gemini in Chrome
+    "ApiGlicPrivate",      // Gemini's component extension
+    "LensOverlay",         // Lens screen search
+    "LensStandalone",      // "Search with Google Lens" in context menus
+    "Compose",             // Help me write
+    "MediaRouter",         // Cast
+    "AIPromptAPI",         // window.LanguageModel
+    "AISummarizationAPI",  // Summarizer
+    "AIWriterAPI",         // Writer
+    "AIRewriterAPI",       // Rewriter
+    "AIProofreadingAPI",   // Proofreader
+};
+
+// Called by ChromeFeatureListCreator::SetUpFieldTrials (patches/0065) before
+// the browser's feature list is built. Adds kMerlinDisabledFeatures to
+// --disable-features on `command_line`, except features named in
+// --enable-features, which wins. No change with
+// --modal-browser-upstream-defaults.
+void AddMerlinDisabledFeatures(base::CommandLine& command_line);
 
 }  // namespace modal_browser
 

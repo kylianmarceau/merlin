@@ -1,5 +1,22 @@
 # Testing
 
+## Results, 2026-11-07: Widevine and proprietary codecs
+
+`main` at `ccc3921` plus patches 0063 (pop-up width, uncommitted) and 0064,
+`out/Release` official build (PGO), Chromium **157.0.8103.26**, macOS
+arm64, ad-hoc signed. [Decision 55](DECISIONS.md#55-widevine-and-proprietary-codecs).
+
+| Check | Result |
+| --- | --- |
+| `scripts/build_release.sh` with `enable_widevine`, `proprietary_codecs`, `ffmpeg_branding = "Chrome"` | Passed (about 10,400 steps after the codec change) |
+| `MediaSource.isTypeSupported` for `avc1.42E01E`, `mp4a.40.2`, `vp9` | All true |
+| Widevine on a fresh profile, before patch 0064 | Stuck at "Downloading" for over 10 minutes (background download service); installed in 10 s with `--component-updater=disable-background-downloads` |
+| Widevine on a fresh profile, with patch 0064, no flags | Version 4.10.3112.0 installed 73 s after launch (60 s first-check delay) |
+| `requestMediaKeySystemAccess('com.widevine.alpha')` on an HTTPS page | MediaKeys created |
+| Encrypted playback: Shaka's `angel-one-widevine` DASH stream with its `no_auth` licence server | Played (3.5 to 6 s of video, 91 to 153 frames decoded; VP9 with AAC) |
+| Netflix | Not retested; expected to refuse unsigned Widevine (VMP) |
+| Patch series | **64 patches** checked with `apply_patches.py --check`; `verify_patches.sh` could not reach chromium.googlesource.com (curl error 56) |
+
 ## Results, 2026-11-07: pop-ups hang from the address
 
 `main` after `eea409a` (with the uncommitted mode-in-toolbar work in the

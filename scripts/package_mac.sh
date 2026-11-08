@@ -66,6 +66,23 @@ echo "==> copying Merlin.app"
 ditto "$APP" "$stage/Merlin.app"
 xattr -cr "$stage/Merlin.app"
 
+echo "==> English only"
+# Merlin ships English (US and UK) only (decision 57): about 47 MB of
+# Chromium's other translations go. Removed from the app's own Resources
+# too, so macOS picks English instead of a translation that isn't there.
+# Before signing, which seals what remains.
+removed=0
+while IFS= read -r -d '' dir; do
+  rm -rf "$dir"
+  removed=$((removed + 1))
+done < <(find "$stage/Merlin.app/Contents/Resources" \
+  "$stage/Merlin.app/Contents/Frameworks/Merlin Framework.framework/Versions" \
+  -maxdepth 3 -type d -name '*.lproj' \
+  -not -name 'Base.lproj' \
+  -not -regex '.*/en\(_GB\)\{0,1\}\(_FEMININE\|_MASCULINE\|_NEUTER\)\{0,1\}\.lproj' \
+  -not -path '*/Helpers/*' -print0)
+echo "removed $removed translations"
+
 echo "==> ad-hoc signing, innermost first"
 # Every Mach-O file and code bundle, deepest path first, so each container
 # is signed after everything inside it. Symlinks are skipped.

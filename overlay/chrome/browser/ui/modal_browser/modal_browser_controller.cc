@@ -85,6 +85,7 @@
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
@@ -292,6 +293,25 @@ void SetMemorySaverDefault(PrefService* local_state) {
         tuning::kMemorySaverModeState,
         base::Value(static_cast<int>(tuning::MemorySaverModeState::kEnabled)));
   }
+}
+
+// Defaults only; a policy still wins. No on-device AI model download
+// (several GB, for the AI features Merlin turns off in
+// merlin_process_policy.h), and no running on after the last window
+// closes for extensions that ask to stay in the background.
+void SetLeanDefaults(PrefService* local_state) {
+  if (!local_state) {
+    return;
+  }
+  namespace model_prefs = optimization_guide::model_execution::prefs;
+  local_state->SetDefaultPrefValue(
+      model_prefs::localstate::
+          kGenAILocalFoundationalModelEnterprisePolicySettings,
+      base::Value(static_cast<int>(
+          model_prefs::GenAILocalFoundationalModelEnterprisePolicySettings::
+              kDisallowed)));
+  local_state->SetDefaultPrefValue(prefs::kBackgroundModeEnabled,
+                                   base::Value(false));
 }
 
 bool IsAllowedCommandUrl(const GURL& url) {
@@ -510,6 +530,7 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
     CtrlTabSwitcher::SetDefaultOrder(prefs);
   }
   SetMemorySaverDefault(g_browser_process->local_state());
+  SetLeanDefaults(g_browser_process->local_state());
   // The download count needs the download manager; start it after the
   // window is up instead of during startup.
   content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})

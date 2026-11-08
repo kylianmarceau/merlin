@@ -36,3 +36,15 @@ branding_file_path = "//chrome/app/theme/merlin/BRANDING"
 # Product logos (About, version page, menus) from chrome/app/theme/merlin
 # and its sibling folders, not chromium/.
 branding_path_component = "merlin"
+# Lighter build (decision 57). No Google test experiments: Chromium applies
+# hundreds of unfinished ones to unbranded builds, among them Gemini, a
+# web-based toolbar and preemptive speech-model downloads (~450 MB per
+# profile). Brave and ungoogled-chromium turn them off too.
+disable_fieldtrial_testing_config = true
+# No remote desktop host, no Cast or printer discovery on the local network,
+# no legacy hosted apps. Lens, Help me write, Gemini and background mode
+# can't be compiled out of desktop Chromium; Merlin turns them off at run
+# time (merlin_process_policy.h, modal_browser_controller.cc).
+enable_remoting = false
+enable_service_discovery = false
+enable_hosted_apps = false

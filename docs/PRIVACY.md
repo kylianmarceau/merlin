@@ -15,6 +15,10 @@ Chromium's own field does, so the default search engine's suggestions
 follow Chromium's setting for them. Chromium's search prewarm, which
 loads a hidden Google page in each tab when Google is the default search
 engine, is off (patch 0052).
+Google's test experiments, Gemini in Chrome, Lens, Help me write, Cast
+and the on-device AI model download are off too, and nothing downloads the
+live caption speech model until live captions are turned on
+([decision 57](DECISIONS.md#57-a-lighter-chromium-no-test-experiments-google-ai-or-casting)).
 
 Widevine, the DRM module protected video and music sites use, is not in
 the app bundle. Chromium's component updater downloads it from Google's
