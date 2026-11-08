@@ -1,3 +1,0 @@
-Done. Made 36774 targets from 5100 files in 5434ms
-Header dependency check OK
-Header dependency check OK
