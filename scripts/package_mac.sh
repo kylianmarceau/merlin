@@ -29,7 +29,7 @@ ROOT="$PWD"
 CHROMIUM_DIR="${CHROMIUM_DIR:-$HOME/chromium}"
 OUT="${OUT:-out/Release}"
 BUILD="$CHROMIUM_DIR/src/$OUT"
-APP="$BUILD/Merlin.app"
+APP="${MERLIN_APP:-$BUILD/Merlin.app}"
 VERSION="${MERLIN_VERSION:-}"
 DEV="${MERLIN_PACKAGE_DEV:-0}"
 
@@ -110,8 +110,7 @@ for p in sorted(set(found), key=lambda p: -p.count(os.sep)):
 PY
 count=0
 while IFS= read -r -d '' path; do
-  codesign --force --sign - --timestamp=none "$path" 2>&1 |
-    grep -v ': replacing existing signature$' || true
+  codesign --force --sign - --timestamp=none "$path"
   count=$((count + 1))
 done < "$stage/sign-order"
 rm "$stage/sign-order"
@@ -133,6 +132,10 @@ commit="$(git rev-parse HEAD)"
   echo "Minimum macOS: $min_macos"
   echo "Architecture: arm64"
   echo "Signature: ad-hoc (no Developer ID, not notarized)"
+  if [[ -f "$APP/Contents/Resources/merlin-shell-build.json" ]]; then
+    echo "UI: React Native macOS / Hermes (shell ABI 1)"
+    cat "$APP/Contents/Resources/merlin-shell-build.json"
+  fi
   echo
   echo "Binary UUIDs (match these to the dSYMs):"
   dwarfdump --uuid "$stage/Merlin.app/Contents/MacOS/Merlin" "$framework" | sed "s|$stage/||"
@@ -175,6 +178,10 @@ if [[ "${MERLIN_SKIP_SYMBOLS:-0}" != 1 ]]; then
     echo "==> debug symbols (${#dsyms[@]} dSYMs)"
     rm -rf "$stage/dSYMs" && mkdir "$stage/dSYMs"
     for d in "${dsyms[@]}"; do ditto "$d" "$stage/dSYMs/$(basename "$d")"; done
+    if [[ -n "${MERLIN_SHELL_DSYM:-}" ]]; then
+      [[ -d "$MERLIN_SHELL_DSYM" ]] || die "no shell dSYM at $MERLIN_SHELL_DSYM"
+      ditto "$MERLIN_SHELL_DSYM" "$stage/dSYMs/$(basename "$MERLIN_SHELL_DSYM")"
+    fi
     ditto -c -k --keepParent "$stage/dSYMs" "$dist/$name-dSYMs.zip"
   else
     echo "warning: no dSYMs in $BUILD; crash reports from this build can't be symbolized" >&2

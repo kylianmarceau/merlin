@@ -67,6 +67,7 @@ std::string Frame(const char* title, const char* script, const char* search) {
 <title>$TITLE</title>
 <link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="merlin.css">
+<link id="theme-colors" rel="stylesheet" href="/theme.css">
 <script src="merlin.js" defer></script>
 <script src="$SCRIPT" defer></script>
 </head>
@@ -787,7 +788,8 @@ class BookmarksHandler : public content::WebUIMessageHandler,
   raw_ptr<bookmarks::BookmarkModel> model_ = nullptr;
 };
 
-// -- Pages ----------------------------------------------------------------------
+// -- Pages
+// ----------------------------------------------------------------------
 
 const std::string& HistoryHtml() {
   static const base::NoDestructor<std::string> html(

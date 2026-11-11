@@ -51,6 +51,9 @@ bool RewriteMerlinPageUrl(GURL* url) {
       base::CommandLine::ForCurrentProcess()->HasSwitch(kUpstreamDefaults)) {
     return false;
   }
+  // Internal panels in the React shell do not use the legacy Merlin WebUI
+  // pages. Keep Chromium's advanced pages available until each is migrated.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch("merlin-react-shell")) return false;
   const std::string host(url->host());
   const std::string path(url->path());
   std::string new_host;

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/modal_browser/modal_style.h"
+#include "chrome/browser/ui/modal_browser/merlin_theme.h"
 
 #include <map>
 #include <tuple>
@@ -28,6 +29,10 @@ constexpr auto& kDark = design::kDarkOverlay;
 
 }  // namespace
 
+float CardRadius() {
+  return GetMerlinAppearance().sharp_corners ? 3 : 12;
+}
+
 bool IsDark(const views::View* view) {
   const ui::ColorProvider* provider = view ? view->GetColorProvider() : nullptr;
   if (!provider && view && view->GetWidget()) {
@@ -41,6 +46,29 @@ bool IsDark(const views::View* view) {
 
 const Colors& ColorsFor(bool dark) {
   return dark ? kDark : kLight;
+}
+
+Colors ColorsFor(const views::View* view) {
+  Colors colors = ColorsFor(IsDark(view));
+  const auto* provider = view ? view->GetColorProvider() : nullptr;
+  const auto& baseline = IsDark(view) ? design::kDark : design::kLight;
+  if (provider &&
+      provider->GetColor(ui::kColorSysPrimary) != baseline.primary) {
+    colors.surface = provider->GetColor(ui::kColorBubbleBackground);
+    colors.surface_raised = provider->GetColor(ui::kColorSysBaseContainer);
+    colors.text = provider->GetColor(ui::kColorSysOnSurface);
+    colors.text_secondary = provider->GetColor(ui::kColorSysOnSurfaceSubtle);
+    colors.accent = provider->GetColor(ui::kColorSysPrimary);
+    colors.accent_soft =
+        SkColorSetA(provider->GetColor(ui::kColorSysPrimaryContainer), 0x5c);
+  }
+  if (provider && GetMerlinAppearance().theme_hints) {
+    colors.hint_bg = provider->GetColor(ui::kColorToggleButtonTrackOn);
+    colors.hint_text = InkOn(colors.hint_bg).text;
+    colors.hint_typed = SkColorSetA(colors.hint_text, 0x99);
+    colors.hint_border = SkColorSetA(colors.hint_text, 0x66);
+  }
+  return colors;
 }
 
 SkColor ModeColor(ffi::Mode mode, bool dark) {
@@ -90,6 +118,8 @@ bool PageColorsAllowed(const ui::ColorProviderKey& key) {
 
 std::optional<SkColor> PageSurface(const views::View* view,
                                    std::optional<SkColor> surface) {
+  if (!GetMerlinAppearance().page_colors)
+    return std::nullopt;
   return view && view->GetWidget() &&
                  !PageColorsAllowed(
                      view->GetNativeTheme()->GetColorProviderKey(nullptr))

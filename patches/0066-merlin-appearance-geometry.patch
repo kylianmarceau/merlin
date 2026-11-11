@@ -1,0 +1,129 @@
+--- a/chrome/browser/ui/layout_constants.cc
++++ b/chrome/browser/ui/layout_constants.cc
+@@ -12,6 +12,7 @@
+ #include "ui/base/pointer/touch_ui_controller.h"
+ #include "ui/base/ui_base_features.h"
+ #include "ui/gfx/geometry/insets.h"
++#include "ui/views/merlin_style.h"
+ 
+ #if BUILDFLAG(IS_CHROMEOS)
+ #include "chromeos/constants/chromeos_features.h"
+@@ -19,6 +20,12 @@
+ 
+ int GetLayoutConstant(LayoutConstant constant) {
+   const bool touch_ui = ui::TouchUiController::Get()->touch_ui();
++  if (views::merlin_style::ComfortableDensity() && !touch_ui) {
++    if (constant == LayoutConstant::kToolbarButtonHeight ||
++        constant == LayoutConstant::kLocationBarHeight) return 42;
++    if (constant == LayoutConstant::kTabHeight)
++      return 42 + GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap);
++  }
+   switch (constant) {
+     case LayoutConstant::kAppMenuProfileRowAvatarIconSize:
+       return 24;
+--- a/chrome/browser/ui/views/frame/multi_contents_view.cc
++++ b/chrome/browser/ui/views/frame/multi_contents_view.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/views/frame/multi_contents_view.h"
++#include "ui/views/merlin_style.h"
+ 
+ #include <algorithm>
+ #include <cstdlib>
+@@ -804,7 +805,7 @@
+     const bool is_active =
+         contents_container_view->contents_view() == GetActiveContentsView();
+     contents_container_view->SetRoundedCorners(
+-        is_in_split ? kSplitViewContentRoundedCorners
++        is_in_split ? (views::merlin_style::SharpCorners() ? gfx::RoundedCornersF(3) : kSplitViewContentRoundedCorners)
+         : (is_active && IsShowingCard())
+             ? card_corners_
+             : (is_active ? GetBackgroundRadii() : gfx::RoundedCornersF()));
+--- a/ui/views/bubble/bubble_border.cc
++++ b/ui/views/bubble/bubble_border.cc
+@@ -508,6 +508,10 @@
+       visible_arrow_insets.top() - visible_arrow_insets.bottom());
+ }
+ 
++gfx::RoundedCornersF BubbleBorder::rounded_corners() const {
++  return merlin_style::SharpCorners() ? gfx::RoundedCornersF(3) : rounded_corners_;
++}
++
+ void BubbleBorder::Paint(const views::View& view, gfx::Canvas* canvas) {
+   if (shadow_ == NO_SHADOW) {
+     PaintNoShadow(view, canvas);
+@@ -767,7 +771,7 @@
+ SkRRect BubbleBorder::GetClientRect(const View& view) const {
+   gfx::RectF bounds(view.GetLocalBounds());
+   bounds.Inset(gfx::InsetsF(GetInsets()));
+-  return SkRRect(gfx::RRectF(bounds, rounded_corners_));
++  return SkRRect(gfx::RRectF(bounds, rounded_corners()));
+ }
+ 
+ bool BubbleBorder::ShouldDrawStroke() const {
+--- a/ui/views/bubble/bubble_border.h
++++ b/ui/views/bubble/bubble_border.h
+@@ -173,9 +173,7 @@
+   void set_rounded_corners(const gfx::RoundedCornersF& radii) {
+     rounded_corners_ = radii;
+   }
+-  const gfx::RoundedCornersF& rounded_corners() const {
+-    return rounded_corners_;
+-  }
++  gfx::RoundedCornersF rounded_corners() const;
+ 
+   // Get or set the arrow type.
+   void set_arrow(Arrow arrow) { arrow_ = arrow; }
+--- a/ui/views/bubble/bubble_frame_view.cc
++++ b/ui/views/bubble/bubble_frame_view.cc
+@@ -753,6 +753,7 @@
+   UpdateWindowIcon();
+   UpdateMainImage();
+   UpdateClientViewBackground();
++  UpdateClientLayerCornerRadius();
+   SchedulePaint();
+ }
+ 
+--- a/ui/views/controls/menu/menu_scroll_view_container.cc
++++ b/ui/views/controls/menu/menu_scroll_view_container.cc
+@@ -313,6 +313,7 @@
+ }
+ 
+ int MenuScrollViewContainer::GetCornerRadius() const {
++  if (merlin_style::SharpCorners()) return 3;
+   return MenuConfig::instance().CornerRadiusForMenu(
+       content_view_->GetMenuItem()->GetMenuController());
+ }
+--- a/ui/views/merlin_style.cc
++++ b/ui/views/merlin_style.cc
+@@ -73,6 +73,17 @@
+ };
+ 
+ }  // namespace
++
++namespace {
++bool sharp_corners = false;
++bool comfortable_density = false;
++}
++bool SharpCorners() { return IsEnabled() && sharp_corners; }
++bool ComfortableDensity() { return IsEnabled() && comfortable_density; }
++void SetAppearanceGeometry(bool sharp, bool comfortable) {
++  sharp_corners = sharp;
++  comfortable_density = comfortable;
++}
+ 
+ bool IsEnabled() {
+   return g_enabled;
+--- a/ui/views/merlin_style.h
++++ b/ui/views/merlin_style.h
+@@ -35,6 +35,9 @@
+ // skips.
+ namespace views::merlin_style {
+ 
++VIEWS_EXPORT bool SharpCorners();
++VIEWS_EXPORT bool ComfortableDensity();
++VIEWS_EXPORT void SetAppearanceGeometry(bool sharp, bool comfortable);
+ VIEWS_EXPORT bool IsEnabled();
+ VIEWS_EXPORT void SetEnabled(bool enabled);
+ 

@@ -121,6 +121,7 @@ class StatusHost : public views::ViewObserver {
   // Re-anchors after the browser layout changed (tab strip moved, window
   // entered or left fullscreen).
   void Relayout();
+  void set_on_state_changed(base::RepeatingClosure callback) { on_state_changed_ = std::move(callback); }
   bool card_mode() const { return card_mode_; }
   const StatusView::State& state() const { return state_; }
 
@@ -138,6 +139,7 @@ class StatusHost : public views::ViewObserver {
   bool CardActive();
   void UpdateCard();
 
+  base::RepeatingClosure on_state_changed_;
   OverlayHost host_;
   bool card_mode_ = false;
   bool full_bleed_ = false;

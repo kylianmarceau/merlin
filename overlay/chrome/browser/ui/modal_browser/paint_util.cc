@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/modal_browser/paint_util.h"
+#include "chrome/browser/ui/modal_browser/merlin_theme.h"
 
 #include <algorithm>
 
@@ -41,6 +42,8 @@ void DrawCard(gfx::Canvas* canvas,
               int radius,
               const style::Colors& colors,
               SkColor fill) {
+  if (GetMerlinAppearance().sharp_corners)
+    radius = 3;
   // Two layers of shadow: a wide, soft ambient one and a tight key one.
   gfx::ShadowValues shadows = {
       gfx::ShadowValue(gfx::Vector2d(0, 8), 28,
@@ -74,6 +77,8 @@ bool DrawGlassCard(gfx::Canvas* canvas,
                    const gfx::Rect& rect,
                    int radius,
                    const style::Colors& colors) {
+  if (GetMerlinAppearance().sharp_corners)
+    radius = 3;
   if (!views::merlin_style::HasPopoverGlass(view->GetWidget())) {
     // The address card and command menu keep their window between uses, so
     // glass from before a switch to solid would show around the card.

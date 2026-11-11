@@ -58,6 +58,7 @@ source_set("theme") {
     ":design_tokens",
     "//base",
     "//ui/color",
+    "//ui/gfx",
     "//ui/views",
   ]
 }
@@ -105,6 +106,13 @@ source_set("media_presentation") {
   ]
 }
 
+# Headers used at upstream hook sites. Keep this leaf independent of Views
+# implementations to avoid a window-factory/permission-factory dependency cycle.
+source_set("shell_headers") {
+  sources = [ "merlin_react_window.h", "merlin_shell_bridge.h", "merlin_react_permission_prompt.h", "merlin_react_script_dialog.h", "merlin_react_passwords.h" ]
+  public_deps = [ "//base", "//chrome/browser/ui:browser_window_deleter", "//components/permissions", "//content/public/browser", "//components/tabs:public", "//chrome/browser/ui/browser_window" ]
+}
+
 source_set("modal_browser") {
   sources = [
     "browserctl_server.cc",
@@ -135,6 +143,8 @@ source_set("modal_browser") {
     "merlin_restyle.h",
     "merlin_safety_controls.cc",
     "merlin_safety_controls.h",
+    "merlin_preferences.cc",
+    "merlin_preferences.h",
     "merlin_settings_page.cc",
     "merlin_settings_page.h",
     "merlin_start_page.cc",
@@ -166,7 +176,24 @@ source_set("modal_browser") {
   ]
   if (is_mac) {
     # The Ctrl-Tab switcher's key watch (an NSEvent monitor).
-    sources += [ "merlin_ctrl_tab_mac.mm" ]
+    sources += [ "merlin_ctrl_tab_mac.mm", "merlin_shell_bridge_mac.mm", "merlin_shell_api.h",
+      "merlin_shell_bridge.h",
+      "merlin_shell_host_api.h",
+      "merlin_react_window.h",
+      "merlin_react_window_mac.mm",
+      "merlin_react_find_bar.cc",
+      "merlin_react_find_bar.h",
+      "merlin_react_permission_prompt.cc",
+      "merlin_react_script_dialog.cc",
+      "merlin_react_script_dialog.h",
+      "merlin_react_permission_prompt.h",
+      "merlin_shell_services.cc",
+      "merlin_shell_services.h",
+      "merlin_react_autofill.cc",
+      "merlin_react_autofill.h",
+      "merlin_react_passwords.cc",
+      "merlin_react_passwords.h",
+    ]
     frameworks = [ "AppKit.framework" ]
   }
   public_deps = [
@@ -273,6 +300,32 @@ source_set("modal_browser") {
     "//ui/shell_dialogs",
     "//url",
   ]
+  if (is_mac) {
+    deps += [
+      "//chrome/browser/ui:browser_command_controller",
+      "//chrome/browser/ui:browser_window_state",
+      "//chrome/browser/ui:unload_controller",
+      "//chrome/browser/ui/browser_active_state_manager",
+      "//chrome/browser/ui/cocoa",
+      "//chrome/browser/ui/exclusive_access",
+      "//chrome/browser/ui/find_bar",
+      "//chrome/browser/ui/fullscreen",
+      "//chrome/browser/ui/location_bar",
+      "//chrome/browser/ui/views:bubble_anchor_util_views",
+      "//chrome/browser/ui/views/eye_dropper",
+      "//chrome/browser/ui/views/exclusive_access",
+      "//chrome/browser/extensions",
+      "//chrome/browser/themes",
+      "//chrome/browser/ui/autofill",
+      "//chrome/browser/ui/autofill/payments",
+      "//chrome/browser/ui/passwords",
+      "//components/remote_cocoa/app_shim",
+      "//components/web_modal",
+      "//components/permissions",
+      "//components/javascript_dialogs",
+      "//components/find_in_page",
+    ]
+  }
 }
 
 # Linked into //chrome/test:browser_tests by patches/0003.

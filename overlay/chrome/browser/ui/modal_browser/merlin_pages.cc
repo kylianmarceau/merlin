@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/modal_browser/merlin_pages.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/modal_browser/merlin_theme.h"
 
 #include <memory>
 #include <string>
@@ -12,8 +14,8 @@
 #include "base/functional/bind.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/no_destructor.h"
-#include "chrome/browser/ui/modal_browser/merlin_library_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_design_tokens.h"
+#include "chrome/browser/ui/modal_browser/merlin_library_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_settings_page.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "components/tabs/public/tab_interface.h"
@@ -346,6 +348,9 @@ window.K = (() => {
 }  // namespace
 
 const char* MerlinSharedFile(const std::string& path) {
+  if (path.substr(0, path.find('?')) == "theme.css") {
+    return "";
+  }
   if (path == "merlin-tokens.css") {
     return design::kPageTokensCss;
   }
@@ -405,13 +410,16 @@ void AddMerlinPageSource(content::WebUI* web_ui,
           },
           own),
       base::BindRepeating(
-          [](const std::vector<MerlinPageFile>& files, const std::string& path,
+          [](bool is_private, const std::vector<MerlinPageFile>& files,
+             const std::string& path,
              content::WebUIDataSource::GotDataCallback callback) {
             std::move(callback).Run(
                 base::MakeRefCounted<base::RefCountedString>(
-                    std::string(LookupFile(files, path))));
+                    path.substr(0, path.find('?')) == "theme.css"
+                        ? (is_private ? "" : MerlinThemeCss())
+                        : std::string(LookupFile(files, path))));
           },
-          own));
+          Profile::FromWebUI(web_ui)->IsOffTheRecord(), own));
 }
 
 ModalBrowserController* ControllerForWebUI(content::WebUI* web_ui) {

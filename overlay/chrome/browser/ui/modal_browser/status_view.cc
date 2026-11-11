@@ -36,7 +36,6 @@ constexpr size_t kMaxPanelLines = 14;
 // The page card: the same margin on three sides (sizes in modal_style.h);
 // its top meets the toolbar, which carries the card's top corners.
 constexpr int kCardSide = style::kCardSide;
-constexpr float kCardRadius = style::kCardRadius;
 
 const gfx::FontList& ModeFont() {
   return style::UiFont(-2, gfx::Font::Weight::SEMIBOLD);
@@ -392,6 +391,7 @@ void StatusHost::SetSuppressed(bool suppressed) {
 
 void StatusHost::SetCardMode(bool on) {
   card_mode_ = on;
+  if (!host_.browser_view()) return;
   if (MultiContentsView* mcv = host_.browser_view()->multi_contents_view()) {
     if (on && !contents_observation_.IsObserving()) {
       contents_observation_.Observe(mcv);
@@ -435,11 +435,12 @@ bool StatusHost::CardActive() {
   BrowserView* browser_view = host_.browser_view();
   // IsFullscreen() needs the widget, which BrowserView gets after the
   // controller is built.
-  return card_mode_ && browser_view->multi_contents_view() &&
+  return card_mode_ && browser_view && browser_view->multi_contents_view() &&
          !(browser_view->GetWidget() && browser_view->IsFullscreen());
 }
 
 void StatusHost::UpdateCard() {
+  if (!host_.browser_view()) return;
   MultiContentsView* mcv = host_.browser_view()->multi_contents_view();
   if (!mcv) {
     return;
@@ -449,12 +450,14 @@ void StatusHost::UpdateCard() {
   } else if (full_bleed_) {
     mcv->SetCardInsets(gfx::Insets(), gfx::RoundedCornersF());
   } else {
-    mcv->SetCardInsets(gfx::Insets::TLBR(0, kCardSide, kCardSide, kCardSide),
-                       gfx::RoundedCornersF(0, 0, kCardRadius, kCardRadius));
+    mcv->SetCardInsets(
+        gfx::Insets::TLBR(0, kCardSide, kCardSide, kCardSide),
+        gfx::RoundedCornersF(0, 0, style::CardRadius(), style::CardRadius()));
   }
 }
 
 void StatusHost::Apply() {
+  if (on_state_changed_) on_state_changed_.Run();
   // Fullscreen can hide the toolbar, so the pill shows the mode there.
   state_.mode_in_toolbar = mode_in_toolbar_ && CardActive();
   if (!view_) {

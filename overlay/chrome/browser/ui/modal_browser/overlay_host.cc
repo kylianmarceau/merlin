@@ -24,6 +24,7 @@ views::View* OverlayHost::EnsureWidget(
   if (widget_) {
     return widget_->GetContentsView();
   }
+  if (!browser_view_) return nullptr;
   views::Widget* browser_widget = browser_view_->GetWidget();
   if (!browser_widget) {
     return nullptr;
@@ -47,6 +48,7 @@ views::View* OverlayHost::EnsureWidget(
 }
 
 gfx::Rect OverlayHost::ContentsArea() const {
+  if (!browser_view_) return {};
   views::View* contents = browser_view_->GetActiveContentsWebView();
   if (!contents || contents->bounds().IsEmpty()) {
     contents = browser_view_->contents_container();

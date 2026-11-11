@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
+#include "chrome/browser/ui/modal_browser/merlin_theme.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -15,8 +16,8 @@
 #include "base/time/time.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
@@ -51,11 +52,11 @@
 #include "third_party/skia/include/core/SkPathBuilder.h"
 #include "third_party/skia/include/core/SkRRect.h"
 #include "ui/accessibility/ax_enums.mojom.h"
-#include "ui/compositor/layer.h"
 #include "ui/base/base_window.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
@@ -63,12 +64,12 @@
 #include "ui/gfx/paint_throbber.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/render_text.h"
-#include "ui/gfx/text_utils.h"
 #include "ui/gfx/shadow_value.h"
 #include "ui/gfx/skia_paint_util.h"
+#include "ui/gfx/text_utils.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/controls/resize_area.h"
 #include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/controls/resize_area.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_targeter.h"
 #include "ui/views/view_utils.h"
@@ -115,7 +116,9 @@ constexpr int kDragThreshold = 4;
 
 // The sidebar: tabs as rows, the active one a card in the page's color.
 constexpr int kSidePad = 8;
-constexpr int kRowHeight = 32;
+int RowHeight() {
+  return GetMerlinAppearance().comfortable ? 40 : 32;
+}
 constexpr int kRowGap = 2;
 constexpr int kRowRadius = 9;
 constexpr int kPinnedTileHeight = 36;
@@ -208,6 +211,10 @@ SkColor ActiveFillFor(const views::View* view) {
 
 // A hairline that shows against both the frame and the active fill.
 SkColor ActiveBorder(const views::View* view, SkColor fill) {
+  const auto* provider = view->GetColorProvider();
+  const auto& baseline = style::IsDark(view) ? design::kDark : design::kLight;
+  if (provider && provider->GetColor(ui::kColorSysPrimary) != baseline.primary)
+    return provider->GetColor(ui::kColorSysStateFocusRing);
   return style::InkOn(fill).hover;
 }
 
@@ -1471,8 +1478,8 @@ MerlinTabBar::Slots MerlinTabBar::ComputeRowSlots(
       ++rows;
     }
   }
-  const int step = kRowHeight + kRowGap;
-  const int rows_bottom = height() - kSidebarBottomPad - kRowHeight - kRowGap;
+  const int step = RowHeight() + kRowGap;
+  const int rows_bottom = height() - kSidebarBottomPad - RowHeight() - kRowGap;
   const int fit = std::max(1, (rows_bottom - y + kRowGap) / step);
   const int scroll = std::clamp(scroll_, 0, std::max(0, rows - fit));
   Slots slots;
@@ -1480,7 +1487,7 @@ MerlinTabBar::Slots MerlinTabBar::ComputeRowSlots(
   for (const Item& item : items) {
     const int row_y = y + (row - scroll) * step;
     if (item.header >= 0) {
-      header_rects[item.header] = gfx::Rect(x, row_y, w, kRowHeight);
+      header_rects[item.header] = gfx::Rect(x, row_y, w, RowHeight());
       ++row;
       continue;
     }
@@ -1496,7 +1503,7 @@ MerlinTabBar::Slots MerlinTabBar::ComputeRowSlots(
     if (tab->data().active) {
       slots.active_row = row;
     }
-    tab_rects[item.tab] = gfx::Rect(x + indent, row_y, w - indent, kRowHeight);
+    tab_rects[item.tab] = gfx::Rect(x + indent, row_y, w - indent, RowHeight());
     ++row;
   }
 
@@ -1510,7 +1517,7 @@ MerlinTabBar::Slots MerlinTabBar::ComputeRowSlots(
   slots.fit = fit;
   const int after_rows = y + std::min(rows, fit) * step;
   slots.new_tab = gfx::Rect(x, rows > fit ? rows_bottom + kRowGap : after_rows,
-                            w, kRowHeight);
+                            w, RowHeight());
   return slots;
 }
 
@@ -1821,6 +1828,7 @@ void MerlinTabBar::OnPaint(gfx::Canvas* canvas) {
 
 void MerlinTabBar::OnThemeChanged() {
   views::View::OnThemeChanged();
+  InvalidateLayout();
   SchedulePaint();
 }
 
@@ -1993,7 +2001,8 @@ namespace {
 class SplitDropView : public views::View {
  public:
   void OnPaint(gfx::Canvas* canvas) override {
-    constexpr SkColor kAccent = SkColorSetRGB(0xF6, 0xD4, 0x4A);
+    const SkColor kAccent =
+        GetColorProvider()->GetColor(ui::kColorSysStateFocusRing);
     gfx::RectF r(GetLocalBounds());
     r.Inset(1.5f);
     cc::PaintFlags flags;

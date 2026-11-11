@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/modal_browser/config_file.h"
 #include "chrome/browser/ui/modal_browser/merlin_ctrl_tab.h"
 #include "chrome/browser/ui/modal_browser/merlin_pages.h"
+#include "chrome/browser/ui/modal_browser/merlin_preferences.h"
 #include "chrome/browser/ui/modal_browser/merlin_url_rewrite.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
@@ -70,38 +71,6 @@ namespace modal_browser {
 
 namespace {
 
-constexpr int kZoomChoices[] = {50,  67,  75,  80,  90, 100,
-                                110, 125, 150, 175, 200};
-
-// Chromium pages Settings links to, for what Merlin does not reimplement.
-const std::map<std::string, std::string>& Links() {
-  static const base::NoDestructor<std::map<std::string, std::string>> links({
-      {"site-permissions", "chrome://settings/content"},
-      {"cookies", "chrome://settings/cookies"},
-      {"security", "chrome://settings/security"},
-      {"clear-data", "chrome://settings/clearBrowserData"},
-      {"certificates", "chrome://certificate-manager/"},
-      {"passwords", "chrome://password-manager/passwords"},
-      {"password-checkup", "chrome://password-manager/checkup"},
-      {"addresses", "chrome://settings/addresses"},
-      {"payments", "chrome://settings/payments"},
-      {"extensions", "chrome://extensions/"},
-      {"extension-shortcuts", "chrome://extensions/shortcuts"},
-      {"search-engines", "chrome://settings/searchEngines"},
-      {"languages", "chrome://settings/languages"},
-      {"fonts", "chrome://settings/fonts"},
-      {"accessibility", "chrome://settings/accessibility"},
-      {"system", "chrome://settings/system"},
-      {"import", "chrome://settings/importData"},
-      {"reset", "chrome://settings/reset"},
-      {"version", "chrome://version/"},
-      {"credits", "chrome://credits/"},
-      {"history", "chrome://merlin-history/"},
-      {"downloads", "chrome://merlin-downloads/"},
-  });
-  return *links;
-}
-
 constexpr char kIndexHtml[] = R"HTML(<!doctype html>
 <html lang="en">
 <head>
@@ -111,6 +80,7 @@ constexpr char kIndexHtml[] = R"HTML(<!doctype html>
 <link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="merlin.css">
 <link rel="stylesheet" href="settings.css">
+<link id="theme-colors" rel="stylesheet" href="/theme.css">
 <script src="merlin.js" defer></script>
 <script src="settings.js" defer></script>
 </head>
@@ -178,6 +148,13 @@ h3 { margin: 22px 0 8px; font-size: 12.5px; font-weight: 600; color: var(--text2
 .about .name { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
 .about .text { display: flex; flex-direction: column; gap: 2px; }
 .ext-icon { width: 28px; height: 28px; border-radius: 7px; background: var(--kbd); display: flex; align-items: center; justify-content: center; font: 700 11px var(--mono); color: var(--text2); flex-shrink: 0; }
+.theme-swatches { display:flex; flex-wrap:wrap; gap:8px; align-items:center; max-width:360px; }
+.theme-swatch { width:26px; height:26px; border:1px solid var(--text2); border-radius:50%; cursor:pointer; }
+.theme-swatch[aria-pressed="true"] { outline:2px solid var(--focus); outline-offset:2px; }
+.theme-custom[data-selected="true"] { outline:2px solid var(--focus); outline-offset:2px; border-radius:4px; }
+.theme-custom { width:26px; height:26px; padding:0; border:0; border-radius:50%; background:transparent; cursor:pointer; }
+.theme-custom::-webkit-color-swatch-wrapper { padding:0; }
+.theme-custom::-webkit-color-swatch { border:1px solid var(--text2); border-radius:50%; }
 .chars { width: 220px; font-family: var(--mono); }
 .hidden-by-search { display: none !important; }
 @media (max-width: 820px) {
@@ -220,12 +197,104 @@ constexpr char kSettingsJs[] = R"JS('use strict';
 
   function sub(text) { return el('h3', '', text); }
 
+  function themeColors() {
+    const current = (stringOption(config.text, 'theme_color') ?? 'default').toLowerCase();
+    const choices = [['default', 'Default'], ['#5f8764', 'Green'], ['#527eb5', 'Blue'],
+      ['#9271b5', 'Purple'], ['#f6d44a', 'Yellow'], ['#d783a6', 'Pink'],
+      ['#c85c55', 'Red'], ['#d38b48', 'Orange'], ['#6b7078', 'Graphite']];
+    const swatches = el('div', 'theme-swatches');
+    swatches.setAttribute('role', 'group');
+    swatches.setAttribute('aria-label', 'Theme colour');
+    const save = value => saveConfig(setOption(config.text, 'theme_color', JSON.stringify(value)));
+    for (const [value, label] of choices) {
+      const swatch = button(value === 'default' ? '↺' : '', 'theme-swatch', () => save(value), label);
+      swatch.style.background = value === 'default' ? 'var(--panel)' : value;
+      swatch.style.color = 'var(--text)';
+      swatch.setAttribute('aria-pressed', String(current === value));
+      swatches.append(swatch);
+    }
+    const custom = el('input', 'theme-custom');
+    custom.type = 'color';
+    custom.value = /^#[0-9a-f]{6}$/.test(current) ? current : '#5f8764';
+    custom.dataset.selected = String(current !== 'default' && !choices.some(([value]) => value === current));
+    custom.title = 'Custom colour';
+    custom.setAttribute('aria-label', 'Custom theme colour');
+    custom.addEventListener('change', () => save(custom.value));
+    swatches.append(custom);
+    return swatches;
+  }
+
+  function appearanceChoice(name, fallback, choices, label) {
+    return segmented(choices, stringOption(config.text, name) ?? fallback,
+      v => saveConfig(setOption(config.text, name, JSON.stringify(v))), label);
+  }
+
+  function backgroundImage() {
+    const box = el('div', 'theme-swatches');
+    const input = el('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/webp';
+    input.hidden = true;
+    input.setAttribute('aria-label', 'Choose start page image');
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        if (file.size > 10 * 1024 * 1024) throw new Error('Choose an image smaller than 10 MB.');
+        const bitmap = await createImageBitmap(file);
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        let data = canvas.toDataURL('image/jpeg', 0.8);
+        while (data.length > 160 * 1024 && canvas.width > 100) {
+          const smaller = document.createElement('canvas');
+          smaller.width = Math.max(1, Math.floor(canvas.width * 0.75));
+          smaller.height = Math.max(1, Math.floor(canvas.height * 0.75));
+          smaller.getContext('2d').drawImage(canvas, 0, 0, smaller.width, smaller.height);
+          canvas.width = smaller.width; canvas.height = smaller.height;
+          canvas.getContext('2d').drawImage(smaller, 0, 0);
+          data = canvas.toDataURL('image/jpeg', 0.8);
+        }
+        let text = setOption(config.text, 'start_background_image', JSON.stringify(data));
+        text = setOption(text, 'start_background', '"image"');
+        saveConfig(text);
+      } catch (error) { toast(error.message || 'Could not read that image.'); }
+      input.value = '';
+    });
+    const hasImage = !!stringOption(config.text, 'start_background_image');
+    const remove = button('Remove image', 'btn', () => {
+      let text = setOption(config.text, 'start_background_image', '""');
+      saveConfig(setOption(text, 'start_background', '"plain"'));
+    });
+    remove.disabled = !hasImage;
+    box.append(input, button(hasImage ? 'Replace image…' : 'Choose image…', 'btn', () => input.click()), remove);
+    return box;
+  }
+
   function appearance() {
     return section('appearance', 'Appearance', '',
       group(
         row('Theme', 'Merlin and pages that support it follow this.',
             segmented([[0, 'System'], [1, 'Light'], [2, 'Dark']], state.theme,
                       (v) => send('setTheme', v), 'Theme')),
+        row('Theme colour', 'One colour for every window. Private windows keep their dark appearance.', themeColors()),
+        row('Colour tint', 'Colour the whole window or just its accents.',
+            appearanceChoice('theme_tint', 'full', [['full', 'Full window'], ['accent', 'Accents only']], 'Colour tint')),
+        row('Match page colour', 'Use the active page’s colour for its tab and toolbar.',
+            toggle(boolOption(config.text, 'page_color_matching') ?? true,
+                   v => saveConfig(setOption(config.text, 'page_color_matching', String(v))), 'Match page colour')),
+        row('Corners', 'Page cards and pop-ups.',
+            appearanceChoice('corner_style', 'rounded', [['rounded', 'Rounded'], ['sharp', 'Sharper']], 'Corners')),
+        row('Spacing', 'Tab rows and toolbar spacing.',
+            appearanceChoice('density', 'compact', [['compact', 'Compact'], ['comfortable', 'Comfortable']], 'Spacing')),
+        row('Start page background', 'A plain surface, a theme gradient, or your own image.',
+            appearanceChoice('start_background', 'plain', [['plain', 'Plain'], ['gradient', 'Theme gradient'], ['image', 'Image']], 'Start page background')),
+        row('Background image', 'Choose a PNG, JPEG or WebP. A resized copy is saved locally.', backgroundImage()),
+        row('Link-hint colour', 'Keep Hint yellow or follow the theme colour.',
+            appearanceChoice('hint_color', 'yellow', [['yellow', 'Yellow'], ['theme', 'Theme']], 'Link-hint colour')),
         row('Tabs', 'A slim sidebar, or a row above the page.',
             segmented([['side', 'Sidebar'], ['top', 'On top']], state.tabs,
                       (v) => send('setTabs', v), 'Tabs')),
@@ -757,203 +826,39 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
                             weak_factory_.GetWeakPtr()));
   }
 
-  base::DictValue AdblockState() {
-    auto* service = merlin_adblock::Service::Get(profile());
-    base::DictValue data;
-    data.Set("available",
-             base::FeatureList::IsEnabled(merlin_adblock::kMerlinAdblock));
-    data.Set("enabled", prefs()->GetBoolean(merlin_adblock::kEnabledPref));
-    data.Set("automatic", prefs()->GetBoolean(merlin_adblock::kUpdatesPref));
-    data.Set("private", profile()->IsOffTheRecord());
-    data.Set("status", service->Status());
-    data.Set("updateStatus", service->UpdateStatus());
-    data.Set("lastUpdate", prefs()->GetDouble(merlin_adblock::kLastUpdatePref));
-    base::ListValue groups, exceptions;
-    for (const auto& group : service->Groups())
-      groups.Append(group);
-    for (const auto& host : service->Exceptions())
-      exceptions.Append(host);
-    data.Set("groups", std::move(groups));
-    data.Set("exceptions", std::move(exceptions));
-    return data;
-  }
+  base::DictValue AdblockState() { return MerlinAdblockState(profile()); }
   void SendAdblockState() {
     if (IsJavascriptAllowed() && web_ui()->GetWebContents()->GetVisibility() !=
                                      content::Visibility::HIDDEN)
       CallJavascriptFunction("merlinPage.adblock", AdblockState());
   }
-  void OnSetAdblock(const base::ListValue& args) {
-    if (auto enabled = BoolArg(args))
-      merlin_adblock::Service::Get(profile())->SetEnabled(*enabled);
+  void SetAdblock(const char* key, const base::Value& value) {
+    Message(SetMerlinPreference(profile(), nullptr, key, value));
     SendAdblockState();
+  }
+  void OnSetAdblock(const base::ListValue& args) {
+    if (!args.empty()) SetAdblock("adblock", args[0]);
   }
   void OnSetAdblockUpdates(const base::ListValue& args) {
-    if (!profile()->IsOffTheRecord())
-      if (auto enabled = BoolArg(args))
-        prefs()->SetBoolean(merlin_adblock::kUpdatesPref, *enabled);
-    SendAdblockState();
+    if (!args.empty()) SetAdblock("adblockUpdates", args[0]);
   }
   void OnSetAdblockLists(const base::ListValue& args) {
-    if (args.size() != 1 || !args[0].is_list())
-      return;
-    std::vector<std::string> groups;
-    for (const auto& group : args[0].GetList()) {
-      if (!group.is_string())
-        return;
-      groups.push_back(group.GetString());
-    }
-    merlin_adblock::Service::Get(profile())->SetGroups(std::move(groups));
-    SendAdblockState();
+    if (args.size() == 1) SetAdblock("adblockLists", args[0]);
   }
   void OnRefreshAdblock(const base::ListValue&) {
-    merlin_adblock::Service::Get(profile())->Refresh();
-    SendAdblockState();
+    SetAdblock("adblockRefresh", base::Value());
   }
   void OnRemoveAdblockException(const base::ListValue& args) {
     if (const auto* host = StringArg(args))
-      merlin_adblock::Service::Get(profile())->SetException(*host, false);
-    SendAdblockState();
+      SetAdblock("adblockException", base::Value(*host));
   }
 
   void SendState() {
-    if (!IsJavascriptAllowed()) {
-      return;
+    if (IsJavascriptAllowed()) {
+      CallJavascriptFunction(
+          "merlinPage.render",
+          MerlinPreferences(profile(), ControllerForWebUI(web_ui())));
     }
-    base::DictValue data;
-    data.Set("adblock", AdblockState());
-    ModalBrowserController* controller = ControllerForWebUI(web_ui());
-
-    ThemeService* theme = ThemeServiceFactory::GetForProfile(profile());
-    data.Set("theme",
-             theme ? static_cast<int>(theme->GetBrowserColorScheme()) : 0);
-    data.Set("tabs",
-             controller && !controller->TabsInSidebar() ? "top" : "side");
-    data.Set("ctrlTab",
-             CtrlTabSwitcher::RecentOrder(prefs()) ? "recent" : "order");
-
-    base::ListValue bindings;
-    if (controller) {
-      for (const ModalInputRouter::Binding& b : controller->KeyBindings()) {
-        base::DictValue item;
-        item.Set("keys", b.keys);
-        item.Set("command", b.command);
-        item.Set("desc", b.description);
-        bindings.Append(std::move(item));
-      }
-    }
-    data.Set("bindings", std::move(bindings));
-    data.Set("hintChars", controller ? controller->HintChars() : "");
-
-    base::ListValue engines;
-    std::string current_engine;
-    bool managed = false;
-    if (TemplateURLService* service =
-            TemplateURLServiceFactory::GetForProfile(profile())) {
-      if (!service->loaded()) {
-        service->Load();
-      }
-      managed = service->is_default_search_managed();
-      const TemplateURL* current = service->GetDefaultSearchProvider();
-      for (TemplateURL* url : service->GetTemplateURLs()) {
-        if (url != current && !service->CanMakeDefault(url)) {
-          continue;
-        }
-        if (url->starter_pack_id() !=
-                template_url_starter_pack_data::StarterPackId::kNone ||
-            url->url().empty()) {
-          continue;
-        }
-        base::DictValue item;
-        item.Set("id", base::NumberToString(url->id().value()));
-        item.Set("name", url->short_name());
-        engines.Append(std::move(item));
-        if (url == current) {
-          current_engine = base::NumberToString(url->id().value());
-        }
-      }
-    }
-    data.Set("engines", std::move(engines));
-    data.Set("engine", current_engine);
-    data.Set("engineManaged", managed);
-
-    const SessionStartupPref startup =
-        SessionStartupPref::GetStartupPref(profile());
-    data.Set("startup",
-             startup.type == SessionStartupPref::LAST ||
-                     startup.type == SessionStartupPref::LAST_AND_URLS
-                 ? "last"
-                 : "start");
-
-    double level = 0;
-    if (ChromeZoomLevelPrefs* zoom = profile()->GetZoomLevelPrefs()) {
-      level = zoom->GetDefaultZoomLevelPref();
-    }
-    data.Set("zoom", static_cast<int>(std::lround(
-                         blink::ZoomLevelToZoomFactor(level) * 100)));
-    base::ListValue zoom_choices;
-    for (int z : kZoomChoices) {
-      zoom_choices.Append(z);
-    }
-    data.Set("zoomChoices", std::move(zoom_choices));
-
-    data.Set(
-        "downloadDir",
-        prefs()->GetFilePath(prefs::kDownloadDefaultDirectory).AsUTF8Unsafe());
-    data.Set("askWhere", prefs()->GetBoolean(prefs::kPromptForDownload));
-    // Memory and Energy Saver are machine-wide (local state).
-    namespace tuning = performance_manager::user_tuning::prefs;
-    PrefService* local = g_browser_process->local_state();
-    data.Set(
-        "memorySaver",
-        local && local->GetInteger(tuning::kMemorySaverModeState) ==
-                     static_cast<int>(tuning::MemorySaverModeState::kEnabled));
-    data.Set("energySaver",
-             local && local->GetInteger(tuning::kBatterySaverModeState) !=
-                          static_cast<int>(
-                              tuning::BatterySaverModeState::kDisabled));
-    data.Set("savePasswords",
-             prefs()->GetBoolean(
-                 password_manager::prefs::kCredentialsEnableService));
-    data.Set("extensions", Extensions());
-
-    base::DictValue about;
-    about.Set("version", std::string(version_info::GetVersionNumber()));
-    about.Set("os", std::string(version_info::GetOSType()));
-    data.Set("about", std::move(about));
-    CallJavascriptFunction("merlinPage.render", data);
-  }
-
-  base::ListValue Extensions() {
-    base::ListValue list;
-    auto* registry = extensions::ExtensionRegistry::Get(profile());
-    auto* system = extensions::ExtensionSystem::Get(profile());
-    if (!registry || !system) {
-      return list;
-    }
-    extensions::ManagementPolicy* policy = system->management_policy();
-    std::vector<scoped_refptr<const extensions::Extension>> all;
-    for (const auto& ext : registry->GenerateInstalledExtensionsSet()) {
-      if (!ext->is_extension() ||
-          extensions::Manifest::IsComponentLocation(ext->location())) {
-        continue;
-      }
-      all.push_back(ext);
-    }
-    std::sort(all.begin(), all.end(), [](const auto& a, const auto& b) {
-      return a->name() < b->name();
-    });
-    for (const auto& ext : all) {
-      base::DictValue item;
-      item.Set("id", ext->id());
-      item.Set("name", ext->name());
-      item.Set("version", ext->VersionString());
-      item.Set("enabled", registry->enabled_extensions().Contains(ext->id()));
-      item.Set("canToggle",
-               !policy || (policy->UserMayModifySettings(ext.get(), nullptr) &&
-                           !policy->MustRemainEnabled(ext.get(), nullptr)));
-      list.Append(std::move(item));
-    }
-    return list;
   }
 
   void SendConfig() {
@@ -1002,77 +907,22 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
     }
   }
 
-  void OnSetTheme(const base::ListValue& args) {
-    if (args.empty() || !args[0].is_int()) {
-      return;
-    }
-    const int value = args[0].GetInt();
-    ThemeService* theme = ThemeServiceFactory::GetForProfile(profile());
-    if (!theme || value < 0 || value > 2) {
-      return;
-    }
-    theme->SetBrowserColorScheme(
-        static_cast<ThemeService::BrowserColorScheme>(value));
+  // Applies one shared preference; any message shows in the page.
+  void Set(const char* key, const base::Value& value) {
+    Message(SetMerlinPreference(profile(), ControllerForWebUI(web_ui()), key,
+                                value));
   }
-
-  void OnSetTabs(const base::ListValue& args) {
-    const std::string* value = StringArg(args);
-    ModalBrowserController* controller = ControllerForWebUI(web_ui());
-    if (!value || !controller || (*value != "side" && *value != "top")) {
-      return;
-    }
-    Message(controller->RunCommandLine("set tabs=" + *value));
-  }
-
-  void OnSetCtrlTab(const base::ListValue& args) {
-    const std::string* value = StringArg(args);
-    if (!value || (*value != "recent" && *value != "order")) {
-      return;
-    }
-    prefs()->SetBoolean(prefs::kCtrlTabMru, *value == "recent");
-  }
-
-  void OnSetEngine(const base::ListValue& args) {
-    const std::string* value = StringArg(args);
-    int64_t id = 0;
-    TemplateURLService* service =
-        TemplateURLServiceFactory::GetForProfile(profile());
-    if (!value || !service || !base::StringToInt64(*value, &id)) {
-      return;
-    }
-    for (TemplateURL* url : service->GetTemplateURLs()) {
-      if (url->id().value() == id && service->CanMakeDefault(url)) {
-        service->SetUserSelectedDefaultSearchProvider(url);
-        return;
-      }
+  void SetFirst(const char* key, const base::ListValue& args) {
+    if (!args.empty()) {
+      Set(key, args[0]);
     }
   }
-
-  void OnSetStartup(const base::ListValue& args) {
-    const std::string* value = StringArg(args);
-    if (!value || (*value != "last" && *value != "start")) {
-      return;
-    }
-    SessionStartupPref pref = SessionStartupPref::GetStartupPref(profile());
-    pref.type = *value == "last" ? SessionStartupPref::LAST
-                                 : SessionStartupPref::DEFAULT;
-    SessionStartupPref::SetStartupPref(profile(), pref);
-  }
-
-  void OnSetZoom(const base::ListValue& args) {
-    if (args.empty() || !args[0].is_int()) {
-      return;
-    }
-    const int percent = args[0].GetInt();
-    if (std::find(std::begin(kZoomChoices), std::end(kZoomChoices), percent) ==
-        std::end(kZoomChoices)) {
-      return;
-    }
-    if (ChromeZoomLevelPrefs* zoom = profile()->GetZoomLevelPrefs()) {
-      zoom->SetDefaultZoomLevelPref(
-          blink::ZoomFactorToZoomLevel(percent / 100.0));
-    }
-  }
+  void OnSetTheme(const base::ListValue& args) { SetFirst("theme", args); }
+  void OnSetTabs(const base::ListValue& args) { SetFirst("tabs", args); }
+  void OnSetCtrlTab(const base::ListValue& args) { SetFirst("ctrlTab", args); }
+  void OnSetEngine(const base::ListValue& args) { SetFirst("engine", args); }
+  void OnSetStartup(const base::ListValue& args) { SetFirst("startup", args); }
+  void OnSetZoom(const base::ListValue& args) { SetFirst("zoom", args); }
 
   void OnChooseDownloadDir(const base::ListValue& args) {
     picker_ = std::make_unique<FolderPicker>(
@@ -1092,63 +942,23 @@ class MerlinSettingsHandler : public content::WebUIMessageHandler {
   }
 
   void OnSetAskWhere(const base::ListValue& args) {
-    if (std::optional<bool> on = BoolArg(args)) {
-      prefs()->SetBoolean(prefs::kPromptForDownload, *on);
-    }
+    SetFirst("askWhere", args);
   }
-
   void OnSetMemorySaver(const base::ListValue& args) {
-    namespace tuning = performance_manager::user_tuning::prefs;
-    PrefService* local = g_browser_process->local_state();
-    if (std::optional<bool> on = BoolArg(args); on && local) {
-      local->SetInteger(
-          tuning::kMemorySaverModeState,
-          static_cast<int>(*on ? tuning::MemorySaverModeState::kEnabled
-                               : tuning::MemorySaverModeState::kDisabled));
-    }
+    SetFirst("memorySaver", args);
   }
-
   void OnSetEnergySaver(const base::ListValue& args) {
-    namespace tuning = performance_manager::user_tuning::prefs;
-    if (std::optional<bool> on = BoolArg(args)) {
-      // On means Chromium's default: when the battery is low.
-      if (PrefService* local = g_browser_process->local_state()) {
-        local->SetInteger(
-            tuning::kBatterySaverModeState,
-            static_cast<int>(
-                *on ? tuning::BatterySaverModeState::kEnabledBelowThreshold
-                    : tuning::BatterySaverModeState::kDisabled));
-      }
-    }
+    SetFirst("energySaver", args);
   }
-
   void OnSetSavePasswords(const base::ListValue& args) {
-    if (std::optional<bool> on = BoolArg(args)) {
-      prefs()->SetBoolean(password_manager::prefs::kCredentialsEnableService,
-                          *on);
-    }
+    SetFirst("savePasswords", args);
   }
-
   void OnSetExtensionEnabled(const base::ListValue& args) {
     const std::string* id = StringArg(args, 0);
-    std::optional<bool> on = BoolArg(args, 1);
-    auto* registry = extensions::ExtensionRegistry::Get(profile());
-    auto* system = extensions::ExtensionSystem::Get(profile());
-    auto* registrar = extensions::ExtensionRegistrar::Get(profile());
-    if (!id || !on || !registry || !system || !registrar) {
-      return;
-    }
-    const extensions::Extension* ext = registry->GetInstalledExtension(*id);
-    extensions::ManagementPolicy* policy = system->management_policy();
-    if (!ext || (policy && (!policy->UserMayModifySettings(ext, nullptr) ||
-                            policy->MustRemainEnabled(ext, nullptr)))) {
-      return;
-    }
-    if (*on) {
-      registrar->EnableExtension(*id);
-    } else {
-      registrar->DisableExtension(
-          *id, {extensions::disable_reason::DISABLE_USER_ACTION});
+    const std::optional<bool> on = BoolArg(args, 1);
+    if (id && on) {
+      Set("extension",
+          base::Value(base::DictValue().Set("id", *id).Set("enabled", *on)));
     }
   }
 
@@ -1232,8 +1042,7 @@ class MerlinSettingsUIConfig
 
 // static
 std::string MerlinSettingsUI::LinkTarget(const std::string& key) {
-  auto it = Links().find(key);
-  return it == Links().end() ? std::string() : it->second;
+  return MerlinPreferenceLink(key);
 }
 
 MerlinSettingsUI::MerlinSettingsUI(content::WebUI* web_ui)

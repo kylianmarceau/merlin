@@ -172,6 +172,32 @@ normal = ["d"]                # give this key back to sites
 Every option is documented in
 [`docs/config.example.toml`](docs/config.example.toml).
 
+### Appearance
+
+**Settings › Appearance** has eight theme-colour presets, a custom colour
+picker, full-window or accent-only tint, page-colour matching, rounded or
+sharper corners, compact or comfortable spacing, start-page backgrounds,
+and yellow or theme-coloured link hints. Changes apply to every open window
+without restarting. Private windows keep their dark palette, and accessibility
+colours retain priority.
+
+The config options and defaults are:
+
+```toml
+[options]
+theme_color = "default"             # or "#RRGGBB"
+theme_tint = "full"                 # or "accent"
+page_color_matching = true
+corner_style = "rounded"            # or "sharp"
+density = "compact"                 # or "comfortable"
+start_background = "plain"          # or "gradient", "image"
+hint_color = "yellow"               # or "theme"
+```
+
+Choose a PNG, JPEG or WebP in Settings for an image background. Merlin saves a
+resized copy locally in `start_background_image`; it does not upload the image
+or fetch it remotely. **Remove image** clears that copy.
+
 ## browserctl
 
 `browserctl` talks to the running browser over a Unix socket that only
@@ -225,6 +251,10 @@ Chrome. Some things are missing:
 This repository contains only Merlin's own code (`overlay/`) and a set of
 small patches to Chromium (`patches/`). The build links them into a
 Chromium checkout at the version pinned in [`UPSTREAM_PIN`](UPSTREAM_PIN).
+
+The React Native macOS UI migration has a separate host build and assembly
+step. Its architecture, manual build instructions and remaining work are in
+[`apps/browser/README.md`](apps/browser/README.md).
 
 **Requirements:** an Apple Silicon Mac, full Xcode, about 100 GB of free
 disk space and 16 GB of RAM. The first checkout and build take a few hours.

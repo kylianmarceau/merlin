@@ -182,6 +182,14 @@ pub struct ConfigFile {
     pub smooth_scroll: Option<bool>,
     pub passthrough_sites: Option<Vec<SitePattern>>,
     pub vertical_tabs: Option<bool>,
+    pub theme_tint: Option<String>,
+    pub page_color_matching: Option<bool>,
+    pub corner_style: Option<String>,
+    pub density: Option<String>,
+    pub start_background: Option<String>,
+    pub start_background_image: Option<String>,
+    pub hint_color: Option<String>,
+    pub theme_color: Option<String>,
     pub hide_tabs: Option<bool>,
     pub popup_transparency: Option<PopupTransparency>,
     pub restore_session: Option<bool>,
@@ -205,6 +213,14 @@ const OPTION_NAMES: &[&str] = &[
     "passthrough_sites",
     "vertical_tabs",
     "tabs",
+    "theme_tint",
+    "page_color_matching",
+    "corner_style",
+    "density",
+    "start_background",
+    "start_background_image",
+    "hint_color",
+    "theme_color",
     "hide_tabs",
     "popup_transparency",
     "restore_session",
@@ -432,6 +448,77 @@ impl ConfigFile {
             "scroll_step" => self.scroll_step = Some(expect_int(name, value, 10, 2000)?),
             "smooth_scroll" => self.smooth_scroll = Some(expect_bool(name, value)?),
             "vertical_tabs" => self.vertical_tabs = Some(expect_bool(name, value)?),
+            "theme_tint" => {
+                let text = expect_str(name, value)?;
+                if !["full", "accent"].contains(&text) {
+                    return Err(format!("invalid 'theme_tint': {text}"));
+                }
+                self.theme_tint = Some(text.to_string());
+            }
+            "page_color_matching" => self.page_color_matching = Some(expect_bool(name, value)?),
+            "corner_style" => {
+                let text = expect_str(name, value)?;
+                if !["rounded", "sharp"].contains(&text) {
+                    return Err(format!("invalid 'corner_style': {text}"));
+                }
+                self.corner_style = Some(text.to_string());
+            }
+            "density" => {
+                let text = expect_str(name, value)?;
+                if !["compact", "comfortable"].contains(&text) {
+                    return Err(format!("invalid 'density': {text}"));
+                }
+                self.density = Some(text.to_string());
+            }
+            "start_background" => {
+                let text = expect_str(name, value)?;
+                if !["plain", "gradient", "image"].contains(&text) {
+                    return Err(format!("invalid 'start_background': {text}"));
+                }
+                self.start_background = Some(text.to_string());
+            }
+            "start_background_image" => {
+                let text = expect_str(name, value)?;
+                let data = [
+                    "data:image/jpeg;base64,",
+                    "data:image/png;base64,",
+                    "data:image/webp;base64,",
+                ]
+                .iter()
+                .find_map(|prefix| text.strip_prefix(prefix));
+                if !text.is_empty()
+                    && (text.len() > 192 * 1024
+                        || !data.is_some_and(|s| {
+                            !s.is_empty()
+                                && s.bytes()
+                                    .all(|b| b.is_ascii_alphanumeric() || b"+/=".contains(&b))
+                        }))
+                {
+                    return Err(
+                        "'start_background_image' must be a base64 PNG, JPEG or WebP under 192 KiB"
+                            .into(),
+                    );
+                }
+                self.start_background_image = Some(text.to_string());
+            }
+            "hint_color" => {
+                let text = expect_str(name, value)?;
+                if !["yellow", "theme"].contains(&text) {
+                    return Err(format!("invalid 'hint_color': {text}"));
+                }
+                self.hint_color = Some(text.to_string());
+            }
+            "theme_color" => {
+                let text = expect_str(name, value)?;
+                if text != "default"
+                    && !(text.len() == 7
+                        && text.starts_with('#')
+                        && text.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit))
+                {
+                    return Err(format!("'{name}' must be \"default\" or \"#RRGGBB\""));
+                }
+                self.theme_color = Some(text.to_ascii_lowercase());
+            }
             "hide_tabs" => self.hide_tabs = Some(expect_bool(name, value)?),
             "popup_transparency" => {
                 let text = expect_str(name, value)?;

@@ -1,0 +1,35 @@
+{
+  "name": "@merlin/browser",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "react-native start",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts ../../packages/engine/src/*.test.ts",
+    "bundle": "react-native bundle --platform macos --dev false --entry-file index.js --bundle-output build/main.jsbundle --assets-dest build"
+  },
+  "dependencies": {
+    "@merlin/engine": "workspace:*",
+    "@merlin/shell": "workspace:*",
+    "expo": "54.0.37",
+    "expo-modules-core": "3.0.30",
+    "react": "19.1.4",
+    "react-native": "0.81.6",
+    "react-native-macos": "0.81.9",
+    "zustand": "5.0.8"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@react-native-community/cli": "20.0.0",
+    "@react-native-community/cli-platform-apple": "20.0.0",
+    "@react-native-community/cli-platform-ios": "20.0.0",
+    "@react-native/babel-preset": "0.81.6",
+    "@react-native/metro-config": "0.81.6",
+    "@types/react": "~19.1.10",
+    "@types/node": "^24.0.0",
+    "babel-preset-expo": "~54.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.2"
+  }
+}

@@ -691,6 +691,14 @@ mod ffi {
         fn hide_tabs_default(self: &Session) -> bool;
         /// Config `popup_transparency`: "solid", "low", "medium" or "high".
         fn popup_transparency(self: &Session) -> String;
+        fn theme_tint(self: &Session) -> String;
+        fn page_color_matching(self: &Session) -> bool;
+        fn corner_style(self: &Session) -> String;
+        fn density(self: &Session) -> String;
+        fn start_background(self: &Session) -> String;
+        fn start_background_image(self: &Session) -> String;
+        fn hint_color(self: &Session) -> String;
+        fn theme_color(self: &Session) -> String;
         /// Normal-mode bindings for Merlin Settings: `title` is the
         /// description, `detail` the command, `value` the keys.
         fn key_bindings(self: &Session) -> Vec<ListItem>;
@@ -989,6 +997,38 @@ impl Session {
 
     fn hide_tabs_default(&self) -> bool {
         self.inner.config().hide_tabs
+    }
+
+    fn theme_tint(&self) -> String {
+        self.inner.config().theme_tint.clone()
+    }
+
+    fn page_color_matching(&self) -> bool {
+        self.inner.config().page_color_matching
+    }
+
+    fn corner_style(&self) -> String {
+        self.inner.config().corner_style.clone()
+    }
+
+    fn density(&self) -> String {
+        self.inner.config().density.clone()
+    }
+
+    fn start_background(&self) -> String {
+        self.inner.config().start_background.clone()
+    }
+
+    fn start_background_image(&self) -> String {
+        self.inner.config().start_background_image.clone()
+    }
+
+    fn hint_color(&self) -> String {
+        self.inner.config().hint_color.clone()
+    }
+
+    fn theme_color(&self) -> String {
+        self.inner.config().theme_color.clone()
     }
 
     fn popup_transparency(&self) -> String {

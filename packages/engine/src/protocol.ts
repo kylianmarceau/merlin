@@ -1,0 +1,290 @@
+/** Browser-owned state. IDs are opaque and scoped to a native session. */
+export type Tab = {
+  id: string; title: string; url: string; loading: boolean; pinned: boolean;
+  audible: boolean; canGoBack: boolean; canGoForward: boolean;
+};
+export type Download = {
+  id: string; name: string; received: number; total: number;
+  state: 'progress' | 'complete' | 'cancelled' | 'interrupted';
+  /** Merlin's finer state: progress, paused, done, failed, cancelled, removed or dangerous. */
+  status?: string; detail?: string; url?: string;
+};
+export type Split = { tabs: string[]; layout: 'sideBySide' | 'stacked'; ratio: number };
+export type Prompt = {
+  id: string; origin: string; title: string; message: string; quiet?: boolean; canSuppress?: boolean; input?: { label: string; defaultValue: string };
+  kind: 'permission' | 'confirm' | 'alert' | 'beforeUnload';
+  actions: { id: string; label: string; emphasis: 'normal' | 'primary' | 'danger' }[];
+};
+export type Appearance = { mode: 'system' | 'light' | 'dark'; accent: 'ocean' | 'iris' | 'fern'; reduceMotion: boolean };
+export type CommandPalette = {
+  visible: boolean; prompt: string; placeholder: string; text: string; selected: number;
+  error: string; status: string;
+  rows: { title: string; detail: string; keys: string; indent: number; active: boolean }[];
+};
+export type Hint = { label: string; x: number; y: number };
+export type FindState = { visible: boolean; text: string; matches: number; ordinal: number; focus: number };
+export type Snapshot = {
+  session: string; windowId: string; revision: number; private: boolean;
+  tabs: Tab[]; activeTabId: string | null; downloads: Download[];
+  prompt: Prompt | null; appearance: Appearance; find?: FindState; split?: Split | null;
+  modal: { mode: string; pending: string; message: string; sidebarHidden?: boolean; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string };
+};
+export type Calls = {
+  'window.snapshot': { args: {}; result: Snapshot };
+  'find.query': { args: { tabId: string; text: string; forward: boolean }; result: null };
+  'find.close': { args: {}; result: null };
+  'find.focus': { args: { tabId: string; focused: boolean }; result: null };
+  'tabs.create': { args: { url?: string }; result: null };
+  'tabs.activate': { args: { tabId: string }; result: null };
+  'tabs.close': { args: { tabId: string }; result: null };
+  'tabs.pin': { args: { tabId: string; pinned: boolean }; result: null };
+  'tabs.bookmark': { args: { tabId: string }; result: null };
+  'tabs.move': { args: { tabId: string; beforeId: string | null }; result: null };
+  'navigation.open': { args: { tabId: string; text: string }; result: null };
+  'navigation.back': { args: { tabId: string }; result: null };
+  'navigation.forward': { args: { tabId: string }; result: null };
+  'navigation.reload': { args: { tabId: string }; result: null };
+  'navigation.stop': { args: { tabId: string }; result: null };
+  'downloads.open': { args: { downloadId: string }; result: null };
+  'downloads.cancel': { args: { downloadId: string }; result: null };
+  'downloads.act': { args: { downloadId: string; action: DownloadAction }; result: null };
+  'downloads.openFolder': { args: {}; result: null };
+  'permissions.answer': { args: { promptId: string; actionId: string; text?: string; suppress?: boolean }; result: null };
+  'prompts.update': { args: { promptId: string; text: string }; result: null };
+  'appearance.set': { args: Appearance; result: null };
+  'modal.command': { args: { text: string }; result: null };
+  'modal.palette.text': { args: { text: string }; result: null };
+  'modal.palette.key': { args: { key: 'accept' | 'cancel' | 'next' | 'previous' }; result: null };
+  'modal.palette.select': { args: { index: number; revision: number }; result: null };
+};
+export type Method = keyof Calls;
+export type DownloadAction = 'open' | 'show' | 'cancel' | 'pause' | 'retry' | 'discard' | 'forget';
+
+/** Data Chromium produces on demand; answered by a `reply` event. */
+export type ExtensionInfo = { id: string; name: string; version: string; enabled: boolean; canToggle: boolean; hasAction?: boolean; actionTitle?: string };
+export type Adblock = {
+  available: boolean; enabled: boolean; automatic: boolean; private: boolean; status: string; updateStatus: string;
+  /** Seconds since the Unix epoch; 0 before the first successful update. */
+  lastUpdate: number; groups: string[]; exceptions: string[];
+};
+export type Preferences = {
+  theme: number; tabs: 'side' | 'top'; ctrlTab: 'recent' | 'order';
+  bindings: { keys: string; command: string; desc: string }[]; hintChars: string;
+  engines: { id: string; name: string }[]; engine: string; engineManaged: boolean;
+  startup: 'last' | 'start'; zoom: number; zoomChoices: number[];
+  downloadDir: string; askWhere: boolean; memorySaver: boolean; energySaver: boolean; savePasswords: boolean;
+  extensions: ExtensionInfo[]; adblock: Adblock; about: { version: string; os: string };
+};
+export type ConfigFile = { found: boolean; text: string; error: string; path: string };
+export type Workspace = { name: string; modified: number };
+export type HistoryItem = { url: string; title: string; domain: string; time: number };
+export type HistoryPage = { items: HistoryItem[]; done: boolean };
+export type BookmarkItem = { id: string; title: string; folder: boolean; editable: boolean; count?: number; url?: string; domain?: string; where?: string };
+export type BookmarkView = { path: { id: string; title: string }[]; items: BookmarkItem[]; folderId: string };
+export type ProfileInfo = { id: string; name: string; active: boolean };
+export type PreferenceKey = 'theme' | 'tabs' | 'ctrlTab' | 'engine' | 'startup' | 'zoom' | 'askWhere' | 'memorySaver' | 'energySaver' |
+  'savePasswords' | 'adblock' | 'adblockUpdates' | 'adblockLists' | 'adblockRefresh' | 'adblockException' | 'extension';
+export type Requests = {
+  'settings.get': { args: {}; result: Preferences };
+  'settings.set': { args: { key: PreferenceKey; value: unknown }; result: Preferences };
+  'settings.chooseDownloadDir': { args: {}; result: string };
+  'settings.config': { args: {}; result: ConfigFile };
+  'settings.saveConfig': { args: { text: string }; result: string };
+  'settings.workspaces': { args: {}; result: Workspace[] };
+  'settings.deleteWorkspace': { args: { name: string }; result: Workspace[] };
+  'settings.openPage': { args: { key: string }; result: null };
+  'history.search': { args: { text: string; before?: number }; result: HistoryPage };
+  'history.remove': { args: { urls: string[] }; result: null };
+  'bookmarks.folder': { args: { folderId?: string }; result: BookmarkView };
+  'bookmarks.search': { args: { text: string }; result: BookmarkView };
+  'bookmarks.edit': { args: { id: string; title: string; url?: string }; result: null };
+  'bookmarks.remove': { args: { id: string }; result: null };
+  'bookmarks.createFolder': { args: { parentId: string; title: string }; result: null };
+  'bookmarks.move': { args: { id: string; parentId: string; index: number }; result: null };
+  'extensions.list': { args: {}; result: ExtensionInfo[] };
+  'extensions.setEnabled': { args: { id: string; enabled: boolean }; result: null };
+  'extensions.run': { args: { id: string }; result: null };
+  'extensions.manage': { args: { id?: string }; result: null };
+  'profiles.list': { args: {}; result: ProfileInfo[] };
+  'profiles.open': { args: { id: string }; result: null };
+  'profiles.create': { args: { name: string }; result: null };
+};
+export type Request = keyof Requests;
+export const panels = ['settings', 'history', 'bookmarks', 'downloads', 'extensions', 'profiles'] as const;
+export type PanelName = typeof panels[number];
+
+export type EngineEvent = { type: 'snapshot'; snapshot: Snapshot } | { type: 'address.focus' | 'address.revert' | 'command.open'; windowId: string }
+  | { type: 'engine.error'; windowId: string; message: string }
+  | { type: 'panel.open'; windowId: string; panel: PanelName }
+  | { type: 'reply'; windowId: string; requestId: string; ok: boolean; value?: unknown; error?: string };
+
+export function parseEngineEvent(json: string): EngineEvent {
+  const value: unknown = JSON.parse(json);
+  if (!value || typeof value !== 'object' || !('type' in value)) throw new Error('Invalid engine event');
+  if (value.type === 'snapshot' && 'snapshot' in value) {
+    const snapshot = value.snapshot;
+    if (!snapshot || typeof snapshot !== 'object' || !('windowId' in snapshot) || typeof snapshot.windowId !== 'string')
+      throw new Error('Missing event window');
+    return { type: 'snapshot', snapshot: validateSnapshot(snapshot, snapshot.windowId) };
+  }
+  if ((value.type === 'address.focus' || value.type === 'address.revert' || value.type === 'command.open') && 'windowId' in value && typeof value.windowId === 'string')
+    return { type: value.type, windowId: value.windowId };
+  const v = value as Record<string, unknown>;
+  if (v.type === 'panel.open' && typeof v.windowId === 'string' && panels.includes(v.panel as PanelName))
+    return { type: 'panel.open', windowId: v.windowId, panel: v.panel as PanelName };
+  if (v.type === 'reply' && typeof v.windowId === 'string' && typeof v.requestId === 'string' && typeof v.ok === 'boolean' &&
+      (v.error === undefined || typeof v.error === 'string'))
+    return { type: 'reply', windowId: v.windowId, requestId: v.requestId, ok: v.ok, value: v.value, error: v.error as string | undefined };
+  throw new Error('Unknown engine event');
+}
+export interface Transport {
+  call(windowId: string, method: string, args: string): Promise<string>;
+  subscribe(listener: (event: EngineEvent) => void): () => void;
+}
+
+let requestCounter = 0;
+export class EngineClient {
+  constructor(readonly windowId: string, private readonly transport: Transport) {
+    if (!windowId) throw new Error('The native host must supply a window ID');
+  }
+  async call<M extends Method>(method: M, args: Calls[M]['args']): Promise<Calls[M]['result']> {
+    const raw = await this.transport.call(this.windowId, method, JSON.stringify(args));
+    const reply: unknown = JSON.parse(raw);
+    if (!reply || typeof reply !== 'object' || !('ok' in reply)) throw new Error('Invalid engine response');
+    if (reply.ok !== true) {
+      throw new Error('error' in reply && typeof reply.error === 'string' ? reply.error : 'Browser operation failed');
+    }
+    if (!('value' in reply)) throw new Error('Missing engine response value');
+    if (method === 'window.snapshot') return validateSnapshot(reply.value, this.windowId) as Calls[M]['result'];
+    if (reply.value !== null) throw new Error('Invalid command acknowledgement');
+    return null as Calls[M]['result'];
+  }
+  /**
+   * Asks Chromium for data it produces on demand. The acknowledgement and the
+   * reply are separate, so the subscription is made before the call.
+   */
+  request<R extends Request>(method: R, args: Requests[R]['args'], timeoutMs = 30_000): Promise<Requests[R]['result']> {
+    const requestId = `r${Date.now().toString(36)}-${(++requestCounter).toString(36)}`;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (fn: () => void) => { if (settled) return; settled = true; clearTimeout(timer); unsubscribe(); fn(); };
+      const unsubscribe = this.transport.subscribe(event => {
+        if (event.type !== 'reply' || event.windowId !== this.windowId || event.requestId !== requestId) return;
+        if (!event.ok) return finish(() => reject(new Error(event.error || 'Browser operation failed')));
+        try { const value = validateResult(method, event.value); finish(() => resolve(value)); }
+        catch (e) { finish(() => reject(e)); }
+      });
+      const timer = setTimeout(() => finish(() => reject(new Error('The browser did not answer in time'))), timeoutMs);
+      this.transport.call(this.windowId, method, JSON.stringify({ ...args, requestId })).then(raw => {
+        const reply: unknown = JSON.parse(raw);
+        if (!reply || typeof reply !== 'object' || !('ok' in reply)) throw new Error('Invalid engine response');
+        if (reply.ok !== true) throw new Error('error' in reply && typeof reply.error === 'string' ? reply.error : 'Browser operation failed');
+      }).catch(e => finish(() => reject(e instanceof Error ? e : new Error(String(e)))));
+    });
+  }
+  subscribe(listener: (event: EngineEvent) => void): () => void {
+    return this.transport.subscribe(event => {
+      const id = event.type === 'snapshot' ? event.snapshot.windowId : event.windowId;
+      if (id === this.windowId && event.type !== 'reply') listener(event);
+    });
+  }
+}
+
+export function validateSnapshot(value: unknown, windowId: string): Snapshot {
+  if (!value || typeof value !== 'object') throw new Error('Invalid browser snapshot');
+  const s = value as Snapshot;
+  if (typeof s.session !== 'string' || !s.session || s.windowId !== windowId ||
+      !Number.isSafeInteger(s.revision) || s.revision < 0 || typeof s.private !== 'boolean' ||
+      !Array.isArray(s.tabs) || !Array.isArray(s.downloads) ||
+      !s.appearance || !['system', 'light', 'dark'].includes(s.appearance.mode) ||
+      !['ocean', 'iris', 'fern'].includes(s.appearance.accent) || typeof s.appearance.reduceMotion !== 'boolean' ||
+      !s.modal || ![s.modal.mode, s.modal.pending, s.modal.message].every(x => typeof x === 'string')) {
+    throw new Error('Invalid browser snapshot');
+  }
+  if (s.find !== undefined && (!s.find || typeof s.find.visible !== 'boolean' || typeof s.find.text !== 'string' ||
+      ![s.find.matches, s.find.ordinal, s.find.focus].every(x => Number.isSafeInteger(x) && x >= 0))) throw new Error('Invalid find state');
+  const palette = s.modal.palette;
+  if (palette !== undefined && palette !== null && (
+      typeof palette.visible !== 'boolean' || ![palette.prompt, palette.placeholder, palette.text, palette.error, palette.status].every(x => typeof x === 'string') ||
+      !Number.isInteger(palette.selected) || !Array.isArray(palette.rows) || palette.selected < -1 || palette.selected >= palette.rows.length ||
+      palette.rows.some(r => !r || ![r.title, r.detail, r.keys].every(x => typeof x === 'string') ||
+        !Number.isSafeInteger(r.indent) || r.indent < 0 || typeof r.active !== 'boolean'))) throw new Error('Invalid command menu');
+  if (s.modal.hints !== undefined && (!Array.isArray(s.modal.hints) || s.modal.hints.some(h =>
+      !h || typeof h.label !== 'string' || !Number.isFinite(h.x) || !Number.isFinite(h.y)))) throw new Error('Invalid link hints');
+  if (s.modal.hintPrefix !== undefined && typeof s.modal.hintPrefix !== 'string') throw new Error('Invalid hint prefix');
+  if (s.modal.sidebarHidden !== undefined && typeof s.modal.sidebarHidden !== 'boolean') throw new Error('Invalid sidebar state');
+  const ids = new Set<string>();
+  for (const tab of s.tabs) {
+    if (!tab || typeof tab.id !== 'string' || !tab.id || ids.has(tab.id) ||
+        typeof tab.title !== 'string' || typeof tab.url !== 'string' ||
+        ![tab.loading, tab.pinned, tab.audible, tab.canGoBack, tab.canGoForward].every(x => typeof x === 'boolean')) {
+      throw new Error('Invalid tab snapshot');
+    }
+    ids.add(tab.id);
+  }
+  if (s.activeTabId !== null && !ids.has(s.activeTabId)) throw new Error('Active tab is missing');
+  for (const d of s.downloads) {
+    if (!d || typeof d.id !== 'string' || typeof d.name !== 'string' ||
+        !Number.isFinite(d.received) || d.received < 0 || !Number.isFinite(d.total) || d.total < 0 ||
+        !['progress', 'complete', 'cancelled', 'interrupted'].includes(d.state) ||
+        [d.status, d.detail, d.url].some(x => x !== undefined && typeof x !== 'string')) throw new Error('Invalid download snapshot');
+  }
+  if (s.split !== undefined && s.split !== null && (typeof s.split !== 'object' || !Array.isArray(s.split.tabs) ||
+      s.split.tabs.length < 2 || s.split.tabs.some(id => !ids.has(id)) || !['sideBySide', 'stacked'].includes(s.split.layout) ||
+      !Number.isFinite(s.split.ratio) || (s.activeTabId !== null && !s.split.tabs.includes(s.activeTabId)))) throw new Error('Invalid split view');
+  if (s.prompt !== null && (!s.prompt || typeof s.prompt.id !== 'string' || !s.prompt.id ||
+      ![s.prompt.origin, s.prompt.title, s.prompt.message].every(x => typeof x === 'string') ||
+      (s.prompt.quiet !== undefined && typeof s.prompt.quiet !== 'boolean') ||
+      (s.prompt.canSuppress !== undefined && typeof s.prompt.canSuppress !== 'boolean') ||
+      (s.prompt.input !== undefined && (!s.prompt.input || typeof s.prompt.input.label !== 'string' || typeof s.prompt.input.defaultValue !== 'string')) ||
+      !['permission', 'confirm', 'alert', 'beforeUnload'].includes(s.prompt.kind) ||
+      !Array.isArray(s.prompt.actions) || s.prompt.actions.length === 0 ||
+      s.prompt.actions.some(a => !a || typeof a.id !== 'string' || !a.id || typeof a.label !== 'string' ||
+        !['normal', 'primary', 'danger'].includes(a.emphasis)) ||
+      new Set(s.prompt.actions.map(a => a.id)).size !== s.prompt.actions.length)) throw new Error('Invalid prompt snapshot');
+  return s;
+}
+
+const isString = (x: unknown): x is string => typeof x === 'string';
+const isBool = (x: unknown): x is boolean => typeof x === 'boolean';
+const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+const isObject = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
+function check(ok: boolean, what: string) { if (!ok) throw new Error(`Invalid ${what} from the browser`); }
+const fields = (x: unknown, spec: Record<string, (v: unknown) => boolean>) =>
+  isObject(x) && Object.entries(spec).every(([k, test]) => test(x[k]));
+const optional = (test: (v: unknown) => boolean) => (v: unknown) => v === undefined || test(v);
+const listOf = (test: (v: unknown) => boolean) => (v: unknown) => Array.isArray(v) && v.every(test);
+const extension = (x: unknown) => fields(x, { id: isString, name: isString, version: isString, enabled: isBool, canToggle: isBool,
+  hasAction: optional(isBool), actionTitle: optional(isString) });
+const bookmarkView = (x: unknown) => fields(x, {
+  path: listOf(c => fields(c, { id: isString, title: isString })), folderId: isString,
+  items: listOf(i => fields(i, { id: isString, title: isString, folder: isBool, editable: isBool, count: optional(isNumber),
+    url: optional(isString), domain: optional(isString), where: optional(isString) })) });
+const workspaces = listOf(w => fields(w, { name: isString, modified: isNumber }));
+
+/** Rejects malformed replies before any component renders them. */
+export function validateResult<R extends Request>(method: R, value: unknown): Requests[R]['result'] {
+  switch (method) {
+    case 'settings.get': case 'settings.set':
+      check(fields(value, {
+        theme: isNumber, tabs: v => v === 'side' || v === 'top', ctrlTab: v => v === 'recent' || v === 'order',
+        bindings: listOf(b => fields(b, { keys: isString, command: isString, desc: isString })), hintChars: isString,
+        engines: listOf(e => fields(e, { id: isString, name: isString })), engine: isString, engineManaged: isBool,
+        startup: v => v === 'last' || v === 'start', zoom: isNumber, zoomChoices: listOf(isNumber),
+        downloadDir: isString, askWhere: isBool, memorySaver: isBool, energySaver: isBool, savePasswords: isBool,
+        extensions: listOf(extension), about: a => fields(a, { version: isString, os: isString }),
+        adblock: a => fields(a, { available: isBool, enabled: isBool, automatic: isBool, private: isBool, status: isString,
+          updateStatus: isString, lastUpdate: isNumber, groups: listOf(isString), exceptions: listOf(isString) }),
+      }), 'settings'); break;
+    case 'settings.chooseDownloadDir': case 'settings.saveConfig': check(isString(value), 'reply'); break;
+    case 'settings.config': check(fields(value, { found: isBool, text: isString, error: isString, path: isString }), 'configuration'); break;
+    case 'settings.workspaces': case 'settings.deleteWorkspace': check(workspaces(value), 'workspaces'); break;
+    case 'history.search': check(fields(value, { done: isBool,
+      items: listOf(i => fields(i, { url: isString, title: isString, domain: isString, time: isNumber })) }), 'history'); break;
+    case 'bookmarks.folder': case 'bookmarks.search': check(bookmarkView(value), 'bookmarks'); break;
+    case 'extensions.list': check(listOf(extension)(value), 'extensions'); break;
+    case 'profiles.list': check(listOf(p => fields(p, { id: isString, name: isString, active: isBool }))(value), 'profiles'); break;
+    default: check(value === null || value === undefined, 'acknowledgement'); return null as Requests[R]['result'];
+  }
+  return value as Requests[R]['result'];
+}

@@ -304,6 +304,38 @@ bool ModalInputRouter::hide_tabs_default() const {
   return session_->hide_tabs_default();
 }
 
+std::string ModalInputRouter::theme_tint() const {
+  return std::string(session_->theme_tint());
+}
+
+bool ModalInputRouter::page_color_matching() const {
+  return session_->page_color_matching();
+}
+
+std::string ModalInputRouter::corner_style() const {
+  return std::string(session_->corner_style());
+}
+
+std::string ModalInputRouter::density() const {
+  return std::string(session_->density());
+}
+
+std::string ModalInputRouter::start_background() const {
+  return std::string(session_->start_background());
+}
+
+std::string ModalInputRouter::start_background_image() const {
+  return std::string(session_->start_background_image());
+}
+
+std::string ModalInputRouter::hint_color() const {
+  return std::string(session_->hint_color());
+}
+
+std::string ModalInputRouter::theme_color() const {
+  return std::string(session_->theme_color());
+}
+
 std::string ModalInputRouter::popup_transparency() const {
   return std::string(session_->popup_transparency());
 }

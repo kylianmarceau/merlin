@@ -83,6 +83,15 @@ pub struct SessionConfig {
     /// Whether tabs start in a sidebar. The host applies this as the
     /// *default*: a layout the user picked in the browser's own UI wins.
     pub vertical_tabs: bool,
+    /// App-wide appearance choices, validated by the config parser.
+    pub theme_tint: String,
+    pub page_color_matching: bool,
+    pub corner_style: String,
+    pub density: String,
+    pub start_background: String,
+    pub start_background_image: String,
+    pub hint_color: String,
+    pub theme_color: String,
     /// Whether windows start with their tabs hidden (Cmd-S toggles).
     pub hide_tabs: bool,
     /// How much of the page shows through frosted pop-ups.
@@ -125,6 +134,14 @@ impl Default for SessionConfig {
             commands: CommandOptions::default(),
             passthrough_sites: Vec::new(),
             vertical_tabs: true,
+            theme_tint: "full".into(),
+            page_color_matching: true,
+            corner_style: "rounded".into(),
+            density: "compact".into(),
+            start_background: "plain".into(),
+            start_background_image: "".into(),
+            hint_color: "yellow".into(),
+            theme_color: "default".into(),
             hide_tabs: false,
             popup_transparency: PopupTransparency::default(),
             restore_session: true,
@@ -1336,6 +1353,30 @@ impl ModalSession {
         }
         if let Some(v) = file.vertical_tabs {
             config.vertical_tabs = v;
+        }
+        if let Some(v) = file.theme_tint {
+            config.theme_tint = v;
+        }
+        if let Some(v) = file.page_color_matching {
+            config.page_color_matching = v;
+        }
+        if let Some(v) = file.corner_style {
+            config.corner_style = v;
+        }
+        if let Some(v) = file.density {
+            config.density = v;
+        }
+        if let Some(v) = file.start_background {
+            config.start_background = v;
+        }
+        if let Some(v) = file.start_background_image {
+            config.start_background_image = v;
+        }
+        if let Some(v) = file.hint_color {
+            config.hint_color = v;
+        }
+        if let Some(v) = file.theme_color {
+            config.theme_color = v;
         }
         if let Some(v) = file.hide_tabs {
             config.hide_tabs = v;

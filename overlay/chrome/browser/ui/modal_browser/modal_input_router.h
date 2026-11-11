@@ -350,6 +350,14 @@ class ModalInputRouter {
   bool hide_tabs_default() const;
   // Config `popup_transparency`: "solid", "low", "medium" or "high".
   std::string popup_transparency() const;
+  std::string theme_tint() const;
+  bool page_color_matching() const;
+  std::string corner_style() const;
+  std::string density() const;
+  std::string start_background() const;
+  std::string start_background_image() const;
+  std::string hint_color() const;
+  std::string theme_color() const;
   // Config `modal_browsing`: off, Merlin binds no plain keys.
   bool modal_browsing() const;
   ffi::PaletteState palette_state() const;

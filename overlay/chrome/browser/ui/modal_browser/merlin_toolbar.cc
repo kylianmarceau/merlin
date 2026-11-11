@@ -24,25 +24,25 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "ui/accessibility/ax_enums.mojom.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
+#include "third_party/skia/include/core/SkRRect.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/gfx/text_utils.h"
-#include "ui/views/merlin_style.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/background.h"
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/menu/menu_runner.h"
-#include "third_party/skia/include/core/SkRRect.h"
-#include "ui/gfx/geometry/rounded_corners_f.h"
-#include "ui/views/background.h"
+#include "ui/views/merlin_style.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
@@ -204,7 +204,9 @@ void MerlinNavButton::UpdateTooltip() {
 
 gfx::Size MerlinNavButton::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
-  return gfx::Size(kNavButtonSize, kNavButtonSize);
+  return gfx::Size(
+      kNavButtonSize,
+      kNavButtonSize + (views::merlin_style::ComfortableDensity() ? 8 : 0));
 }
 
 void MerlinNavButton::StateChanged(ButtonState old_state) {
@@ -679,7 +681,7 @@ void MerlinToolbarBackdrop::OnPaint(gfx::Canvas* canvas) {
   }
   gfx::Rect card = GetLocalBounds();
   card.Inset(gfx::Insets::VH(0, style::kCardSide));
-  const float r = style::kCardRadius;
+  const float r = style::CardRadius();
   const SkVector radii[4] = {{r, r}, {r, r}, {0, 0}, {0, 0}};
   SkRRect rrect;
   rrect.setRectRadii(gfx::RectToSkRect(card), radii);

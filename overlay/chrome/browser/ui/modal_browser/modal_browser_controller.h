@@ -19,6 +19,7 @@
 #include "base/sequence_checker.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/timer/timer.h"
+#include "base/values.h"
 #include "url/origin.h"
 #include "chrome/browser/ui/modal_browser/config_file.h"
 #include "chrome/browser/ui/modal_browser/modal_input_router.h"
@@ -110,6 +111,8 @@ class ModalBrowserController : public BrowserOps,
 
   // For Merlin Settings (merlin_settings_page.cc).
   bool TabsInSidebar() const;
+  // Presentation-neutral modal state for the React Native engine adapter.
+  base::DictValue ShellModalState() const;
   bool TabsHidden() const { return tabs_hidden_; }
 
   // ui::AcceleratorTarget: Cmd-S, after the page had its chance, and
@@ -337,7 +340,7 @@ class ModalBrowserController : public BrowserOps,
   void OnFieldEditDone(uint64_t generation, std::string error);
   void CancelFieldEdit();
   void ScheduleAutosave();
-  void ApplyConfigToBrowser();
+  void ApplyConfigToBrowser(bool apply_appearance = true);
   void FocusTabNumber(uint32_t number, std::string* error);
   void ReadSelection(base::OnceCallback<void(std::string)> reply);
   content::RenderFrameHost* FocusedFrame();
@@ -347,6 +350,9 @@ class ModalBrowserController : public BrowserOps,
   const raw_ptr<BrowserWindowInterface> browser_;
   const raw_ptr<BrowserView> browser_view_;
   ModalInputRouter router_;
+  base::DictValue shell_palette_;
+  base::ListValue shell_hints_;
+  std::string shell_hint_prefix_;
   std::unique_ptr<StatusHost> status_;
   std::unique_ptr<PaletteHost> palette_;
   std::unique_ptr<HintHost> hints_;

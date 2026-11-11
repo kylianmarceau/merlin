@@ -84,6 +84,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/modal_browser/modal_style.h"
+#include "chrome/browser/ui/modal_browser/merlin_theme.h"
 #include "chrome/browser/ui/modal_browser/palette_view.h"
 #include "chrome/browser/ui/modal_browser/status_view.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
@@ -193,6 +194,7 @@
 #include "ui/menus/simple_menu_model.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/views/accessibility/ax_update_notifier.h"
+#include "ui/views/bubble/bubble_border.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/controls/menu/menu_item_view.h"
@@ -3431,4 +3433,201 @@ IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, MerlinFindBar) {
       [&] { return !find->find_bar()->IsFindBarVisible(); }));
 }
 
+}  // namespace modal_browser
+
+namespace modal_browser {
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, ThemeColorPresetsAndContrast) {
+  for (const char* color :
+       {"#5f8764", "#527eb5", "#9271b5", "#f6d44a", "#d783a6", "#c85c55",
+        "#d38b48", "#6b7078", "#000000", "#ffffff", "#123abc"}) {
+    WriteConfig(std::string("[options]\ntheme_color = \"") + color + "\"\n");
+    ReloadConfig();
+    for (bool dark : {false, true}) {
+      SCOPED_TRACE(testing::Message() << color << " dark=" << dark);
+      ThemeServiceFactory::GetForProfile(browser()->GetProfile())
+          ->SetBrowserColorScheme(
+              dark ? ThemeService::BrowserColorScheme::kDark
+                   : ThemeService::BrowserColorScheme::kLight);
+      const auto p = MerlinPalette(dark);
+      auto* provider =
+          BrowserView::GetBrowserViewForBrowser(browser())->GetColorProvider();
+      EXPECT_EQ(provider->GetColor(ui::kColorSysHeader), p.header);
+      EXPECT_EQ(provider->GetColor(ui::kColorCheckboxContainer), p.accent);
+      EXPECT_EQ(provider->GetColor(ui::kColorBubbleBackground), p.popover);
+      for (auto [ink, background] :
+           {std::pair{p.on_surface, p.surface},
+            {p.on_header, p.header},
+            {p.on_accent, p.accent},
+            {p.on_primary, p.primary},
+            {p.on_primary_container, p.primary_container},
+            {p.on_surface_subtle, p.base_container},
+            {p.primary, p.surface},
+            {p.on_surface, p.popover},
+            {p.on_surface, p.omnibox}}) {
+        EXPECT_GE(color_utils::GetContrastRatio(ink, background), 4.5f);
+      }
+      for (SkColor surface : {p.surface, p.header, p.base, p.base_container,
+                              p.base_elevated, p.omnibox, p.popover, p.header_hover}) {
+        EXPECT_GE(color_utils::GetContrastRatio(p.focus_ring, surface), 3.0f);
+      }
+    }
+  }
+  WriteConfig("");
+  ReloadConfig();
+  EXPECT_EQ(MerlinPalette(false).header, design::kLight.header);
+  EXPECT_TRUE(MerlinThemeCss().empty());
+  ui::ColorProviderKey key;
+  key.contrast_mode = ui::ColorProviderKey::ContrastMode::kHigh;
+  EXPECT_FALSE(MerlinThemeApplies(key));
+  key.contrast_mode = ui::ColorProviderKey::ContrastMode::kNormal;
+  key.forced_colors = ui::ColorProviderKey::ForcedColors::kSystem;
+  EXPECT_FALSE(MerlinThemeApplies(key));
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, ThemeColorLiveWindowsAndPages) {
+  auto* other = CreateBrowser(browser()->GetProfile());
+  auto* private_window = CreateIncognitoBrowser();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                           GURL("chrome://merlin-settings/")));
+  auto* page = contents();
+  WriteConfig("[options]\ntheme_color = \"#527eb5\"\n");
+  ReloadConfig();
+  EXPECT_EQ(BrowserView::GetBrowserViewForBrowser(other)
+                ->GetColorProvider()
+                ->GetColor(ui::kColorToggleButtonTrackOn),
+            0xff527eb5u);
+  EXPECT_EQ(BrowserView::GetBrowserViewForBrowser(private_window)
+                ->GetColorProvider()
+                ->GetColor(ui::kColorSysHeader),
+            design::kDark.header);
+  EXPECT_EQ("#527eb5", content::EvalJs(page, R"JS(new Promise(resolve => {
+    setTimeout(() => resolve('timeout'), 5000);
+    const check = () => {
+      const value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+      if (value === '#527eb5') resolve(value); else setTimeout(check, 20);
+    }; check();
+  }))JS"));
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("chrome://merlin-start/")));
+  EXPECT_EQ("#527eb5",
+            content::EvalJs(contents(),
+                            "getComputedStyle(document.documentElement)."
+                            "getPropertyValue('--accent').trim()"));
+  WriteConfig("");
+  ReloadConfig();
+}
+}  // namespace modal_browser
+
+namespace modal_browser {
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest, AppearanceOptionsLiveAndReset) {
+  auto* view = BrowserView::GetBrowserViewForBrowser(browser());
+  const int compact_height = view->toolbar()->height();
+  WriteConfig(R"([options]
+theme_color = "#c85c55"
+theme_tint = "accent"
+page_color_matching = false
+corner_style = "sharp"
+density = "comfortable"
+start_background = "gradient"
+hint_color = "theme"
+)");
+  ReloadConfig();
+  EXPECT_FALSE(GetMerlinAppearance().full_tint);
+  EXPECT_EQ(MerlinPalette(false).header, design::kLight.header);
+  EXPECT_EQ(MerlinPalette(true).header, design::kDark.header);
+  EXPECT_FALSE(style::PageSurface(view, SK_ColorRED));
+  EXPECT_EQ(style::CardRadius(), 3);
+  EXPECT_TRUE(views::merlin_style::SharpCorners());
+  views::BubbleBorder border(views::BubbleBorder::TOP_LEFT,
+                            views::BubbleBorder::STANDARD_SHADOW);
+  border.set_rounded_corners(gfx::RoundedCornersF(16));
+  EXPECT_EQ(border.rounded_corners(), gfx::RoundedCornersF(3));
+  EXPECT_TRUE(views::merlin_style::ComfortableDensity());
+  EXPECT_TRUE(base::test::RunUntil(
+      [&] { return view->toolbar()->height() > compact_height; }));
+  const auto hints = style::ColorsFor(view);
+  EXPECT_EQ(hints.hint_bg, 0xffc85c55u);
+  EXPECT_GE(color_utils::GetContrastRatio(hints.hint_text, hints.hint_bg),
+            4.5f);
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(browser(), GURL("chrome://merlin-start/")));
+  EXPECT_EQ(true,
+            content::EvalJs(contents(),
+                            "getComputedStyle(document.body).backgroundImage."
+                            "includes('linear-gradient')"));
+  WriteConfig(R"([options]
+start_background = "image"
+start_background_image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMIaNgAAAKkAYFWASYRAAAAAElFTkSuQmCC"
+)");
+  ReloadConfig();
+  EXPECT_EQ(true, content::EvalJs(contents(), R"JS(new Promise(resolve => {
+    setTimeout(() => resolve('timeout'), 5000);
+    const check = () => {
+      if (getComputedStyle(document.body).backgroundImage.includes('data:image/png')) resolve(true);
+      else setTimeout(check, 20);
+    }; check();
+  }))JS"));
+  EXPECT_EQ(1, content::EvalJs(contents(), R"JS(new Promise(resolve => {
+    const image = new Image();
+    image.onload = () => resolve(image.naturalWidth);
+    image.onerror = () => resolve(-1);
+    image.src = getComputedStyle(document.body).backgroundImage.slice(5, -2);
+  }))JS"));
+  WriteConfig("");
+  ReloadConfig();
+  EXPECT_TRUE(GetMerlinAppearance() == MerlinAppearance());
+  EXPECT_EQ(style::CardRadius(), 12);
+  EXPECT_FALSE(views::merlin_style::SharpCorners());
+  EXPECT_EQ(border.rounded_corners(), gfx::RoundedCornersF(16));
+  EXPECT_FALSE(views::merlin_style::ComfortableDensity());
+  EXPECT_EQ(style::ColorsFor(view).hint_bg, design::kLightOverlay.hint_bg);
+  EXPECT_EQ(true, content::EvalJs(contents(), R"JS(new Promise(resolve => {
+    setTimeout(() => resolve('timeout'), 5000);
+    const check = () => {
+      if (getComputedStyle(document.body).backgroundImage === 'none') resolve(true);
+      else setTimeout(check, 20);
+    }; check();
+  }))JS"));
+}
+
+IN_PROC_BROWSER_TEST_F(ModalBrowserBrowserTest,
+                       AppearanceSettingsControlsSave) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                           GURL("chrome://merlin-settings/")));
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return content::EvalJs(
+               contents(),
+               "!!document.querySelector('[aria-label=\"Theme colour\"]')")
+        .ExtractBool();
+  }));
+  EXPECT_EQ(
+      9, content::EvalJs(contents(),
+                         "document.querySelectorAll('.theme-swatch').length"));
+  ASSERT_TRUE(content::ExecJs(
+      contents(),
+      "document.querySelector('button[aria-label=\"Blue\"]').click()"));
+  EXPECT_TRUE(base::test::RunUntil(
+      [&] { return MerlinPalette(false).accent == 0xff527eb5u; }));
+  EXPECT_EQ(true,
+            content::EvalJs(
+                contents(),
+                "!!document.querySelector('input[type=file][accept*=webp]')"));
+  ASSERT_TRUE(content::ExecJs(contents(), R"JS((async () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 2;
+    canvas.getContext('2d').fillRect(0, 0, 2, 2);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve));
+    const files = new DataTransfer();
+    files.items.add(new File([blob], 'background.png', {type: 'image/png'}));
+    const input = document.querySelector('input[type=file]');
+    input.files = files.files;
+    input.dispatchEvent(new Event('change', {bubbles: true}));
+  })())JS"));
+  EXPECT_TRUE(base::test::RunUntil([&] {
+    return GetMerlinAppearance().background == "image" &&
+           GetMerlinAppearance().image.starts_with("data:image/jpeg;base64,");
+  }));
+  WriteConfig("");
+  ReloadConfig();
+}
 }  // namespace modal_browser

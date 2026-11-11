@@ -6,8 +6,15 @@
 // file:line references are in docs/ARCHITECTURE.md.
 
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
+#include "build/build_config.h"
+#include "chrome/browser/ui/modal_browser/merlin_theme.h"
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
+#include "chrome/browser/ui/modal_browser/merlin_shell_services.h"
+#endif
 
 #include <algorithm>
+#include <array>
 
 #include <set>
 
@@ -47,10 +54,10 @@
 #include "chrome/browser/ui/modal_browser/merlin_address_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_ctrl_tab.h"
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
+#include "chrome/browser/ui/modal_browser/merlin_downloads_button.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 #include "chrome/browser/ui/modal_browser/merlin_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_restyle.h"
-#include "chrome/browser/ui/modal_browser/merlin_downloads_button.h"
 #include "chrome/browser/ui/modal_browser/merlin_safety_controls.h"
 #include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_bar.h"
@@ -95,8 +102,8 @@
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
-#include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/split_tab_data.h"
+#include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_formatter/url_fixer.h"
 #include "components/url_formatter/url_formatter.h"
@@ -132,8 +139,8 @@
 #include "ui/views/background.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/box_layout_view.h"
-#include "ui/views/merlin_style.h"
 #include "ui/views/layout/flex_layout_types.h"
+#include "ui/views/merlin_style.h"
 #include "ui/views/view_class_properties.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
@@ -500,6 +507,23 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
     router_.SetEnvironment(env->GetVar("VISUAL").value_or(""),
                            env->GetVar("EDITOR").value_or(""));
   }
+  if (!browser_view_) {
+#if BUILDFLAG(IS_MAC)
+    status_->set_on_state_changed(base::BindRepeating(
+        [](base::WeakPtr<ModalBrowserController> self) {
+          if (self) NotifyShellWindow(self->browser_);
+        }, weak_factory_.GetWeakPtr()));
+#endif
+    browser_->GetProfile()->GetPrefs()->SetDefaultPrefValue(
+        prefs::kNewTabPageLocationOverride, base::Value("about:blank"));
+    // Retain the command engine, config, workspace and page operations. None of
+    // the Views toolbar, start page, palette or hint widgets are installed.
+    SetMemorySaverDefault(g_browser_process->local_state());
+    SetLeanDefaults(g_browser_process->local_state());
+    ApplyConfigToBrowser(/*apply_appearance=*/false);
+    LoadConfig(/*announce=*/false);
+    return;
+  }
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           kUpstreamDefaultsSwitch)) {
     return;
@@ -568,14 +592,14 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser,
   // config file can change this default once it has been read.
   SetVerticalTabsDefault(router_.vertical_tabs_default());
   SetTabsHiddenDefault(router_.hide_tabs_default());
-  ApplyConfigToBrowser();
+  ApplyConfigToBrowser(/*apply_appearance=*/false);
   LoadConfig(/*announce=*/false);
 }
 
 ModalBrowserController::~ModalBrowserController() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   BrowserctlService::Get().Update(this, false);
-  if (accelerator_focus_manager_ &&
+  if (accelerator_focus_manager_ && browser_view_ &&
       accelerator_focus_manager_ == browser_view_->GetFocusManager()) {
     accelerator_focus_manager_->UnregisterAccelerators(this);
   }
@@ -664,6 +688,7 @@ bool ModalBrowserController::CanHandleAccelerators() const {
 }
 
 void ModalBrowserController::RegisterAccelerators() {
+  if (!browser_view_) return;
   views::FocusManager* focus_manager = browser_view_->GetFocusManager();
   if (!focus_manager || focus_manager == accelerator_focus_manager_) {
     return;
@@ -981,6 +1006,7 @@ void ModalBrowserController::OnTabLayoutChanged() {
 }
 
 void ModalBrowserController::ApplyTabLayout() {
+  if (!browser_view_) return;
   // Merlin replaces Chromium's address field, back, forward and reload with
   // its own in both tab layouts (InstallMerlinToolbar). The rest of the
   // toolbar row stays: Chromium anchors bubbles to its buttons (downloads,
@@ -1131,6 +1157,12 @@ void ModalBrowserController::UpdateMerlinToolbar(
 }
 
 void ModalBrowserController::ShowSiteInfo() {
+#if BUILDFLAG(IS_MAC)
+  if (!browser_view_) {
+    ShowShellSiteInfo(browser_);
+    return;
+  }
+#endif
   if (content::WebContents* contents = ActiveContents()) {
     ShowPageInfoDialog(contents, base::DoNothing(),
                        bubble_anchor_util::Anchor::kLocationBar);
@@ -1436,14 +1468,35 @@ void ModalBrowserController::ShowHints(const std::vector<HintLabelView>& hints,
                           gfx::Point(static_cast<int>(dip.x()),
                                      static_cast<int>(dip.y()))});
   }
+  if (!browser_view_) {
+    shell_hints_.clear(); shell_hint_prefix_.clear();
+    for (const auto& placement : placements)
+      shell_hints_.Append(base::DictValue().Set("label", base::UTF16ToUTF8(placement.label))
+          .Set("x", placement.anchor.x()).Set("y", placement.anchor.y()));
+#if BUILDFLAG(IS_MAC)
+    NotifyShellWindow(browser_);
+#endif
+    return;
+  }
   hints_->Show(std::move(placements));
 }
 
 void ModalBrowserController::FilterHints(std::string_view typed) {
+  if (!browser_view_) {
+    shell_hint_prefix_ = typed;
+#if BUILDFLAG(IS_MAC)
+    NotifyShellWindow(browser_);
+#endif
+    return;
+  }
   hints_->Filter(base::UTF8ToUTF16(typed));
 }
 
 void ModalBrowserController::HideHints() {
+  shell_hints_.clear(); shell_hint_prefix_.clear();
+#if BUILDFLAG(IS_MAC)
+  if (!browser_view_) NotifyShellWindow(browser_);
+#endif
   hints_->Hide();
 }
 
@@ -1579,11 +1632,31 @@ void ModalBrowserController::ClickAt(content::RenderFrameHost* local_root,
 // -- BrowserOps: palette, config, status --------------------------------------
 
 void ModalBrowserController::ShowPalette(const ffi::PaletteState& state) {
+  if (!browser_view_) {
+    base::ListValue rows;
+    for (const auto& row : state.rows)
+      rows.Append(base::DictValue().Set("title", std::string(row.primary))
+          .Set("detail", std::string(row.secondary)).Set("keys", std::string(row.keys))
+          .Set("indent", static_cast<int>(row.indent)).Set("active", row.active));
+    shell_palette_ = base::DictValue().Set("visible", state.visible)
+        .Set("prompt", std::string(state.prompt)).Set("placeholder", std::string(state.placeholder))
+        .Set("text", std::string(state.text)).Set("selected", state.selected)
+        .Set("error", std::string(state.error)).Set("status", std::string(state.status))
+        .Set("rows", std::move(rows));
+#if BUILDFLAG(IS_MAC)
+    NotifyShellWindow(browser_);
+#endif
+    return;
+  }
   palette_->Show(state);
   status_->SetSuppressed(state.visible);
 }
 
 void ModalBrowserController::HidePalette() {
+  shell_palette_.clear();
+#if BUILDFLAG(IS_MAC)
+  if (!browser_view_) NotifyShellWindow(browser_);
+#endif
   palette_->Hide();
   status_->SetSuppressed(false);
   // Give keyboard focus back to the page.
@@ -1615,7 +1688,7 @@ void ModalBrowserController::OnConfigRead(bool announce,
   PageWorkDone();
 }
 
-void ModalBrowserController::ApplyConfigToBrowser() {
+void ModalBrowserController::ApplyConfigToBrowser(bool apply_appearance) {
   // Reopen the last session at launch. Chromium decides what to open at
   // startup before any window (and so this code) exists, so a default set
   // here would come too late; instead, a profile that has never chosen is
@@ -1629,8 +1702,72 @@ void ModalBrowserController::ApplyConfigToBrowser() {
     prefs->SetInteger(prefs::kRestoreOnStartup,
                       SessionStartupPref::kPrefValueLast);
   }
+  if (!browser_view_) {
+    BrowserctlService::Get().Update(this, router_.browserctl_enabled() && !browser_->GetProfile()->IsOffTheRecord());
+    return;
+  }
   // Frosted pop-ups (ui/views/merlin_style.h). One setting for the whole app:
   // Merlin has one profile and one config file.
+  if (apply_appearance) {
+    const bool appearance_changed = SetMerlinAppearance({
+        .full_tint = router_.theme_tint() == "full",
+        .page_colors = router_.page_color_matching(),
+        .sharp_corners = router_.corner_style() == "sharp",
+        .comfortable = router_.density() == "comfortable",
+        .theme_hints = router_.hint_color() == "theme",
+        .background = router_.start_background(),
+        .image = router_.start_background_image(),
+    });
+    const bool color_changed = SetMerlinThemeColor(router_.theme_color());
+    if (appearance_changed || color_changed) {
+      GlobalBrowserCollection::GetInstance()->ForEach(
+          [](BrowserWindowInterface* browser) {
+            if (auto* widget =
+                    browser->GetWindow() ? views::Widget::GetWidgetForNativeWindow(browser->GetWindow()->GetNativeWindow()) : nullptr) {
+              widget->ResetLastColorProviderKey();
+              widget->ThemeChanged();
+              // The key itself is unchanged: invalidate cached keys on retained
+              // command menus, address cards and native bubbles as well.
+              views::Widget::ForEachOwnedWidget(
+                  widget->GetNativeView(), [](views::Widget* owned) {
+                    owned->ResetLastColorProviderKey();
+                    owned->ThemeChanged();
+                  });
+            }
+            TabStripModel* strip = browser->GetTabStripModel();
+            for (int i = 0; i < strip->count(); ++i) {
+              content::WebContents* contents = strip->GetWebContentsAt(i);
+              const GURL& url = contents->GetLastCommittedURL();
+              if (contents->GetWebUI() && url.SchemeIs("chrome") &&
+                  (url.host() == "merlin-settings" ||
+                                             url.host() == "merlin-start" ||
+                                             url.host() == "merlin-history" ||
+                                             url.host() == "merlin-downloads" ||
+                                             url.host() == "merlin-bookmarks")) {
+                contents->GetPrimaryMainFrame()->ExecuteJavaScript(
+                    u"{ const link = document.getElementById('theme-colors'); "
+                    u"if (link) { link.dataset.version = String(Number(link.dataset.version || 0) + 1); "
+                    u"link.href = '/theme.css?v=' + link.dataset.version; } "
+                    u"if (location.host === 'merlin-settings' && window.merlinPage) chrome.send('ready'); }",
+                    base::NullCallback());
+              }
+            }
+            if (auto* c = From(browser)) {
+              c->status_->Relayout();
+              if (c->back_button_)
+                c->back_button_->InvalidateLayout();
+              if (c->forward_button_)
+                c->forward_button_->InvalidateLayout();
+              if (c->reload_button_)
+                c->reload_button_->InvalidateLayout();
+              if (c->browser_view_) c->browser_view_->InvalidateLayout();
+              if (c->tab_bar_host_)
+                c->tab_bar_host_->Update();
+            }
+            return true;
+          });
+    }
+  }
   const std::string transparency = router_.popup_transparency();
   views::merlin_style::SetPopoverTransparency(
       transparency == "solid"  ? views::merlin_style::PopoverTransparency::kSolid
@@ -1643,7 +1780,8 @@ void ModalBrowserController::ApplyConfigToBrowser() {
                 !browser_->GetProfile()->IsOffTheRecord());
 }
 
-// -- BrowserOps: browser shell -------------------------------------------------
+// -- BrowserOps: browser shell
+// -------------------------------------------------
 
 void ModalBrowserController::SetVerticalTabsDefault(bool vertical) {
   // Only the default changes, and only for this run: a layout the user
@@ -1700,6 +1838,12 @@ void ModalBrowserController::SetTabsHidden(ffi::Switch value) {
 }
 
 void ModalBrowserController::ApplyTabsHidden() {
+  if (!browser_view_) {
+#if BUILDFLAG(IS_MAC)
+    NotifyShellWindow(browser_);
+#endif
+    return;
+  }
   // Normal windows only; popups and apps have no tabs to hide.
   if (browser_->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
     return;
@@ -1717,6 +1861,13 @@ void ModalBrowserController::ApplyTabsHidden() {
 }
 
 void ModalBrowserController::SetTabSidebar(ffi::Switch value) {
+  if (!browser_view_) {
+    // React's sidebar has one expanded state, backed by the existing command
+    // preference. Chromium's VerticalTabStripStateController owns the old UI.
+    SetTabsHidden(value == ffi::Switch::Toggle ? ffi::Switch::Toggle :
+                  value == ffi::Switch::On ? ffi::Switch::Off : ffi::Switch::On);
+    return;
+  }
   auto* state = tabs::VerticalTabStripStateController::From(browser_.get());
   if (!state || !state->ShouldDisplayVerticalTabs()) {
     ShowMessage(ffi::MessageLevel::Error,
@@ -1809,11 +1960,15 @@ void ModalBrowserController::Split(ffi::SplitLayout layout,
   if (!url) {
     return;
   }
-  if (url->is_empty()) {
+  if (url->is_empty() && browser_view_) {
     // Chromium's own command: the new side shows its split-view tab picker.
     chrome::NewSplitTab(browser_, ToLayout(layout),
                         split_tabs::SplitTabCreatedSource::kKeyboardShortcut);
     return;
+  }
+  if (url->is_empty()) {
+    // The React shell has no tab picker: the new side opens its start page.
+    url = GURL(url::kAboutBlankURL);
   }
   // As chrome::NewSplitTab does, with our page in the new side.
   strip->delegate()->AddTabAt(*url, active + 1, /*foreground=*/true,
@@ -1951,28 +2106,29 @@ void ModalBrowserController::SnapshotWorkspace(std::string_view name,
 void ModalBrowserController::WriteWorkspace(std::string_view name,
                                             std::string_view contents,
                                             std::string_view message) {
-  workspace_store::Write(
-      std::string(name), std::string(contents),
-      base::BindOnce(
-          [](base::WeakPtr<ModalBrowserController> self, std::string message,
-             std::string error) {
-            if (!self) {
-              return;
-            }
-            if (!error.empty()) {
-              self->ShowMessage(ffi::MessageLevel::Error,
-                                "Workspace: " + error);
-            } else {
-              // One window per workspace: another window still kept under
-              // this name would write over it with its own tabs.
-              self->ReleaseWorkspaceInOtherWindows();
-              if (!message.empty()) {
-                self->ShowMessage(ffi::MessageLevel::Info, message);
-              }
-            }
-            self->PageWorkDone();
-          },
-          weak_factory_.GetWeakPtr(), std::string(message)));
+  workspace_store::Write(std::string(name), std::string(contents),
+                         base::BindOnce(
+                             [](base::WeakPtr<ModalBrowserController> self,
+                                std::string message, std::string error) {
+                               if (!self) {
+                                 return;
+                               }
+                               if (!error.empty()) {
+                                 self->ShowMessage(ffi::MessageLevel::Error,
+                                                   "Workspace: " + error);
+                               } else {
+                                 // One window per workspace: another window
+                                 // still kept under this name would write over
+                                 // it with its own tabs.
+                                 self->ReleaseWorkspaceInOtherWindows();
+                                 if (!message.empty()) {
+                                   self->ShowMessage(ffi::MessageLevel::Info,
+                                                     message);
+                                 }
+                               }
+                               self->PageWorkDone();
+                             },
+                             weak_factory_.GetWeakPtr(), std::string(message)));
 }
 
 ModalBrowserController* ModalBrowserController::WindowWithWorkspace(
@@ -2355,6 +2511,26 @@ void ModalBrowserController::RequestItems(ffi::ItemSource source) {
 }
 
 void ModalBrowserController::ShowBrowserPage(ffi::BrowserPage page) {
+#if BUILDFLAG(IS_MAC)
+  if (!browser_view_) {
+    // The React shell presents these itself rather than Chromium's pages.
+    const char* panel = nullptr;
+    switch (page) {
+      case ffi::BrowserPage::History: panel = "history"; break;
+      case ffi::BrowserPage::Bookmarks: panel = "bookmarks"; break;
+      case ffi::BrowserPage::Downloads: panel = "downloads"; break;
+      case ffi::BrowserPage::Extensions: panel = "extensions"; break;
+      case ffi::BrowserPage::SiteInfo: ShowSiteInfo(); return;
+      case ffi::BrowserPage::ReadingMode:
+        ShowMessage(ffi::MessageLevel::Error,
+                    "Reading mode needs a side panel, which Merlin does not use");
+        return;
+      case ffi::BrowserPage::Settings:
+      default: panel = "settings"; break;
+    }
+    if (OpenShellPanel(browser_, panel)) return;
+  }
+#endif
   int command = IDC_OPTIONS;
   switch (page) {
     case ffi::BrowserPage::History:
@@ -2470,7 +2646,8 @@ void ModalBrowserController::AddBookmark() {
   }
 }
 
-// -- BrowserOps: page structure and selection -----------------------------------
+// -- BrowserOps: page structure and selection
+// -----------------------------------
 
 void ModalBrowserController::CollectDocument(uint32_t generation) {
   content::WebContents* contents = ActiveContents();
@@ -2893,6 +3070,20 @@ void ModalBrowserController::ReadSelection(
       ISOLATED_WORLD_ID_CHROME_INTERNAL);
 }
 
+base::DictValue ModalBrowserController::ShellModalState() const {
+  const auto& state = status_->state();
+  static constexpr std::array<const char*, 6> kModes = {
+      "Normal", "Insert", "Visual", "Command", "Passthrough", "Hint"};
+  const auto mode = static_cast<size_t>(state.mode);
+  return base::DictValue()
+      .Set("mode", mode < std::size(kModes) ? kModes[mode] : "Normal")
+      .Set("pending", base::UTF16ToUTF8(state.pending))
+      .Set("message", base::UTF16ToUTF8(state.message))
+      .Set("sidebarHidden", tabs_hidden_)
+      .Set("palette", shell_palette_.empty() ? base::Value() : base::Value(shell_palette_.Clone()))
+      .Set("hints", shell_hints_.Clone()).Set("hintPrefix", shell_hint_prefix_);
+}
+
 // -- browserctl ---------------------------------------------------------------
 
 void ModalBrowserController::FocusTabNumber(uint32_t number,
@@ -3267,6 +3458,7 @@ void ModalBrowserController::ObserveActiveContents() {
 }
 
 void ModalBrowserController::ApplyPageColor(std::optional<SkColor> color) {
+  if (!browser_view_) return;
   page_color_value_ = color;
   if (tab_bar_host_) {
     tab_bar_host_->SetPageColor(color);

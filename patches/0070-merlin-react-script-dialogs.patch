@@ -1,0 +1,78 @@
+--- a/chrome/browser/ui/views/javascript_tab_modal_dialog_view_views.cc
++++ b/chrome/browser/ui/views/javascript_tab_modal_dialog_view_views.cc
+@@ -22,6 +22,10 @@
+ #include "ui/views/controls/message_box_view.h"
+ #include "ui/views/controls/textfield/textfield.h"
+ #include "ui/views/layout/fill_layout.h"
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
++#include "chrome/browser/ui/modal_browser/merlin_react_script_dialog.h"
++#endif
+ 
+ JavaScriptTabModalDialogViewViews::~JavaScriptTabModalDialogViewViews() =
+     default;
+@@ -175,6 +179,15 @@
+     const std::u16string& default_prompt_text,
+     content::JavaScriptDialogManager::DialogClosedCallback dialog_callback,
+     base::OnceClosure dialog_force_closed_callback) {
++#if BUILDFLAG(IS_MAC)
++  auto* tab = tabs::TabInterface::MaybeGetFromContents(web_contents_);
++  auto* browser = tab ? tab->GetBrowserWindowInterface() : nullptr;
++  if (modal_browser::ReactShellEnabled() && browser &&
++      browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
++    return modal_browser::CreateReactScriptDialog(browser, web_contents_, title, dialog_type,
++        message_text, default_prompt_text, std::move(dialog_callback), std::move(dialog_force_closed_callback));
++  }
++#endif
+   return (new JavaScriptTabModalDialogViewViews(
+               web_contents_, alerting_web_contents, title, dialog_type,
+               message_text, default_prompt_text, std::move(dialog_callback),
+--- a/chrome/browser/ui/views/chrome_javascript_app_modal_view_factory_views.cc
++++ b/chrome/browser/ui/views/chrome_javascript_app_modal_view_factory_views.cc
+@@ -17,6 +17,12 @@
+ #include "ui/display/screen.h"
+ #include "ui/gfx/native_ui_types.h"
+ #include "ui/views/widget/widget.h"
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
++#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
++#include "chrome/browser/ui/modal_browser/merlin_react_script_dialog.h"
++#include "components/tabs/public/tab_interface.h"
++#endif
+ 
+ #if BUILDFLAG(IS_OZONE)
+ #include "ui/base/ui_base_features.h"
+@@ -94,6 +100,13 @@
+ javascript_dialogs::AppModalDialogView* CreateViewsJavaScriptDialog(
+     std::unique_ptr<javascript_dialogs::AppModalDialogController> controller) {
+   content::WebContents* web_contents = controller->web_contents();
++#if BUILDFLAG(IS_MAC)
++  auto* tab = tabs::TabInterface::MaybeGetFromContents(web_contents);
++  auto* browser = tab ? tab->GetBrowserWindowInterface() : nullptr;
++  if (modal_browser::ReactShellEnabled() && browser &&
++      browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL)
++    return modal_browser::CreateReactAppScriptDialog(browser, std::move(controller));
++#endif
+   javascript_dialogs::AppModalDialogViewViews* dialog =
+       new ChromeJavaScriptAppModalDialogViews(std::move(controller));
+   web_contents->GetDelegate()->ActivateContents(web_contents);
+--- a/chrome/browser/ui/views/BUILD.gn
++++ b/chrome/browser/ui/views/BUILD.gn
+@@ -1029,6 +1029,7 @@
+   public = [ "javascript_tab_modal_dialog_view_views.h" ]
+   sources = [ "javascript_tab_modal_dialog_view_views.cc" ]
+   public_deps = [
++    "//chrome/browser/ui/modal_browser:shell_headers",
+     "//base",
+     "//components/javascript_dialogs",
+     "//components/tabs:public",
+@@ -1350,7 +1351,8 @@
+ if (enable_extensions) {
+   source_set("chrome_javascript_app_modal_view_factory_views") {
+     sources = [ "chrome_javascript_app_modal_view_factory_views.cc" ]
+-    public_deps = [ "//chrome/browser/ui/javascript_dialogs" ]
++    public_deps = [
++    "//chrome/browser/ui/modal_browser:shell_headers", "//chrome/browser/ui/javascript_dialogs" ]
+     deps = [
+       "//base",
+       "//build:buildflag_header_h",

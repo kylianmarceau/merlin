@@ -1,4 +1,11 @@
 /target/
+/node_modules/
+/apps/*/node_modules/
+/packages/*/node_modules/
+/apps/browser/build/
+/apps/browser/macos/Pods/
+/apps/browser/macos/build/
+/apps/browser/macos/.xcode.env.local
 .DS_Store
 
 # Local Chromium checkout, never committed here

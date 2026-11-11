@@ -7,8 +7,8 @@
 
 #include <optional>
 
-#include "components/modal_browser/ffi/src/lib.rs.h"
 #include "chrome/browser/ui/modal_browser/merlin_design_tokens.h"
+#include "components/modal_browser/ffi/src/lib.rs.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/font_list.h"
 
@@ -30,9 +30,7 @@ using Colors = design::OverlayPalette;
 // Light or dark, from the color provider of `view` (or its widget).
 bool IsDark(const views::View* view);
 const Colors& ColorsFor(bool dark);
-inline const Colors& ColorsFor(const views::View* view) {
-  return ColorsFor(IsDark(view));
-}
+Colors ColorsFor(const views::View* view);
 
 // Mode pill colors: the dot and the label tint.
 SkColor ModeColor(ffi::Mode mode, bool dark);
@@ -81,7 +79,7 @@ inline constexpr int kHintRadius = 4;
 // The page card: the toolbar and the page as one surface, inset from the
 // window's sides, rounded at its four outer corners.
 inline constexpr int kCardSide = 8;
-inline constexpr float kCardRadius = 12;
+float CardRadius();
 // Delay before the which-key panel appears after a prefix, so fast
 // sequences like `gg` never flash it.
 inline constexpr int kWhichKeyDelayMs = 400;

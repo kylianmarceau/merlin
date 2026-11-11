@@ -24,11 +24,12 @@
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/modal_browser/merlin_pages.h"
 #include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
+#include "chrome/browser/ui/modal_browser/merlin_theme.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
-#include "components/favicon_base/favicon_url_parser.h"
 #include "chrome/common/pref_names.h"
+#include "components/favicon_base/favicon_url_parser.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/sessions/core/tab_restore_types.h"
@@ -41,8 +42,8 @@
 #include "content/public/browser/web_ui_message_handler.h"
 #include "content/public/browser/webui_config.h"
 #include "content/public/browser/webui_config_map.h"
-#include "content/public/common/url_constants.h"
 #include "content/public/common/referrer.h"
+#include "content/public/common/url_constants.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/views/merlin_style.h"
@@ -70,9 +71,10 @@ constexpr char kIndexHtml[] = R"HTML(<!doctype html>
 <link rel="stylesheet" href="merlin-tokens.css">
 <link rel="stylesheet" href="start-tokens.css">
 <link rel="stylesheet" href="start.css">
+<link id="theme-colors" rel="stylesheet" href="/theme.css">
 <script src="start.js" defer></script>
 </head>
-<body>
+<body class="merlin-start">
 <main class="start">
   <header class="brand">
     <img class="mark" src="icon.svg" alt="" aria-hidden="true">
@@ -446,7 +448,8 @@ constexpr char kStartJs[] = R"JS('use strict';
 })();
 )JS";
 
-// -- The browser side ----------------------------------------------------------
+// -- The browser side
+// ----------------------------------------------------------
 
 std::string DomainOf(const GURL& url) {
   std::string host(url.host());
@@ -882,16 +885,18 @@ MerlinStartUI::MerlinStartUI(content::WebUI* web_ui)
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       web_ui->GetWebContents()->GetBrowserContext(), kMerlinStartHost);
   source->SetRequestFilter(
-      base::BindRepeating([](const std::string& path) {
-        return FileForPath(path) != nullptr;
-      }),
       base::BindRepeating(
-          [](const std::string& path,
+          [](const std::string& path) { return FileForPath(path) != nullptr; }),
+      base::BindRepeating(
+          [](bool is_private, const std::string& path,
              content::WebUIDataSource::GotDataCallback callback) {
             std::move(callback).Run(
                 base::MakeRefCounted<base::RefCountedString>(
-                    std::string(FileForPath(path))));
-          }));
+                    path.substr(0, path.find('?')) == "theme.css"
+                        ? (is_private ? "" : MerlinThemeCss())
+                        : std::string(FileForPath(path))));
+          },
+          Profile::FromWebUI(web_ui)->IsOffTheRecord()));
   // Suggestion rows show site icons from chrome://favicon2, as Chromium's
   // history page does.
   Profile* profile = Profile::FromWebUI(web_ui);

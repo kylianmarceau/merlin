@@ -1069,3 +1069,108 @@ fn tabs_layout_setting() {
             .any(|c| c.text == "set tabs=side")
     );
 }
+
+#[test]
+fn theme_color_config() {
+    let mut s = ModalSession::new();
+    assert_eq!(s.config().theme_color, "default");
+    for color in [
+        "default", "#5f8764", "#527eb5", "#9271b5", "#f6d44a", "#d783a6", "#c85c55", "#d38b48",
+        "#6b7078", "#000000", "#FFFFFF",
+    ] {
+        assert!(
+            s.load_config(&format!("[options]\ntheme_color = \"{color}\""))
+                .errors
+                .is_empty()
+        );
+        assert_eq!(s.config().theme_color, color.to_ascii_lowercase());
+    }
+    for value in [
+        "true",
+        "123",
+        "\"red\"",
+        "\"#fff\"",
+        "\"#12345678\"",
+        "\"#gg0000\"",
+        "\"#é0000\"",
+    ] {
+        assert_eq!(
+            s.load_config(&format!("[options]\ntheme_color = {value}"))
+                .errors
+                .len(),
+            1
+        );
+    }
+    assert!(s.load_config("").errors.is_empty());
+    assert_eq!(s.config().theme_color, "default");
+}
+
+#[test]
+fn appearance_config_options_and_reset() {
+    let mut s = ModalSession::new();
+    let report = s.load_config(
+        r##"[options]
+theme_tint = "accent"
+page_color_matching = false
+corner_style = "sharp"
+density = "comfortable"
+start_background = "gradient"
+hint_color = "theme"
+start_background_image = "data:image/png;base64,aGVsbG8="
+"##,
+    );
+    assert!(report.errors.is_empty(), "{:?}", report.errors);
+    assert_eq!(s.config().theme_tint, "accent");
+    assert!(!s.config().page_color_matching);
+    assert_eq!(s.config().corner_style, "sharp");
+    assert_eq!(s.config().density, "comfortable");
+    assert_eq!(s.config().start_background, "gradient");
+    assert_eq!(s.config().hint_color, "theme");
+    assert!(!s.config().start_background_image.is_empty());
+    for name in [
+        "theme_tint",
+        "corner_style",
+        "density",
+        "start_background",
+        "hint_color",
+        "start_background_image",
+    ] {
+        assert_eq!(
+            s.load_config(&format!("[options]\n{name} = \"bogus\""))
+                .errors
+                .len(),
+            1
+        );
+        assert_eq!(
+            s.load_config(&format!("[options]\n{name} = true"))
+                .errors
+                .len(),
+            1
+        );
+    }
+    for image in [
+        "https://example.com/photo.jpg",
+        "data:image/svg+xml;base64,AAAA",
+        "data:image/png;base64,);}",
+    ] {
+        assert_eq!(
+            s.load_config(&format!("[options]\nstart_background_image = \"{image}\""))
+                .errors
+                .len(),
+            1
+        );
+    }
+    let oversized = format!(
+        "[options]\nstart_background_image = \"data:image/png;base64,{}\"",
+        "A".repeat(192 * 1024)
+    );
+    assert_eq!(s.load_config(&oversized).errors.len(), 1);
+    s.load_config("");
+    assert_eq!(s.config().theme_tint, "full");
+    assert!(s.config().page_color_matching);
+    assert_eq!(s.config().corner_style, "rounded");
+    assert_eq!(s.config().density, "compact");
+    assert_eq!(s.config().start_background, "plain");
+    assert_eq!(s.config().hint_color, "yellow");
+    assert!(s.config().start_background_image.is_empty());
+}
