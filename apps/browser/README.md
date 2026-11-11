@@ -12,9 +12,11 @@ runtime-qualified** (see the checklist at the end).
 | --- | --- | --- |
 | Chromium | `overlay/chrome/browser/ui/modal_browser/merlin_react_*` | Browser windows, WebContents, navigation, profile data, permissions, find sessions and dialog decisions |
 | C ABI | `packages/engine/include/` | Versioned engine calls/events and host root creation; no C++ objects cross the framework boundary |
-| Native presentation bridge | `packages/engine/macos/` | Expo modules, native WebContents attachment and SF Symbols |
-| Presentation | `apps/browser/src/ui/` | React Native macOS components, shared tokens, dialogs, focus and local form drafts |
-| State | `apps/browser/src/state/` | A Zustand store for each window, validated Chromium snapshots and transient panels |
+| Engine module | `packages/engine/` | The `MerlinEngine` Expo module: calls, events and native page attachment |
+| AppKit module | `packages/shell/` | The `MerlinShell` Expo module (pod `MerlinShellViews`): SF Symbols, vibrancy, shadowed surfaces, the window drag region, outside-press detection, context-menu areas and native menus |
+| Platform | `apps/browser/src/platform/` | The only JS that imports the two native packages |
+| State | `apps/browser/src/state/` | A Zustand store per window, its actions and hooks, validated snapshots and the rules for which overlays show |
+| Components | `apps/browser/src/components/` | `ui/` (tokens, motion, about 30 shared pieces) and one folder per feature |
 | Host process | `apps/browser/macos/MerlinShell-macOS/` | Loads Chromium, calls `ChromeMain`, and supplies React roots to engine-owned windows |
 
 The pinned stack is React 19.1.4, React Native 0.81.6, React Native macOS 0.81.9,
@@ -23,11 +25,16 @@ Native's classic bridge (`RCT_NEW_ARCH_ENABLED=0`), matching the researched
 integration. Chromium remains responsible for process startup and the event
 loop. The host must not call `NSApplicationMain` or install a competing delegate.
 
-Normal browser windows use a custom Views-backed macOS window containing one
-React root, without constructing `BrowserView`. Each active page's existing
-NSView is embedded beneath the React toolbar. Popups/app windows still use the
-upstream window implementation during this migration. One shared React bridge
-serves all normal windows; each root receives an opaque native window ID.
+Browser windows and the pop-ups pages open use a custom Views-backed macOS
+window containing one React root, without constructing `BrowserView`. Each
+active page's existing NSView is embedded in the React layout. App and DevTools
+windows keep the upstream implementation. One shared React bridge serves all
+windows; each root receives an opaque native window ID.
+
+`DESIGN.md` is the visual spec: surfaces, type, colour roles, spacing and
+motion. `src/conventions.test.ts` enforces its rules (no colour, size or timing
+literals outside the tokens, no React Native shadows or `Modal`, and imports
+only downwards through lib, platform, state and components).
 
 Calls run on Chromium's UI thread. The bridge checks window/tab ownership and
 validates prompt actions. Snapshots have session and revision IDs; subscriptions
@@ -35,9 +42,11 @@ are established before the initial read, and stale snapshots are discarded.
 Native changes are coalesced outside tab-strip mutation callbacks. React never
 maintains a second authoritative tab list or writes Chromium profile files.
 
-`visibleSurface` selects one modal surface per window. Permission and script
-decisions take priority over menus/settings/errors. Quiet permission requests
-wait for an explicit reveal. Dialog callbacks, permitted actions and input
+`state/surfaces.ts` decides which overlays show. Site questions (permissions,
+passwords, autofill, translation, site information) are anchored popovers
+beside the address that leave the page usable; page and window questions are
+dialogs. Both take priority over the command menu and the shell's own
+popovers. Failures are toasts. Quiet requests wait behind a toolbar chip. Dialog callbacks, permitted actions and input
 drafts stay tied to native request IDs. A short input guard prevents a click
 that opened a prompt from also answering it.
 
@@ -116,17 +125,19 @@ shell presents it.
 
 | Surface | React | Chromium side |
 | --- | --- | --- |
-| Tabs, pinning, ordering, address, navigation, start page | `TabSidebar`, `App`, `StartPage` | `merlin_shell_bridge_mac.mm` |
-| Split views (`:split`, `:vsplit`) | `App` renders both halves; the other half focuses on click | Snapshot `split`, page attachment and visibility in the window |
-| Command palette, link hints, find in page | `CommandMenu`, hint overlay, `FindBox` | Modal controller, `merlin_react_find_bar.cc` |
+| Tabs, pinning, ordering, favicons, native tab menus, start page | `sidebar/`, `favicon/`, `start/` | `merlin_shell_bridge_mac.mm` (`favicons.get`, 2x PNG) |
+| Address field with Chromium's suggestions and inline completion | `omnibox/` | `MerlinSuggestions` through `omnibox.query`/`open`/`enter` |
+| Split views (`:split`, `:vsplit`) | `window/PageArea` renders both halves; the other half focuses on click | Snapshot `split`, page attachment and visibility in the window |
+| Command palette, link hints, find in page | `palette/`, `window/PageArea`, `find/` | Modal controller, `merlin_react_find_bar.cc` |
+| Pop-up windows | `window/PopupWindow` | `patches/0068` (`TYPE_POPUP`), snapshot `kind` |
 | Settings: appearance, startup, search, downloads, privacy, blocking, performance, extensions, workspaces, keys, config file, about | `Settings` | `merlin_preferences.cc` (shared with the legacy page), `merlin_shell_services.cc` |
 | History, bookmarks with folders, downloads | `Library` | `merlin_shell_services.cc`, `merlin_downloads.cc` |
-| Extensions (run an action, turn on or off) | `Extensions` | `merlin_shell_services.cc` |
-| Profiles (switch, add) | `Profiles` | `merlin_shell_services.cc` |
-| Permissions, JavaScript dialogs, leave-page, close with downloads | `BrowserPrompt` | `merlin_react_permission_prompt.cc`, `merlin_react_script_dialog.cc` |
-| Site information, bookmark editing, translate, open-in-app, update ready, caret browsing, private-window dialogs | `BrowserPrompt` | `merlin_react_window_mac.mm`, `ShowShellSiteInfo` |
-| Save or update passwords | `BrowserPrompt` | `merlin_react_passwords.cc`, hooked by `patches/0071` |
-| Save or update addresses, save cards locally | `BrowserPrompt` | `merlin_react_autofill.cc` |
+| Extensions popover, and extension popups in place | `extensions/` | `merlin_shell_services.cc`, `merlin_react_extension_popup_mac.mm` |
+| Profiles and recent downloads popovers | `profiles/`, `library/DownloadsPopover` | `merlin_shell_services.cc` |
+| Permissions, JavaScript dialogs, leave-page, close with downloads | `site/` | `merlin_react_permission_prompt.cc`, `merlin_react_script_dialog.cc` |
+| Site information, bookmark editing, translate, open-in-app, update ready, caret browsing, private-window dialogs | `site/` | `merlin_react_window_mac.mm`, `ShowShellSiteInfo` |
+| Save or update passwords | `site/` | `merlin_react_passwords.cc`, hooked by `patches/0071` |
+| Save or update addresses, save cards locally | `site/` | `merlin_react_autofill.cc` |
 | Color picker eye dropper | System color sampler | Chromium's macOS `ShowEyeDropper` |
 
 Data Chromium produces on demand travels as a request: `EngineClient.request()`
@@ -142,14 +153,13 @@ request button instead of interrupting the page.
 
 ### Deliberate limits
 
-- Extension popups open as a tab with the extension's origin and permissions;
-  there is no anchored extension popover yet. Side-panel extensions report that
-  side panels are not part of Merlin.
+- Side-panel extensions report that side panels are not part of Merlin, and
+  `chrome.action.openPopup()` from an extension is not supported.
 - Reading mode needs Chromium's side panel and is reported as unavailable.
 - Card upload to a payments account, IBAN, virtual cards and Autofill AI offers
   are not shown; their controllers see no bubble and continue.
 - The fullscreen exit/security indicator remains Chromium's native bubble.
-- Popup and app windows still use the upstream window implementation.
+- App and DevTools windows still use the upstream window implementation.
 - Saved passwords, site permissions, cookies, certificates and similar
   specialist pages open Chromium's own pages from Settings.
 - Send-tab-to-self (needs Google Sync) and enterprise download scanning still
@@ -161,7 +171,13 @@ appearance, VoiceOver, private windows, multi-window routing, permission queues,
 JavaScript/before-unload dialogs, fullscreen exit, downloads and shutdown;
 also Settings and config saving, history paging, bookmark folders and moves,
 split views (both halves visible, focus on click), password and address save
-offers, translation, profile switching and extension actions.
+offers, translation, profile switching and extension actions. Check the new
+AppKit pieces in particular: sidebar vibrancy, popover shadows and layering
+above the page, dragging and double-clicking the toolbar and sidebar strip,
+outside clicks on the page closing popovers, right-click tab menus, favicons,
+address suggestions, extension popups sizing to their content, and pop-up
+windows. `pod install` (run by `build_react_shell.sh`) adds the new
+`MerlinShellViews` pod.
 Source and syntax checks cannot establish that these work at runtime. Compare
 benchmarks only after a fresh build, using the same engine build type and test
 conditions as the previous baseline.

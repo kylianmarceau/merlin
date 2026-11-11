@@ -2,6 +2,8 @@
 export type Tab = {
   id: string; title: string; url: string; loading: boolean; pinned: boolean;
   audible: boolean; canGoBack: boolean; canGoForward: boolean;
+  /** Changes when the page's icon does; empty when it has none. Fetch with favicons.get. */
+  favicon?: string;
 };
 export type Download = {
   id: string; name: string; received: number; total: number;
@@ -13,8 +15,17 @@ export type Split = { tabs: string[]; layout: 'sideBySide' | 'stacked'; ratio: n
 export type Prompt = {
   id: string; origin: string; title: string; message: string; quiet?: boolean; canSuppress?: boolean; input?: { label: string; defaultValue: string };
   kind: 'permission' | 'confirm' | 'alert' | 'beforeUnload';
+  /** Where it appears: beside the address ("site"), over the page ("page") or in the window centre. */
+  anchor?: PromptAnchor;
+  /** Site information only: the connection's security. */
+  security?: 'secure' | 'insecure' | 'dangerous' | 'internal';
   actions: { id: string; label: string; emphasis: 'normal' | 'primary' | 'danger' }[];
 };
+export type PromptAnchor = 'site' | 'page' | 'window';
+/** The window's open extension popup. Its page is shown with tab ID "extension-popup". */
+export type ExtensionPopup = { extensionId: string; name: string; width: number; height: number; ready: boolean };
+export type Suggestion = { kind: 'search' | 'url' | 'tab'; title: string; detail: string; url: string; completion: string; default: boolean };
+export type Favicon = { key: string; url: string };
 export type Appearance = { mode: 'system' | 'light' | 'dark'; accent: 'ocean' | 'iris' | 'fern'; reduceMotion: boolean };
 export type CommandPalette = {
   visible: boolean; prompt: string; placeholder: string; text: string; selected: number;
@@ -25,6 +36,9 @@ export type Hint = { label: string; x: number; y: number };
 export type FindState = { visible: boolean; text: string; matches: number; ordinal: number; focus: number };
 export type Snapshot = {
   session: string; windowId: string; revision: number; private: boolean;
+  /** A pop-up a page opened shows only its page and address. */
+  kind?: 'normal' | 'popup';
+  extensionPopup?: ExtensionPopup | null;
   tabs: Tab[]; activeTabId: string | null; downloads: Download[];
   prompt: Prompt | null; appearance: Appearance; find?: FindState; split?: Split | null;
   modal: { mode: string; pending: string; message: string; sidebarHidden?: boolean; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string };
@@ -56,6 +70,13 @@ export type Calls = {
   'modal.palette.text': { args: { text: string }; result: null };
   'modal.palette.key': { args: { key: 'accept' | 'cancel' | 'next' | 'previous' }; result: null };
   'modal.palette.select': { args: { index: number; revision: number }; result: null };
+  'favicons.get': { args: { tabId: string }; result: Favicon | null };
+  'omnibox.query': { args: { queryId: string; text: string; preventInline: boolean }; result: null };
+  'omnibox.stop': { args: {}; result: null };
+  'omnibox.open': { args: { queryId: string; index: number; newTab: boolean }; result: null };
+  'omnibox.enter': { args: { queryId?: string; text: string; newTab: boolean }; result: null };
+  'extensions.closePopup': { args: {}; result: null };
+  'site.info': { args: {}; result: null };
 };
 export type Method = keyof Calls;
 export type DownloadAction = 'open' | 'show' | 'cancel' | 'pause' | 'retry' | 'discard' | 'forget';
@@ -116,7 +137,8 @@ export type PanelName = typeof panels[number];
 export type EngineEvent = { type: 'snapshot'; snapshot: Snapshot } | { type: 'address.focus' | 'address.revert' | 'command.open'; windowId: string }
   | { type: 'engine.error'; windowId: string; message: string }
   | { type: 'panel.open'; windowId: string; panel: PanelName }
-  | { type: 'reply'; windowId: string; requestId: string; ok: boolean; value?: unknown; error?: string };
+  | { type: 'reply'; windowId: string; requestId: string; ok: boolean; value?: unknown; error?: string }
+  | { type: 'omnibox.results'; windowId: string; queryId: string; items: Suggestion[] };
 
 export function parseEngineEvent(json: string): EngineEvent {
   const value: unknown = JSON.parse(json);
@@ -135,6 +157,8 @@ export function parseEngineEvent(json: string): EngineEvent {
   if (v.type === 'reply' && typeof v.windowId === 'string' && typeof v.requestId === 'string' && typeof v.ok === 'boolean' &&
       (v.error === undefined || typeof v.error === 'string'))
     return { type: 'reply', windowId: v.windowId, requestId: v.requestId, ok: v.ok, value: v.value, error: v.error as string | undefined };
+  if (v.type === 'omnibox.results' && typeof v.windowId === 'string' && typeof v.queryId === 'string' && listOf(suggestion)(v.items))
+    return { type: 'omnibox.results', windowId: v.windowId, queryId: v.queryId, items: v.items as Suggestion[] };
   throw new Error('Unknown engine event');
 }
 export interface Transport {
@@ -156,6 +180,11 @@ export class EngineClient {
     }
     if (!('value' in reply)) throw new Error('Missing engine response value');
     if (method === 'window.snapshot') return validateSnapshot(reply.value, this.windowId) as Calls[M]['result'];
+    if (method === 'favicons.get') {
+      if (reply.value !== null && !fields(reply.value, { key: isString, url: v => isString(v) && v.startsWith('data:image/png;base64,') }))
+        throw new Error('Invalid icon from the browser');
+      return reply.value as Calls[M]['result'];
+    }
     if (reply.value !== null) throw new Error('Invalid command acknowledgement');
     return null as Calls[M]['result'];
   }
@@ -217,7 +246,8 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
   for (const tab of s.tabs) {
     if (!tab || typeof tab.id !== 'string' || !tab.id || ids.has(tab.id) ||
         typeof tab.title !== 'string' || typeof tab.url !== 'string' ||
-        ![tab.loading, tab.pinned, tab.audible, tab.canGoBack, tab.canGoForward].every(x => typeof x === 'boolean')) {
+        ![tab.loading, tab.pinned, tab.audible, tab.canGoBack, tab.canGoForward].every(x => typeof x === 'boolean') ||
+        (tab.favicon !== undefined && typeof tab.favicon !== 'string')) {
       throw new Error('Invalid tab snapshot');
     }
     ids.add(tab.id);
@@ -232,12 +262,18 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
   if (s.split !== undefined && s.split !== null && (typeof s.split !== 'object' || !Array.isArray(s.split.tabs) ||
       s.split.tabs.length < 2 || s.split.tabs.some(id => !ids.has(id)) || !['sideBySide', 'stacked'].includes(s.split.layout) ||
       !Number.isFinite(s.split.ratio) || (s.activeTabId !== null && !s.split.tabs.includes(s.activeTabId)))) throw new Error('Invalid split view');
+  if (s.kind !== undefined && s.kind !== 'normal' && s.kind !== 'popup') throw new Error('Invalid window kind');
+  if (s.extensionPopup !== undefined && s.extensionPopup !== null && !fields(s.extensionPopup, {
+      extensionId: isString, name: isString, ready: isBool,
+      width: v => isNumber(v) && v > 0 && v <= 4096, height: v => isNumber(v) && v > 0 && v <= 4096 })) throw new Error('Invalid extension popup');
   if (s.prompt !== null && (!s.prompt || typeof s.prompt.id !== 'string' || !s.prompt.id ||
       ![s.prompt.origin, s.prompt.title, s.prompt.message].every(x => typeof x === 'string') ||
       (s.prompt.quiet !== undefined && typeof s.prompt.quiet !== 'boolean') ||
       (s.prompt.canSuppress !== undefined && typeof s.prompt.canSuppress !== 'boolean') ||
       (s.prompt.input !== undefined && (!s.prompt.input || typeof s.prompt.input.label !== 'string' || typeof s.prompt.input.defaultValue !== 'string')) ||
       !['permission', 'confirm', 'alert', 'beforeUnload'].includes(s.prompt.kind) ||
+      (s.prompt.anchor !== undefined && !['site', 'page', 'window'].includes(s.prompt.anchor)) ||
+      (s.prompt.security !== undefined && !['secure', 'insecure', 'dangerous', 'internal'].includes(s.prompt.security)) ||
       !Array.isArray(s.prompt.actions) || s.prompt.actions.length === 0 ||
       s.prompt.actions.some(a => !a || typeof a.id !== 'string' || !a.id || typeof a.label !== 'string' ||
         !['normal', 'primary', 'danger'].includes(a.emphasis)) ||
@@ -260,6 +296,8 @@ const bookmarkView = (x: unknown) => fields(x, {
   path: listOf(c => fields(c, { id: isString, title: isString })), folderId: isString,
   items: listOf(i => fields(i, { id: isString, title: isString, folder: isBool, editable: isBool, count: optional(isNumber),
     url: optional(isString), domain: optional(isString), where: optional(isString) })) });
+const suggestion = (x: unknown) => fields(x, { kind: v => v === 'search' || v === 'url' || v === 'tab', title: isString,
+  detail: isString, url: isString, completion: isString, default: isBool });
 const workspaces = listOf(w => fields(w, { name: isString, modified: isNumber }));
 
 /** Rejects malformed replies before any component renders them. */

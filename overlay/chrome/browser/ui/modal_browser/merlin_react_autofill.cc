@@ -206,6 +206,7 @@ class ReactAutofillBubbleHandler final : public autofill::AutofillBubbleHandler 
                card.AbbreviatedExpirationDateForDisplay(/*with_prefix=*/true);
     Dict prompt = Dict()
                       .Set("kind", "confirm")
+                      .Set("anchor", "site")
                       .Set("origin", "Merlin")
                       .Set("quiet", !is_user_gesture)
                       .Set("title", controller->GetWindowTitle())
@@ -342,6 +343,7 @@ class ReactAutofillBubbleHandler final : public autofill::AutofillBubbleHandler 
                             bool is_user_gesture) {
     return Dict()
         .Set("kind", "confirm")
+        .Set("anchor", "site")
         .Set("origin", "Merlin")
         .Set("quiet", !is_user_gesture)
         .Set("title", title)

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "react-native start",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts ../../packages/engine/src/*.test.ts",
+    "test": "tsx --test \"src/**/*.test.ts\" \"../../packages/engine/src/*.test.ts\"",
     "bundle": "react-native bundle --platform macos --dev false --entry-file index.js --bundle-output build/main.jsbundle --assets-dest build"
   },
   "dependencies": {

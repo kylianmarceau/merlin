@@ -38,7 +38,7 @@ class ReactPermissionPrompt final : public permissions::PermissionPrompt {
     const auto embedding = url::Origin::Create(delegate->GetEmbeddingOrigin());
     if (requesting != embedding) message += "\nEmbedded by " + embedding.Serialize();
     quiet_ = delegate->ShouldCurrentRequestUseQuietUI();
-    id_ = ShowShellPrompt(browser, base::DictValue().Set("kind", "permission")
+    id_ = ShowShellPrompt(browser, base::DictValue().Set("kind", "permission").Set("anchor", "site")
         .Set("origin", requesting.Serialize()).Set("title", "Site permission")
         .Set("message", message).Set("quiet", quiet_).Set("actions", std::move(actions)),
         base::BindOnce(&ReactPermissionPrompt::Answer, weak_factory_.GetWeakPtr()));

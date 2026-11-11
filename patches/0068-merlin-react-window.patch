@@ -11,13 +11,15 @@
  
  #if defined(USE_AURA)
  #include "ui/aura/client/aura_constants.h"
-@@ -32,6 +36,12 @@
+@@ -32,6 +36,14 @@
  BrowserWindow::CreateBrowserWindow(BrowserWindowInterface* browser,
                                     bool user_gesture,
                                     bool in_tab_dragging) {
 +#if BUILDFLAG(IS_MAC)
++  // Browser windows and the pop-ups pages open use Merlin's React window.
 +  if (modal_browser::ReactShellEnabled() &&
-+      browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
++      (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL ||
++       browser->GetType() == BrowserWindowInterface::Type::TYPE_POPUP)) {
 +    return modal_browser::CreateReactBrowserWindow(browser);
 +  }
 +#endif

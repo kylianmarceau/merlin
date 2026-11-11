@@ -22,12 +22,6 @@ public final class MerlinEngineModule: Module {
     }
     OnStopObserving { self.observation.stop() }
     OnDestroy { self.observation.stop(destroy: true) }
-    View(MerlinSymbolView.self) {
-      ViewName("Symbol")
-      Prop("name") { (view, value: String) in view.symbol = value }
-      Prop("color") { (view, value: String) in view.tint = value }
-      Prop("size") { (view, value: Double) in view.pointSize = value }
-    }
     View(MerlinPageView.self) {
       ViewName("Page")
       Prop("windowId") { (view, value: String) in view.windowID = value }

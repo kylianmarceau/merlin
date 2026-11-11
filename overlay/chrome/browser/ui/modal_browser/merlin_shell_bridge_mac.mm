@@ -48,6 +48,16 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_services.h"
+#include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
+#include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
+#include "base/base64.h"
+#include "base/hash/hash.h"
+#include "content/public/browser/favicon_status.h"
+#include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/page_navigator.h"
+#include "ui/gfx/codec/png_codec.h"
+#include "ui/gfx/image/image_skia.h"
+#include "ui/gfx/image/image_skia_rep.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "components/split_tabs/split_tab_id.h"
@@ -82,6 +92,39 @@ char* Ok(base::Value value = base::Value()) { return Encode(Dict().Set("ok", tru
 bool Enabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch("merlin-react-shell");
 }
+// Shell windows: browser windows and the pop-ups pages open.
+bool ShellWindowType(BrowserWindowInterface* b) {
+  return b->GetType() == BrowserWindowInterface::TYPE_NORMAL ||
+         b->GetType() == BrowserWindowInterface::TYPE_POPUP;
+}
+// Tab IDs are numeric; this one names the window's open extension popup.
+constexpr std::string_view kExtensionPopupView = "extension-popup";
+// Changes whenever the page's icon does. Hashed: a data: icon URL can be long.
+std::string FaviconKey(content::WebContents* contents) {
+  auto* entry = contents->GetController().GetLastCommittedEntry();
+  if (!entry || !entry->GetFavicon().valid || entry->GetFavicon().image.IsEmpty()) return {};
+  const auto& url = entry->GetFavicon().url;
+  return base::NumberToString(base::PersistentHash(
+      url.is_valid() ? url.spec() : entry->GetURL().DeprecatedGetOriginAsURL().spec()));
+}
+// The icon as a 2x PNG data URL, so it stays sharp on Retina displays.
+base::Value FaviconData(content::WebContents* contents) {
+  const auto key = FaviconKey(contents);
+  if (key.empty()) return base::Value();
+  const gfx::ImageSkia image = contents->GetController().GetLastCommittedEntry()->GetFavicon().image.AsImageSkia();
+  const gfx::ImageSkiaRep& rep = image.GetRepresentation(2.0f);
+  if (rep.is_null()) return base::Value();
+  const auto png = gfx::PNGCodec::EncodeBGRASkBitmap(rep.GetBitmap(), /*discard_transparency=*/false);
+  if (!png) return base::Value();
+  return base::Value(Dict().Set("key", key).Set("url", "data:image/png;base64," + base::Base64Encode(*png)));
+}
+// Query IDs come from the shell; they only match results to their query.
+bool ValidToken(const std::string* token) {
+  return token && !token->empty() && token->size() <= 64 &&
+         std::all_of(token->begin(), token->end(), [](char c) {
+           return base::IsAsciiAlphaNumeric(c) || c == '-' || c == '_';
+         });
+}
 struct Listener { MerlinEventCallback callback; raw_ptr<void> context; };
 class Registry;
 Registry& GetRegistry();
@@ -112,6 +155,12 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     }
   }
   std::deque<ShellPrompt> prompts;
+  // Address-bar suggestions, created on first use.
+  std::unique_ptr<modal_browser::MerlinSuggestions> suggestions;
+  std::string suggest_query;
+  void Suggest(const std::string& query, const std::string& text, bool prevent_inline);
+  // Opens a suggestion; false when the results changed since `query`.
+  bool OpenSuggestion(const std::string& query, size_t index, bool new_tab);
   Dict find = Dict().Set("visible", false).Set("text", "").Set("matches", 0).Set("ordinal", 0).Set("focus", 0);
   std::string find_focused_tab;
   void OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
@@ -130,6 +179,7 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   }
   void Changed();
   void Deliver();
+  void OnSuggestions(const std::vector<modal_browser::MerlinSuggestions::Suggestion>& results);
   Dict Snapshot();
   BrowserWindowInterface* browser() { return browser_; }
  private:
@@ -150,7 +200,7 @@ class Registry : public BrowserCollectionObserver {
     });
   }
   void OnBrowserCreated(BrowserWindowInterface* b) override {
-    if (b->GetType() == BrowserWindowInterface::TYPE_NORMAL)
+    if (ShellWindowType(b))
       windows.try_emplace(WindowId(b), std::make_unique<WindowState>(b));
   }
   void OnBrowserClosed(BrowserWindowInterface* b) override { windows.erase(WindowId(b)); }
@@ -198,7 +248,8 @@ Dict WindowState::Snapshot() {
       .Set("url", contents->GetVisibleURL().spec()).Set("loading", contents->IsLoading())
       .Set("pinned", strip->IsTabPinned(i)).Set("audible", contents->IsCurrentlyAudible())
       .Set("canGoBack", contents->GetController().CanGoBack())
-      .Set("canGoForward", contents->GetController().CanGoForward()));
+      .Set("canGoForward", contents->GetController().CanGoForward())
+      .Set("favicon", FaviconKey(contents)));
   }
   List downloads;
   for (auto* d : modal_browser::MerlinDownloads(browser_->GetProfile())) {
@@ -232,11 +283,55 @@ Dict WindowState::Snapshot() {
   auto* controller = modal_browser::ModalBrowserController::From(browser_);
   return Dict().Set("session", GetRegistry().session).Set("windowId", WindowId(browser_))
     .Set("revision", revision_).Set("private", browser_->GetProfile()->IsOffTheRecord())
+    .Set("kind", browser_->GetType() == BrowserWindowInterface::TYPE_POPUP ? "popup" : "normal")
+    .Set("extensionPopup", modal_browser::ShellExtensionPopupState(browser_))
     .Set("tabs", std::move(tabs))
     .Set("activeTabId", strip->active_index() >= 0 ? base::Value(TabId(strip->GetTabAtIndex(strip->active_index()))) : base::Value())
     .Set("downloads", std::move(downloads)).Set("prompt", prompts.empty() ? base::Value() : base::Value(prompts.front().description.Clone()))
     .Set("appearance", std::move(appearance)).Set("find", find.Clone()).Set("split", std::move(split))
     .Set("modal", controller ? controller->ShellModalState() : Dict().Set("mode", "Normal").Set("pending", "").Set("message", ""));
+}
+void WindowState::Suggest(const std::string& query, const std::string& text, bool prevent_inline) {
+  if (!suggestions) {
+    // Owned here, so the callback never outlives this window.
+    suggestions = std::make_unique<modal_browser::MerlinSuggestions>(browser_->GetProfile(),
+        base::BindRepeating(&WindowState::OnSuggestions, base::Unretained(this)));
+  }
+  suggestions->SetTarget(browser_->GetTabStripModel()->GetActiveWebContents());
+  suggest_query = query;
+  suggestions->Query(base::UTF8ToUTF16(text), prevent_inline);
+}
+void WindowState::OnSuggestions(const std::vector<modal_browser::MerlinSuggestions::Suggestion>& results) {
+  using Kind = modal_browser::MerlinSuggestions::Kind;
+  List items;
+  for (const auto& s : results) {
+    items.Append(Dict().Set("kind", s.kind == Kind::kSearch ? "search" : s.kind == Kind::kTab ? "tab" : "url")
+        .Set("title", base::UTF16ToUTF8(s.title)).Set("detail", base::UTF16ToUTF8(s.detail))
+        .Set("url", s.destination.spec()).Set("completion", base::UTF16ToUTF8(s.inline_completion))
+        .Set("default", s.is_default));
+  }
+  // Results can arrive inside Query(); never re-enter the shell during its call.
+  content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+      [](Dict event) { GetRegistry().Emit(std::move(event)); },
+      Dict().Set("type", "omnibox.results").Set("windowId", WindowId(browser_))
+          .Set("queryId", suggest_query).Set("items", std::move(items))));
+}
+bool WindowState::OpenSuggestion(const std::string& query, size_t index, bool new_tab) {
+  if (!suggestions || query != suggest_query || index >= suggestions->results().size()) return false;
+  auto choice = suggestions->results()[index];
+  if (!modal_browser::MerlinSuggestions::IsOpenable(choice.destination)) return false;
+  suggestions->Opened(choice.destination);
+  suggestions->Stop();
+  auto* contents = browser_->GetTabStripModel()->GetActiveWebContents();
+  const auto disposition = choice.kind == modal_browser::MerlinSuggestions::Kind::kTab
+      ? WindowOpenDisposition::SWITCH_TO_TAB
+      : new_tab || !contents ? WindowOpenDisposition::NEW_FOREGROUND_TAB : WindowOpenDisposition::CURRENT_TAB;
+  content::OpenURLParams params(choice.destination, content::Referrer(), disposition, choice.transition,
+                                /*is_renderer_initiated=*/false);
+  // Opening can switch or close tabs; nothing touches `choice` afterwards.
+  if (contents) contents->OpenURL(params, /*navigation_handle_callback=*/{});
+  else chrome::AddTabAt(browser_, choice.destination, -1, true);
+  return true;
 }
 WindowState* FindWindow(const char* id) {
   auto& windows = GetRegistry().windows;
@@ -294,6 +389,62 @@ char* Call(const char* window, const char* method, const char* json) {
     }, WindowId(browser), *request);
     if (!modal_browser::RunShellService(browser, name, *args, std::move(reply)))
       return Error("Unsupported engine request");
+    return Ok();
+  }
+  if (name == "favicons.get") {
+    const int at = FindTab(strip, args->FindString("tabId"));
+    if (at < 0) return Error("Tab has closed or belongs to another window");
+    return Ok(FaviconData(strip->GetWebContentsAt(at)));
+  }
+  if (name == "omnibox.query") {
+    const auto* query = args->FindString("queryId");
+    const auto* text = args->FindString("text");
+    const auto prevent = args->FindBool("preventInline");
+    if (!ValidToken(query) || !text || text->size() > 4096 || !prevent) return Error("Invalid suggestion request");
+    state->Suggest(*query, *text, *prevent);
+    return Ok();
+  }
+  if (name == "omnibox.stop") {
+    if (state->suggestions) state->suggestions->Stop();
+    return Ok();
+  }
+  if (name == "omnibox.open") {
+    const auto* query = args->FindString("queryId");
+    const auto index = args->FindInt("index");
+    const auto new_tab = args->FindBool("newTab");
+    if (!ValidToken(query) || !index || *index < 0 || !new_tab) return Error("Invalid suggestion");
+    return state->OpenSuggestion(*query, static_cast<size_t>(*index), *new_tab) ? Ok()
+        : Error("The suggestions changed; choose one again");
+  }
+  if (name == "omnibox.enter") {
+    // Enter opens the top suggestion when the field still shows it, as in
+    // Chromium's address bar, so a page readied for it is used.
+    const auto* query = args->FindString("queryId");
+    const auto* text = args->FindString("text");
+    const auto new_tab = args->FindBool("newTab");
+    if (!text || text->size() > 4096 || !new_tab) return Error("Invalid address");
+    if (state->suggestions && ValidToken(query) && *query == state->suggest_query) {
+      const auto& results = state->suggestions->results();
+      if (const auto* top = state->suggestions->DefaultFor(base::UTF8ToUTF16(*text)); top && !results.empty() &&
+          top == &results.front() && top->kind != modal_browser::MerlinSuggestions::Kind::kTab &&
+          state->OpenSuggestion(*query, 0, *new_tab))
+        return Ok();
+    }
+    const GURL url = ResolveAddress(browser->GetProfile(), *text);
+    if (!url.is_valid()) return Error("This address cannot be opened");
+    if (state->suggestions) state->suggestions->Stop();
+    auto* contents = strip->GetActiveWebContents();
+    if (*new_tab || !contents) chrome::AddTabAt(browser, url, -1, true);
+    else contents->GetController().LoadURL(url, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
+    return Ok();
+  }
+  if (name == "site.info") {
+    // The active page's security and blocking, as a popover by the address.
+    modal_browser::ShowShellSiteInfo(browser);
+    return Ok();
+  }
+  if (name == "extensions.closePopup") {
+    modal_browser::CloseShellExtensionPopup(browser);
     return Ok();
   }
   if (name == "find.close") {
@@ -479,16 +630,26 @@ void* AttachPage(const char* window, const char* tab, void* parent) {
   if (!Enabled() || !parent || !content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) return nullptr;
   auto* state = FindWindow(window);
   if (!state || !tab) return nullptr;
+  auto* owner = state->browser()->GetWindow();
+  NSView* container = (__bridge NSView*)parent;
+  if (!owner || !container.window || container.window != owner->GetNativeWindow().GetNativeNSWindow()) return nullptr;
+  if (tab == kExtensionPopupView) {
+    auto* contents = modal_browser::ShellExtensionPopupContents(state->browser());
+    NSView* popup = contents ? contents->GetNativeView().GetNativeNSView() : nil;
+    if (!popup || (popup.window && popup.window != container.window)) return nullptr;
+    [container addSubview:popup];
+    popup.frame = container.bounds;
+    contents->WasShown();
+    contents->Focus();
+    return (__bridge void*)popup;
+  }
   auto* strip = state->browser()->GetTabStripModel();
   const std::string id(tab);
   const int index = FindTab(strip, &id);
   const int active = strip->active_index();
   const auto split = active >= 0 ? strip->GetSplitForTab(active) : std::nullopt;
   if (index < 0 || (index != active && (!split || strip->GetSplitForTab(index) != split))) return nullptr;
-  NSView* container = (__bridge NSView*)parent;
   NSView* page = strip->GetWebContentsAt(index)->GetNativeView().GetNativeNSView();
-  auto* owner = state->browser()->GetWindow();
-  if (!owner || !container.window || container.window != owner->GetNativeWindow().GetNativeNSWindow()) return nullptr;
   if (page.window && page.window != container.window) return nullptr;
   [container addSubview:page];
   page.frame = container.bounds;
@@ -498,6 +659,12 @@ void DetachPage(const char* window, const char* tab, void* parent) {
   if (!Enabled() || !parent || !tab || !content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) return;
   auto* state = FindWindow(window);
   if (!state) return;
+  if (tab == kExtensionPopupView) {
+    auto* contents = modal_browser::ShellExtensionPopupContents(state->browser());
+    NSView* popup = contents ? contents->GetNativeView().GetNativeNSView() : nil;
+    if (popup.superview == (__bridge NSView*)parent) [popup removeFromSuperview];
+    return;
+  }
   const std::string id(tab);
   auto* strip = state->browser()->GetTabStripModel();
   int index = FindTab(strip, &id);
@@ -547,6 +714,10 @@ std::string ShowShellPrompt(BrowserWindowInterface* browser, Dict prompt,
   }
   const auto id = base::Uuid::GenerateRandomV4().AsLowercaseString();
   prompt.Set("id", id);
+  // Where the shell shows it: beside the address ("site"), over the page
+  // ("page") or centred in the window.
+  if (const auto* anchor = prompt.FindString("anchor"); !anchor || (*anchor != "site" && *anchor != "page"))
+    prompt.Set("anchor", "window");
   auto position = state->prompts.end();
   if (!prompt.FindBool("quiet").value_or(false)) {
     position = std::find_if(state->prompts.begin(), state->prompts.end(), [](const auto& pending) {

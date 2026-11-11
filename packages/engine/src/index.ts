@@ -1,4 +1,6 @@
-import { requireNativeModule } from 'expo-modules-core';
+import { createElement, type ComponentType } from 'react';
+import { requireNativeModule, requireNativeViewManager } from 'expo-modules-core';
+import type { ViewProps } from 'react-native';
 import { EngineClient, parseEngineEvent, type EngineEvent, type Transport } from './protocol';
 export * from './protocol';
 
@@ -23,4 +25,12 @@ export function connectEngine(windowId: string): EngineClient {
     },
   };
   return new EngineClient(windowId, transport);
+}
+
+export type PageViewProps = ViewProps & { windowId: string; tabId: string };
+let Page: ComponentType<PageViewProps> | undefined;
+/** A tab's web page, or the window's extension popup ("extension-popup"). */
+export function PageView(props: PageViewProps) {
+  Page ??= requireNativeViewManager<PageViewProps>('MerlinEngine', 'Page');
+  return createElement(Page, props);
 }

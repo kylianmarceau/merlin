@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/modal_browser/config_file.h"
 #include "chrome/browser/merlin_adblock/service.h"
 #include "chrome/browser/ui/modal_browser/merlin_preferences.h"
+#include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
 #include "components/omnibox/browser/location_bar_model.h"
 #include "components/security_state/core/security_state.h"
@@ -574,9 +575,9 @@ bool RunExtensions(BrowserWindowInterface* browser,
     }
     switch (runner->RunAction(ext, /*grant_tab_permissions=*/true)) {
       case extensions::ExtensionAction::ShowAction::kShowPopup:
-        // The React window has no anchored extension popover yet; the popup
-        // page runs as a tab with the same extension origin and permissions.
-        chrome::AddTabAt(browser, action->GetPopupUrl(tab_id), -1, true);
+        // Shown in the window's extension popover; see the snapshot's
+        // `extensionPopup`.
+        ShowShellExtensionPopup(browser, *ext, action->GetPopupUrl(tab_id));
         break;
       case extensions::ExtensionAction::ShowAction::kToggleSidePanel:
         Fail(std::move(reply), "Side panels are not part of Merlin");
@@ -683,16 +684,22 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
   const GURL url = contents->GetLastCommittedURL();
   const bool web = url.SchemeIsHTTPOrHTTPS();
   std::string message;
+  const char* security = "insecure";
   switch (model->GetSecurityLevel()) {
     case security_state::SECURE:
+      security = "secure";
       message = "Your connection to this site is private. What you send is "
                 "encrypted on its way to the site.";
       break;
     case security_state::DANGEROUS:
+      security = "dangerous";
       message = "This site is flagged as dangerous. Do not enter passwords, "
                 "payment details or other private information.";
       break;
     default:
+      if (!web) {
+        security = "internal";
+      }
       message = web ? "Your connection to this site is not private. Do not "
                       "enter passwords or payment details."
                 : url.SchemeIs(content::kChromeUIScheme)
@@ -723,6 +730,8 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
       browser,
       Dict()
           .Set("kind", "alert")
+          .Set("anchor", "site")
+          .Set("security", security)
           .Set("origin", web ? Host(url) : std::string("Merlin"))
           .Set("title", web ? "About this site" : "About this page")
           .Set("message", message)

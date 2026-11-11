@@ -2,7 +2,7 @@
   "name": "@merlin/shell",
   "version": "0.1.0",
   "private": true,
-  "main": "src/index.tsx",
+  "main": "src/index.ts",
   "dependencies": { "expo-modules-core": "3.0.30" },
   "peerDependencies": { "react": "19.1.4", "react-native": "0.81.6" }
 }

@@ -218,7 +218,10 @@ class ReactBrowserWindow final : public BrowserWindow,
     chrome::GetSavedWindowBoundsAndShowState(browser_, &params.bounds, &params.show_state);
     if (params.bounds.IsEmpty()) params.bounds = gfx::Rect(80, 80, 1200, 800);
     widget_->Init(std::move(params));
-    widget_->GetNativeWindow().GetNativeNSWindow().contentMinSize = NSMakeSize(720, 480);
+    // Pop-ups keep the size the page asked for; browser windows keep room
+    // for the sidebar and toolbar.
+    widget_->GetNativeWindow().GetNativeNSWindow().contentMinSize =
+        browser_->GetType() == BrowserWindowInterface::TYPE_POPUP ? NSMakeSize(240, 160) : NSMakeSize(720, 480);
     widget_->AddObserver(this);
     page_host_ = widget_->SetClientContentsView(std::make_unique<views::NativeViewHost>());
     ArmClose();
@@ -402,7 +405,7 @@ class ReactBrowserWindow final : public BrowserWindow,
     for (size_t i = 0; i < apps.size() && i < 4; ++i)
       actions.Append(Action(("app-" + base::NumberToString(i)).c_str(), ("Open in " + apps[i].display_name).c_str(),
                             i == 0 ? "primary" : "normal"));
-    ShowShellPrompt(browser_, Dict().Set("kind", "confirm").Set("origin", "Merlin").Set("quiet", true)
+    ShowShellPrompt(browser_, Dict().Set("kind", "confirm").Set("anchor", "site").Set("origin", "Merlin").Set("quiet", true)
         .Set("title", "Open this link in an app?").Set("message", "An installed app can open this page.")
         .Set("actions", std::move(actions)),
         base::BindOnce([](std::vector<apps::IntentPickerAppInfo> apps, IntentPickerResponse callback, ShellPromptReply reply) {
@@ -422,7 +425,7 @@ class ReactBrowserWindow final : public BrowserWindow,
     // Capture identity, not a node pointer: sync or another window can remove
     // this bookmark while its editor is open.
     const int64_t id = node->id();
-    ShowShellPrompt(browser_, Dict().Set("kind", "confirm").Set("origin", "Merlin")
+    ShowShellPrompt(browser_, Dict().Set("kind", "confirm").Set("anchor", "site").Set("origin", "Merlin")
         .Set("title", already_bookmarked ? "Edit bookmark" : "Bookmark added")
         .Set("message", url.spec())
         .Set("input", Dict().Set("label", "Name").Set("defaultValue", base::UTF16ToUTF8(node->GetTitle())))
@@ -475,7 +478,7 @@ class ReactBrowserWindow final : public BrowserWindow,
     }
     // An automatic offer waits behind the toolbar's request button rather
     // than interrupting every page in another language.
-    translate_prompt_ = ShowShellPrompt(browser_, Dict().Set("kind", "confirm").Set("origin", "Translate")
+    translate_prompt_ = ShowShellPrompt(browser_, Dict().Set("kind", "confirm").Set("anchor", "site").Set("origin", "Translate")
         .Set("quiet", !is_user_gesture)
         .Set("title", translated ? "Translated to " + to : "Translate this page?")
         .Set("message", translated ? "This page was translated from " + from + "."

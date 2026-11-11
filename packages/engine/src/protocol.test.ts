@@ -108,3 +108,32 @@ test('split views must name open tabs, including the active one', () => {
   assert.throws(() => validateSnapshot({ ...s, split: { tabs: ['b', 'c'], layout: 'stacked', ratio: 0.5 } }, s.windowId));
   assert.throws(() => validateSnapshot({ ...s, split: { tabs: ['a', 'b'], layout: 'diagonal', ratio: 0.5 } }, s.windowId));
 });
+test('pop-up windows and extension popups are described exactly', () => {
+  assert.equal(validateSnapshot({ ...snapshot(), kind: 'popup' }, 'window-one').kind, 'popup');
+  assert.throws(() => validateSnapshot({ ...snapshot(), kind: 'devtools' }, 'window-one'));
+  const popup = { extensionId: 'abc', name: 'Notes', width: 320, height: 240, ready: false };
+  assert.deepEqual(validateSnapshot({ ...snapshot(), extensionPopup: popup }, 'window-one').extensionPopup, popup);
+  assert.throws(() => validateSnapshot({ ...snapshot(), extensionPopup: { ...popup, width: -1 } }, 'window-one'));
+});
+test('prompts name only known places and security states', () => {
+  const prompt = { id: 'p', kind: 'alert', origin: 'example.com', title: 'About this site', message: '', anchor: 'site',
+    security: 'secure', actions: [{ id: 'done', label: 'Done', emphasis: 'primary' }] };
+  assert.equal(validateSnapshot({ ...snapshot(), prompt }, 'window-one').prompt?.anchor, 'site');
+  assert.throws(() => validateSnapshot({ ...snapshot(), prompt: { ...prompt, anchor: 'toolbar' } }, 'window-one'));
+  assert.throws(() => validateSnapshot({ ...snapshot(), prompt: { ...prompt, security: 'fine' } }, 'window-one'));
+});
+test('address suggestions are validated before they render', () => {
+  const item = { kind: 'search', title: 'cats', detail: '', url: 'https://search/?q=cats', completion: '', default: true };
+  const event = parseEngineEvent(JSON.stringify({ type: 'omnibox.results', windowId: 'window-one', queryId: 'q1', items: [item] }));
+  assert.equal(event.type, 'omnibox.results');
+  assert.throws(() => parseEngineEvent(JSON.stringify({ type: 'omnibox.results', windowId: 'window-one', queryId: 'q1',
+    items: [{ ...item, kind: 'script' }] })));
+});
+test('icons must be PNG data URLs', async () => {
+  const reply = (value: unknown) => new EngineClient('window-one', {
+    call: async () => JSON.stringify({ ok: true, value }), subscribe: () => () => {} });
+  assert.deepEqual(await reply({ key: '1', url: 'data:image/png;base64,AA==' }).call('favicons.get', { tabId: 't' }),
+    { key: '1', url: 'data:image/png;base64,AA==' });
+  assert.equal(await reply(null).call('favicons.get', { tabId: 't' }), null);
+  await assert.rejects(reply({ key: '1', url: 'https://tracker.example/icon.png' }).call('favicons.get', { tabId: 't' }));
+});

@@ -24,7 +24,7 @@ base::DictValue ScriptPrompt(const std::u16string& origin, content::JavaScriptDi
   actions.Append(base::DictValue().Set("id", "accept").Set("label", before_unload ? (reload ? "Reload" : "Leave page") : "OK")
       .Set("emphasis", before_unload ? "danger" : "primary"));
   auto prompt = base::DictValue().Set("kind", before_unload ? "beforeUnload" : type == content::JAVASCRIPT_DIALOG_TYPE_ALERT ? "alert" : "confirm")
-      .Set("origin", base::UTF16ToUTF8(origin)).Set("title", before_unload ? "Leave this page?" : "Message from this page")
+      .Set("anchor", "page").Set("origin", base::UTF16ToUTF8(origin)).Set("title", before_unload ? "Leave this page?" : "Message from this page")
       .Set("message", base::UTF16ToUTF8(message)).Set("actions", std::move(actions));
   if (type == content::JAVASCRIPT_DIALOG_TYPE_PROMPT)
     prompt.Set("input", base::DictValue().Set("label", "Your response").Set("defaultValue", base::UTF16ToUTF8(default_text)));

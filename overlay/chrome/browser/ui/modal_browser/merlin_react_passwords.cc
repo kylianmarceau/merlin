@@ -129,6 +129,7 @@ void ShowReactPasswordBubble(BrowserWindowInterface* browser,
           browser, contents, delegate,
           Dict()
               .Set("kind", "confirm")
+              .Set("anchor", "site")
               .Set("origin", site)
               .Set("quiet", !user_action)
               .Set("title", "Save password?")
@@ -150,6 +151,7 @@ void ShowReactPasswordBubble(BrowserWindowInterface* browser,
           browser, contents, delegate,
           Dict()
               .Set("kind", "confirm")
+              .Set("anchor", "site")
               .Set("origin", site)
               .Set("quiet", !user_action)
               .Set("title", "Update password?")

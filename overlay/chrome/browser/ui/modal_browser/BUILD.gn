@@ -193,6 +193,8 @@ source_set("modal_browser") {
       "merlin_react_autofill.h",
       "merlin_react_passwords.cc",
       "merlin_react_passwords.h",
+      "merlin_react_extension_popup_mac.mm",
+      "merlin_react_extension_popup.h",
     ]
     frameworks = [ "AppKit.framework" ]
   }
@@ -324,6 +326,8 @@ source_set("modal_browser") {
       "//components/permissions",
       "//components/javascript_dialogs",
       "//components/find_in_page",
+      "//components/favicon/content",
+      "//ui/gfx/codec",
     ]
   }
 }
