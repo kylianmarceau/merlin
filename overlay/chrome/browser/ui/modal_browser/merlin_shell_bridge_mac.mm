@@ -654,6 +654,10 @@ NSView* PlacePage(TabStripModel* strip, int index, NSView* container) {
   if (page.window && page.window != container.window) return nil;
   if (page.superview != container) [container addSubview:page];
   page.frame = container.bounds;
+  // Chromium creates a background tab's view hidden and relies on Views'
+  // NativeViewHost to unhide it (WebContentsViewMac::CreateView). Without
+  // this, a tab opened in the background stays blank once shown.
+  page.hidden = NO;
   NSResponder* responder = container.window.firstResponder;
   if (index == strip->active_index() && ![responder isKindOfClass:NSText.class] &&
       ![responder isKindOfClass:NSTextField.class])
@@ -674,6 +678,7 @@ void* AttachPage(const char* window, const char* tab, void* parent) {
     if (!popup || (popup.window && popup.window != container.window)) return nullptr;
     [container addSubview:popup];
     popup.frame = container.bounds;
+    popup.hidden = NO;  // As in PlacePage.
     contents->WasShown();
     contents->Focus();
     return (__bridge void*)popup;
