@@ -292,7 +292,8 @@ are covered in [docs/RELEASE.md](docs/RELEASE.md).
 
 ```bash
 scripts/check.sh               # formatting, lints, Rust and C++ tests, patch checks
-scripts/run_browser_tests.sh   # headless browser tests inside Chromium
+scripts/run_browser_tests.sh   # headless ad-block browser tests inside Chromium
+pnpm ui:check && pnpm ui:test  # React shell type and architecture checks
 scripts/check_upstream.py      # check for a newer Chromium security release
 cargo run -p modalctl          # try the modal core in a terminal, no Chromium needed
 ```
@@ -303,7 +304,8 @@ and tests with plain `cargo`, without a Chromium checkout.
 | Path | Contents |
 |---|---|
 | `overlay/components/modal_browser/` | Rust core and its C++ bridge |
-| `overlay/chrome/browser/ui/modal_browser/` | Browser UI: input, palette, tab bar, address card, status pill, internal pages |
+| `overlay/chrome/browser/ui/modal_browser/` | Modal controller, the React window and its engine bridge, config, preferences |
+| `apps/browser/`, `packages/` | The React Native macOS shell: tabs, toolbar, address field, command menu, Settings, Library |
 | `overlay/components/merlin_adblock/` | Ad blocking engine bridge and offline filter data |
 | `overlay/chrome/browser/merlin_adblock/` | Ad blocking service, request interception and list updates |
 | `overlay/chrome/renderer/merlin_adblock/` | Scriptlets and cosmetic filtering in the page |

@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/callback_list.h"
@@ -24,29 +25,18 @@
 #include "chrome/browser/ui/modal_browser/config_file.h"
 #include "chrome/browser/ui/modal_browser/modal_input_router.h"
 #include "chrome/browser/ui/modal_browser/page_scripts.h"
-#include "chrome/browser/ui/modal_browser/palette_view.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
-#include "components/download/content/public/all_download_item_notifier.h"
 #include "content/public/browser/editable_level.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/weak_document_ptr.h"
-#include "ui/base/accelerators/accelerator.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
-#include "ui/views/view.h"
-#include "ui/views/view_observer.h"
 
-class BrowserView;
 class BrowserWindowInterface;
 class GURL;
-class LocationBarView;
 
 namespace input {
 struct NativeWebKeyboardEvent;
-}
-
-namespace views {
-class FocusManager;
 }
 
 namespace modal_browser {
@@ -58,41 +48,27 @@ inline constexpr char kUpstreamDefaultsSwitch[] =
     "modal-browser-upstream-defaults";
 
 class ExternalEditor;
-class HintHost;
-class KeepHidden;
-class MerlinAddressEditor;
-class CtrlTabSwitcher;
-class MerlinTabBarHost;
-class PageColorSampler;
-class MerlinAddressField;
-class MerlinNavButton;
-class MerlinDownloadsButton;
-class MerlinModeIndicator;
-class MerlinSafetyControls;
-class StatusHost;
 
-// Per-window owner of the modal layer. Created and destroyed by
-// EmbedderBrowserWindowFeatures (the hook Chromium provides for embedders),
-// so no core BrowserWindowFeatures code is patched.
+// Per-window owner of the modal layer in Merlin's React shell windows.
+// Created and destroyed by EmbedderBrowserWindowFeatures (the hook Chromium
+// provides for embedders), so no core BrowserWindowFeatures code is patched.
 //
 // Responsibilities, all thin:
 //  * convert keyboard events, focus, navigation and pointer activity into
 //    router calls;
 //  * implement BrowserOps with existing chrome:: and content:: APIs;
-//  * own the palette, status and hint surfaces, the sequence timer, and the
-//    page-side work (hint collection, scrolling) in Chrome's isolated world.
+//  * keep the presentation-neutral state the shell draws (mode, messages,
+//    palette rows, hint labels), the sequence timer, and the page-side work
+//    (hint collection, scrolling) in Chrome's isolated world.
 // All decisions about what keys mean live in Rust behind ModalInputRouter.
+// It draws nothing: the React shell renders ShellModalState().
 class ModalBrowserController : public BrowserOps,
-                               public PaletteDelegate,
                                public TabStripModelObserver,
-                               public content::WebContentsObserver,
-                               public download::AllDownloadItemNotifier::Observer,
-                               public ui::AcceleratorTarget {
+                               public content::WebContentsObserver {
  public:
   DECLARE_USER_DATA(ModalBrowserController);
 
-  ModalBrowserController(BrowserWindowInterface* browser,
-                         BrowserView* browser_view);
+  explicit ModalBrowserController(BrowserWindowInterface* browser);
   ModalBrowserController(const ModalBrowserController&) = delete;
   ModalBrowserController& operator=(const ModalBrowserController&) = delete;
   ~ModalBrowserController() override;
@@ -100,7 +76,7 @@ class ModalBrowserController : public BrowserOps,
   // Returns nullptr for windows without the modal layer.
   static ModalBrowserController* From(BrowserWindowInterface* browser);
 
-  // Called from BrowserView::PreHandleKeyboardEvent for kRawKeyDown events
+  // Called from the window's PreHandleKeyboardEvent for kRawKeyDown events
   // headed to web content. Returns true if the event was consumed; Chromium
   // then suppresses the matching char and key-up events.
   bool PreHandleKeyDown(const input::NativeWebKeyboardEvent& event);
@@ -109,16 +85,17 @@ class ModalBrowserController : public BrowserOps,
   // success.
   std::string RunCommandLine(std::string_view line);
 
-  // For Merlin Settings (merlin_settings_page.cc).
+  // Tabs in the sidebar rather than along the top (Chromium's vertical tabs
+  // preference, which `tabs = "top"` and :vertical-tabs change).
   bool TabsInSidebar() const;
-  // Presentation-neutral modal state for the React Native engine adapter.
+  // Presentation-neutral modal state for the React shell.
   base::DictValue ShellModalState() const;
   bool TabsHidden() const { return tabs_hidden_; }
 
-  // ui::AcceleratorTarget: Cmd-S, after the page had its chance, and
-  // Ctrl-Tab / Ctrl-Shift-Tab before it and before Chromium's own handling.
-  bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
-  bool CanHandleAccelerators() const override;
+  // Shortcuts the window offers after the page declined them: Cmd-S hides
+  // the tabs (Save Page As is Shift-Cmd-S, patches/0012) and Cmd-K opens
+  // Merlin's menu. Sites with their own Cmd-S or Cmd-K keep them.
+  bool HandleUnhandledShortcut(const input::NativeWebKeyboardEvent& event);
   // Rereads the config file in every window, after Settings saved it.
   // `announce` also confirms the reload in its status bar; errors show in
   // every window.
@@ -217,11 +194,10 @@ class ModalBrowserController : public BrowserOps,
                 int64_t y,
                 bool navigate) override;
 
-  // PaletteDelegate:
-  void OnPaletteTextChanged(std::u16string_view text) override;
-  void OnPaletteKey(ffi::PaletteKey key) override;
-  void OnPaletteRowClicked(int index) override;
-  gfx::ImageSkia GetTabIcon(int32_t tab_id) override;
+  // The shell's command palette.
+  void OnPaletteTextChanged(std::u16string_view text);
+  void OnPaletteKey(ffi::PaletteKey key);
+  void OnPaletteRowClicked(int index);
 
   // TabStripModelObserver:
   void OnTabStripModelChanged(TabStripModel* tab_strip_model,
@@ -233,38 +209,13 @@ class ModalBrowserController : public BrowserOps,
   // content::WebContentsObserver:
   void OnFocusChangedInPage(const content::FocusedNodeDetails& details) override;
   void PrimaryPageChanged(content::Page& page) override;
+  void PrimaryMainFrameRenderProcessGone(
+      base::TerminationStatus status) override;
   void DidGetUserInteraction(const blink::WebInputEvent& event) override;
-  void DocumentOnLoadCompletedInPrimaryMainFrame() override;
-  void DidChangeVisibleSecurityState() override;
-
-  // download::AllDownloadItemNotifier::Observer (the status bar's count):
-  void OnDownloadCreated(content::DownloadManager* manager,
-                         download::DownloadItem* item) override;
-  void OnDownloadUpdated(content::DownloadManager* manager,
-                         download::DownloadItem* item) override;
-  void OnDownloadRemoved(content::DownloadManager* manager,
-                         download::DownloadItem* item) override;
 
   ffi::Mode mode_for_testing() const { return router_.mode(); }
-  StatusHost* status_for_testing() { return status_.get(); }
-  PaletteHost* palette_for_testing() { return palette_.get(); }
-  HintHost* hints_for_testing() { return hints_.get(); }
   std::string workspace_for_testing() const { return router_.workspace(); }
   ExternalEditor* field_editor_for_testing() { return field_editor_.get(); }
-  MerlinAddressField* address_field_for_testing() { return address_field_; }
-  MerlinAddressEditor* address_editor_for_testing() {
-    return address_editor_.get();
-  }
-  MerlinTabBarHost* tab_bar_host_for_testing() { return tab_bar_host_.get(); }
-  CtrlTabSwitcher* ctrl_tab_for_testing() { return ctrl_tab_.get(); }
-  MerlinNavButton* back_button_for_testing() { return back_button_; }
-  MerlinModeIndicator* mode_indicator_for_testing() { return mode_indicator_; }
-  MerlinDownloadsButton* downloads_button_for_testing() {
-    return downloads_button_;
-  }
-  MerlinSafetyControls* safety_controls_for_testing() {
-    return safety_controls_;
-  }
   // Config `modal_browsing`; pages that show key labels hide them when off.
   bool modal_browsing() const { return router_.modal_browsing(); }
   bool browserctl_enabled_for_testing() const {
@@ -279,29 +230,12 @@ class ModalBrowserController : public BrowserOps,
   content::WebContents* ActiveContents();
   PageFocus CurrentFocus();
   void ObserveActiveContents();
-  // Hides Chromium's ⋮ menu and account buttons; the Merlin menu (M,
-  // :palette menu) replaces them. Merlin has one profile (patch 0051).
-  void HideChromiumToolbarButtons();
-  void StartWatchingDownloads();
-  void UpdateDownloadStatus();
   void OnActiveTabChanged();
-  // Workspace and title for the status bar, and the toolbar row's state.
-  void UpdatePageContext();
-  // Tabs moved between the top and the sidebar.
-  void OnTabLayoutChanged();
-  void ApplyTabLayout();
-  // Puts Merlin's back, forward, reload and address field in the toolbar
-  // row in place of Chromium's (once per window), then shows the field on
-  // sites and hides it on the start page.
-  // Gives the active tab, the toolbar and what is drawn on it the page's
-  // color (nullopt: Merlin's own).
-  void ApplyPageColor(std::optional<SkColor> color);
-  // Shows or hides the tabs (tabs_hidden_) everywhere it shows.
-  void ApplyTabsHidden();
-  // Cmd-S on the window's focus manager, once the window has one.
-  void RegisterAccelerators();
-  void InstallMerlinToolbar(LocationBarView* location_bar);
-  void UpdateMerlinToolbar(content::WebContents* contents, bool start_page);
+  // Tells the shell its window state changed.
+  void NotifyShell();
+  // Status line state, as the shell shows it.
+  void SetStatusMessage(std::u16string text, bool is_error);
+  void ClearStatusMessage();
   void ShowSiteInfo();
   // Another normal window kept under workspace `name`, front first.
   ModalBrowserController* WindowWithWorkspace(std::string_view name);
@@ -310,14 +244,6 @@ class ModalBrowserController : public BrowserOps,
   void ReleaseWorkspaceInOtherWindows();
   // The window is closing its tabs on its way out.
   bool WindowClosing() const;
-  bool ToolbarHidden() const { return toolbar_hidden_; }
-  // Puts the cursor where the address is typed: the toolbar row's field on
-  // sites (MerlinAddressEditor), the start page's own field there.
-  void EditAddress();
-  bool EditingAddress() const;
-  // The palette's command line, pre-filled to edit the page address, for
-  // when neither field is there.
-  void EditAddressInPalette();
   float DeviceScaleFactor();
   void LoadConfig(bool announce);
   void OnConfigRead(bool announce, config_file::ReadResult result);
@@ -340,7 +266,7 @@ class ModalBrowserController : public BrowserOps,
   void OnFieldEditDone(uint64_t generation, std::string error);
   void CancelFieldEdit();
   void ScheduleAutosave();
-  void ApplyConfigToBrowser(bool apply_appearance = true);
+  void ApplyConfigToBrowser();
   void FocusTabNumber(uint32_t number, std::string* error);
   void ReadSelection(base::OnceCallback<void(std::string)> reply);
   content::RenderFrameHost* FocusedFrame();
@@ -348,51 +274,30 @@ class ModalBrowserController : public BrowserOps,
   SEQUENCE_CHECKER(sequence_checker_);
 
   const raw_ptr<BrowserWindowInterface> browser_;
-  const raw_ptr<BrowserView> browser_view_;
   ModalInputRouter router_;
+  // What the shell shows; see ShellModalState().
+  struct Status {
+    ffi::Mode mode = ffi::Mode::Normal;
+    std::u16string indicator;
+    std::u16string pending;
+    std::u16string message;
+    bool message_is_error = false;
+    // Continuations of the pending keys, shown after a short pause.
+    std::vector<std::pair<std::u16string, std::u16string>> which_key;
+    bool show_which_key = false;
+  };
+  Status status_;
+  base::OneShotTimer which_key_timer_;
   base::DictValue shell_palette_;
   base::ListValue shell_hints_;
   std::string shell_hint_prefix_;
-  std::unique_ptr<StatusHost> status_;
-  std::unique_ptr<PaletteHost> palette_;
-  std::unique_ptr<HintHost> hints_;
   base::OneShotTimer sequence_timer_;
   base::CallbackListSubscription tab_layout_subscription_;
-  bool toolbar_hidden_ = false;
   // Tabs hidden entirely (Cmd-S, :hide-tabs, config hide_tabs).
   bool tabs_hidden_ = false;
   // The config's hide_tabs as last applied; it applies again only when it
   // changes.
   std::optional<bool> tabs_hidden_default_;
-  // The focus manager Cmd-S is registered with.
-  raw_ptr<views::FocusManager> accelerator_focus_manager_ = nullptr;
-  // Merlin's own UI is on (not --modal-browser-upstream-defaults).
-  bool merlin_ui_ = false;
-  // Started after startup; keeps the status bar's download count.
-  std::unique_ptr<download::AllDownloadItemNotifier> download_notifier_;
-  base::OneShotTimer download_status_timer_;
-  // Owned by the toolbar row; see ApplyTabLayout() and
-  // InstallMerlinToolbar(). The two spacers center the address field.
-  raw_ptr<views::View> toolbar_spacer_ = nullptr;
-  raw_ptr<views::View> toolbar_spacer_right_ = nullptr;
-  raw_ptr<MerlinNavButton> back_button_ = nullptr;
-  raw_ptr<MerlinNavButton> forward_button_ = nullptr;
-  raw_ptr<MerlinNavButton> reload_button_ = nullptr;
-  raw_ptr<MerlinAddressField> address_field_ = nullptr;
-  raw_ptr<MerlinSafetyControls> safety_controls_ = nullptr;
-  // Keeps Chromium's media toolbar button hidden.
-  std::unique_ptr<KeepHidden> media_button_hidden_;
-  raw_ptr<MerlinDownloadsButton> downloads_button_ = nullptr;
-  raw_ptr<MerlinModeIndicator> mode_indicator_ = nullptr;
-  // Swaps Chromium's field in while the address is edited.
-  std::unique_ptr<MerlinAddressEditor> address_editor_;
-  // Merlin's tab bar over Chromium's, with tabs on top.
-  std::unique_ptr<MerlinTabBarHost> tab_bar_host_;
-  // Ctrl-Tab: last used tab, and the card switcher while Ctrl is held.
-  std::unique_ptr<CtrlTabSwitcher> ctrl_tab_;
-  // The active page's color, which the active tab and the toolbar take.
-  std::unique_ptr<PageColorSampler> page_color_;
-  std::optional<SkColor> page_color_value_;
   // Last editable level reported for the observed tab, to tell plain text
   // fields from rich editors when IsFocusedElementEditable() is true.
   content::EditableLevel last_editable_level_ =

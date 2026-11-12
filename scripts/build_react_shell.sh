@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Explicit, maintainer-run build of the React host. Does not rebuild Chromium.
 set -euo pipefail
+# CocoaPods fails with an encoding error under a non-UTF-8 locale.
+export LANG="${LANG:-en_US.UTF-8}" LC_ALL="${LC_ALL:-en_US.UTF-8}"
+[[ "$LC_ALL" == *UTF-8* ]] || export LC_ALL=en_US.UTF-8
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 CONFIGURATION="${CONFIGURATION:-Release}"
@@ -19,6 +22,15 @@ pnpm ui:test
   cd apps/browser/macos
   RCT_NEW_ARCH_ENABLED=0 pod install
 )
+# Expo registers a module only if autolinking found its podspec; without this
+# the app builds but shows "Cannot find native module" at launch.
+PROVIDER="apps/browser/macos/Pods/Target Support Files/Pods-MerlinShell-macOS/ExpoModulesProvider.swift"
+for module in $(python3 -c 'import json,sys
+for p in sys.argv[1:]: print(*json.load(open(p))["apple"]["modules"])' packages/engine/expo-module.config.json packages/shell/expo-module.config.json); do
+  grep -q "$module.self" "$PROVIDER" || {
+    echo "Expo autolinking did not register $module; check its expo-module.config.json" >&2; exit 1;
+  }
+done
 FORCE_BUNDLING=1 RCT_NEW_ARCH_ENABLED=0 xcodebuild \
   -workspace "$ROOT/apps/browser/macos/MerlinShell.xcworkspace" \
   -scheme MerlinShell-macOS -configuration "$CONFIGURATION" \

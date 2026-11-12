@@ -1,6 +1,6 @@
 import React from 'react';
 import { useActions, useBrowser, useOverlays, useSnapshot } from '../../state/window';
-import { Layer, Popover, ToastStack, geometry, usePresence, useTheme } from '../ui';
+import { Layer, Popover, ToastStack, autoPlacement, geometry, usePresence, useTheme, type Frame } from '../ui';
 import { ExtensionPopupView } from '../extensions/ExtensionPopupView';
 import { ExtensionsPopover } from '../extensions/ExtensionsPopover';
 import { DownloadsPopover } from '../library/DownloadsPopover';
@@ -11,6 +11,7 @@ import { CommandMenu } from '../palette/CommandMenu';
 import { ProfilesPopover } from '../profiles/ProfilesPopover';
 import { Settings } from '../settings/Settings';
 import { PromptOverlay } from '../site/PromptOverlay';
+import { NewTabPopup } from '../start/NewTabPopup';
 
 /**
  * Everything drawn over the window, in fixed layers: sheets, then dialogs,
@@ -29,6 +30,8 @@ export function Overlays() {
   const library = usePresence(libraryOpen, 'sheet', reduceMotion);
   const command = usePresence(shown.panel === 'command', 'dialog', reduceMotion);
   const popup = snapshot.extensionPopup;
+  // Buttons in the sidebar footer open upwards; toolbar and strip buttons open downwards.
+  const place = (anchor: Frame | undefined) => autoPlacement(anchor, bounds, anchor && anchor.x < bounds.width / 2 ? 'start' : 'end');
   return <>
     <Layer level="sheet">
       {settings.mounted && <Settings open={shown.panel === 'settings'} />}
@@ -37,23 +40,24 @@ export function Overlays() {
     <Layer level="dialog">
       {command.mounted && <CommandDialog open={shown.panel === 'command'} />}
       <CommandMenu open={shown.palette} palette={snapshot.modal.palette ?? null} />
+      <NewTabPopup open={shown.panel === 'newTab'} />
     </Layer>
     <Layer level="popover">
       <PromptOverlay shown={shown.prompt} />
       <Suggestions />
-      <Popover open={shown.popover === 'extensions'} anchor={anchors.extensions} bounds={bounds} placement="below-end"
+      <Popover open={shown.popover === 'extensions'} anchor={anchors.extensions} bounds={bounds} placement={place(anchors.extensions)}
         label="Extensions" onClose={actions.closePopover}>
         <ExtensionsPopover />
       </Popover>
       <Popover open={shown.popover === 'extension-popup' && !!popup} anchor={anchors.extensions} bounds={bounds}
-        placement="below-end" width={(popup?.width ?? 0) + geometry.hairline * 2} label={popup?.name ?? 'Extension'} onClose={actions.closePopover} flush>
+        placement={place(anchors.extensions)} width={(popup?.width ?? 0) + geometry.hairline * 2} label={popup?.name ?? 'Extension'} onClose={actions.closePopover} flush>
         {popup && <ExtensionPopupView popup={popup} />}
       </Popover>
-      <Popover open={shown.popover === 'profiles'} anchor={anchors.profiles} bounds={bounds} placement="below-end"
+      <Popover open={shown.popover === 'profiles'} anchor={anchors.profiles} bounds={bounds} placement={place(anchors.profiles)}
         label="Profiles" onClose={actions.closePopover}>
         <ProfilesPopover />
       </Popover>
-      <Popover open={shown.popover === 'downloads'} anchor={anchors.downloads} bounds={bounds} placement="above-start"
+      <Popover open={shown.popover === 'downloads'} anchor={anchors.downloads} bounds={bounds} placement={place(anchors.downloads)}
         label="Downloads" width="popoverWide" onClose={actions.closePopover}>
         <DownloadsPopover />
       </Popover>

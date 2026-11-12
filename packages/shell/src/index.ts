@@ -12,12 +12,17 @@ export type SymbolName = 'arrow.left' | 'arrow.right' | 'arrow.up' | 'arrow.down
   'keyboard' | 'info.circle' | 'books.vertical' | 'arrow.uturn.backward' | 'play' | 'pause' | 'rectangle.split.2x1' |
   'lock' | 'lock.open' | 'exclamationmark.triangle' | 'exclamationmark.octagon' | 'bell.badge' | 'square.on.square' |
   'rectangle.portrait.and.arrow.right' | 'sparkles' | 'eye.slash' | 'link' | 'character.bubble' | 'key' | 'creditcard' |
-  'mappin.and.ellipse' | 'arrow.up.forward.app' | 'moon' | 'sun.max';
+  'mappin.and.ellipse' | 'arrow.up.forward.app' | 'moon' | 'sun.max' | 'rectangle.topthird.inset.filled' |
+  // Tide's set: chevrons for navigation, and Merlin's own picks for Settings and the toolbar.
+  'chevron.left' | 'chevron.up' | 'switch.2' | 'arrow.down.to.line' | 'nosign' | 'speedometer' | 'shippingbox' |
+  'curlybraces' | 'm.square' | 'minus' | 'arrow.up.right' | 'person.crop.circle.badge.plus' | 'clock.arrow.circlepath' |
+  'square.dashed';
 
+// Each view is its own native module (MerlinShell<Name>); see MerlinShellModule.swift.
 function view<P>(name: string) {
   let resolved: ComponentType<P> | undefined;
   return (props: P) => {
-    resolved ??= requireNativeViewManager<P>('MerlinShell', name);
+    resolved ??= requireNativeViewManager<P>(`MerlinShell${name}`);
     return createElement(resolved as ComponentType<object>, props as object);
   };
 }
@@ -47,14 +52,32 @@ export const OutsidePress = view<ViewProps & { onOutsidePress(event: OutsidePres
 
 export const ContextMenuArea = view<ViewProps & { onContextMenu(): void }>('ContextMenuArea');
 
+/** "orb": four stops, highlight to deep, then horizon glow and shadow. "glow": one colour fading out. */
+export type GradientProps = ViewProps & { gradientKind: 'orb' | 'glow'; gradientColors: string[] };
+export const Gradient = view<GradientProps>('Gradient');
+
 export type MenuItem =
   | { id: string; title: string; enabled?: boolean; checked?: boolean; destructive?: boolean; symbol?: SymbolName }
   | { title: string; children: MenuItem[]; enabled?: boolean; symbol?: SymbolName }
   | { separator: true };
-type NativeShell = { showMenu(items: MenuItem[]): Promise<string | null> };
+type NativeShell = {
+  showMenu(items: MenuItem[]): Promise<string | null>;
+  preference(key: string): Promise<string | null>;
+  setPreference(key: string, value: string | null): Promise<void>;
+};
 let shell: NativeShell | undefined;
 /** Shows a native menu at the pointer; resolves with the chosen item's id. */
 export function showMenu(items: MenuItem[]): Promise<string | null> {
   shell ??= requireNativeModule<NativeShell>('MerlinShell');
   return shell.showMenu(items);
+}
+
+/** Reads a shell-only preference kept by AppKit (the same for every profile). */
+export function preference(key: string): Promise<string | null> {
+  shell ??= requireNativeModule<NativeShell>('MerlinShell');
+  return shell.preference(key);
+}
+export function setPreference(key: string, value: string | null): Promise<void> {
+  shell ??= requireNativeModule<NativeShell>('MerlinShell');
+  return shell.setPreference(key, value);
 }

@@ -245,7 +245,7 @@ Dict WindowState::Snapshot() {
     auto* contents = tab->GetContents();
     tabs.Append(Dict().Set("id", TabId(tab))
       .Set("title", base::UTF16ToUTF8(contents->GetTitle()))
-      .Set("url", contents->GetVisibleURL().spec()).Set("loading", contents->IsLoading())
+      .Set("url", contents->GetVisibleURL().spec()).Set("loading", contents->IsLoading()).Set("crashed", contents->IsCrashed())
       .Set("pinned", strip->IsTabPinned(i)).Set("audible", contents->IsCurrentlyAudible())
       .Set("canGoBack", contents->GetController().CanGoBack())
       .Set("canGoForward", contents->GetController().CanGoForward())
@@ -267,7 +267,7 @@ Dict WindowState::Snapshot() {
   }
   Dict appearance = browser_->GetProfile()->GetPrefs()->GetDict("merlin.shell.appearance").Clone();
   if (!appearance.FindString("mode")) appearance.Set("mode", "system");
-  if (!appearance.FindString("accent")) appearance.Set("accent", "ocean");
+  if (!appearance.FindString("accent")) appearance.Set("accent", "fern");  // Sage, the default workspace colour.
   if (!appearance.FindBool("reduceMotion")) appearance.Set("reduceMotion", false);
   base::Value split;
   if (const int active = strip->active_index(); active >= 0) {
@@ -457,6 +457,11 @@ char* Call(const char* window, const char* method, const char* json) {
     if (url && !url->empty()) destination = ResolveAddress(browser->GetProfile(), *url);
     if (!destination.is_valid()) return Error("This address cannot be opened");
     chrome::AddTabAt(browser, destination, -1, true);
+    return Ok();
+  }
+  if (name == "page.focus") {
+    // Keys go back to the page after a panel, popover or the address field.
+    if (auto* contents = strip->GetActiveWebContents(); contents && !contents->IsCrashed()) contents->Focus();
     return Ok();
   }
   if (name == "modal.command") {
@@ -653,6 +658,12 @@ void* AttachPage(const char* window, const char* tab, void* parent) {
   if (page.window && page.window != container.window) return nullptr;
   [container addSubview:page];
   page.frame = container.bounds;
+  // As BrowserView restores focus to the page on a tab switch: modal keys and
+  // page shortcuts need the page to hold focus. A text field (the address,
+  // the command menu, a panel's field) keeps it.
+  id responder = container.window.firstResponder;
+  if (index == active && ![responder isKindOfClass:NSText.class] && ![responder isKindOfClass:NSTextField.class])
+    strip->GetWebContentsAt(index)->Focus();
   return (__bridge void*)page;
 }
 void DetachPage(const char* window, const char* tab, void* parent) {

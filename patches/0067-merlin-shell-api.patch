@@ -5,6 +5,17 @@
  _ChromeMain
  _ChromeWebAppShortcutCopierMain
 +_MerlinEngineGetAPI
+--- a/chrome/app/framework.order
++++ b/chrome/app/framework.order
+@@ -29,5 +29,8 @@ _ChromeAppModeStart_v8
+ # Entry point for the web app shortcut copier.
+ _ChromeWebAppShortcutCopierMain
+ 
++# Merlin's engine interface, loaded by the React Native shell host.
++_MerlinEngineGetAPI
++
+ # _ChromeMain must be listed last.  That's the whole point of this file.
+ _ChromeMain
 --- a/chrome/browser/prefs/browser_prefs.cc
 +++ b/chrome/browser/prefs/browser_prefs.cc
 @@ -1993,6 +1993,9 @@

@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Overlays } from '../../state/types';
 import { useBrowser } from '../../state/window';
-import { Box, Dialog, Popover, useLatest } from '../ui';
+import { Dialog, Popover, PopoverBody, useLatest } from '../ui';
 import { PromptBody } from './PromptBody';
 
 /**
@@ -19,7 +19,7 @@ export function PromptOverlay({ shown }: { shown: Overlays['prompt'] }) {
   const current = last?.prompt;
   return <>
     <Popover open={popover} anchor={anchor} bounds={bounds} label={current?.title ?? 'Request'} width="popoverWide" onClose={() => {}}>
-      {current && last?.as === 'popover' && <Box pad="sm"><PromptBody key={current.id} prompt={current} compact /></Box>}
+      {current && last?.as === 'popover' && <PopoverBody gap="md"><PromptBody key={current.id} prompt={current} compact /></PopoverBody>}
     </Popover>
     {current && last?.as === 'dialog' && <Dialog open={dialog} bare title={current.title} place={current.anchor === 'page' ? 'top' : 'center'}>
       <PromptBody key={current.id} prompt={current} compact={false} />

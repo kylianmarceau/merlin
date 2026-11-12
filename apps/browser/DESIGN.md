@@ -3,19 +3,55 @@
 How the React Native shell looks and moves, and the rules that keep it
 consistent. `src/conventions.test.ts` enforces the rules marked **(tested)**.
 
+## Look: Tide
+
+One tinted shell, a white page card on it, glass popovers. The workspace
+colour (Settings > Appearance: Sage, the default, Ocean or Ember) tints the
+whole window over macOS vibrancy (`shellTint`). Dark ink is used for text and
+primary buttons; the accent is only for focus, selection, switches and
+progress. No icon chips or letter tiles in menus: rows lead with words, and
+icons appear only where they say something (a file type, a device, a site).
+
+The stored accent names predate Tide and stay as the browser saves them:
+`fern` is Sage, `ocean` is Ocean and `iris` is Ember.
+
 ## Window
 
-- **Sidebar** (248 pt) on the left, drawn over macOS `sidebar` vibrancy
-  (behind-window blending) with the `sidebarTint` wash. Its top 40 pt strip
-  holds the traffic lights and the profile and sidebar buttons, and drags the
-  window. Double-clicking empty space follows the system "double-click a
-  title bar" setting.
-- **Content card**: the page and its toolbar sit in one raised card
-  (`contentBackground`, `radius.window`, `contentBorder`, `shadow.card`), inset
-  8 pt from the window edge. When the sidebar is hidden the card fills the
-  window and the toolbar leaves 84 pt for the traffic lights.
-- **Toolbar** (46 pt): back, forward, reload, the address field, a chip for a
-  waiting request, bookmark and extensions. Empty space drags the window.
+- **Shell**: vibrancy under `shellTint` fills the window whenever tabs show;
+  its empty space drags the window.
+- **Sidebar** (252 pt, Settings > Appearance > Tabs, or `tabs = "side"`):
+  the top 40 pt row holds the traffic lights, hide-sidebar, back, forward and
+  reload. Under it, the address as a white pill (`fillShellControl`) showing
+  the site, a waiting-request chip and the site-controls button; pinned tabs
+  as favourite tiles (four across, 44 pt); then "Tabs" with New Tab and the
+  open tabs (34 pt rows, the active one a white card with `shadow.tab`). The
+  footer holds profiles and downloads on the left; extensions, the command
+  menu, the Library and Settings on the right. The page card has **no
+  toolbar** in this layout.
+- **Tabs on top** (`tabs = "top"`): a 48 pt strip after 84 pt for the traffic
+  lights. Pinned tabs sit together in a soft group; open tabs are 32 pt pills
+  sharing the width up to 196 pt, with hairline dividers between quiet tabs,
+  then drop their titles when crowded. Downloads, the command menu, Library,
+  Settings, profiles and hide sit at the right. The card gets one 48 pt
+  toolbar: back, forward, reload, the address (site in medium weight, the
+  rest of the path quiet), bookmark and extensions.
+- **New tab page**: quiet. The workspace orb (a native gradient in the
+  workspace colour), one search card with "Jump to a tab or file", and the
+  window's other pages on one line under it, over a faint wash of the colour.
+- **New tabs as a pop-up** (Settings > Appearance, kept by the shell in
+  AppKit's defaults rather than the profile): New Tab and Command-T open a
+  search pop-up over the current page under a light veil; the sidebar's New
+  Tab row reads "New tab…" meanwhile. Before typing it offers the window's
+  other pages, then Chromium's suggestions; the tab opens only once a place
+  is chosen. A blank tab Chromium opens itself gives way to the pop-up.
+- **Command-S** hides the tabs in either layout; the card then fills the
+  window, keeps the toolbar and leaves 84 pt for the traffic lights.
+- **Content card**: `contentBackground`, `radius.window`, `contentBorder`,
+  `shadow.card`, inset 8 pt from the window edge (0 on the sidebar side).
+- **Status line** under the page, only outside Normal mode or with
+  something to say: the mode, the keys typed so far, or the last message
+  (errors in `textDanger`). Half a second into an unfinished key sequence it
+  lists the keys that can follow.
 - **Pop-up windows** (sign-in, payment) show only a 40 pt title strip with the
   site's security icon and host, then the page. They never look like a full
   browser window.
@@ -24,21 +60,35 @@ consistent. `src/conventions.test.ts` enforces the rules marked **(tested)**.
 
 Every raised surface is a `Panel`: one fill, a hairline edge and a native layer
 shadow. React Native's shadow props do nothing on macOS views. **(tested)**
+Glass panels put `popover` vibrancy (within-window blending) under a
+translucent fill and draw their edge on top.
 
 | Surface | Fill | Radius | Shadow | Blocks the page |
 | --- | --- | --- | --- | --- |
-| Popover | `surfacePopover` | 12 | `popover` | No |
-| Menu, suggestions | `surfaceMenu` | 12 | `menu` | No |
-| Dialog | `surfaceDialog` | 14 | `dialog` | Yes, with `scrim` |
-| Sheet (Settings, Library) | `surfaceSheet` | 14 | `dialog` | Yes, with `scrim` |
-| Toast | `surfaceToast` | 12 | `toast` | No |
+| Popover, suggestions | glass, `surfacePopover` / `surfaceMenu` | 18 | `popover` / `menu` | No |
+| Find bar | glass, `surfacePopover` | pill | `popover` | No |
+| Command bar | `surfacePalette` | 18 | `dialog` | Light `scrim`; a press on it cancels |
+| New-tab pop-up | `surfacePalette` | 18 | `dialog` | `newTabVeil` over the page card only |
+| Dialog | glass, `surfaceDialog` | 18 | `dialog` | Yes, with `scrim` |
+| Sheet (Settings, Library) | `surfaceSheetBody` / `surfaceSheet` | 16 | `dialog` | Yes, with `scrim` |
+| Toast | `surfaceToast` capsule | pill | `toast` | No |
+
+Popover content follows the downloads panel: an uppercase `MenuSection`
+label, `PopoverRow`s inset 18 pt with a 14 pt title and a 12 pt detail, small
+`RoundButton`s for row actions (dark for the main one, soft for the rest), a
+hairline `MenuSeparator` and a quiet `MenuFooter` ("View all downloads ›").
+Buttons are pills: `primary` is dark ink, `secondary` a soft wash.
+
+Settings shows its sections as icon tabs across the top; the Library as a
+segmented control beside its title, with a search field under it.
 
 Overlays are layers inside the window, never separate windows: content <
 sheets < dialogs < popovers < toasts. `Modal` is not used. **(tested)**
 
 ## Which surface to use
 
-- **Popover**: anything tied to a control. Extensions, an extension's own
+- **Popover**: anything tied to a control. Popovers open downwards from
+  controls in the top half of the window and upwards from the sidebar footer. Extensions, an extension's own
   popup, profiles, recent downloads, address suggestions, and browser
   questions about the site: permissions, passwords, addresses and cards,
   translation, opening in an app, bookmarks and site information. Popovers
@@ -58,28 +108,37 @@ layer, and the command menu waits until it is answered.
 
 ## Type
 
-System font. `display` 30/36, `headline` 20/26, `title` 15/20 semibold,
-`callout` 14, `body` 13/18, `label` 12 medium, `caption` 11, `section` 10
-semibold uppercase with wide tracking, `mono` 12 Menlo. Components choose a
+System font. `greeting` 52/56 in Georgia (the new tab page only), `display`
+30/36, `headline` 20/26, `input` 17/22, `title` 15/20 semibold, `callout` 14
+(`calloutStrong` medium, for popover row titles), `body` 13/18, `label` 12
+medium, `caption` 11, `section` 11 semibold uppercase with wide tracking,
+`group` 11 semibold sentence case, `mono` 12 Menlo. Components choose a
 `Text` variant and a colour role; they never set a font size, weight or family
 directly. **(tested)**
 
 ## Colour
 
 Colours are named roles in `src/components/ui/tokens.ts`, built for light and
-dark from one neutral ramp and the chosen accent (Ocean, Iris or Fern). Use
+dark from one sage-tinted neutral ramp and the chosen workspace colour. Use
 roles by purpose: `textPrimary`/`textSecondary`/`textTertiary` for text,
-`fillHover`/`fillPressed`/`fillSelected` for interaction, `accent` only for
-the primary action, focus and selection, and status roles (`danger`,
-`warning`, `success`) only for status. Colour literals appear nowhere else.
-**(tested)**
+`fillHover`/`fillPressed`/`fillSelected` for interaction (`fillShell*` and
+`tabHover` on the tinted shell), `buttonPrimary` for primary buttons,
+`accent` only for focus, selection, switches and progress, and status roles
+(`danger`, `warning`, `success`) only for status. Colour literals appear
+nowhere else. **(tested)**
+
+Text fields show no system focus ring: an idle field is a soft fill, an
+editing one turns white with a hairline `borderDefault` edge, and selected
+text uses the light `textSelection` wash. Single-line inputs size to their
+text inside a centred row, never stretched, so the text sits in the middle.
 
 ## Space and shape
 
 Spacing steps are 2, 4, 8, 12, 16, 24, 32 and 48 pt (`space`). Controls are
-28 pt tall, rows 30 pt (44 pt with detail), icons 16 pt (13 pt small). Radii:
-controls and rows 8, fields 10, cards and popovers 12, sheets and dialogs 14.
-Components size and space only with tokens. **(tested)**
+28 pt tall, buttons 30 pt pills, sidebar rows 34 pt, popover rows 32 pt,
+icons 16 pt (13 pt small). Radii: controls 8, rows 9, fields and tiles 10,
+cards and the window card 12, sheets 16, popovers and dialogs 18. Components
+size and space only with tokens. **(tested)**
 
 ## Motion
 
@@ -97,8 +156,12 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
 ## Icons
 
 SF Symbols only, tinted with a colour role (`iconPrimary`, `iconSecondary`,
-`iconDisabled` or a status role). Page favicons are fetched from Chromium as
-2x PNGs and fall back to a globe.
+`iconDisabled` or a status role), chosen to avoid Chromium's look: chevrons
+for navigation, `shippingbox` for extensions, `arrow.down.to.line` for
+downloads. Settings uses Merlin's own set: a window with its sidebar, a
+switch, a closed eye, a no-entry sign, a speedometer, a box, stacked cards,
+⌘, braces and the M. Native menus carry words only. Page favicons are
+fetched from Chromium as 2x PNGs and fall back to a globe.
 
 ## Code layout
 
@@ -107,7 +170,7 @@ src/lib/          plain helpers (formatting, prompt labels)
 src/platform/     the only code that imports @merlin/engine and @merlin/shell
 src/state/        the window store, actions, hooks and surface rules
 src/components/ui/        tokens, motion and the component library
-src/components/<feature>/ sidebar, omnibox, site, settings, library, …
+src/components/<feature>/ tabs, omnibox, site, settings, library, …
 ```
 
 Imports go downwards only. Features build from `components/ui` (through its

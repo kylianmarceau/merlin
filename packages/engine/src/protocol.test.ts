@@ -137,3 +137,11 @@ test('icons must be PNG data URLs', async () => {
   assert.equal(await reply(null).call('favicons.get', { tabId: 't' }), null);
   await assert.rejects(reply({ key: '1', url: 'https://tracker.example/icon.png' }).call('favicons.get', { tabId: 't' }));
 });
+test('tab layout, message tone and next-key hints are validated', () => {
+  const s = snapshot();
+  const modal = { ...s.modal, tabLayout: 'top' as const, messageIsError: true, whichKey: [{ keys: 'gt', description: 'Next tab' }] };
+  assert.deepEqual(validateSnapshot({ ...s, modal }, s.windowId).modal, modal);
+  assert.throws(() => validateSnapshot({ ...s, modal: { ...s.modal, tabLayout: 'bottom' as never } }, s.windowId));
+  assert.throws(() => validateSnapshot({ ...s, modal: { ...s.modal, messageIsError: 'yes' as never } }, s.windowId));
+  assert.throws(() => validateSnapshot({ ...s, modal: { ...s.modal, whichKey: [{ keys: 'g' }] as never } }, s.windowId));
+});

@@ -11,7 +11,7 @@ export function Notice({ tone = 'info', children }: { tone?: 'info' | 'error' | 
   const fill: ColorRole = tone === 'error' ? 'dangerSoft' : tone === 'warning' ? 'warningSoft' : 'infoSoft';
   const ink: ColorRole = tone === 'error' ? 'textDanger' : tone === 'warning' ? 'textWarning' : 'accentSoftText';
   return <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', gap: space.sm, alignItems: 'flex-start',
-    padding: space.md, borderRadius: radius.control, backgroundColor: colors[fill] }}>
+    padding: space.md, borderRadius: radius.field, backgroundColor: colors[fill] }}>
     <Icon name={tone === 'info' ? 'info.circle' : 'exclamationmark.triangle'} tone={ink} size="small" />
     <Text tone={ink} flex={1}>{children}</Text>
   </View>;
@@ -20,9 +20,9 @@ export function Notice({ tone = 'info', children }: { tone?: 'info' | 'error' | 
 /** What an empty list says, with an optional next step. */
 export function EmptyState({ icon, title, detail, action }: { icon: SymbolName; title: string; detail?: string; action?: React.ReactNode }) {
   return <View style={{ alignItems: 'center', justifyContent: 'center', gap: space.sm, paddingVertical: space.xxl, paddingHorizontal: space.xl }}>
-    <IconTile icon={icon} size="large" />
-    <Text variant="bodyStrong" align="center">{title}</Text>
-    {!!detail && <Text variant="caption" align="center">{detail}</Text>}
+    <Icon name={icon} tone="iconSecondary" size="large" weight="regular" />
+    <Text variant="calloutStrong" align="center">{title}</Text>
+    {!!detail && <Text tone="textSecondary" align="center">{detail}</Text>}
     {action}
   </View>;
 }

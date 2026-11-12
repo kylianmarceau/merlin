@@ -241,6 +241,47 @@ bool RunSettings(BrowserWindowInterface* browser,
                      Reply(std::move(reply), base::Value(error));
                    },
                    std::move(reply)));
+  } else if (method == "settings.setOption") {
+    // One [options] value from Settings, written into the config file so the
+    // file stays the single source of these options.
+    const std::string* name = args.FindString("name");
+    const base::Value* value = args.Find("value");
+    std::string literal;
+    if (name && value && value->is_bool() &&
+        (*name == "modal_browsing" || *name == "auto_insert" ||
+         *name == "smooth_scroll")) {
+      literal = value->GetBool() ? "true" : "false";
+    } else if (name && value && value->is_string() && *name == "hint_chars" &&
+               value->GetString().size() >= 2 &&
+               value->GetString().size() <= 32 &&
+               std::ranges::all_of(value->GetString(), [](char c) {
+                 return base::IsAsciiLower(c) || base::IsAsciiDigit(c);
+               })) {
+      literal = "\"" + value->GetString() + "\"";
+    } else {
+      Fail(std::move(reply), "Invalid setting");
+      return true;
+    }
+    config_file::Read(base::BindOnce(
+        [](ShellServiceReply reply, std::string name, std::string literal,
+           config_file::ReadResult file) {
+          if (!file.error.empty()) {
+            Fail(std::move(reply), file.error);
+            return;
+          }
+          config_file::Write(
+              config_file::SetOption(file.text, name, literal),
+              base::BindOnce(
+                  [](ShellServiceReply reply, std::string error) {
+                    if (error.empty()) {
+                      ModalBrowserController::ReloadConfigInAllWindows(
+                          nullptr);
+                    }
+                    Reply(std::move(reply), base::Value(error));
+                  },
+                  std::move(reply)));
+        },
+        std::move(reply), *name, std::move(literal)));
   } else if (method == "settings.workspaces") {
     ListWorkspaces(std::move(reply));
   } else if (method == "settings.deleteWorkspace") {

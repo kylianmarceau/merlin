@@ -1,1 +1,1 @@
-{"platforms":["apple"],"apple":{"modules":["MerlinEngineModule"]}}
+{"platforms":["apple"],"apple":{"podspecPath":"MerlinEngine.podspec","modules":["MerlinEngineModule"]}}

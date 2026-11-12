@@ -5,12 +5,15 @@
 #include "chrome/browser/ui/modal_browser/config_file.h"
 
 #include <optional>
+#include <vector>
 
 #include "base/environment.h"
 #include "base/files/file_util.h"
 #include "base/files/important_file_writer.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
+#include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/task/thread_pool.h"
 
@@ -95,6 +98,44 @@ void Write(std::string text, base::OnceCallback<void(std::string)> reply) {
        base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
       base::BindOnce(&WriteBlocking, ConfigPath(), std::move(text)),
       std::move(reply));
+}
+
+std::string SetOption(std::string_view text,
+                      std::string_view name,
+                      std::string_view literal) {
+  std::vector<std::string> lines = base::SplitString(
+      text, "\n", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
+  const std::string line = base::StrCat({name, " = ", literal});
+  std::string table;
+  std::optional<size_t> header;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    std::string_view t =
+        base::TrimWhitespaceASCII(lines[i], base::TRIM_ALL);
+    if (t.size() > 1 && t.front() == '[' && t.back() == ']') {
+      table = std::string(base::TrimWhitespaceASCII(
+          t.substr(1, t.size() - 2), base::TRIM_ALL));
+      if (table == "options") {
+        header = i;
+      }
+      continue;
+    }
+    if (table != "options" || !t.starts_with(name)) {
+      continue;
+    }
+    std::string_view rest = base::TrimWhitespaceASCII(
+        t.substr(name.size()), base::TRIM_LEADING);
+    if (rest.starts_with('=')) {
+      lines[i] = line;
+      return base::JoinString(lines, "\n");
+    }
+  }
+  if (header) {
+    lines.insert(lines.begin() + *header + 1, line);
+    return base::JoinString(lines, "\n");
+  }
+  std::string base(base::TrimWhitespaceASCII(text, base::TRIM_TRAILING));
+  return base::StrCat(
+      {base, base.empty() ? "" : "\n\n", "[options]\n", line, "\n"});
 }
 
 }  // namespace modal_browser::config_file

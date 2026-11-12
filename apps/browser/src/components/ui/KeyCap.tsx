@@ -10,6 +10,6 @@ export function KeyCap({ children }: { children: string }) {
   return <View style={{ minWidth: geometry.keycap, height: geometry.keycap, paddingHorizontal: space.xs, borderRadius: radius.xs,
     alignItems: 'center', justifyContent: 'center', backgroundColor: colors.keycapFill,
     borderWidth: geometry.hairline, borderColor: colors.keycapBorder }}>
-    <Text variant="micro" tone="keycapText">{children}</Text>
+    <Text variant="caption" weight="semibold" tone="keycapText">{children}</Text>
   </View>;
 }

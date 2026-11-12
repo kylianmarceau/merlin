@@ -1,6 +1,7 @@
 // Everything a window's components can ask for. Components never hold the
 // engine or call getState(); they call these, and failures become notices.
 import { showMenu, type MenuItem } from '../platform/shell';
+import { shellPrefs } from './shellPrefs';
 import type { Appearance, Calls, DownloadAction, EngineClient, Method, Request, Requests } from '../platform/protocol';
 import {
   dismissToast, pushToast, rememberFavicon, type AnchorName, type BrowserStore, type Panel, type PopoverName, type Rect,
@@ -31,6 +32,12 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
 
     // Tabs.
     newTab: (url?: string) => run('tabs.create', url ? { url } : {}),
+    /** The New Tab buttons: a pop-up over the page when Settings asks for one, otherwise a blank tab. */
+    openNewTab() {
+      const s = store.getState();
+      if (shellPrefs.getState().newTabPopup && s.snapshot?.tabs.length) store.setState({ panel: 'newTab', popover: null });
+      else void actions.newTab();
+    },
     activateTab: (tabId: string) => run('tabs.activate', { tabId }),
     closeTab: (tabId: string) => run('tabs.close', { tabId }),
     pinTab: (tabId: string, pinned: boolean) => run('tabs.pin', { tabId, pinned }),
@@ -44,15 +51,16 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const previous = tabs[index - 1];
       const next = tabs[index + 1];
       const others = tabs.filter(t => t.id !== tabId && !t.pinned);
+      // Plain words, like the rest of the menu bar; the tab's own title says which tab.
       const items: MenuItem[] = [
-        { id: 'pin', title: tab.pinned ? 'Unpin Tab' : 'Pin Tab', symbol: tab.pinned ? 'pin.fill' : 'pin' },
-        { id: 'duplicate', title: 'Duplicate Tab', symbol: 'square.on.square', enabled: !!tab.url },
-        { id: 'bookmark', title: 'Bookmark Page…', symbol: 'bookmark', enabled: tab.id === store.getState().snapshot?.activeTabId },
+        { id: 'pin', title: tab.pinned ? 'Unpin Tab' : 'Pin Tab' },
+        { id: 'duplicate', title: 'Duplicate Tab', enabled: !!tab.url },
+        { id: 'bookmark', title: 'Bookmark Page…', enabled: tab.id === store.getState().snapshot?.activeTabId },
         { separator: true },
-        { id: 'up', title: 'Move Up', symbol: 'arrow.up', enabled: !!previous && previous.pinned === tab.pinned },
-        { id: 'down', title: 'Move Down', symbol: 'arrow.down', enabled: !!next && next.pinned === tab.pinned },
+        { id: 'up', title: 'Move Up', enabled: !!previous && previous.pinned === tab.pinned },
+        { id: 'down', title: 'Move Down', enabled: !!next && next.pinned === tab.pinned },
         { separator: true },
-        { id: 'close', title: 'Close Tab', symbol: 'xmark' },
+        { id: 'close', title: 'Close Tab' },
         { id: 'others', title: 'Close Other Tabs', enabled: others.length > 0 },
       ];
       let choice: string | null;

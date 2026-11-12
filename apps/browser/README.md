@@ -13,7 +13,7 @@ runtime-qualified** (see the checklist at the end).
 | Chromium | `overlay/chrome/browser/ui/modal_browser/merlin_react_*` | Browser windows, WebContents, navigation, profile data, permissions, find sessions and dialog decisions |
 | C ABI | `packages/engine/include/` | Versioned engine calls/events and host root creation; no C++ objects cross the framework boundary |
 | Engine module | `packages/engine/` | The `MerlinEngine` Expo module: calls, events and native page attachment |
-| AppKit module | `packages/shell/` | The `MerlinShell` Expo module (pod `MerlinShellViews`): SF Symbols, vibrancy, shadowed surfaces, the window drag region, outside-press detection, context-menu areas and native menus |
+| AppKit module | `packages/shell/` | One Expo module per AppKit view (`MerlinShell`, `MerlinShellSymbol`, …; pod `MerlinShellViews`): SF Symbols, vibrancy, shadowed surfaces, the window drag region, outside-press detection, context-menu areas and native menus |
 | Platform | `apps/browser/src/platform/` | The only JS that imports the two native packages |
 | State | `apps/browser/src/state/` | A Zustand store per window, its actions and hooks, validated snapshots and the rules for which overlays show |
 | Components | `apps/browser/src/components/` | `ui/` (tokens, motion, about 30 shared pieces) and one folder per feature |
@@ -120,17 +120,21 @@ The bare Xcode host cannot launch without the assembled engine framework.
 
 ## Implemented source paths
 
-Every normal-window surface is now React. Chromium keeps the behavior; the
-shell presents it.
+Every normal-window surface is React; the Views interface (tab bar, toolbar,
+palette, hints, status pill, Control-Tab switcher, address editor and the
+`chrome://merlin-*` pages) has been deleted. Chromium keeps the behavior; the
+shell presents it. Command-comma and the History, Downloads and Bookmarks
+menu items open the React panels (`patches/0073`). Control-Tab uses
+Chromium's own most-recently-used switching, without an on-screen switcher.
 
 | Surface | React | Chromium side |
 | --- | --- | --- |
-| Tabs, pinning, ordering, favicons, native tab menus, start page | `sidebar/`, `favicon/`, `start/` | `merlin_shell_bridge_mac.mm` (`favicons.get`, 2x PNG) |
+| Tabs in the sidebar or across the top, pinning, ordering, favicons, native tab menus, start page | `tabs/`, `favicon/`, `start/` | `merlin_shell_bridge_mac.mm` (`favicons.get`, 2x PNG) |
 | Address field with Chromium's suggestions and inline completion | `omnibox/` | `MerlinSuggestions` through `omnibox.query`/`open`/`enter` |
 | Split views (`:split`, `:vsplit`) | `window/PageArea` renders both halves; the other half focuses on click | Snapshot `split`, page attachment and visibility in the window |
 | Command palette, link hints, find in page | `palette/`, `window/PageArea`, `find/` | Modal controller, `merlin_react_find_bar.cc` |
 | Pop-up windows | `window/PopupWindow` | `patches/0068` (`TYPE_POPUP`), snapshot `kind` |
-| Settings: appearance, startup, search, downloads, privacy, blocking, performance, extensions, workspaces, keys, config file, about | `Settings` | `merlin_preferences.cc` (shared with the legacy page), `merlin_shell_services.cc` |
+| Settings: appearance, startup, search, downloads, privacy, blocking, performance, extensions, workspaces, keys, config file, about | `Settings` | `merlin_preferences.cc`, `merlin_shell_services.cc` |
 | History, bookmarks with folders, downloads | `Library` | `merlin_shell_services.cc`, `merlin_downloads.cc` |
 | Extensions popover, and extension popups in place | `extensions/` | `merlin_shell_services.cc`, `merlin_react_extension_popup_mac.mm` |
 | Profiles and recent downloads popovers | `profiles/`, `library/DownloadsPopover` | `merlin_shell_services.cc` |

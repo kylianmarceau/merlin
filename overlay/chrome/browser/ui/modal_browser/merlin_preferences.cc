@@ -22,7 +22,6 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/modal_browser/merlin_ctrl_tab.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/common/pref_names.h"
@@ -190,7 +189,7 @@ base::DictValue MerlinPreferences(Profile* profile,
   data.Set("theme",
            theme ? static_cast<int>(theme->GetBrowserColorScheme()) : 0);
   data.Set("tabs", controller && !controller->TabsInSidebar() ? "top" : "side");
-  data.Set("ctrlTab", CtrlTabSwitcher::RecentOrder(prefs) ? "recent" : "order");
+  data.Set("ctrlTab", prefs->GetBoolean(prefs::kCtrlTabMru) ? "recent" : "order");
 
   base::ListValue bindings;
   if (controller) {

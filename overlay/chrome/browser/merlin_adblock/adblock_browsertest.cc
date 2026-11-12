@@ -17,7 +17,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "chrome/browser/ui/modal_browser/config_file.h"
-#include "chrome/browser/ui/modal_browser/merlin_adblock_button.h"
+#include "chrome/browser/ui/modal_browser/merlin_preferences.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -663,41 +663,32 @@ IN_PROC_BROWSER_TEST_F(
   }))JS"));
 }
 
-IN_PROC_BROWSER_TEST_F(
-    MerlinAdblockBrowserTest,
-    ControlsWorkWithModalBrowsingDisabledAndRejectStaleMenus) {
+// The controls the React shell offers: the per-site command (site
+// information), the global command and the Settings preference.
+IN_PROC_BROWSER_TEST_F(MerlinAdblockBrowserTest, ShellControlsToggleBlocking) {
   Rules("||ads.test^$script");
   ASSERT_TRUE(content::NavigateToURL(contents(), Url("/page")));
   auto* controller = modal_browser::ModalBrowserController::From(browser());
   ASSERT_TRUE(controller);
-  // The toolbar no longer shows the shield; its per-site menu is still the
-  // control site information will offer.
-  auto owned_button = std::make_unique<modal_browser::MerlinAdblockButton>(
-      browser(), base::DoNothing());
-  auto* button = owned_button.get();
-  button->Update();
-  EXPECT_TRUE(button->GetVisible());
-  auto* menu = button->BuildMenuForTesting();
-  const int toggle = menu->GetCommandIdAt(1);
-  EXPECT_TRUE(button->IsCommandIdChecked(toggle));
-  button->ExecuteCommand(toggle, 0);
+  controller->RunBrowserCommand("adblock", "site toggle");
   EXPECT_FALSE(service()->EnabledFor(Url("/page")));
   EXPECT_TRUE(service()->EnabledFor(Url("/page", "sub.news.test")));
   ASSERT_TRUE(content::NavigateToURL(contents(), Url("/early", "other.test")));
-  button->ExecuteCommand(toggle, 0);
+  controller->RunBrowserCommand("adblock", "site toggle");
+  EXPECT_FALSE(service()->EnabledFor(Url("/early", "other.test")));
+  controller->RunBrowserCommand("adblock", "site toggle");
   EXPECT_TRUE(service()->EnabledFor(Url("/early", "other.test")));
   controller->RunBrowserCommand("adblock", "off");
   EXPECT_EQ(Readiness::kDisabled, service()->readiness());
   controller->RunBrowserCommand("adblock", "on");
   EXPECT_EQ(Readiness::kReady, service()->readiness());
-  ASSERT_TRUE(content::NavigateToURL(
-      contents(), GURL("chrome://merlin-settings/#adblock")));
-  EXPECT_TRUE(content::ExecJs(
-      contents(), "document.getElementById('adblock-enabled').click()"));
+  Profile* profile = browser()->GetProfile();
+  modal_browser::SetMerlinPreference(profile, controller, "adblock",
+                                     base::Value(false));
   EXPECT_TRUE(base::test::RunUntil(
       [&] { return service()->readiness() == Readiness::kDisabled; }));
-  EXPECT_TRUE(content::ExecJs(
-      contents(), "document.getElementById('adblock-enabled').click()"));
+  modal_browser::SetMerlinPreference(profile, controller, "adblock",
+                                     base::Value(true));
   EXPECT_TRUE(base::test::RunUntil(
       [&] { return service()->readiness() == Readiness::kReady; }));
 }

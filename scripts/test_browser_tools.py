@@ -104,8 +104,7 @@ class BrowserRunnerTest(unittest.TestCase):
             binary = Path(directory) / "src/out/Modal/browser_tests"
             binary.parent.mkdir(parents=True)
             binary.write_text("#!/usr/bin/env python3\nimport json, os, sys\n"
-                              "print(json.dumps({'args': sys.argv[1:], "
-                              "'background': os.environ.get('MODAL_TESTS_IN_BACKGROUND')}))\n")
+                              "print(json.dumps({'args': sys.argv[1:]}))\n")
             binary.chmod(0o755)
             result = subprocess.run(
                 ["/bin/bash", str(ROOT / "scripts/run_browser_tests.sh"), *args],
@@ -113,19 +112,16 @@ class BrowserRunnerTest(unittest.TestCase):
                 capture_output=True, text=True, check=True)
             return json.loads(result.stdout)
 
-    def test_default_runs_all_merlin_suites_with_merlin_ui(self):
+    def test_default_runs_the_merlin_suite_with_merlin_defaults(self):
         result = self.run_runner()
         filters = next(a.split("=", 1)[1] for a in result["args"]
                        if a.startswith("--gtest_filter="))
-        self.assertEqual(set(filters.split(":")), {
-            "ModalBrowserBrowserTest.*", "MerlinAdblock*BrowserTest.*",
-            "MerlinIdentityBrowserTest.*"})
+        self.assertEqual(filters, "MerlinAdblock*BrowserTest.*")
         self.assertNotIn("--modal-browser-upstream-defaults", result["args"])
         self.assertNotIn("--disable-features=MerlinAdblock", result["args"])
-        self.assertEqual(result["background"], "1")
 
-    def test_explicit_identity_suite_keeps_merlin_ui_and_extra_arguments(self):
-        result = self.run_runner("MerlinIdentityBrowserTest.*", "--gtest_repeat=2")
+    def test_explicit_merlin_suite_keeps_merlin_defaults_and_extra_arguments(self):
+        result = self.run_runner("MerlinAdblockBrowserTest.*", "--gtest_repeat=2")
         self.assertNotIn("--modal-browser-upstream-defaults", result["args"])
         self.assertIn("--gtest_repeat=2", result["args"])
 

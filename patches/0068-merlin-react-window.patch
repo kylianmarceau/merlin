@@ -48,9 +48,9 @@
      "//build:buildflag_header_h",
 --- a/chrome/browser/ui/browser_window/internal/browser_window_features.cc
 +++ b/chrome/browser/ui/browser_window/internal/browser_window_features.cc
-@@ -261,6 +261,19 @@
-   ui::ElementHighlighter::GetElementHighlighter()
-       ->MaybeRegisterBackend<views::ElementHighlighterViews>();
+@@ -693,6 +693,19 @@ void BrowserWindowFeatures::InitPostWindowConstruction(
+     focus_manager = webui_browser_window->widget()->GetFocusManager();
+   }
  
 +#if BUILDFLAG(IS_MAC)
 +  // A custom embedder window can supply a Widget without constructing a
@@ -89,7 +89,7 @@
 +#if BUILDFLAG(IS_MAC)
 +  if (modal_browser::ReactShellEnabled() &&
 +      browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
-+    modal_browser_controller_ = std::make_unique<modal_browser::ModalBrowserController>(browser, nullptr);
++    modal_browser_controller_ = std::make_unique<modal_browser::ModalBrowserController>(browser);
 +  }
 +#endif
  }

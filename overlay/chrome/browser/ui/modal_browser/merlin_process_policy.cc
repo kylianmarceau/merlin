@@ -38,10 +38,6 @@ bool UpstreamOrEnabledOnCommandLine(const char* feature) {
 
 }  // namespace
 
-bool ShouldShareMerlinPageProcess(std::string_view host) {
-  return host == kMerlinStartHost && !UpstreamDefaults();
-}
-
 bool ShouldPreloadTopChromeWebUI() {
   return UpstreamOrEnabledOnCommandLine("PreloadTopChromeWebUI");
 }

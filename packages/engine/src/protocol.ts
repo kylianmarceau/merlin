@@ -33,6 +33,8 @@ export type CommandPalette = {
   rows: { title: string; detail: string; keys: string; indent: number; active: boolean }[];
 };
 export type Hint = { label: string; x: number; y: number };
+/** A key that can follow what has been typed so far, and what it does. */
+export type WhichKey = { keys: string; description: string };
 export type FindState = { visible: boolean; text: string; matches: number; ordinal: number; focus: number };
 export type Snapshot = {
   session: string; windowId: string; revision: number; private: boolean;
@@ -41,7 +43,10 @@ export type Snapshot = {
   extensionPopup?: ExtensionPopup | null;
   tabs: Tab[]; activeTabId: string | null; downloads: Download[];
   prompt: Prompt | null; appearance: Appearance; find?: FindState; split?: Split | null;
-  modal: { mode: string; pending: string; message: string; sidebarHidden?: boolean; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string };
+  modal: {
+    mode: string; pending: string; message: string; messageIsError?: boolean; sidebarHidden?: boolean;
+    tabLayout?: 'sidebar' | 'top'; whichKey?: WhichKey[]; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string;
+  };
 };
 export type Calls = {
   'window.snapshot': { args: {}; result: Snapshot };
@@ -242,6 +247,10 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
       !h || typeof h.label !== 'string' || !Number.isFinite(h.x) || !Number.isFinite(h.y)))) throw new Error('Invalid link hints');
   if (s.modal.hintPrefix !== undefined && typeof s.modal.hintPrefix !== 'string') throw new Error('Invalid hint prefix');
   if (s.modal.sidebarHidden !== undefined && typeof s.modal.sidebarHidden !== 'boolean') throw new Error('Invalid sidebar state');
+  if (s.modal.messageIsError !== undefined && typeof s.modal.messageIsError !== 'boolean') throw new Error('Invalid message state');
+  if (s.modal.tabLayout !== undefined && s.modal.tabLayout !== 'sidebar' && s.modal.tabLayout !== 'top') throw new Error('Invalid tab layout');
+  if (s.modal.whichKey !== undefined && (!Array.isArray(s.modal.whichKey) || s.modal.whichKey.some(k =>
+      !k || typeof k.keys !== 'string' || typeof k.description !== 'string'))) throw new Error('Invalid key hints');
   const ids = new Set<string>();
   for (const tab of s.tabs) {
     if (!tab || typeof tab.id !== 'string' || !tab.id || ids.has(tab.id) ||

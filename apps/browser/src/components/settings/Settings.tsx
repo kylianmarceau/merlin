@@ -1,24 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import type { PreferenceKey, Preferences } from '../../state/types';
+import { useShellPrefs } from '../../state/shellPrefs';
+import { setNewTabPopup } from '../../state/shellPrefsStorage';
 import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
 import {
   Box, Button, Field, FormGroup, FormRow, ListRow, Notice, SectionHeader, Segmented, Sheet, SheetBody, Text, Toggle,
-  accents, geometry, type SheetSection,
+  accentLabels, accentSwatch, accents, geometry, opacity, radius, space, themePreview, useTheme, type AccentName, type SheetSection,
 } from '../ui';
+import type { Appearance } from '../../state/types';
 
+// Merlin's own icons for each section: a window with its sidebar, a switch, a
+// closed eye, a no-entry sign, a box, stacked cards, ⌘, braces and the M.
 const sections = [
-  { id: 'appearance', label: 'Appearance', icon: 'paintbrush' },
-  { id: 'general', label: 'General', icon: 'gearshape' },
-  { id: 'downloads', label: 'Downloads', icon: 'arrow.down.circle' },
-  { id: 'privacy', label: 'Privacy', icon: 'lock.shield' },
-  { id: 'blocking', label: 'Blocking', icon: 'hand.raised' },
-  { id: 'performance', label: 'Performance', icon: 'bolt' },
-  { id: 'extensions', label: 'Extensions', icon: 'puzzlepiece.extension' },
-  { id: 'workspaces', label: 'Workspaces', icon: 'rectangle.stack' },
-  { id: 'keys', label: 'Keys', icon: 'keyboard' },
-  { id: 'config', label: 'Config File', icon: 'doc.text' },
-  { id: 'about', label: 'About', icon: 'info.circle' },
+  { id: 'appearance', label: 'Appearance', icon: 'sidebar.left' },
+  { id: 'general', label: 'General', icon: 'switch.2' },
+  { id: 'downloads', label: 'Downloads', icon: 'arrow.down.to.line' },
+  { id: 'privacy', label: 'Privacy', icon: 'eye.slash' },
+  { id: 'blocking', label: 'Blocking', icon: 'nosign' },
+  { id: 'performance', label: 'Performance', icon: 'speedometer' },
+  { id: 'extensions', label: 'Extensions', icon: 'shippingbox' },
+  { id: 'workspaces', label: 'Workspaces', icon: 'square.on.square' },
+  { id: 'keys', label: 'Keys', icon: 'command' },
+  { id: 'config', label: 'Config File', icon: 'curlybraces' },
+  { id: 'about', label: 'About', icon: 'm.square' },
 ] as const satisfies readonly SheetSection<string>[];
 export type SettingsSection = typeof sections[number]['id'];
 
@@ -28,13 +33,13 @@ const filterLists = [
   ['ublock', 'uBlock compatibility', 'Scriptlets, quick fixes and site recovery rules.'],
   ['brave', 'Brave compatibility', 'Vetted site-specific fixes.'],
 ] as const;
-const accentLabels = { ocean: 'Ocean', iris: 'Iris', fern: 'Fern' } as const;
 
 type Set = (key: PreferenceKey, value: unknown) => void;
 
 export function Settings({ open }: { open: boolean }) {
   const actions = useActions();
   const { appearance } = useSnapshot();
+  const newTabPopup = useShellPrefs(s => s.newTabPopup);
   const [section, setSection] = useState<SettingsSection>('appearance');
   const prefs = useRequest('settings.get', {});
   const action = useAction();
@@ -50,14 +55,27 @@ export function Settings({ open }: { open: boolean }) {
       {action.error && <Box marginBottom="lg"><Notice tone="error">{action.error}</Notice></Box>}
       {prefs.error && !p ? <Notice tone="error">{prefs.error}</Notice> : !p && section !== 'appearance' ? <Text tone="textSecondary">Loading settings…</Text> : <>
         {section === 'appearance' && <>
-          <SectionHeader title="Appearance" detail="How Merlin looks. Web pages follow the colour scheme too." />
+          <Box marginBottom="xl" gap="sm">
+            <Text variant="label" weight="semibold" tone="groupLabel">Theme</Text>
+            <View accessibilityRole="radiogroup" accessibilityLabel="Colour scheme" style={{ flexDirection: 'row', gap: space.md + space.hair }}>
+              {(['system', 'light', 'dark'] as const).map(mode => <ThemeChoice key={mode} mode={mode} accent={appearance.accent}
+                selected={appearance.mode === mode} onPress={() => void actions.setAppearance({ mode })} />)}
+            </View>
+          </Box>
+          <Box marginBottom="xl" gap="sm">
+            <Text variant="label" weight="semibold" tone="groupLabel">Workspace colour</Text>
+            <View accessibilityRole="radiogroup" accessibilityLabel="Workspace colour" style={{ flexDirection: 'row', gap: space.lg }}>
+              {accents.map(a => <Swatch key={a} name={a} selected={appearance.accent === a} onPress={() => void actions.setAppearance({ accent: a })} />)}
+            </View>
+          </Box>
           <FormGroup>
-            <FormRow title="Colour scheme"><Segmented label="Colour scheme" value={appearance.mode} onChange={mode => void actions.setAppearance({ mode })}
-              options={[{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }]} /></FormRow>
-            <FormRow title="Accent"><Segmented label="Accent colour" value={appearance.accent} onChange={accent => void actions.setAppearance({ accent })}
-              options={accents.map(a => ({ value: a, label: accentLabels[a] }))} /></FormRow>
             <FormRow title="Reduce motion" detail="Panels and popovers appear without animation.">
               <Toggle label="Reduce motion" value={appearance.reduceMotion} onChange={reduceMotion => void actions.setAppearance({ reduceMotion })} /></FormRow>
+            {p && <FormRow title="Tabs" detail="Down the side or across the top. Command-S hides them either way.">
+              <Segmented label="Tab position" value={p.tabs} onChange={tabs => set('tabs', tabs)}
+                options={[{ value: 'side', label: 'Sidebar' }, { value: 'top', label: 'Top' }]} /></FormRow>}
+            <FormRow title="Open new tabs as a pop-up" detail="Search over the current page; the tab opens once you choose where to go.">
+              <Toggle label="Open new tabs as a pop-up" value={newTabPopup} onChange={on => void setNewTabPopup(on)} /></FormRow>
             {p && <FormRow title="Default page zoom"><Segmented label="Default zoom" value={p.zoom} onChange={zoom => set('zoom', zoom)}
               options={p.zoomChoices.filter(z => z >= 75 && z <= 150).map(z => ({ value: z, label: `${z}%` }))} /></FormRow>}
           </FormGroup>
@@ -237,4 +255,48 @@ function ConfigEditor({ onSaved }: { onSaved(): void }) {
       </View>
     </Box>
   </>;
+}
+
+/** A colour-scheme choice drawn as a small Merlin window. */
+function ThemeChoice({ mode, accent, selected, onPress }: {
+  mode: Appearance['mode']; accent: AccentName; selected: boolean; onPress(): void;
+}) {
+  const { colors } = useTheme();
+  const label = mode === 'system' ? 'Match system' : mode === 'light' ? 'Light' : 'Dark';
+  const halves = mode === 'system' ? (['light', 'dark'] as const) : [mode];
+  return <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected }} onPress={onPress}
+    style={{ flex: 1, gap: space.sm, alignItems: 'center' }}>
+    <View style={{ alignSelf: 'stretch', height: geometry.themePreview, borderRadius: radius.card, overflow: 'hidden', flexDirection: 'row',
+      borderWidth: selected ? geometry.focusRing : geometry.hairline, borderColor: colors[selected ? 'accent' : 'borderDefault'] }}>
+      {halves.map(half => {
+        const c = themePreview(half, accent);
+        return <View key={half} style={{ flex: 1, flexDirection: 'row', gap: space.xs + space.hair, padding: space.sm, backgroundColor: c.shell }}>
+          {(half === 'light' || mode !== 'system') && <View style={{ width: geometry.previewSidebar, gap: space.xs }}>
+            {[0, 1, 2].map(i => <View key={i} style={{ height: space.xs + space.hair, borderRadius: radius.xs, backgroundColor: c.bar,
+              opacity: i === 1 ? 1 : opacity.dim }} />)}
+          </View>}
+          <View style={{ flex: 1, borderRadius: radius.sm, backgroundColor: c.card }} />
+        </View>;
+      })}
+    </View>
+    <Text weight="medium">{label}</Text>
+  </Pressable>;
+}
+
+/** A workspace colour: the tint it gives the window, with its name. */
+function Swatch({ name, selected, onPress }: { name: AccentName; selected: boolean; onPress(): void }) {
+  const { colors, dark } = useTheme();
+  const swatch = accentSwatch(dark ? 'dark' : 'light', name);
+  return <Pressable accessibilityRole="radio" accessibilityLabel={accentLabels[name]} accessibilityState={{ selected }} onPress={onPress}
+    style={{ alignItems: 'center', gap: space.xs + space.hair }}>
+    <View style={{ padding: space.hair, borderRadius: radius.pill, borderWidth: geometry.focusRing,
+      borderColor: colors[selected ? 'accent' : 'fillTransparent'] }}>
+      <View style={{ width: geometry.swatch, height: geometry.swatch, borderRadius: radius.pill, backgroundColor: swatch.fill,
+        alignItems: 'flex-end', justifyContent: 'flex-end' }}>
+        <View style={{ width: geometry.dot + space.hair, height: geometry.dot + space.hair, borderRadius: radius.pill,
+          backgroundColor: swatch.accent, borderWidth: geometry.hairline, borderColor: colors.contentBackground }} />
+      </View>
+    </View>
+    <Text variant="label" tone={selected ? 'textPrimary' : 'textSecondary'}>{accentLabels[name]}</Text>
+  </Pressable>;
 }

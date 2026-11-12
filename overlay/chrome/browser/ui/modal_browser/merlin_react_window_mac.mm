@@ -116,14 +116,10 @@ class ReactNativeWidget : public views::NativeWidgetMac {
   bool ExecuteCommand(int32_t command, WindowOpenDisposition disposition,
                        bool before_responder) override {
     if (!browser_ || before_responder || !chrome::IsCommandEnabled(browser_, command)) return false;
-    // Menu items and key equivalents for these open React panels, not
-    // Chromium's own pages.
-    const char* panel = command == IDC_OPTIONS ? "settings"
-        : command == IDC_SHOW_HISTORY ? "history"
-        : command == IDC_SHOW_BOOKMARK_MANAGER ? "bookmarks"
-        : command == IDC_SHOW_DOWNLOADS ? "downloads"
-        : command == IDC_MANAGE_EXTENSIONS ? "extensions" : nullptr;
-    if (panel && OpenShellPanel(browser_, panel)) return true;
+    // Settings, history, downloads and bookmarks reach the shell through
+    // chrome::Show* (patches/0073) from every caller; extensions open the
+    // shell's popover here.
+    if (command == IDC_MANAGE_EXTENSIONS && OpenShellPanel(browser_, "extensions")) return true;
     chrome::ExecuteCommandWithDisposition(browser_, command, disposition);
     return true;
   }
@@ -366,6 +362,9 @@ class ReactBrowserWindow final : public BrowserWindow,
   }
   bool HandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) override {
     if (event.skip_if_unhandled || !event.os_event || event.os_event.Get().type != NSEventTypeKeyDown) return false;
+    // Merlin's shortcuts the page did not take (Cmd-S, Cmd-K).
+    if (auto* controller = ModalBrowserController::From(browser_); controller && controller->HandleUnhandledShortcut(event))
+      return true;
     return views::NativeWidgetMacNSWindowHost::GetFromNativeWindow(GetNativeWindow())->RedispatchKeyEvent(event.os_event.Get());
   }
   ui::AcceleratorProvider* GetAcceleratorProvider() override { return this; }

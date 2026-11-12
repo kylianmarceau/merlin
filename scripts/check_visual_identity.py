@@ -37,14 +37,6 @@ class BrandingBoundaries(unittest.TestCase):
             with self.subTest(size=size):
                 self.assertIsNone(re.search(r'(?<![\w.])\d+f\b', icons.vector_icon(size)))
 
-    def test_internal_pages_use_shared_product_icon(self):
-        for name in ('merlin_start_page.cc', 'merlin_library_pages.cc'):
-            page = (ROOT / 'overlay/chrome/browser/ui/modal_browser' / name).read_text()
-            with self.subTest(page=name):
-                self.assertRegex(page, r'<img class="mark"[^>]*src="icon.svg"')
-                self.assertNotIn('M85.15 135.77', page)
-                self.assertNotIn('class="feathers"', page)
-
     def test_product_text_only(self):
         before='''<!-- <message name="COMMENT">Chrome</message> -->
 <message name="IDS_FIXTURE" desc="Chrome internal description">

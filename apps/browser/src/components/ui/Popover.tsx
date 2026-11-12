@@ -26,10 +26,17 @@ export function placePopover(anchor: Frame, size: { width: number }, bounds: { w
   return { left, top, maxHeight: Math.max(geometry.rowTall * 3, bounds.height - top - space.md) };
 }
 
+/** Opens downwards from controls in the top half of the window and upwards from those in the bottom half. */
+export function autoPlacement(anchor: Frame | undefined, bounds: { height: number }, align: 'start' | 'end'): Placement {
+  const low = !!anchor && anchor.y > bounds.height / 2;
+  return `${low ? 'above' : 'below'}-${align}`;
+}
+
 /**
- * A non-blocking surface attached to a control. It animates in and out, closes
- * on Escape, on a press anywhere outside it (including on the web page) and
- * when the window loses focus, and never dims or blocks the page.
+ * A non-blocking glass surface attached to a control. It animates in and out,
+ * closes on Escape, on a press anywhere outside it (including on the web page)
+ * and when the window loses focus, and never dims or blocks the page. Its
+ * content sets its own side padding (see PopoverRow and MenuRow).
  */
 export function Popover({ open, anchor, bounds, placement = 'below-start', width = 'popover', kind = 'popover', fill = 'surfacePopover',
   label, onClose, children, flush = false }: {
@@ -48,9 +55,10 @@ export function Popover({ open, anchor, bounds, placement = 'below-start', width
     style={{ position: 'absolute', top: place.top, bottom: place.bottom, left: place.left, width: w }}>
     <Animated.View style={presenceStyle(progress, kind)} accessibilityViewIsModal={false}
       keyDownEvents={[{ key: 'Escape' }]} onKeyDown={e => { if (e.nativeEvent.key === 'Escape') onClose(); }}>
-      <Panel fill={fill} radius="popover" elevation={kind === 'menu' ? 'menu' : 'popover'} accessibilityLabel={label}
-        style={{ maxHeight: place.maxHeight }}>
-        <View style={{ padding: flush ? 0 : space.xs + space.hair, maxHeight: place.maxHeight }}>{content}</View>
+      <Panel glass={!flush} fill={flush ? 'contentBackground' : fill} radius={flush ? 'card' : 'popover'}
+        elevation={kind === 'menu' ? 'menu' : 'popover'} accessibilityLabel={label} style={{ maxHeight: place.maxHeight }}>
+        <View style={{ paddingTop: flush ? 0 : space.xs, paddingBottom: flush ? 0 : space.xs + space.hair,
+          maxHeight: place.maxHeight }}>{content}</View>
       </Panel>
     </Animated.View>
   </OutsidePress>;

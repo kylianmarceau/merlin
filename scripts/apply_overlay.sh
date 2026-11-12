@@ -56,6 +56,6 @@ Next:
   cd $SRC
   gn gen out/Modal && gn check out/Modal '//chrome/browser/ui/modal_browser/*'
   autoninja -C out/Modal chrome browser_tests
-  out/Modal/browser_tests --gtest_filter='ModalBrowserBrowserTest.*' 
+  (cd $ROOT && scripts/run_browser_tests.sh)   # ad-block browser tests
   out/Modal/Merlin.app/Contents/MacOS/Merlin --user-data-dir=/tmp/modal-profile
 EOF

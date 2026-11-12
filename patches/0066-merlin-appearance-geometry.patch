@@ -21,25 +21,6 @@
    switch (constant) {
      case LayoutConstant::kAppMenuProfileRowAvatarIconSize:
        return 24;
---- a/chrome/browser/ui/views/frame/multi_contents_view.cc
-+++ b/chrome/browser/ui/views/frame/multi_contents_view.cc
-@@ -3,6 +3,7 @@
- // found in the LICENSE file.
- 
- #include "chrome/browser/ui/views/frame/multi_contents_view.h"
-+#include "ui/views/merlin_style.h"
- 
- #include <algorithm>
- #include <cstdlib>
-@@ -804,7 +805,7 @@
-     const bool is_active =
-         contents_container_view->contents_view() == GetActiveContentsView();
-     contents_container_view->SetRoundedCorners(
--        is_in_split ? kSplitViewContentRoundedCorners
-+        is_in_split ? (views::merlin_style::SharpCorners() ? gfx::RoundedCornersF(3) : kSplitViewContentRoundedCorners)
-         : (is_active && IsShowingCard())
-             ? card_corners_
-             : (is_active ? GetBackgroundRadii() : gfx::RoundedCornersF()));
 --- a/ui/views/bubble/bubble_border.cc
 +++ b/ui/views/bubble/bubble_border.cc
 @@ -508,6 +508,10 @@

@@ -9,7 +9,6 @@
 
 #include "base/command_line.h"
 #include "base/strings/utf_string_conversions.h"
-#include "chrome/browser/ui/modal_browser/merlin_start_page.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "components/modal_browser/ffi/src/lib.rs.h"
 #include "content/public/common/url_constants.h"
@@ -35,11 +34,8 @@ std::string MerlinDisplayUrl(const GURL& url) {
   std::string_view rest = std::string_view(spec).substr(
       std::min(host_end, spec.size()));
   std::string host(url.host());
-  if (host == kMerlinStartHost || host == "newtab") {
+  if (host == "newtab") {
     host = "start";
-  } else if (host.starts_with("merlin-")) {
-    // Merlin's own pages: merlin-settings reads as merlin://settings.
-    host = host.substr(std::string_view("merlin-").size());
   }
   // A bare "/" path reads as noise, as in Chromium's own address field.
   if (rest == "/") {

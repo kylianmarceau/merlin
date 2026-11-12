@@ -9,11 +9,11 @@ export function FormGroup({ title, detail, children }: React.PropsWithChildren<{
   const { colors } = useTheme();
   return <View style={{ gap: space.sm, marginBottom: space.xl }}>
     {(title || detail) && <View style={{ gap: space.hair, paddingHorizontal: space.xs }}>
-      {!!title && <Text variant="bodyStrong">{title}</Text>}
-      {!!detail && <Text variant="caption">{detail}</Text>}
+      {!!title && <Text variant="label" weight="semibold" tone="groupLabel">{title}</Text>}
+      {!!detail && <Text variant="label" weight="regular" tone="textSecondary">{detail}</Text>}
     </View>}
     <View style={{ borderRadius: radius.card, backgroundColor: colors.surfaceCard, borderWidth: geometry.hairline,
-      borderColor: colors.borderSubtle, paddingHorizontal: space.md }}>
+      borderColor: colors.borderSubtle, paddingHorizontal: space.lg }}>
       {React.Children.toArray(children).filter(Boolean).map((child, i) => <View key={i}
         style={i ? { borderTopWidth: geometry.hairline, borderTopColor: colors.borderSubtle } : undefined}>{child}</View>)}
     </View>
@@ -25,7 +25,7 @@ export function FormRow({ title, detail, children }: React.PropsWithChildren<{ t
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingVertical: space.md, minHeight: geometry.rowTall }}>
     <View style={{ flex: 1, gap: space.hair }}>
       <Text>{title}</Text>
-      {!!detail && <Text variant="caption">{detail}</Text>}
+      {!!detail && <Text variant="label" weight="regular" tone="textSecondary">{detail}</Text>}
     </View>
     {children}
   </View>;

@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { promptIcon } from '../../lib/prompts';
 import type { Prompt } from '../../state/types';
 import { useActions } from '../../state/window';
-import { Box, Button, Checkbox, Field, IconTile, Text, duration, geometry } from '../ui';
+import { Box, Button, Checkbox, Field, Icon, Text, duration, geometry, space } from '../ui';
 
 /**
  * A browser question. Mounted with the native prompt ID as its key, so typed
@@ -36,15 +36,20 @@ export function PromptBody({ prompt, compact }: { prompt: Prompt; compact: boole
     }
   };
   const icon = promptIcon(prompt);
-  const tone = prompt.security === 'dangerous' ? 'danger' : prompt.security === 'insecure' ? 'warning' : 'accent';
+  const tone = prompt.security === 'dangerous' ? 'danger' : prompt.security === 'insecure' ? 'warning' : 'iconSecondary';
+  // Site questions lead with what is asked; a page's own dialogs say who is asking first.
+  const asked = prompt.kind === 'permission' || prompt.anchor === 'site';
   return <Box gap="md">
-    <Box row gap="md" align="flex-start">
-      <IconTile icon={icon} tone={tone} fill={tone === 'danger' ? 'dangerSoft' : tone === 'warning' ? 'warningSoft' : 'accentSoft'} />
+    {asked ? <Box row gap="md" align="flex-start">
+      <Box padTop="hair"><Icon name={icon} tone={tone} /></Box>
       <Box flex={1} gap="hair">
-        <Text variant="bodyStrong">{prompt.title}</Text>
-        <Text variant="caption" lines={1}>{prompt.origin}</Text>
+        <Text variant="calloutStrong">{prompt.title}</Text>
+        <Text variant="label" weight="regular" tone="textSecondary" lines={1}>{prompt.origin}</Text>
       </Box>
-    </Box>
+    </Box> : <Box gap="xs">
+      {!!prompt.origin && <Text variant="label" weight="regular" tone="textSecondary" lines={1}>{`${prompt.origin} says`}</Text>}
+      <Text variant="title">{prompt.title}</Text>
+    </Box>}
     {!!prompt.message && <ScrollView style={{ maxHeight: compact ? geometry.popover / 2 : geometry.sheetHeight / 2 }}>
       <Text tone="textSecondary" selectable>{prompt.message}</Text>
     </ScrollView>}
@@ -59,7 +64,7 @@ export function PromptBody({ prompt, compact }: { prompt: Prompt; compact: boole
     </Box>}
     {prompt.canSuppress && <Checkbox label="Don't let this page show more dialogs" value={suppress} disabled={pending} onChange={setSuppress} />}
     {error && <Text tone="textDanger">{error}</Text>}
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: geometry.splitGap }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: space.sm, paddingTop: space.hair }}>
       {prompt.actions.map(action => <Button key={action.id} label={action.label} disabled={!armed || pending}
         variant={action.emphasis === 'primary' ? 'primary' : action.emphasis === 'danger' ? 'danger' : 'secondary'}
         onPress={() => void answer(action.id)} />)}

@@ -1,1 +1,1 @@
-{"platforms":["apple"],"apple":{"modules":["MerlinShellModule"]}}
+{"platforms": ["apple"], "apple": {"podspecPath": "MerlinShellViews.podspec", "modules": ["MerlinShellModule", "MerlinShellSymbolModule", "MerlinShellVisualEffectModule", "MerlinShellSurfaceModule", "MerlinShellWindowDragRegionModule", "MerlinShellOutsidePressModule", "MerlinShellContextMenuAreaModule", "MerlinShellGradientModule"]}}

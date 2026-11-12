@@ -2,9 +2,11 @@
 // snapshots; the store adds only what the shell itself decides: which panel
 // or popover is open, notices, address suggestions, icons and anchor places.
 import { createStore } from 'zustand/vanilla';
+import { isStartUrl } from '../lib/format';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
+import { shellPrefs } from './shellPrefs';
 
-export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | null;
+export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | null;
 export type PopoverName = 'extensions' | 'profiles' | 'downloads';
 /** Places popovers attach to. Toolbar and sidebar controls report their frames. */
 export type AnchorName = 'site' | 'requests' | 'extensions' | 'downloads' | 'profiles' | 'address';
@@ -77,6 +79,23 @@ export function rememberFavicon(store: BrowserStore, key: string, url: string) {
   });
 }
 
+/**
+ * With new tabs as a pop-up, a blank tab Chromium opened itself (Command-T,
+ * the File menu) gives way to the pop-up over the page that was showing. The
+ * tab is opened again once the person chooses where to go.
+ */
+function routeNewTab(store: BrowserStore, engine: EngineClient, before: Snapshot | null, fail: (e: unknown) => void) {
+  const after = store.getState().snapshot;
+  if (!before || !after || after === before || after.session !== before.session || !shellPrefs.getState().newTabPopup) return;
+  const tab = after.tabs.find(t => t.id === after.activeTabId);
+  const previous = before.activeTabId;
+  if (!tab || !isStartUrl(tab.url) || before.tabs.some(t => t.id === tab.id)) return;
+  if (!previous || previous === tab.id || !after.tabs.some(t => t.id === previous)) return;
+  store.setState({ panel: 'newTab', popover: null });
+  void engine.call('tabs.activate', { tabId: previous })
+    .then(() => engine.call('tabs.close', { tabId: tab.id })).catch(fail);
+}
+
 export function attachEngine(store: BrowserStore, engine: EngineClient) {
   let disposed = false;
   const fail = (e: unknown) => {
@@ -90,7 +109,12 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
     if (disposed) return;
     try {
       switch (event.type) {
-        case 'snapshot': acceptSnapshot(store, event.snapshot); break;
+        case 'snapshot': {
+          const before = store.getState().snapshot;
+          acceptSnapshot(store, event.snapshot);
+          routeNewTab(store, engine, before, fail);
+          break;
+        }
         case 'address.focus': store.setState(s => ({ addressFocus: s.addressFocus + 1 })); break;
         case 'address.revert': store.setState(s => ({ addressRevert: s.addressRevert + 1, omnibox: null })); break;
         case 'command.open': store.setState({ panel: 'command', popover: null }); break;

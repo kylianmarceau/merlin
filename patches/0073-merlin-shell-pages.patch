@@ -1,0 +1,76 @@
+--- a/chrome/browser/ui/chrome_pages.cc
++++ b/chrome/browser/ui/chrome_pages.cc
+@@ -28,6 +28,9 @@
+ #include "chrome/browser/file_system_access/file_system_access_features.h"
+ #include "chrome/browser/policy/profile_policy_connector.h"
+ #include "chrome/browser/profiles/profile.h"
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
++#endif
+ #include "chrome/browser/signin/account_consistency_mode_manager.h"
+ #include "chrome/browser/ui/browser_element_identifiers.h"
+ #include "chrome/browser/ui/browser_window.h"
+@@ -322,6 +325,12 @@
+ 
+ void ShowBookmarkManager(BrowserWindowInterface* browser) {
+   base::RecordAction(UserMetricsAction("ShowBookmarkManager"));
++#if BUILDFLAG(IS_MAC)
++  // Merlin's shell shows its own Library instead of the chrome:// page.
++  if (modal_browser::OpenShellPanel(browser, "bookmarks")) {
++    return;
++  }
++#endif
+   ShowSingletonTabIgnorePathOverwriteNTP(browser, GURL(kChromeUIBookmarksURL));
+ }
+ 
+@@ -342,6 +351,11 @@
+   }
+ 
+   base::RecordAction(UserMetricsAction("ShowHistory"));
++#if BUILDFLAG(IS_MAC)
++  if (host_name.empty() && modal_browser::OpenShellPanel(browser, "history")) {
++    return;
++  }
++#endif
+   GURL url = GURL(kChromeUIHistoryURL);
+   if (!host_name.empty()) {
+     GURL::Replacements replacements;
+@@ -365,6 +379,11 @@
+ 
+ void ShowDownloads(BrowserWindowInterface* browser) {
+   base::RecordAction(UserMetricsAction("ShowDownloads"));
++#if BUILDFLAG(IS_MAC)
++  if (modal_browser::OpenShellPanel(browser, "downloads")) {
++    return;
++  }
++#endif
+ #if !BUILDFLAG(IS_CHROMEOS)
+   // Hide the download bubble if it is showing, to avoid redundancy with the
+   // chrome://downloads page we are about to open.
+@@ -461,6 +480,13 @@
+ }
+ 
+ void ShowSettings(BrowserWindowInterface* browser) {
++#if BUILDFLAG(IS_MAC)
++  // Merlin's Settings (⌘, the app menu, extensions) are part of its shell;
++  // Chromium's settings pages stay for the advanced sections it links to.
++  if (modal_browser::OpenShellPanel(browser, "settings")) {
++    return;
++  }
++#endif
+   ShowSettingsSubPage(browser, std::string());
+ }
+ 
+--- a/chrome/browser/ui/BUILD.gn
++++ b/chrome/browser/ui/BUILD.gn
+@@ -1966,6 +1966,10 @@
+       ]
+     } else {
+       deps += [ "//chrome/browser/download/bubble" ]
++    }
++    if (is_mac) {
++      # Settings, history, downloads and bookmarks open Merlin's shell.
++      deps += [ "//chrome/browser/ui/modal_browser:shell_headers" ]
+     }
+   }
+ 

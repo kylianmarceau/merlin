@@ -21,10 +21,12 @@
  }
 --- a/chrome/browser/BUILD.gn
 +++ b/chrome/browser/BUILD.gn
-@@ -1563,6 +1563,7 @@
- 
-       # Merlin: chrome://settings and friends open Merlin's pages.
-       "//chrome/browser/ui/modal_browser:url_rewrite",
+@@ -1560,6 +1560,9 @@
+       "//chrome/browser/ui/web_applications",
+       "//chrome/browser/ui/web_applications:impl",
+       "//chrome/browser/ui/webui/util",
++
++      # Merlin's colours for Chromium's own surfaces (patches/0038).
 +      "//chrome/browser/ui/modal_browser:theme",
      ]
    }

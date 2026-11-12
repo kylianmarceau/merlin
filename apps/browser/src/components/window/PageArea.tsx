@@ -16,8 +16,8 @@ export function PageArea() {
   const { colors } = useTheme();
   const split = snapshot.split && active && snapshot.split.tabs.includes(active.id) ? snapshot.split : null;
   if (!active) return <Box flex={1} center>
-    <EmptyState icon="sparkles" title="No tabs open" detail="Open a tab, or use the command menu."
-      action={<Button label="New Tab" variant="primary" icon="plus" onPress={() => void actions.newTab()} />} />
+    <EmptyState icon="square.dashed" title="No tabs open" detail="Open a tab, or use the command menu."
+      action={<Button label="New Tab" variant="primary" icon="plus" onPress={() => void actions.openNewTab()} />} />
   </Box>;
   return <View style={{ flex: 1 }}>
     {split ? <View style={{ flex: 1, flexDirection: split.layout === 'stacked' ? 'column' : 'row', gap: geometry.splitGap }}>

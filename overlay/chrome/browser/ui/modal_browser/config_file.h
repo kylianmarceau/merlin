@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_MODAL_BROWSER_CONFIG_FILE_H_
 
 #include <string>
+#include <string_view>
 
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
@@ -47,6 +48,14 @@ ReadResult ReadBlocking(const base::FilePath& path);
 void Write(std::string text, base::OnceCallback<void(std::string)> reply);
 
 std::string WriteBlocking(const base::FilePath& path, const std::string& text);
+
+// Returns `text` with `name = literal` under [options]: the existing line is
+// replaced, or one is added (with the table, if the file has none). Comments,
+// other tables and formatting are kept. `literal` is TOML, e.g. `false` or
+// `"asdf"`.
+std::string SetOption(std::string_view text,
+                      std::string_view name,
+                      std::string_view literal);
 
 }  // namespace modal_browser::config_file
 
