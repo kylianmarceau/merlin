@@ -16,6 +16,9 @@
 
 # Private planning notes, status logs and prompts
 /notes/
+/reports/
+/research_notes/
+codex-handoff.md
 chromium_neovim_browser_plan.md
 claude_code_chromium_browser_prompt.md
 
