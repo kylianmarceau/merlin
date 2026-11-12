@@ -45,11 +45,11 @@ writes Chromium profile files.
 
 Speed-sensitive paths stay native:
 
-- **Startup.** Chromium starts the React host in `PostCreateThreads`
-  (`patches/0074`), so React Native's native modules and the Hermes bundle load
-  while the profile loads, not when the first window asks for its view.
-  `MERLIN_NO_PREWARM=1` turns this off for comparison, and
-  `MERLIN_STARTUP_TRACE=<file>` logs the host's startup phases.
+- **Startup.** React starts with the first window. Chromium can start the host
+  earlier, in `PostCreateThreads` (`patches/0074`), with `MERLIN_PREWARM=1`;
+  measured, that delayed the first page by about 25 ms without showing the
+  window sooner, so it is off by default. `MERLIN_STARTUP_TRACE=<file>` logs
+  the host's startup phases.
 - **Tab switches.** When Chromium activates a tab, the engine moves the new
   page's view into the place React gave the previous one
   (`RevealActivePage`); React re-renders the sidebar after. Split views, the

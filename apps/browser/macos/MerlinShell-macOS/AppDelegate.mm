@@ -122,10 +122,11 @@ void Shutdown() {
   runtime = nil;
 }
 void Prewarm() {
-  // MERLIN_NO_PREWARM=1 starts React with the first window instead, to
-  // measure the difference.
-  const char* off = getenv("MERLIN_NO_PREWARM");
-  if (off && !strcmp(off, "1")) return;
+  // Off unless MERLIN_PREWARM=1. Measured on 2026-11-12, starting React
+  // while Chromium loads the profile delayed the first page by about 25 ms
+  // and did not bring the window forward (docs/PERFORMANCE.md).
+  const char* on = getenv("MERLIN_PREWARM");
+  if (!on || strcmp(on, "1")) return;
   if (NSThread.isMainThread) [Runtime() prewarm];
 }
 const MerlinShellAPI api = {1, sizeof(MerlinShellAPI), CreateRoot, ReleaseRoot, Shutdown, Prewarm};
