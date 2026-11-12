@@ -20,3 +20,12 @@ export function useTheme() {
   if (!theme) throw new Error('UI components need a ThemeScope');
   return theme;
 }
+
+/** Patches some colour roles for everything inside, such as a toolbar tinted with the site's colour. */
+export function PaletteScope({ roles, children }: React.PropsWithChildren<{ roles: Partial<Palette> }>) {
+  const theme = useTheme();
+  const key = JSON.stringify(roles);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const value = useMemo(() => ({ ...theme, colors: { ...theme.colors, ...roles } }), [theme, key]);
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}

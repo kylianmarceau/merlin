@@ -149,6 +149,9 @@ test('crashed tabs and the full download list are validated', async () => {
   const tab = { id: '1', title: 'A', url: 'https://a.test/', loading: false, pinned: false, audible: false, canGoBack: false, canGoForward: false };
   assert.equal(validateSnapshot({ ...snapshot(), tabs: [{ ...tab, crashed: true }] }, 'window-one').tabs[0].crashed, true);
   assert.throws(() => validateSnapshot({ ...snapshot(), tabs: [{ ...tab, crashed: 'yes' }] }, 'window-one'));
+  assert.equal(validateSnapshot({ ...snapshot(), tabs: [{ ...tab, color: '#1E3A7A' }] }, 'window-one').tabs[0].color, '#1E3A7A');
+  assert.throws(() => validateSnapshot({ ...snapshot(), tabs: [{ ...tab, color: 'red' }] }, 'window-one'));
+  assert.throws(() => validateSnapshot({ ...snapshot(), tabs: [{ ...tab, color: 'url(https://x.test/)' }] }, 'window-one'));
   let listener!: (event: EngineEvent) => void;
   let requestId = '';
   const client = new EngineClient('window-one', {

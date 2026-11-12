@@ -7,9 +7,13 @@ import { useStore } from 'zustand';
 export type ShellPrefs = {
   /** New tabs start as a pop-up over the current page instead of a page of their own. */
   newTabPopup: boolean;
+  /** How the active tab and toolbar take the site's colour with tabs on top: "soft", "vivid" or "white". */
+  toolbarColor: 'soft' | 'vivid' | 'white';
+  /** The window shell takes the site's colour too, instead of the workspace colour. */
+  shellFollowsSite: boolean;
 };
 
-export const shellPrefs = createStore<ShellPrefs>()(() => ({ newTabPopup: false }));
+export const shellPrefs = createStore<ShellPrefs>()(() => ({ newTabPopup: false, toolbarColor: 'soft', shellFollowsSite: false }));
 
 export function useShellPrefs<T>(select: (prefs: ShellPrefs) => T): T {
   return useStore(shellPrefs, select);

@@ -10,7 +10,7 @@ export const space = { none: 0, hair: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 24, x
 export type Space = keyof typeof space;
 
 export const radius = {
-  none: 0, xs: 4, sm: 6, control: 8, row: 9, field: 10, tile: 10, card: 12, window: 12, panel: 16, popover: 18, dialog: 18,
+  none: 0, xs: 4, sm: 6, control: 8, row: 9, field: 10, tile: 10, tab: 10, card: 12, window: 12, panel: 16, popover: 18, dialog: 18,
   pill: 999,
 } as const;
 export type Radius = keyof typeof radius;
@@ -25,13 +25,14 @@ export const font = {
 
 /** Sizes of recurring shell pieces, in points. */
 export const geometry = {
-  sidebar: 252, sidebarCollapsedInset: 84, stripTab: 196, stripTabMin: 96, titlebar: 40, strip: 48, toolbar: 48,
+  sidebar: 252, sidebarCollapsedInset: 84, stripTab: 148, stripTabMin: 96, stripTabIcon: 40, titlebar: 40, strip: 48, toolbar: 46,
+  joinedTab: 38, joinedEar: 10, overflowButton: 44,
   control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, stripTabHeight: 32, address: 36, favourite: 44, favouriteSmall: 28,
   rowTall: 44, popoverRow: 32, icon: 16, iconSmall: 13, iconLarge: 20, favicon: 16, tile: 28, round: 20, roundGlyph: 9, keycap: 18,
   toggleWidth: 28, toggleHeight: 16, toggleThumb: 12, progress: 4, focusRing: 2, hairline: 1, splitGap: 6, dot: 7,
   popover: 300, popoverWide: 340, menu: 240, dialog: 380, dialogWide: 520, palette: 620, paletteInput: 60, paletteRow: 42,
   sheetWidth: 840, sheetHeight: 640, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
-  suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, orb: 104, newTabInput: 52, newTabTop: 142, siteWidth: 64, toastWidth: 360, toastHeight: 40,
+  suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, paintWidth: 400, paintHeight: 172, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
 } as const;
 
 /** Layer order inside the window, lowest first. */
@@ -63,23 +64,6 @@ const accentScale = {
 } as const;
 export type AccentName = keyof typeof accentScale;
 
-// The new tab page's orb, lit from the upper left: four stops from highlight
-// to deep, the pale horizon along its bottom, its shadow, and the wash
-// behind the page.
-const orbScale = {
-  fern: {
-    light: { stops: ['#EEF7F0', '#A8D3B9', '#5A9E7E', '#2F6B58'], horizon: 'rgba(226, 232, 206, 0.85)', shadow: 'rgba(30, 90, 65, 0.45)', glow: 'rgba(168, 206, 186, 0.26)' },
-    dark: { stops: ['#D8EEE1', '#86C5A9', '#3F7F64', '#1C4A3B'], horizon: 'rgba(170, 196, 160, 0.35)', shadow: 'rgba(0, 0, 0, 0.55)', glow: 'rgba(134, 197, 169, 0.09)' },
-  },
-  ocean: {
-    light: { stops: ['#EEF6FB', '#A6CFE6', '#4F93B8', '#1F6688'], horizon: 'rgba(222, 234, 220, 0.85)', shadow: 'rgba(25, 75, 105, 0.42)', glow: 'rgba(159, 208, 234, 0.24)' },
-    dark: { stops: ['#DCEEF8', '#79BCDD', '#3A7DA0', '#15435A'], horizon: 'rgba(160, 190, 205, 0.35)', shadow: 'rgba(0, 0, 0, 0.55)', glow: 'rgba(121, 188, 221, 0.09)' },
-  },
-  iris: {
-    light: { stops: ['#FCF1EA', '#F2C1A6', '#CF7D55', '#A4532E'], horizon: 'rgba(242, 228, 200, 0.85)', shadow: 'rgba(120, 55, 25, 0.40)', glow: 'rgba(246, 180, 154, 0.22)' },
-    dark: { stops: ['#F8E3D6', '#E59A72', '#A85E3B', '#5E2E18'], horizon: 'rgba(214, 186, 150, 0.35)', shadow: 'rgba(0, 0, 0, 0.55)', glow: 'rgba(229, 154, 114, 0.09)' },
-  },
-} as const;
 /** The order and names the Settings sheet shows. */
 export const accents: readonly AccentName[] = ['fern', 'ocean', 'iris'];
 export const accentLabels: Record<AccentName, string> = { fern: 'Sage', ocean: 'Ocean', iris: 'Ember' };
@@ -102,7 +86,6 @@ export function themePreview(mode: Mode, name: AccentName) {
 function roles(mode: Mode, accentName: AccentName) {
   const light = mode === 'light';
   const a = accentScale[accentName][mode];
-  const orb = orbScale[accentName][mode];
   const pick = (l: string, d: string) => (light ? l : d);
   return {
     // Window structure. The shell is drawn over vibrancy, so it tints rather than fills.
@@ -117,13 +100,6 @@ function roles(mode: Mode, accentName: AccentName) {
     toolbarDivider: pick('rgba(20, 40, 30, 0.07)', 'rgba(255, 255, 255, 0.06)'),
     titlebarBackground: pick(ink[75], ink[925]),
     startBackground: pick(ink[25], ink[900]),
-    startGlow: orb.glow,
-    orbHighlight: orb.stops[0],
-    orbLight: orb.stops[1],
-    orbMid: orb.stops[2],
-    orbDeep: orb.stops[3],
-    orbHorizon: orb.horizon,
-    orbShadow: orb.shadow,
     // The page under a new-tab pop-up stays visible, only quieter.
     newTabVeil: pick('rgba(252, 253, 252, 0.45)', 'rgba(18, 21, 19, 0.45)'),
 
@@ -225,6 +201,9 @@ function roles(mode: Mode, accentName: AccentName) {
 
     // Tabs on the shell.
     tabHover: pick('rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.06)'),
+    // The soft pill under an inactive tab on hover, inset from the joined tab's outline.
+    tabHoverInset: pick('rgba(255, 255, 255, 0.38)', 'rgba(255, 255, 255, 0.07)'),
+    tabDivider: pick('rgba(20, 40, 30, 0.13)', 'rgba(255, 255, 255, 0.12)'),
     tabActive: pick(ink[0], 'rgba(255, 255, 255, 0.12)'),
     tabActiveBorder: pick('rgba(20, 40, 30, 0.06)', 'rgba(255, 255, 255, 0.06)'),
     tabText: pick('#2A2F2C', ink[200]),
@@ -289,4 +268,96 @@ export const shadow = {
 export type ShadowName = keyof typeof shadow;
 
 /** Opacity for disabled and pressed controls. */
-export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6 } as const;
+export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, paintDark: 0.82 } as const;
+
+// Site colours. In the tabs-on-top layout the active tab joins the toolbar,
+// and both take the colour of the site (its theme-color, else its icon's
+// main colour, from the engine). Three treatments, chosen in Settings:
+//   soft   the site colour mixed with 86% white, ink from the same hue
+//   vivid  the site colour darkened until white text reaches 4.5:1
+//   white  the plain toolbar, whatever the site
+// A new tab page always uses white. Everything here returns roles to patch
+// over the palette (see PaletteScope), so components keep naming roles.
+
+export type ToolbarColor = 'soft' | 'vivid' | 'white';
+export const toolbarColors: readonly ToolbarColor[] = ['soft', 'vivid', 'white'];
+export const toolbarColorLabels: Record<ToolbarColor, string> = { soft: 'Soft', vivid: 'Vivid', white: 'White' };
+
+type Rgb = [number, number, number];
+const channels = (hex: string): Rgb => {
+  const h = hex.replace('#', '');
+  return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)) as Rgb;
+};
+const hexOf = (c: number[]) => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('').toUpperCase();
+/** `a` moved towards `b` by `t` (0 to 1). Both "#RRGGBB". */
+export function mixColor(a: string, b: string, t: number) {
+  const A = channels(a), B = channels(b);
+  return hexOf(A.map((v, i) => v + (B[i] - v) * t));
+}
+const withAlpha = (hex: string, alpha: number) => {
+  const [r, g, b] = channels(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+function luminance(hex: string) {
+  const [r, g, b] = channels(hex).map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+/** WCAG contrast ratio between two "#RRGGBB" colours. */
+export function contrastRatio(a: string, b: string) {
+  const x = luminance(a), y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+/** `fg` moved towards `toward` until it reaches `min` contrast on `bg`. */
+function readable(fg: string, bg: string, toward: string, min: number) {
+  let colour = fg;
+  for (let t = 0.05; contrastRatio(colour, bg) < min && t <= 1; t += 0.05) colour = mixColor(fg, toward, t);
+  return colour;
+}
+const white = ink[0], black = ink[1000];
+
+export type SiteChrome = {
+  /** The joined tab and the toolbar under it. */
+  bar: string;
+  /** The window shell when it follows the site; null keeps the workspace tint. */
+  shell: string | null;
+  /** Roles to patch over the palette inside the toolbar and the active tab. */
+  roles: Partial<Palette>;
+};
+
+export function siteChrome(mode: Mode, site: string | null | undefined, style: ToolbarColor, followShell: boolean): SiteChrome {
+  const light = mode === 'light';
+  const plain = light ? ink[0] : ink[900];
+  if (!site || !/^#[0-9A-Fa-f]{6}$/.test(site) || style === 'white') return { bar: plain, shell: null, roles: {} };
+  const shell = followShell
+    ? (light ? withAlpha(mixColor(site, white, 0.72), 0.86) : withAlpha(mixColor(site, ink[950], 0.8), 0.88))
+    : null;
+  if (style === 'vivid') {
+    let bar = site;
+    for (let t = 0.04; contrastRatio(white, bar) < 4.5 && t <= 1; t += 0.04) bar = mixColor(site, black, t);
+    const muted = readable(mixColor(white, bar, 0.28), bar, white, 4.5);
+    return { bar, shell, roles: {
+      textPrimary: white, textSecondary: muted, textTertiary: muted, tabText: white, tabTextActive: white,
+      iconPrimary: white, iconSecondary: mixColor(white, bar, 0.18), iconDisabled: mixColor(white, bar, 0.55),
+      siteSecure: muted, omniboxCompletion: muted,
+      omniboxIdle: withAlpha(white, 0.16), omniboxHover: withAlpha(white, 0.22), omniboxActive: mixColor(bar, black, 0.22),
+      textSelection: withAlpha(white, 0.32), borderDefault: withAlpha(white, 0.28),
+      fillHover: withAlpha(white, 0.14), fillPressed: withAlpha(white, 0.22), fillSelected: withAlpha(white, 0.18),
+      focusRing: withAlpha(white, 0.75), tabLoading: white,
+    } };
+  }
+  const bar = light ? mixColor(site, white, 0.86) : mixColor(site, ink[900], 0.8);
+  const toward = light ? black : white;
+  const text = light ? readable(mixColor(site, black, 0.5), bar, black, 4.5) : readable(mixColor(site, white, 0.75), bar, white, 7);
+  const icon = light ? readable(mixColor(site, black, 0.4), bar, black, 3) : readable(mixColor(site, white, 0.6), bar, white, 3);
+  const muted = readable(mixColor(text, bar, 0.35), bar, toward, 4.5);
+  return { bar, shell, roles: {
+    textPrimary: text, textSecondary: muted, textTertiary: muted, tabText: text, tabTextActive: text,
+    iconPrimary: icon, iconSecondary: readable(mixColor(icon, bar, 0.25), bar, toward, 3), iconDisabled: mixColor(icon, bar, 0.55),
+    siteSecure: muted, omniboxCompletion: muted, tabLoading: icon,
+    omniboxIdle: light ? withAlpha(white, 0.66) : withAlpha(white, 0.08),
+    omniboxHover: light ? withAlpha(white, 0.82) : withAlpha(white, 0.11),
+    fillHover: withAlpha(light ? text : white, light ? 0.07 : 0.08),
+    fillPressed: withAlpha(light ? text : white, light ? 0.12 : 0.13),
+    fillSelected: withAlpha(light ? text : white, light ? 0.1 : 0.11),
+  } };
+}

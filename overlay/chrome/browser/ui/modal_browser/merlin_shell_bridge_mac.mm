@@ -55,7 +55,11 @@
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/page_navigator.h"
+#include "base/strings/stringprintf.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "ui/gfx/color_analysis.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -106,6 +110,34 @@ std::string FaviconKey(content::WebContents* contents) {
   const auto& url = entry->GetFavicon().url;
   return base::NumberToString(base::PersistentHash(
       url.is_valid() ? url.spec() : entry->GetURL().DeprecatedGetOriginAsURL().spec()));
+}
+// "#RRGGBB" for an opaque colour.
+std::string HexColor(SkColor color) {
+  return base::StringPrintf("#%02X%02X%02X", SkColorGetR(color), SkColorGetG(color), SkColorGetB(color));
+}
+// Near-white colours say nothing about a site and would vanish on the shell.
+bool Washed(SkColor color) {
+  return color_utils::GetRelativeLuminance(color) > 0.86f;
+}
+// The colour the joined tab and toolbar take: the page's theme-color, else
+// the main colour of its icon. Icons are analysed once per icon key.
+std::string SiteColor(content::WebContents* contents, std::map<std::string, std::string>& icon_colors) {
+  if (const auto theme = contents->GetThemeColor(); theme && SkColorGetA(*theme) == SK_AlphaOPAQUE && !Washed(*theme)) {
+    return HexColor(*theme);
+  }
+  const auto key = FaviconKey(contents);
+  if (key.empty()) return {};
+  if (const auto found = icon_colors.find(key); found != icon_colors.end()) return found->second;
+  const gfx::ImageSkia image = contents->GetController().GetLastCommittedEntry()->GetFavicon().image.AsImageSkia();
+  const gfx::ImageSkiaRep& rep = image.GetRepresentation(1.0f);
+  std::string color;
+  if (!rep.is_null() && !rep.GetBitmap().drawsNothing()) {
+    const SkColor mean = color_utils::CalculateKMeanColorOfBitmap(rep.GetBitmap());
+    if (!Washed(mean)) color = HexColor(SkColorSetA(mean, SK_AlphaOPAQUE));
+  }
+  if (icon_colors.size() > 256) icon_colors.clear();
+  icon_colors[key] = color;
+  return color;
 }
 // The icon as a 2x PNG data URL, so it stays sharp on Retina displays.
 base::Value FaviconData(content::WebContents* contents) {
@@ -169,6 +201,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void DidStartLoading() override { Changed(); }
   void DidStopLoading() override { Changed(); }
   void PrimaryPageChanged(content::Page&) override { Changed(); }
+  // The joined tab and toolbar take the site's colour.
+  void DidChangeThemeColor() override { Changed(); }
   // The shell shows a crashed page's own view (no sad tab: BrowserView draws it).
   void PrimaryMainFrameRenderProcessGone(base::TerminationStatus) override { Changed(); }
   void OnDownloadCreated(content::DownloadManager*, download::DownloadItem*) override { Changed(); }
@@ -192,6 +226,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   int revision_ = 0;
   bool delivery_pending_ = false;
   base::TimeTicks last_delivery_;
+  // Icon colours by icon key (see SiteColor).
+  std::map<std::string, std::string> icon_colors_;
   PrefChangeRegistrar prefs_;
   std::unique_ptr<download::AllDownloadItemNotifier> downloads_;
   base::WeakPtrFactory<WindowState> weak_factory_{this};
@@ -256,13 +292,15 @@ Dict WindowState::Snapshot() {
   for (int i = 0; i < strip->count(); ++i) {
     auto* tab = strip->GetTabAtIndex(i);
     auto* contents = tab->GetContents();
-    tabs.Append(Dict().Set("id", TabId(tab))
+    Dict entry = Dict().Set("id", TabId(tab))
       .Set("title", base::UTF16ToUTF8(contents->GetTitle()))
       .Set("url", contents->GetVisibleURL().spec()).Set("loading", contents->IsLoading()).Set("crashed", contents->IsCrashed())
       .Set("pinned", strip->IsTabPinned(i)).Set("audible", contents->IsCurrentlyAudible())
       .Set("canGoBack", contents->GetController().CanGoBack())
       .Set("canGoForward", contents->GetController().CanGoForward())
-      .Set("favicon", FaviconKey(contents)));
+      .Set("favicon", FaviconKey(contents));
+    if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
+    tabs.Append(std::move(entry));
   }
   // Running downloads and the most recent others; the Library asks for all
   // of them with "downloads.list". The history can hold thousands.

@@ -53,6 +53,9 @@ export const OutsidePress = view<ViewProps & { onOutsidePress(event: OutsidePres
 export const ContextMenuArea = view<ViewProps & { onContextMenu(): void }>('ContextMenuArea');
 
 /** "orb": four stops, highlight to deep, then horizon glow and shadow. "glow": one colour fading out. */
+/** Fades its content out over the last `fadeLength` points, instead of an ellipsis. */
+export const Fade = view<ViewProps & { fadeLength: number }>('Fade');
+
 export type GradientProps = ViewProps & { gradientKind: 'orb' | 'glow'; gradientColors: string[] };
 export const Gradient = view<GradientProps>('Gradient');
 

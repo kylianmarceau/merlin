@@ -3,11 +3,12 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
-import { Button, Glow, Icon, Orb, Panel, Text, font, geometry, opacity, radius, space, useInteraction, useTheme } from '../ui';
+import { Button, Icon, Panel, Text, font, geometry, opacity, radius, space, useInteraction, useTheme } from '../ui';
 import { Favicon } from '../favicon/Favicon';
+import { PaintMark } from './PaintMark';
 
 /**
- * What a new tab shows: the workspace orb, one search card and, under it, the
+ * What a new tab shows: a mound of paint in the workspace colour, one search card and, under it, the
  * window's other pages. Quiet on purpose; the address is the point.
  */
 export function StartPage({ tab }: { tab: Tab }) {
@@ -19,11 +20,10 @@ export function StartPage({ tab }: { tab: Tab }) {
   const ready = !!query.trim();
   const go = () => { if (ready) void actions.openInTab(tab.id, query); };
   return <View style={{ flex: 1, backgroundColor: colors.startBackground }}>
-    <Glow style={{ position: 'absolute', left: '2%', right: '2%', top: '14%', bottom: '2%' }} />
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: geometry.newTabTop,
       paddingBottom: space.huge, paddingHorizontal: space.huge }}>
-      <Orb />
-      <View style={{ width: geometry.palette, maxWidth: '100%', marginTop: space.xxl + space.sm }}>
+      <PaintMark />
+      <View style={{ width: geometry.palette, maxWidth: '100%', marginTop: space.xl }}>
         <Panel fill="contentBackground" radius="popover" border="borderSubtle" elevation="card">
           <View style={{ paddingTop: space.sm, paddingHorizontal: space.sm + space.hair, paddingBottom: space.sm + space.hair }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, height: geometry.newTabInput, paddingHorizontal: space.sm }}>
