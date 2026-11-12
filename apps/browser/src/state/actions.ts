@@ -77,6 +77,19 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       }
     },
 
+    /** The tabs that no longer fit across the top, as a native menu; the chosen one becomes active. */
+    async hiddenTabsMenu(tabIds: string[]) {
+      const tabs = store.getState().snapshot?.tabs ?? [];
+      const items: MenuItem[] = tabIds.flatMap(id => {
+        const tab = tabs.find(t => t.id === id);
+        return tab ? [{ id: tab.id, title: tab.title || tab.url || 'New Tab' }] : [];
+      });
+      if (!items.length) return;
+      let choice: string | null;
+      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      if (choice) await actions.activateTab(choice);
+    },
+
     // The active page.
     back: () => { const t = active(); return t ? run('navigation.back', { tabId: t.id }) : Promise.resolve(false); },
     forward: () => { const t = active(); return t ? run('navigation.forward', { tabId: t.id }) : Promise.resolve(false); },

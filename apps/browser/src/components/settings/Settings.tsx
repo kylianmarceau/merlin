@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import type { PreferenceKey, Preferences } from '../../state/types';
 import { useShellPrefs } from '../../state/shellPrefs';
-import { setNewTabPopup } from '../../state/shellPrefsStorage';
+import { setNewTabPopup, setShellFollowsSite, setToolbarColor } from '../../state/shellPrefsStorage';
 import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
 import {
   Box, Button, Field, FormGroup, FormRow, ListRow, Notice, SectionHeader, Segmented, Sheet, SheetBody, Text, Toggle,
-  accentLabels, accentSwatch, accents, geometry, opacity, radius, space, themePreview, useTheme, type AccentName, type SheetSection,
+  accentLabels, accentSwatch, accents, geometry, opacity, radius, space, themePreview, toolbarColorLabels, toolbarColors, useTheme,
+  type AccentName, type SheetSection,
 } from '../ui';
 import type { Appearance } from '../../state/types';
 
@@ -40,6 +41,8 @@ export function Settings({ open }: { open: boolean }) {
   const actions = useActions();
   const { appearance } = useSnapshot();
   const newTabPopup = useShellPrefs(s => s.newTabPopup);
+  const toolbarColor = useShellPrefs(s => s.toolbarColor);
+  const shellFollowsSite = useShellPrefs(s => s.shellFollowsSite);
   const [section, setSection] = useState<SettingsSection>('appearance');
   const prefs = useRequest('settings.get', {});
   const action = useAction();
@@ -74,6 +77,12 @@ export function Settings({ open }: { open: boolean }) {
             {p && <FormRow title="Tabs" detail="Down the side or across the top. Command-S hides them either way.">
               <Segmented label="Tab position" value={p.tabs} onChange={tabs => set('tabs', tabs)}
                 options={[{ value: 'side', label: 'Sidebar' }, { value: 'top', label: 'Top' }]} /></FormRow>}
+            {p?.tabs === 'top' && <FormRow title="Site colour" detail="The active tab and toolbar take the colour of the site. New tabs stay white.">
+              <Segmented label="Site colour" value={toolbarColor} onChange={style => void setToolbarColor(style)}
+                options={toolbarColors.map(value => ({ value, label: toolbarColorLabels[value] }))} /></FormRow>}
+            {p?.tabs === 'top' && toolbarColor !== 'white' && <FormRow title="Tint the window with the site colour"
+              detail="The space around the page takes the site's colour instead of the workspace colour.">
+              <Toggle label="Tint the window with the site colour" value={shellFollowsSite} onChange={on => void setShellFollowsSite(on)} /></FormRow>}
             <FormRow title="Open new tabs as a pop-up" detail="Search over the current page; the tab opens once you choose where to go.">
               <Toggle label="Open new tabs as a pop-up" value={newTabPopup} onChange={on => void setNewTabPopup(on)} /></FormRow>
             {p && <FormRow title="Default page zoom"><Segmented label="Default zoom" value={p.zoom} onChange={zoom => set('zoom', zoom)}

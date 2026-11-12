@@ -107,3 +107,12 @@ public final class MerlinShellGradientModule: Module {
     }
   }
 }
+
+public final class MerlinShellFadeModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellFade")
+    View(MerlinFade.self) {
+      Prop("fadeLength") { (view, value: Double) in view.length = value }
+    }
+  }
+}

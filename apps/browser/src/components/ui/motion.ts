@@ -12,6 +12,12 @@ export const duration = {
   hoverIntent: 350,
   /** How long a notice stays before it leaves on its own. */
   toast: 5000,
+  /** The joined tab sliding to the newly active tab. */
+  slide: 340,
+  /** The joined tab and toolbar cross-fading to a new site's colour. */
+  tint: 380,
+  /** How long a dropped tab keeps its new place while the browser confirms it. */
+  dropSettle: 1500,
   /** Debounce for search fields that ask the browser. */
   search: 180,
   /** Native prompts ignore answers for their first half second. */
@@ -25,6 +31,8 @@ export const curve = {
   exit: Easing.bezier(0.4, 0, 1, 1),
   /** Things moving within the layout. */
   move: Easing.bezier(0.25, 0.1, 0.25, 1),
+  /** The joined tab: a fast start that settles softly onto the tab. */
+  slide: Easing.bezier(0.2, 0.9, 0.25, 1),
   linear: Easing.linear,
 } as const;
 
@@ -109,4 +117,49 @@ export function useTimeout(fn: () => void, ms: number, deps: unknown[]) {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
+}
+
+/**
+ * A colour that cross-fades to each new value over `duration.tint`; set it on
+ * an Animated.View. Immediate when motion is reduced.
+ */
+export function useColorFade(color: string, reduce: boolean) {
+  const progress = useRef(new Animated.Value(1)).current;
+  const last = useRef(color);
+  const [pair, setPair] = useState({ from: color, to: color });
+  useEffect(() => {
+    if (color === last.current) return;
+    setPair({ from: last.current, to: color });
+    last.current = color;
+    progress.setValue(0);
+    const run = Animated.timing(progress, { toValue: 1, duration: reduce ? duration.instant : duration.tint, easing: curve.move,
+      useNativeDriver: false });
+    run.start();
+    return () => run.stop();
+  }, [color, reduce, progress]);
+  return progress.interpolate({ inputRange: [0, 1], outputRange: [pair.from, pair.to] });
+}
+
+/**
+ * Slides to `to` (a left edge and a width) over `duration.slide`. The first
+ * position, and every move while `follow` is set (a drag), is immediate.
+ */
+export function useSlide(to: { x: number; width: number } | null, reduce: boolean, follow = false) {
+  const x = useRef(new Animated.Value(to?.x ?? 0)).current;
+  const width = useRef(new Animated.Value(to?.width ?? 0)).current;
+  const placed = useRef(!!to);
+  useEffect(() => {
+    if (!to) return;
+    if (!placed.current || follow || reduce) {
+      placed.current = true;
+      x.setValue(to.x);
+      width.setValue(to.width);
+      return;
+    }
+    const spec = { duration: duration.slide, easing: curve.slide, useNativeDriver: false };
+    const run = Animated.parallel([Animated.timing(x, { ...spec, toValue: to.x }), Animated.timing(width, { ...spec, toValue: to.width })]);
+    run.start();
+    return () => run.stop();
+  }, [to?.x, to?.width, follow, reduce, x, width]);  // eslint-disable-line react-hooks/exhaustive-deps
+  return { x, width };
 }

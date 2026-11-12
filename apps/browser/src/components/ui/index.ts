@@ -2,7 +2,7 @@
 // the tokens; see DESIGN.md for when to use which.
 export * from './tokens';
 export * from './motion';
-export { ThemeScope, useTheme, type Theme } from './theme';
+export { PaletteScope, ThemeScope, useTheme, type Theme } from './theme';
 export { Box, type BoxProps } from './Box';
 export { Text, type TextVariant } from './Text';
 export { Icon, type SymbolName } from './Icon';
@@ -27,4 +27,4 @@ export { FormGroup, FormRow, SectionHeader } from './Form';
 export { ContextMenu, DragRegion } from './Native';
 export { useInteraction } from './interaction';
 export { useEscape } from './keys';
-export { Glow, Orb } from './Orb';
+export { Fade } from './Fade';

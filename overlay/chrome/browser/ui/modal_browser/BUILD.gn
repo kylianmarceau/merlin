@@ -277,6 +277,7 @@ source_set("modal_browser") {
       "//components/find_in_page",
       "//components/favicon/content",
       "//ui/gfx/codec",
+      "//ui/gfx:color_utils",
     ]
   }
 }

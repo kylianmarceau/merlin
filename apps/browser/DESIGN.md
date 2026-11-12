@@ -28,16 +28,38 @@ The stored accent names predate Tide and stay as the browser saves them:
   footer holds profiles and downloads on the left; extensions, the command
   menu, the Library and Settings on the right. The page card has **no
   toolbar** in this layout.
-- **Tabs on top** (`tabs = "top"`): a 48 pt strip after 84 pt for the traffic
-  lights. Pinned tabs sit together in a soft group; open tabs are 32 pt pills
-  sharing the width up to 196 pt, with hairline dividers between quiet tabs,
-  then drop their titles when crowded. Downloads, the command menu, Library,
-  Settings, profiles and hide sit at the right. The card gets one 48 pt
-  toolbar: back, forward, reload, the address (site in medium weight, the
-  rest of the path quiet), bookmark and extensions.
-- **New tab page**: quiet. The workspace orb (a native gradient in the
-  workspace colour), one search card with "Jump to a tab or file", and the
-  window's other pages on one line under it, over a faint wash of the colour.
+- **Tabs on top** (`tabs = "top"`): the "Joined" strip, 48 pt after 84 pt
+  for the traffic lights, drawn over the card so the active tab can overlap
+  its edge. Tabs sit on the bottom of the strip. The active one is a 38 pt
+  shape with 10 pt top corners in the toolbar's colour, joined to the
+  toolbar by a concave 10 pt ear at each bottom corner (rings clipped to a
+  square, so nothing paints over the translucent shell); it slides to a
+  newly active tab over 340 ms (`curve.slide`) and its colour cross-fades
+  over 380 ms. Inactive tabs have no fill: a favicon, the title at body size
+  fading out at its end (`Fade`, no ellipsis), a soft inset pill on hover
+  and hairline dividers between quiet tabs; the close button shows on hover
+  and on the active tab. Tabs share the width up to 148 pt, become icons
+  below 96 pt and, past 40 pt, the rest collect behind a "+N" native menu
+  (the active tab always stays in the strip). Pinned tabs are icons in a
+  soft group. A loading tab shows a spinner in place of its icon. Dragging
+  a tab reorders it within its group, the joined shape following it.
+  Downloads, the command menu, Library, Settings and profiles sit at the
+  right. The card gets one 46 pt toolbar: hide tabs, back, forward, reload,
+  the address (site in medium weight, the rest of the path quiet), bookmark
+  and extensions.
+- **Site colour** (tabs on top, Settings > Appearance): the joined tab and
+  toolbar take the site's colour, from the engine (`Tab.color`: the page's
+  theme-color, else its icon's main colour). *Soft* (default) mixes it with
+  86% white and draws ink from the same hue; *Vivid* darkens it until white
+  text reaches 4.5:1; *White* ignores it. New tab and crashed pages are
+  always white. "Tint the window with the site colour" replaces the
+  workspace tint of the shell too. `siteChrome()` in tokens.ts turns the
+  colour into roles that `PaletteScope` patches over the toolbar and the
+  active tab, so components still only name roles.
+- **New tab page**: quiet. A mound of thick paint in the workspace colour
+  (`PaintMark`: pre-rendered 2x images, one per workspace colour, slightly
+  dimmed in dark mode), one search card with "Jump to a tab or file", and the
+  window's other pages on one line under it, on the off-white ground.
 - **New tabs as a pop-up** (Settings > Appearance, kept by the shell in
   AppKit's defaults rather than the profile): New Tab and Command-T open a
   search pop-up over the current page under a light veil; the sidebar's New
