@@ -2,6 +2,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_shell_services.h"
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -33,6 +34,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/modal_browser/config_file.h"
 #include "chrome/browser/merlin_adblock/service.h"
+#include "chrome/browser/ui/modal_browser/merlin_downloads.h"
 #include "chrome/browser/ui/modal_browser/merlin_preferences.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
@@ -640,6 +642,23 @@ bool RunExtensions(BrowserWindowInterface* browser,
   return true;
 }
 
+// -- Downloads ----------------------------------------------------------------
+
+bool RunDownloads(BrowserWindowInterface* browser,
+                  const std::string& method,
+                  const Dict& args,
+                  ShellServiceReply& reply) {
+  if (method != "downloads.list") {
+    return false;
+  }
+  // Every download the profile remembers, newest first. Window snapshots
+  // carry only the running and most recent ones.
+  Reply(std::move(reply),
+        base::Value(MerlinDownloadsList(browser->GetProfile(),
+                                        std::numeric_limits<size_t>::max())));
+  return true;
+}
+
 // -- Profiles -----------------------------------------------------------------
 
 bool RunProfiles(BrowserWindowInterface* browser,
@@ -712,6 +731,7 @@ bool RunShellService(BrowserWindowInterface* browser,
          RunHistory(browser, method, args, reply) ||
          RunBookmarks(browser, method, args, reply) ||
          RunExtensions(browser, method, args, reply) ||
+         RunDownloads(browser, method, args, reply) ||
          RunProfiles(browser, method, args, reply);
 }
 

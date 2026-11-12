@@ -14,6 +14,9 @@ typedef struct MerlinShellAPI {
   void* (*create_root)(const char* window_id);
   void (*release_root)(void* root_nsview);
   void (*shutdown)(void);
+  // Added within ABI 1: present when struct_size covers it. Starts the React
+  // bridge and bundle load early, before the first window asks for a root.
+  void (*prewarm)(void);
 } MerlinShellAPI;
 typedef const MerlinShellAPI* (*MerlinShellGetAPIFn)(uint32_t abi_version);
 const MerlinShellAPI* MerlinShellGetAPI(uint32_t abi_version);

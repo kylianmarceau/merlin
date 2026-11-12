@@ -235,7 +235,17 @@ function BookmarkEditor({ item, busy, error, onCancel, onSave }: {
 
 function Downloads() {
   const actions = useActions();
-  const { downloads } = useSnapshot();
+  const live = useSnapshot().downloads;
+  // The snapshot carries running and recent downloads; the full history comes
+  // on request, again whenever a download starts or one is removed.
+  const liveIds = live.map(d => d.id).join(',');
+  const all = useRequest('downloads.list', {}, [liveIds]);
+  const downloads = useMemo(() => {
+    const fresh = new Map(live.map(d => [d.id, d]));
+    const merged = (all.data ?? []).map(d => fresh.get(d.id) ?? d);
+    const known = new Set(merged.map(d => d.id));
+    return [...live.filter(d => !known.has(d.id)), ...merged];
+  }, [live, all.data]);
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
   const shown = downloads.filter(d => !q || `${d.name} ${d.url ?? ''}`.toLowerCase().includes(q));

@@ -8,5 +8,8 @@ class BrowserWindowInterface;
 namespace modal_browser {
 std::unique_ptr<BrowserWindow, BrowserWindowDeleter> CreateReactBrowserWindow(
     BrowserWindowInterface* browser);
+// Starts the React host early in startup (patches/0074), so its native modules
+// and bundle load while Chromium loads the profile, not after the first window.
+void PrewarmReactShell();
 }  // namespace modal_browser
 #endif

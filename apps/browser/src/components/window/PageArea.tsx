@@ -43,6 +43,7 @@ function Pane({ tab, hints }: { tab: Tab; hints: boolean }) {
   const snapshot = useSnapshot();
   const { colors } = useTheme();
   if (isStartUrl(tab.url)) return <StartPage tab={tab} />;
+  if (tab.crashed) return <CrashedPage tab={tab} />;
   const prefix = snapshot.modal.hintPrefix ?? '';
   return <View style={{ flex: 1 }}>
     <Page tabId={tab.id} />
@@ -54,4 +55,14 @@ function Pane({ tab, hints }: { tab: Tab; hints: boolean }) {
         </View>)}
     </View>}
   </View>;
+}
+
+/** A page whose renderer has gone: say so and offer to load it again. */
+function CrashedPage({ tab }: { tab: Tab }) {
+  const actions = useActions();
+  return <Box flex={1} center fill="windowBackground">
+    <EmptyState icon="exclamationmark.triangle" title="This page stopped working"
+      detail={tab.title ? `${tab.title} closed unexpectedly. Reload to open it again.` : 'Reload to open it again.'}
+      action={<Button label="Reload" variant="primary" icon="arrow.clockwise" onPress={() => void actions.reloadTab(tab.id)} />} />
+  </Box>;
 }

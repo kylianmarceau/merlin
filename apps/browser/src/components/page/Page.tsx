@@ -9,5 +9,7 @@ import { useSnapshot } from '../../state/window';
  */
 export function Page({ tabId, style }: { tabId: string; style?: ViewStyle }) {
   const { windowId } = useSnapshot();
-  return <PageView key={tabId} windowId={windowId} tabId={tabId} style={style ?? { flex: 1 }} />;
+  // Not keyed by tab: the same native view takes the next tab's page, which
+  // Chromium has usually put there already (RevealActivePage).
+  return <PageView windowId={windowId} tabId={tabId} style={style ?? { flex: 1 }} />;
 }

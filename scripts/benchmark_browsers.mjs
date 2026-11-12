@@ -11,7 +11,7 @@
 //   node scripts/summarize_benchmarks.mjs /tmp/bench
 //
 // --skip takes steps to leave out: startup, memory-idle, pageload-local,
-// pageload-real, newtab, memory-tabs, real, speedometer. --arg passes an
+// pageload-real, newtab, memory-tabs, real, many-tabs, speedometer. --arg passes an
 // extra browser switch (repeatable); --name labels the result file.
 import { spawn, execFile } from "node:child_process";
 import { createServer } from "node:http";
@@ -125,6 +125,69 @@ const METRICS = `(()=>{const n=performance.getEntriesByType('navigation')[0]||{}
 return JSON.stringify({href:location.href,ready:document.readyState,origin:performance.timeOrigin,ttfb:n.responseStart,dcl:n.domContentLoadedEventEnd,load:n.loadEventEnd,
 fcp:p?p.startTime:null,lcp:window.__lcp??null,resources:performance.getEntriesByType('resource').length,visibleAt:(window.__m||{}).visibleAt??null})})()`;
 
+// ---------------------------------------------------------------- native probes
+// Launch to a window on screen (scripts/lib/window_onscreen.swift), compiled
+// once into the temporary directory; null where swiftc is missing.
+let windowHelper;
+async function windowProbe() {
+  if (windowHelper === undefined) {
+    const out = join(tmpdir(), "merlin-window-onscreen");
+    windowHelper = await run("swiftc", ["-O", `${REPO}/scripts/lib/window_onscreen.swift`, "-o", out]).then(() => out, () => null);
+  }
+  return windowHelper;
+}
+async function windowShownAt(pid) {
+  const helper = await windowProbe();
+  if (!helper) return null;
+  const { stdout } = await run(helper, [String(pid), "20000"]).catch(() => ({ stdout: "-1" }));
+  const at = Number(stdout.trim());
+  return at > 0 ? at : null;
+}
+// Idle CPU and wakeups of every process in the tree, from two top samples
+// `seconds` apart, and memory by process type.
+async function idleProbe(root, seconds = 30) {
+  const pids = await treePids(root);
+  const { stdout: kinds } = await run("ps", ["-o", "pid=,args=", "-p", pids.join(",")]);
+  const kind = new Map(kinds.split("\n").filter(Boolean).map((line) => {
+    const [, pid, cmd] = line.match(/^\s*(\d+)\s+(.*)$/) || [];
+    const type = (cmd || "").match(/--type=([a-z-]+)/)?.[1];
+    return [Number(pid), !type ? "browser" : type === "gpu-process" ? "gpu" : type === "renderer" ? "renderer" : "other"];
+  }));
+  const { stdout } = await run("top", ["-l", "2", "-s", String(seconds), "-stats", "pid,cpu,idlew",
+    ...pids.flatMap((pid) => ["-pid", String(pid)])], { maxBuffer: 1 << 24 });
+  const last = stdout.split(/^PID/m).pop().split("\n").slice(1);
+  const out = { seconds, cpu_percent: 0, wakeups_per_s: 0, by_kind: {} };
+  for (const line of last) {
+    const [pid, cpu, idlew] = line.trim().split(/\s+/);
+    if (!/^\d+$/.test(pid || "")) continue;
+    const k = kind.get(Number(pid)) || "other";
+    const c = Number(cpu) || 0, w = (parseFloat(idlew) || 0) / seconds;
+    out.cpu_percent += c; out.wakeups_per_s += w;
+    const slot = (out.by_kind[k] ||= { cpu_percent: 0, wakeups_per_s: 0, footprint_mb: 0 });
+    slot.cpu_percent += c; slot.wakeups_per_s += w;
+  }
+  const fp = JSON.parse((await run("python3", [`${REPO}/scripts/lib/process_footprint.py`, ...pids.map(String)])).stdout);
+  for (const p of fp.processes) {
+    const slot = (out.by_kind[kind.get(p.pid) || "other"] ||= { cpu_percent: 0, wakeups_per_s: 0, footprint_mb: 0 });
+    slot.footprint_mb += p.physical_footprint_bytes / 1048576;
+  }
+  const round = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "number" ? +v.toFixed(2) : round(v)]));
+  return round(out);
+}
+// Merlin's engine writes "page-shown <tab> <epoch ms>" when a page's view goes
+// into the window (MERLIN_TRACE_FILE); the first one at or after `since`.
+async function pageShownAfter(since, ms = 3000) {
+  if (!D.traceFile) return null;
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    const text = await readFile(D.traceFile, "utf8").catch(() => "");
+    const at = text.split("\n").map((l) => Number(l.split(" ")[2])).find((t) => t >= since);
+    if (at) return at;
+    await sleep(10);
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------- drivers
 async function treePids(root) {
   const { stdout } = await run("ps", ["-axo", "pid=,ppid="]);
@@ -161,6 +224,8 @@ class CdpDriver {
       await copyFile(`${HOME}/.config/modal_browser/config.toml`, join(cfg, "modal_browser", "config.toml")).catch(() => {});
       env.XDG_CONFIG_HOME = cfg;
       env.MODAL_BROWSER_SOCKET = join(profile, "browserctl.sock");
+      this.traceFile = join(profile, "merlin-trace.txt");
+      env.MERLIN_TRACE_FILE = this.traceFile;
     }
     await rm(join(profile, "DevToolsActivePort"), { force: true });
     const t0 = Date.now();
@@ -168,6 +233,7 @@ class CdpDriver {
       "--no-default-browser-check", "--use-mock-keychain", "--window-size=1440,900", "--window-position=40,40",
       ...(B.extra || []), url], { env, stdio: "ignore" });
     this.pid = this.proc.pid;
+    this.windowAt = windowShownAt(this.pid);
     let text;
     for (let i = 0; i < 600 && !text; i++) {
       text = await readFile(join(profile, "DevToolsActivePort"), "utf8").catch(() => null);
@@ -315,22 +381,26 @@ await step("startup", async () => {
     result.startup = { note: "user's own profile, Dia not running before each launch", warm_ms: runs, warm_median_ms: median(runs) };
     return;
   }
-  const cold = [], warm = [];
+  const cold = [], warm = [], window = [];
   const warmProfile = join(root, "warm");
+  const windowMs = async (t0) => { const at = await D.windowAt; return at ? at - t0 : null; };
   for (let i = 0; i < 5; i++) {
     const id = `cold-${i}`;
     const t0 = await D.launch(`${LOCAL}/launch?id=${id}`, join(root, `cold-${i}`));
     cold.push((await waitBeacon(id)) - t0);
+    await windowMs(t0);
     await sleep(2000); await D.quit();
   }
   for (let i = 0; i < 6; i++) {
     const id = `warm-${i}`;
     const t0 = await D.launch(`${LOCAL}/launch?id=${id}`, warmProfile);
     const ms = (await waitBeacon(id)) - t0;
-    if (i > 0) warm.push(ms); // first launch creates the profile
+    const shown = await windowMs(t0);
+    if (i > 0) { warm.push(ms); window.push(shown); } // first launch creates the profile
     await sleep(2000); await D.quit();
   }
-  result.startup = { cold_ms: cold, cold_median_ms: median(cold), warm_ms: warm, warm_median_ms: median(warm) };
+  result.startup = { cold_ms: cold, cold_median_ms: median(cold), warm_ms: warm, warm_median_ms: median(warm),
+    window_ms: window, window_median_ms: median(window) };
 });
 
 // main session for everything else
@@ -353,6 +423,10 @@ await step("memory-idle", async () => {
   await sleep(15000);
   result.memory.idle = await memory(pidOf());
   log("idle", result.memory.idle);
+  if (B.kind === "cdp") {
+    result.idle = await idleProbe(pidOf());
+    log("idle cpu", JSON.stringify(result.idle));
+  }
 });
 
 // ---------------------------------------------------------------- 2 page loads
@@ -413,16 +487,47 @@ await step("newtab", async () => {
       const t0 = Date.now();
       const id = await D.newTab("chrome://newtab/");
       await waitLoaded(D, id, null).catch(() => null);
-      const m = JSON.parse(await D.eval(id, METRICS));
-      ntp.push(m.load ? m.origin + m.load - t0 : null);
-      result.newtab.ntp_href = m.href;
-      await D.close(id); await sleep(500);
+      try {
+        const m = JSON.parse(await D.eval(id, METRICS));
+        ntp.push(m.load ? m.origin + m.load - t0 : null);
+        result.newtab.ntp_href = m.href;
+        await D.close(id);
+      } catch {
+        // Merlin's shell closes the blank tab and shows its own start page.
+        ntp.push(null);
+        result.newtab.ntp_note = "the browser replaced chrome://newtab with its own start page";
+      }
+      await sleep(500);
     }
     result.newtab.ntp_to_load_ms = ntp;
     result.newtab.ntp_median_ms = median(ntp);
   }
   log("newtab", JSON.stringify(result.newtab));
 });
+
+// Activates background tabs in turn. `ms` is the page's first frame once
+// visible; `shown_ms`, Merlin only, is the page's view going into the window.
+async function switchTabs(ids, count) {
+  const sw = [], shown = [];
+  for (let i = 0; i < count; i++) {
+    const id = ids[(i * 3) % ids.length];
+    const before = Date.now();
+    await D.activate(id);
+    let vis = null;
+    for (let k = 0; k < 50 && !vis; k++) {
+      const m = JSON.parse(await D.eval(id, METRICS));
+      if (m.visibleAt && m.visibleAt >= before) vis = m.visibleAt;
+      else await sleep(20);
+    }
+    sw.push(vis ? vis - before : null);
+    const at = await pageShownAfter(before);
+    shown.push(at ? +(at - before).toFixed(1) : null);
+    await sleep(400);
+  }
+  const out = { ms: sw, median_ms: median(sw) };
+  if (shown.some((x) => x != null)) Object.assign(out, { shown_ms: shown, shown_median_ms: median(shown) });
+  return out;
+}
 
 const opened = [];
 await step("memory-tabs", async () => {
@@ -438,21 +543,7 @@ await step("memory-tabs", async () => {
   await sleep(20000);
   result.memory.tabs10 = await memory(pidOf()); log("10 tabs", result.memory.tabs10);
   // tab switch: activate each background tab and wait for its first frame
-  const sw = [];
-  for (let i = 0; i < 10; i++) {
-    const id = opened[(i * 3) % opened.length];
-    const before = Date.now();
-    await D.activate(id);
-    let vis = null;
-    for (let k = 0; k < 50 && !vis; k++) {
-      const m = JSON.parse(await D.eval(id, METRICS));
-      if (m.visibleAt && m.visibleAt >= before) vis = m.visibleAt;
-      else await sleep(20);
-    }
-    sw.push(vis ? vis - before : null);
-    await sleep(400);
-  }
-  result.tab_switch = { ms: sw, median_ms: median(sw) };
+  result.tab_switch = await switchTabs(opened, 10);
   log("switch", JSON.stringify(result.tab_switch));
   await openHeavy(20);
   await sleep(25000);
@@ -471,6 +562,22 @@ await step("real", async () => {
   }
   await sleep(30000);
   result.memory.real10 = await memory(pidOf()); log("10 real sites", result.memory.real10);
+  for (const id of opened.splice(0)) await D.close(id).catch(() => {});
+  await sleep(5000);
+});
+
+// A hundred light tabs: the shell's tab list and snapshots at scale.
+await step("many-tabs", async () => {
+  await D.front();
+  for (let i = 0; i < 100; i++) {
+    const id = await D.newTab(`${LOCAL}/simple?many${i}`);
+    opened.push(id);
+    if (i % 10 === 9) await waitLoaded(D, id, null).catch(() => {});
+  }
+  await sleep(20000);
+  result.memory.tabs100 = await memory(pidOf()); log("100 tabs", result.memory.tabs100);
+  result.tab_switch_100 = await switchTabs(opened, 10);
+  log("switch at 100 tabs", JSON.stringify(result.tab_switch_100));
   for (const id of opened.splice(0)) await D.close(id).catch(() => {});
   await sleep(5000);
 });

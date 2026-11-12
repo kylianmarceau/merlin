@@ -169,6 +169,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void DidStartLoading() override { Changed(); }
   void DidStopLoading() override { Changed(); }
   void PrimaryPageChanged(content::Page&) override { Changed(); }
+  // The shell shows a crashed page's own view (no sad tab: BrowserView draws it).
+  void PrimaryMainFrameRenderProcessGone(base::TerminationStatus) override { Changed(); }
   void OnDownloadCreated(content::DownloadManager*, download::DownloadItem*) override { Changed(); }
   void OnDownloadUpdated(content::DownloadManager*, download::DownloadItem*) override { Changed(); }
   void OnDownloadRemoved(content::DownloadManager*, download::DownloadItem*) override { Changed(); }
@@ -182,10 +184,14 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void OnSuggestions(const std::vector<modal_browser::MerlinSuggestions::Suggestion>& results);
   Dict Snapshot();
   BrowserWindowInterface* browser() { return browser_; }
+  // The view that holds the active page when it is shown alone (no split);
+  // a tab switch moves the new page into it without waiting for React.
+  NSView* __weak page_container = nil;
  private:
   raw_ptr<BrowserWindowInterface> browser_;
   int revision_ = 0;
   bool delivery_pending_ = false;
+  base::TimeTicks last_delivery_;
   PrefChangeRegistrar prefs_;
   std::unique_ptr<download::AllDownloadItemNotifier> downloads_;
   base::WeakPtrFactory<WindowState> weak_factory_{this};
@@ -223,13 +229,20 @@ void WindowState::Changed() {
   ++revision_;
   // Never call into JS while TabStripModel is in a mutation/notification.
   // Coalesce download progress and cancel pending delivery when the window closes.
+  // At most one snapshot a frame: a page load, a busy download or a test
+  // harness can change a window many times a frame, and each snapshot is
+  // serialized, parsed and rendered by React.
   if (delivery_pending_) return;
   delivery_pending_ = true;
-  content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE,
-      base::BindOnce(&WindowState::Deliver, weak_factory_.GetWeakPtr()));
+  constexpr base::TimeDelta kFrame = base::Milliseconds(16);
+  const base::TimeDelta wait = kFrame - (base::TimeTicks::Now() - last_delivery_);
+  content::GetUIThreadTaskRunner({})->PostDelayedTask(FROM_HERE,
+      base::BindOnce(&WindowState::Deliver, weak_factory_.GetWeakPtr()),
+      wait.is_positive() ? wait : base::TimeDelta());
 }
 void WindowState::Deliver() {
   delivery_pending_ = false;
+  last_delivery_ = base::TimeTicks::Now();
   GetRegistry().Emit(Dict().Set("type", "snapshot").Set("snapshot", Snapshot()));
 }
 void WindowState::OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
@@ -251,20 +264,9 @@ Dict WindowState::Snapshot() {
       .Set("canGoForward", contents->GetController().CanGoForward())
       .Set("favicon", FaviconKey(contents)));
   }
-  List downloads;
-  for (auto* d : modal_browser::MerlinDownloads(browser_->GetProfile())) {
-    const char* state = d->GetState() == download::DownloadItem::COMPLETE ? "complete" :
-        d->GetState() == download::DownloadItem::CANCELLED ? "cancelled" :
-        d->GetState() == download::DownloadItem::INTERRUPTED ? "interrupted" : "progress";
-    downloads.Append(Dict().Set("id", base::NumberToString(d->GetId()))
-      .Set("name", d->GetFileNameToReportUser().AsUTF8Unsafe())
-      .Set("received", static_cast<double>(d->GetReceivedBytes()))
-      .Set("total", static_cast<double>(std::max<int64_t>(0, d->GetTotalBytes())))
-      .Set("state", state)
-      .Set("status", modal_browser::MerlinDownloadState(d))
-      .Set("detail", modal_browser::MerlinDownloadShortDetail(d))
-      .Set("url", d->GetURL().spec()));
-  }
+  // Running downloads and the most recent others; the Library asks for all
+  // of them with "downloads.list". The history can hold thousands.
+  List downloads = modal_browser::MerlinDownloadsList(browser_->GetProfile(), 10);
   Dict appearance = browser_->GetProfile()->GetPrefs()->GetDict("merlin.shell.appearance").Clone();
   if (!appearance.FindString("mode")) appearance.Set("mode", "system");
   if (!appearance.FindString("accent")) appearance.Set("accent", "fern");  // Sage, the default workspace colour.
@@ -631,6 +633,34 @@ uint64_t Subscribe(MerlinEventCallback callback, void* context) {
 void Unsubscribe(uint64_t id) {
   if (content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) GetRegistry().listeners.erase(id);
 }
+// MERLIN_TRACE_FILE=<file> appends "page-shown <tab> <ms since the Unix
+// epoch>" whenever a page's view goes into the window, so benchmarks can time
+// a tab switch to the page actually on screen.
+void TracePageShown(const std::string& tab) {
+  static FILE* file = [] {
+    const char* path = getenv("MERLIN_TRACE_FILE");
+    return path && path[0] ? fopen(path, "a") : nullptr;
+  }();
+  if (!file) return;
+  fprintf(file, "page-shown %s %.1f\n", tab.c_str(), base::Time::Now().InMillisecondsFSinceUnixEpoch());
+  fflush(file);
+}
+// Puts the page at `index` into `container`. As BrowserView restores focus to
+// the page on a tab switch: modal keys and page shortcuts need the page to
+// hold focus. A text field (the address, the command menu, a panel's field)
+// keeps it.
+NSView* PlacePage(TabStripModel* strip, int index, NSView* container) {
+  NSView* page = strip->GetWebContentsAt(index)->GetNativeView().GetNativeNSView();
+  if (page.window && page.window != container.window) return nil;
+  if (page.superview != container) [container addSubview:page];
+  page.frame = container.bounds;
+  NSResponder* responder = container.window.firstResponder;
+  if (index == strip->active_index() && ![responder isKindOfClass:NSText.class] &&
+      ![responder isKindOfClass:NSTextField.class])
+    strip->GetWebContentsAt(index)->Focus();
+  TracePageShown(TabId(strip->GetTabAtIndex(index)));
+  return page;
+}
 void* AttachPage(const char* window, const char* tab, void* parent) {
   if (!Enabled() || !parent || !content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) return nullptr;
   auto* state = FindWindow(window);
@@ -654,16 +684,11 @@ void* AttachPage(const char* window, const char* tab, void* parent) {
   const int active = strip->active_index();
   const auto split = active >= 0 ? strip->GetSplitForTab(active) : std::nullopt;
   if (index < 0 || (index != active && (!split || strip->GetSplitForTab(index) != split))) return nullptr;
-  NSView* page = strip->GetWebContentsAt(index)->GetNativeView().GetNativeNSView();
-  if (page.window && page.window != container.window) return nullptr;
-  [container addSubview:page];
-  page.frame = container.bounds;
-  // As BrowserView restores focus to the page on a tab switch: modal keys and
-  // page shortcuts need the page to hold focus. A text field (the address,
-  // the command menu, a panel's field) keeps it.
-  id responder = container.window.firstResponder;
-  if (index == active && ![responder isKindOfClass:NSText.class] && ![responder isKindOfClass:NSTextField.class])
-    strip->GetWebContentsAt(index)->Focus();
+  NSView* page = PlacePage(strip, index, container);
+  if (!page) return nullptr;
+  // A page shown alone: its view is where the next tab switch shows the
+  // next page, before React has re-rendered.
+  if (index == active && !split) state->page_container = container;
   return (__bridge void*)page;
 }
 void DetachPage(const char* window, const char* tab, void* parent) {
@@ -683,6 +708,26 @@ void DetachPage(const char* window, const char* tab, void* parent) {
   NSView* page = strip->GetWebContentsAt(index)->GetNativeView().GetNativeNSView();
   if (page.superview == (__bridge NSView*)parent) [page removeFromSuperview];
 }
+}  // namespace
+
+namespace modal_browser {
+void RevealActivePage(BrowserWindowInterface* browser, bool start_page) {
+  if (!Enabled() || !browser) return;
+  auto* state = FindWindow(WindowId(browser).c_str());
+  NSView* container = state ? state->page_container : nil;
+  auto* strip = browser->GetTabStripModel();
+  const int active = strip->active_index();
+  // Split views and the start page are laid out by React; so is a window
+  // whose page view React has not placed yet.
+  if (!container || !container.window || active < 0 || start_page || strip->GetSplitForTab(active)) return;
+  NSView* next = strip->GetWebContentsAt(active)->GetNativeView().GetNativeNSView();
+  for (NSView* view in [container.subviews copy])
+    if (view != next) [view removeFromSuperview];
+  PlacePage(strip, active, container);
+}
+}  // namespace modal_browser
+
+namespace {
 void ReleaseString(char* json) { free(json); }
 const MerlinEngineAPI kAPI = {1, sizeof(MerlinEngineAPI), Call, ReleaseString, Subscribe, Unsubscribe, AttachPage, DetachPage};
 }  // namespace

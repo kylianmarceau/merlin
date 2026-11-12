@@ -145,3 +145,22 @@ test('tab layout, message tone and next-key hints are validated', () => {
   assert.throws(() => validateSnapshot({ ...s, modal: { ...s.modal, messageIsError: 'yes' as never } }, s.windowId));
   assert.throws(() => validateSnapshot({ ...s, modal: { ...s.modal, whichKey: [{ keys: 'g' }] as never } }, s.windowId));
 });
+test('crashed tabs and the full download list are validated', async () => {
+  const tab = { id: '1', title: 'A', url: 'https://a.test/', loading: false, pinned: false, audible: false, canGoBack: false, canGoForward: false };
+  assert.equal(validateSnapshot({ ...snapshot(), tabs: [{ ...tab, crashed: true }] }, 'window-one').tabs[0].crashed, true);
+  assert.throws(() => validateSnapshot({ ...snapshot(), tabs: [{ ...tab, crashed: 'yes' }] }, 'window-one'));
+  let listener!: (event: EngineEvent) => void;
+  let requestId = '';
+  const client = new EngineClient('window-one', {
+    call: async (_w, _m, args) => { requestId = JSON.parse(args).requestId; return JSON.stringify({ ok: true, value: null }); },
+    subscribe: l => { listener = l; return () => {}; },
+  });
+  const answer = async (value: unknown) => {
+    const pending = client.request('downloads.list', {});
+    await new Promise(r => setImmediate(r));
+    listener({ type: 'reply', windowId: 'window-one', requestId, ok: true, value });
+    return pending;
+  };
+  assert.equal((await answer([{ id: '1', name: 'a.zip', received: 2, total: 2, state: 'complete' }])).length, 1);
+  await assert.rejects(answer([{ id: '1', name: 'a.zip', received: -1, total: 2, state: 'complete' }]));
+});

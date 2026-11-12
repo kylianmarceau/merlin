@@ -56,3 +56,21 @@ test('native menu commands open the matching panel or popover', () => {
   openNativePanel(store, 'history');
   assert.deepEqual([store.getState().panel, store.getState().popover], ['history', null]);
 });
+test('unchanged tabs and downloads keep their objects, so their rows skip rendering', () => {
+  const tab = (id: string, title: string) => ({ id, title, url: 'https://a.test/', loading: false, pinned: false, audible: false,
+    canGoBack: false, canGoForward: false });
+  const download = { id: 'd', name: 'f.zip', received: 1, total: 2, state: 'progress' as const };
+  const store = createBrowserStore('w');
+  acceptSnapshot(store, { ...snapshot(1), tabs: [tab('1', 'One'), tab('2', 'Two')], downloads: [download] });
+  const before = store.getState().snapshot!;
+  acceptSnapshot(store, { ...snapshot(2), tabs: [tab('1', 'One'), tab('2', 'Two, loaded')], downloads: [{ ...download }] });
+  const after = store.getState().snapshot!;
+  assert.equal(after.tabs[0], before.tabs[0]);
+  assert.notEqual(after.tabs[1], before.tabs[1]);
+  assert.equal(after.tabs[1].title, 'Two, loaded');
+  assert.equal(after.downloads, before.downloads);
+  acceptSnapshot(store, { ...snapshot(3), tabs: [tab('2', 'Two, loaded'), tab('1', 'One')], downloads: [] });
+  const moved = store.getState().snapshot!;
+  assert.equal(moved.tabs[0], after.tabs[1]);
+  assert.deepEqual(moved.downloads, []);
+});

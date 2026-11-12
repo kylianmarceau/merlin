@@ -7,6 +7,7 @@
 #include "chrome/browser/ui/autofill/autofill_bubble_handler.h"
 #import <AppKit/AppKit.h>
 #include <dlfcn.h>
+#include <cstddef>
 #include <algorithm>
 #include <vector>
 #include "base/check.h"
@@ -77,6 +78,8 @@
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/widget/widget_observer.h"
+#include "url/gurl.h"
+#include "url/url_constants.h"
 
 namespace modal_browser {
 namespace {
@@ -85,9 +88,17 @@ using List = base::ListValue;
 const MerlinShellAPI* ShellAPI() {
   auto get = reinterpret_cast<MerlinShellGetAPIFn>(dlsym(RTLD_DEFAULT, "MerlinShellGetAPI"));
   const auto* api = get ? get(1) : nullptr;
-  CHECK(api && api->abi_version == 1 && api->struct_size >= sizeof(MerlinShellAPI) &&
+  CHECK(api && api->abi_version == 1 && api->struct_size >= offsetof(MerlinShellAPI, prewarm) &&
         api->create_root && api->release_root) << "Launch with Merlin's React Native host executable";
   return api;
+}
+// The tabs the shell shows its start page for (lib/format.ts isStartUrl).
+bool IsStartPage(const GURL& url) {
+  if (url.is_empty() || url == GURL(url::kAboutBlankURL)) return true;
+  if (!url.SchemeIs("chrome")) return false;
+  const std::string_view host = url.host();
+  return (url.path() == "/" || url.path().empty()) &&
+         (host == "newtab" || host == "new-tab-page" || host == "merlin-start");
 }
 Dict Action(const char* id, const char* label, const char* emphasis = "normal") {
   return Dict().Set("id", id).Set("label", label).Set("emphasis", emphasis);
@@ -310,6 +321,9 @@ class ReactBrowserWindow final : public BrowserWindow,
       if (std::find(now.begin(), now.end(), page) == now.end()) page->WasHidden();
     for (auto* page : now) page->WasShown();
     if (new_contents && std::find(now.begin(), now.end(), new_contents) == now.end()) new_contents->WasShown();
+    // Show the new page now; React re-renders the rest of the window after.
+    // A start page or a crashed page is React's own view, not the page's.
+    RevealActivePage(browser_, new_contents && (IsStartPage(new_contents->GetVisibleURL()) || new_contents->IsCrashed()));
     NotifyShellWindow(browser_);
   }
   void OnTabDetached(content::WebContents* contents, bool) override {
@@ -611,6 +625,14 @@ class ReactBrowserWindow final : public BrowserWindow,
   base::WeakPtrFactory<ReactBrowserWindow> weak_factory_{this};
 };
 }  // namespace
+void PrewarmReactShell() {
+  if (!ReactShellEnabled()) return;
+  auto get = reinterpret_cast<MerlinShellGetAPIFn>(dlsym(RTLD_DEFAULT, "MerlinShellGetAPI"));
+  const auto* api = get ? get(1) : nullptr;
+  // prewarm was added within ABI 1; an older host has no such field.
+  if (api && api->struct_size >= offsetof(MerlinShellAPI, prewarm) + sizeof(api->prewarm) && api->prewarm)
+    api->prewarm();
+}
 std::unique_ptr<BrowserWindow, BrowserWindowDeleter> CreateReactBrowserWindow(BrowserWindowInterface* browser) {
   return std::unique_ptr<BrowserWindow, BrowserWindowDeleter>(new ReactBrowserWindow(browser));
 }

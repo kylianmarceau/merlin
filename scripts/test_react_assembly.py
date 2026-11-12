@@ -77,6 +77,24 @@ class AssemblyTest(unittest.TestCase):
             assemble(self.engine, self.shell, self.output)
         self.assertEqual((self.output / 'keep').read_text(), 'user file')
 
+    def test_products_older_than_their_sources_are_rejected(self):
+        import os
+        import assemble_react_app
+        repo = self.root / 'repo'
+        (repo / 'overlay').mkdir(parents=True)
+        (repo / 'patches').mkdir()
+        (repo / 'apps/browser/src').mkdir(parents=True)
+        source = repo / 'overlay/bridge.mm'
+        source.write_text('new code')
+        framework = self.engine / 'Contents/Frameworks/Merlin Framework.framework/Versions/157/Merlin Framework'
+        os.utime(framework, (source.stat().st_mtime - 60,) * 2)
+        with patch.object(assemble_react_app, 'REPO', repo):
+            with self.assertRaisesRegex(ValueError, 'engine is older than its sources'):
+                assemble(self.engine, self.shell, self.output)
+            self.assertFalse(self.output.exists())
+            assemble(self.engine, self.shell, self.output, allow_stale=True)
+            self.assertTrue(self.output.exists())
+
 
 if __name__ == '__main__':
     unittest.main()

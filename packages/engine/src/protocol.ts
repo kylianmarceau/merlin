@@ -4,6 +4,8 @@ export type Tab = {
   audible: boolean; canGoBack: boolean; canGoForward: boolean;
   /** Changes when the page's icon does; empty when it has none. Fetch with favicons.get. */
   favicon?: string;
+  /** The page's renderer has gone; the shell shows a reload view instead. */
+  crashed?: boolean;
 };
 export type Download = {
   id: string; name: string; received: number; total: number;
@@ -41,7 +43,9 @@ export type Snapshot = {
   /** A pop-up a page opened shows only its page and address. */
   kind?: 'normal' | 'popup';
   extensionPopup?: ExtensionPopup | null;
-  tabs: Tab[]; activeTabId: string | null; downloads: Download[];
+  tabs: Tab[]; activeTabId: string | null;
+  /** Running downloads and the most recent others; `downloads.list` has them all. */
+  downloads: Download[];
   prompt: Prompt | null; appearance: Appearance; find?: FindState; split?: Split | null;
   modal: {
     mode: string; pending: string; message: string; messageIsError?: boolean; sidebarHidden?: boolean;
@@ -132,6 +136,7 @@ export type Requests = {
   'extensions.run': { args: { id: string }; result: null };
   'extensions.manage': { args: { id?: string }; result: null };
   'profiles.list': { args: {}; result: ProfileInfo[] };
+  'downloads.list': { args: {}; result: Download[] };
   'profiles.open': { args: { id: string }; result: null };
   'profiles.create': { args: { name: string }; result: null };
 };
@@ -256,18 +261,14 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
     if (!tab || typeof tab.id !== 'string' || !tab.id || ids.has(tab.id) ||
         typeof tab.title !== 'string' || typeof tab.url !== 'string' ||
         ![tab.loading, tab.pinned, tab.audible, tab.canGoBack, tab.canGoForward].every(x => typeof x === 'boolean') ||
-        (tab.favicon !== undefined && typeof tab.favicon !== 'string')) {
+        (tab.favicon !== undefined && typeof tab.favicon !== 'string') ||
+        (tab.crashed !== undefined && typeof tab.crashed !== 'boolean')) {
       throw new Error('Invalid tab snapshot');
     }
     ids.add(tab.id);
   }
   if (s.activeTabId !== null && !ids.has(s.activeTabId)) throw new Error('Active tab is missing');
-  for (const d of s.downloads) {
-    if (!d || typeof d.id !== 'string' || typeof d.name !== 'string' ||
-        !Number.isFinite(d.received) || d.received < 0 || !Number.isFinite(d.total) || d.total < 0 ||
-        !['progress', 'complete', 'cancelled', 'interrupted'].includes(d.state) ||
-        [d.status, d.detail, d.url].some(x => x !== undefined && typeof x !== 'string')) throw new Error('Invalid download snapshot');
-  }
+  if (!s.downloads.every(isDownload)) throw new Error('Invalid download snapshot');
   if (s.split !== undefined && s.split !== null && (typeof s.split !== 'object' || !Array.isArray(s.split.tabs) ||
       s.split.tabs.length < 2 || s.split.tabs.some(id => !ids.has(id)) || !['sideBySide', 'stacked'].includes(s.split.layout) ||
       !Number.isFinite(s.split.ratio) || (s.activeTabId !== null && !s.split.tabs.includes(s.activeTabId)))) throw new Error('Invalid split view');
@@ -290,6 +291,13 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
   return s;
 }
 
+function isDownload(value: unknown): value is Download {
+  const d = value as Download;
+  return !!d && typeof d.id === 'string' && typeof d.name === 'string' &&
+    Number.isFinite(d.received) && d.received >= 0 && Number.isFinite(d.total) && d.total >= 0 &&
+    ['progress', 'complete', 'cancelled', 'interrupted'].includes(d.state) &&
+    [d.status, d.detail, d.url].every(x => x === undefined || typeof x === 'string');
+}
 const isString = (x: unknown): x is string => typeof x === 'string';
 const isBool = (x: unknown): x is boolean => typeof x === 'boolean';
 const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
@@ -330,6 +338,7 @@ export function validateResult<R extends Request>(method: R, value: unknown): Re
       items: listOf(i => fields(i, { url: isString, title: isString, domain: isString, time: isNumber })) }), 'history'); break;
     case 'bookmarks.folder': case 'bookmarks.search': check(bookmarkView(value), 'bookmarks'); break;
     case 'extensions.list': check(listOf(extension)(value), 'extensions'); break;
+    case 'downloads.list': check(listOf(isDownload)(value), 'downloads'); break;
     case 'profiles.list': check(listOf(p => fields(p, { id: isString, name: isString, active: isBool }))(value), 'profiles'); break;
     default: check(value === null || value === undefined, 'acknowledgement'); return null as Requests[R]['result'];
   }

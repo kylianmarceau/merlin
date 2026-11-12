@@ -10,7 +10,7 @@ import { Favicon } from '../favicon/Favicon';
  * A tab in the sidebar list. The active tab is lifted off the shell as a white
  * card; the others wash white on hover. Right-click opens its native menu.
  */
-export function TabRow({ tab, active }: { tab: Tab; active: boolean }) {
+export const TabRow = React.memo(function TabRow({ tab, active }: { tab: Tab; active: boolean }) {
   const actions = useActions();
   const { colors } = useTheme();
   const [hovered, setHovered] = useState(false);
@@ -33,10 +33,10 @@ export function TabRow({ tab, active }: { tab: Tab; active: boolean }) {
     </View>
   </ContextMenu>;
   return active ? <Panel fill="tabActive" radius="row" elevation="tab" border="tabActiveBorder">{row}</Panel> : row;
-}
+});
 
 /** A pinned tab, shown as a favourite tile above the tab list. */
-export function FavouriteTile({ tab, active, width }: { tab: Tab; active: boolean; width: number }) {
+export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, width }: { tab: Tab; active: boolean; width: number }) {
   const { colors } = useTheme();
   const actions = useActions();
   const { hovered, handlers } = useInteraction();
@@ -53,4 +53,4 @@ export function FavouriteTile({ tab, active, width }: { tab: Tab; active: boolea
   return <ContextMenu onOpen={() => void actions.tabMenu(tab.id)}>
     {active ? <Panel fill="tilePinnedActive" radius="tile" elevation="tab" border="tabActiveBorder">{tile}</Panel> : tile}
   </ContextMenu>;
-}
+});

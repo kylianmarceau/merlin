@@ -43,6 +43,11 @@ std::string MerlinDownloadShortDetail(const download::DownloadItem* item);
 // {id, name, url, state, detail, percent, canResume, start} for the page.
 base::DictValue DescribeMerlinDownload(const download::DownloadItem* item);
 
+// The shell's view of downloads, newest first: every running download plus
+// the most recent others up to `limit` in all. Window snapshots carry a short
+// list; the Library asks for all of them.
+base::ListValue MerlinDownloadsList(Profile* profile, size_t limit);
+
 // Runs a `:browser download-*` action (open, show, cancel, pause (toggles),
 // retry) or a page-only one (discard, forget). Returns an error to show,
 // empty on success.

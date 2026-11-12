@@ -28,6 +28,40 @@ def require_symbols(binary, names):
         raise ValueError(f'{binary} is missing {sorted(missing)}; rebuild that product with the shell sources')
 
 
+REPO = Path(__file__).resolve().parent.parent
+
+
+def stale_engine_sources(engine_app, shell_app):
+    """Engine and host sources edited after the products were built.
+
+    The engine comes from out/<dir>/Merlin.app inside a Chromium checkout:
+    Merlin's overlay and every upstream file the patch series touches must be
+    older than its framework. The host's native and JS sources must be older
+    than its executable. A stale engine once shipped without a crash fix.
+    """
+    framework = engine_app / 'Contents/Frameworks/Merlin Framework.framework/Merlin Framework'
+    shell_info = plist(shell_app / 'Contents/Info.plist')
+    executable = shell_app / 'Contents/MacOS' / shell_info['CFBundleExecutable']
+    src = engine_app.parent.parent.parent  # <src>/out/<dir>/Merlin.app
+    engine_sources = [path for path in (REPO / 'overlay').rglob('*')
+                      if path.is_file() and path.name != '.DS_Store' and '/target/' not in str(path)]
+    for patch in sorted((REPO / 'patches').glob('*.patch')):
+        engine_sources.append(patch)
+        for line in patch.read_text().splitlines():
+            if line.startswith('+++ b/'):
+                upstream = src / line[6:].split('\t')[0]
+                if upstream.is_file():
+                    engine_sources.append(upstream)
+    host_sources = [path for root in ('apps/browser/src', 'apps/browser/macos/MerlinShell-macOS', 'packages/engine',
+                                      'packages/shell', 'pnpm-patches')
+                    for path in (REPO / root).rglob('*')
+                    if path.is_file() and path.name != '.DS_Store' and not path.name.endswith('.test.ts')]
+    built_engine = framework.resolve().stat().st_mtime
+    built_host = executable.stat().st_mtime
+    return ([path for path in engine_sources if path.stat().st_mtime > built_engine],
+            [path for path in host_sources if path.stat().st_mtime > built_host])
+
+
 def merge_directory(source, destination):
     """Reject collisions instead of silently replacing engine resources."""
     if not source.exists():
@@ -40,7 +74,7 @@ def merge_directory(source, destination):
         subprocess.run(['ditto', str(item), str(target)], check=True)
 
 
-def assemble(engine_app, shell_app, destination, check_only=False):
+def assemble(engine_app, shell_app, destination, check_only=False, allow_stale=False):
     if destination.exists() or destination.is_symlink():
         raise ValueError(f'Destination already exists: {destination}. Choose a fresh output directory.')
     for source in (engine_app, shell_app):
@@ -52,6 +86,15 @@ def assemble(engine_app, shell_app, destination, check_only=False):
         raise ValueError('Chromium and React host bundle identifiers must match')
     framework = engine_app / 'Contents/Frameworks/Merlin Framework.framework/Merlin Framework'
     executable = shell_app / 'Contents/MacOS' / shell_info['CFBundleExecutable']
+    if not allow_stale:
+        engine_newer, host_newer = stale_engine_sources(engine_app, shell_app)
+        for name, newer, fix in (('engine', engine_newer, 'rebuild Chromium (autoninja -C out/Release chrome)'),
+                                 ('React host', host_newer, 'run scripts/build_react_shell.sh')):
+            if newer:
+                shown = ', '.join(str(path.relative_to(REPO) if REPO in path.parents else path) for path in newer[:5])
+                more = f' and {len(newer) - 5} more' if len(newer) > 5 else ''
+                raise ValueError(f'The {name} is older than its sources ({shown}{more}); {fix}, '
+                                 'or pass --allow-stale to assemble it anyway')
     require_symbols(framework, ['_ChromeMain', '_MerlinEngineGetAPI'])
     require_symbols(executable, ['_MerlinShellGetAPI'])
     if not (shell_app / 'Contents/Resources/main.jsbundle').is_file():
@@ -102,9 +145,12 @@ def main():
     parser.add_argument('--shell-app', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--check-only', action='store_true')
+    parser.add_argument('--allow-stale', action='store_true',
+                        help='assemble even if sources changed after either product was built')
     args = parser.parse_args()
     try:
-        assemble(args.engine_app.resolve(), args.shell_app.resolve(), args.output.resolve(), args.check_only)
+        assemble(args.engine_app.resolve(), args.shell_app.resolve(), args.output.resolve(), args.check_only,
+                 args.allow_stale)
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'assemble_react_app: {error}\n')
 

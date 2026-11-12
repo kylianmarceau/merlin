@@ -15,6 +15,10 @@ struct ShellPromptReply {
   bool suppress = false;
 };
 bool ReactShellEnabled();
+// Shows the window's newly active page in the place React gave the previous
+// one, so a tab switch does not wait for React to re-render. Split views and
+// the start page (`start_page`) are left to React.
+void RevealActivePage(BrowserWindowInterface* browser, bool start_page);
 void NotifyShellWindow(BrowserWindowInterface* browser);
 void SetShellFindState(BrowserWindowInterface* browser, base::DictValue state);
 bool ShellFindHasFocus(BrowserWindowInterface* browser);

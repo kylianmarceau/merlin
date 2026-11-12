@@ -95,6 +95,34 @@ std::vector<download::DownloadItem*> MerlinDownloads(Profile* profile) {
   return out;
 }
 
+base::ListValue MerlinDownloadsList(Profile* profile, size_t limit) {
+  base::ListValue list;
+  for (download::DownloadItem* d : MerlinDownloads(profile)) {
+    const bool running = d->GetState() == download::DownloadItem::IN_PROGRESS;
+    if (!running && list.size() >= limit) {
+      continue;
+    }
+    const char* state =
+        d->GetState() == download::DownloadItem::COMPLETE    ? "complete"
+        : d->GetState() == download::DownloadItem::CANCELLED ? "cancelled"
+        : d->GetState() == download::DownloadItem::INTERRUPTED
+            ? "interrupted"
+            : "progress";
+    list.Append(
+        base::DictValue()
+            .Set("id", base::NumberToString(d->GetId()))
+            .Set("name", d->GetFileNameToReportUser().AsUTF8Unsafe())
+            .Set("received", static_cast<double>(d->GetReceivedBytes()))
+            .Set("total",
+                 static_cast<double>(std::max<int64_t>(0, d->GetTotalBytes())))
+            .Set("state", state)
+            .Set("status", MerlinDownloadState(d))
+            .Set("detail", MerlinDownloadShortDetail(d))
+            .Set("url", d->GetURL().spec()));
+  }
+  return list;
+}
+
 std::string MerlinDownloadState(const download::DownloadItem* item) {
   switch (item->GetState()) {
     case download::DownloadItem::IN_PROGRESS:

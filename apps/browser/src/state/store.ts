@@ -50,7 +50,32 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
   const next = validateSnapshot(input, store.windowId);
   const current = store.getState().snapshot;
   if (current && current.session === next.session && current.revision >= next.revision) return;
-  store.setState({ snapshot: next, connectionError: null });
+  store.setState({ snapshot: current ? shareUnchanged(current, next) : next, connectionError: null });
+}
+
+/**
+ * Keeps the previous objects for tabs and downloads that did not change, so
+ * memoized rows skip rendering: a snapshot arrives whenever any tab loads,
+ * retitles or a download moves, but usually only one row changed.
+ */
+export function shareUnchanged(previous: Snapshot, next: Snapshot): Snapshot {
+  const reuse = <T extends { id: string }>(old: T[], fresh: T[]) => {
+    const byId = new Map(old.map(item => [item.id, item]));
+    let same = old.length === fresh.length;
+    const merged = fresh.map((item, i) => {
+      const before = byId.get(item.id);
+      const kept = before && shallowEqual(before, item) ? before : item;
+      if (kept !== old[i]) same = false;
+      return kept;
+    });
+    return same ? old : merged;
+  };
+  return { ...next, tabs: reuse(previous.tabs, next.tabs), downloads: reuse(previous.downloads, next.downloads) };
+}
+function shallowEqual(a: object, b: object) {
+  const x = a as Record<string, unknown>, y = b as Record<string, unknown>;
+  const keys = Object.keys(x);
+  return keys.length === Object.keys(y).length && keys.every(k => x[k] === y[k]);
 }
 
 let toastCounter = 0;

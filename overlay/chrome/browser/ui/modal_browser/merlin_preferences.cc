@@ -73,8 +73,6 @@ const std::map<std::string, std::string, std::less<>>& Links() {
           {"reset", "chrome://settings/reset"},
           {"version", "chrome://version/"},
           {"credits", "chrome://credits/"},
-          {"history", "chrome://merlin-history/"},
-          {"downloads", "chrome://merlin-downloads/"},
       });
   return *links;
 }

@@ -80,6 +80,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     // The active page.
     back: () => { const t = active(); return t ? run('navigation.back', { tabId: t.id }) : Promise.resolve(false); },
     forward: () => { const t = active(); return t ? run('navigation.forward', { tabId: t.id }) : Promise.resolve(false); },
+    reloadTab: (tabId: string) => run('navigation.reload', { tabId }),
     reloadOrStop: () => {
       const t = active();
       return t ? run(t.loading ? 'navigation.stop' : 'navigation.reload', { tabId: t.id }) : Promise.resolve(false);

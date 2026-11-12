@@ -6,7 +6,7 @@ import { useActions, useBrowser } from '../../state/window';
 import { Icon, geometry, radius } from '../ui';
 
 /** The page's own icon, sharp on Retina; a symbol until it arrives. */
-export function Favicon({ tab, large = false }: { tab: Tab; large?: boolean }) {
+export const Favicon = React.memo(function Favicon({ tab, large = false }: { tab: Tab; large?: boolean }) {
   const actions = useActions();
   const key = tab.favicon ?? '';
   const url = useBrowser(s => (key ? s.favicons[key] : undefined));
@@ -16,4 +16,4 @@ export function Favicon({ tab, large = false }: { tab: Tab; large?: boolean }) {
   if (tab.audible) return <Icon name="speaker.wave.2" tone="iconSecondary" size={large ? 'regular' : 'small'} />;
   return <Icon name={isStartUrl(tab.url) ? 'magnifyingglass' : 'globe'} tone={tab.loading ? 'tabLoading' : 'iconSecondary'}
     size={large ? 'regular' : 'small'} />;
-}
+});

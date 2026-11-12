@@ -39,8 +39,30 @@ only downwards through lib, platform, state and components).
 Calls run on Chromium's UI thread. The bridge checks window/tab ownership and
 validates prompt actions. Snapshots have session and revision IDs; subscriptions
 are established before the initial read, and stale snapshots are discarded.
-Native changes are coalesced outside tab-strip mutation callbacks. React never
-maintains a second authoritative tab list or writes Chromium profile files.
+Native changes are coalesced outside tab-strip mutation callbacks and sent at
+most once a frame. React never maintains a second authoritative tab list or
+writes Chromium profile files.
+
+Speed-sensitive paths stay native:
+
+- **Startup.** Chromium starts the React host in `PostCreateThreads`
+  (`patches/0074`), so React Native's native modules and the Hermes bundle load
+  while the profile loads, not when the first window asks for its view.
+  `MERLIN_NO_PREWARM=1` turns this off for comparison, and
+  `MERLIN_STARTUP_TRACE=<file>` logs the host's startup phases.
+- **Tab switches.** When Chromium activates a tab, the engine moves the new
+  page's view into the place React gave the previous one
+  (`RevealActivePage`); React re-renders the sidebar after. Split views, the
+  start page and crashed pages are React's own layout.
+  `MERLIN_TRACE_FILE=<file>` logs each page shown, for benchmarks.
+- **Snapshots.** Unchanged tabs and downloads keep their objects between
+  snapshots (`state/store.ts`) and their rows are memoized, so a page load
+  re-renders one row. Snapshots carry running and recent downloads only;
+  the Library asks for the rest with `downloads.list`.
+
+React Native macOS, Expo Modules Core and Expo Constants carry fixes from Ardia
+(`pnpm-patches/`, applied by `pnpm install`): Auto Layout, mount order, timer
+wakeups, touches, text input and a 60 ms font scan at launch among them.
 
 `state/surfaces.ts` decides which overlays show. Site questions (permissions,
 passwords, autofill, translation, site information) are anchored popovers
@@ -95,6 +117,9 @@ pnpm 10.28.2 and CocoaPods. The React shell requires macOS 14 or later.
    ```
 
    Add `--check-only` to check the required products and exported ABI first.
+   Assembly refuses an engine or host older than its sources (the overlay,
+   the patch series and the files it patches; the shell's JS and native
+   code), so a stale build is never packaged; `--allow-stale` overrides it.
    Assembly preserves Chromium's framework, helper bundles, app identity,
    icons, URL handlers and permission descriptions, adds the React resources
    and Hermes, and replaces only the browser executable. It refuses to
