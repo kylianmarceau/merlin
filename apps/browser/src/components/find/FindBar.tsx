@@ -23,7 +23,7 @@ export function FindBar({ find, tabId }: { find: FindState; tabId: string }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair, minHeight: geometry.controlLarge + space.sm,
         paddingLeft: space.lg, paddingRight: space.sm }}>
         <TextInput ref={field} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel="Find in page" placeholder="Find in page" value={text}
-          placeholderTextColor={colors.textSecondary} selectionColor={colors.textSelection}
+          placeholderTextColor={colors.textSecondary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
           style={{ flex: 1, color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.callout,
             fontWeight: font.weight.medium }}
           keyDownEvents={[{ key: 'Escape' }]} onKeyDown={e => { if (e.nativeEvent.key === 'Escape') escape(); }}

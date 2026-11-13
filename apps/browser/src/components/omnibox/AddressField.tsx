@@ -102,7 +102,7 @@ export function AddressField({ variant = 'toolbar' }: { variant?: 'toolbar' | 's
     <View style={{ flex: 1, justifyContent: 'center' }}>
       <TextInput ref={input} accessibilityLabel="Address and search" enableFocusRing={false}
         placeholder={editing || start ? 'Search or enter an address' : undefined}
-        placeholderTextColor={colors.textSecondary} selectionColor={colors.textSelection}
+        placeholderTextColor={colors.textSecondary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
         value={editing ? text : ''} onFocus={begin} onBlur={finish}
         onChangeText={next => {
           // Typing always edits, even if the focus event went missing.

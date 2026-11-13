@@ -66,7 +66,7 @@ export function PopupField({ value, placeholder, label, icon = 'magnifyingglass'
     paddingHorizontal: space.lg + space.xs, borderBottomWidth: geometry.hairline, borderBottomColor: colors.borderSubtle }}>
     <Icon name={icon} tone="iconSecondary" size="large" weight="regular" />
     <TextInput ref={input} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel={label}
-      value={value} placeholder={placeholder} placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection}
+      value={value} placeholder={placeholder} placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
       style={{ flex: 1, color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.input }}
       onBlur={() => setTimeout(focus, duration.refocus)}
       keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Tab' }, { key: 'Escape' }]}

@@ -119,7 +119,11 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     moveSuggestion(delta: number) {
       const omnibox = store.getState().omnibox;
       if (!omnibox || !omnibox.items.length) return;
-      const selected = Math.max(-1, Math.min(omnibox.items.length - 1, omnibox.selected + delta));
+      // A default top suggestion already shows as highlighted while nothing
+      // is chosen, so moving starts from it and never goes above it.
+      const top = omnibox.items[0]?.default ? 0 : -1;
+      const from = Math.max(top, omnibox.selected);
+      const selected = Math.max(top, Math.min(omnibox.items.length - 1, from + delta));
       store.setState({ omnibox: { ...omnibox, selected } });
     },
     async openSuggestion(index: number, newTab: boolean) {

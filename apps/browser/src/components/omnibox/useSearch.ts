@@ -25,10 +25,15 @@ export function useSearch() {
       if (next.trim()) actions.suggest(next, deleting.current, 'search'); else actions.stopSuggesting();
     },
     move(step: 1 | -1) { actions.moveSuggestion(step); },
-    /** Opens the highlighted suggestion, or what was typed. */
+    /**
+     * Opens the highlighted suggestion, or what was typed. The highlighted row
+     * is opened by index: this field shows no inline completion, so sending
+     * the text would never match Chromium's default and would search "youtu"
+     * instead of opening youtube.com.
+     */
     submit(newTab: boolean) {
       if (!typing) return false;
-      if (mine && mine.selected >= 0) void actions.openSuggestion(mine.selected, newTab);
+      if (selected >= 0) void actions.openSuggestion(selected, newTab);
       else void actions.submitAddress(text, newTab);
       return true;
     },

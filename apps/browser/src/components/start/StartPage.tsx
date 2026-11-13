@@ -36,7 +36,7 @@ export function StartPage({ tab }: { tab: Tab }) {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, height: geometry.newTabInput, paddingHorizontal: space.sm }}>
               <Icon name="magnifyingglass" tone="iconSecondary" />
               <TextInput ref={input} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel="Search or enter an address"
-                placeholder="Search or enter an address" placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection}
+                placeholder="Search or enter an address" placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
                 value={search.text} onChangeText={search.change} onSubmitEditing={go}
                 keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Escape' }]}
                 onKeyDown={e => {
