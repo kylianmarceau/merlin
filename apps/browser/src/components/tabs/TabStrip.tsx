@@ -242,7 +242,8 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider
       <IconButton label={`Close ${title}`} icon="xmark" size="small" onPress={() => void actions.closeTab(tab.id)} />
     </View>}
   </Animated.View>;
-  return roles ? <PaletteScope roles={roles}>{body}</PaletteScope> : body;
+  // Always in a scope, so a tab becoming active or not keeps its views.
+  return <PaletteScope roles={roles}>{body}</PaletteScope>;
 });
 
 /** "+N": the tabs that no longer fit, as a native menu. */

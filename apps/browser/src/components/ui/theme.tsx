@@ -48,10 +48,12 @@ export function useTheme() {
 }
 
 /** Patches some colour roles for everything inside, such as a toolbar tinted with the site's colour. */
-export function PaletteScope({ roles, children }: React.PropsWithChildren<{ roles: Partial<Palette> }>) {
+export function PaletteScope({ roles, children }: React.PropsWithChildren<{ roles: Partial<Palette> | null }>) {
   const theme = useTheme();
   const key = JSON.stringify(roles);
+  // No roles: the surrounding palette. Callers can keep the scope in place
+  // whether or not it changes anything, so their children aren't remounted.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const value = useMemo(() => ({ ...theme, colors: { ...theme.colors, ...roles } }), [theme, key]);
+  const value = useMemo(() => (roles ? { ...theme, colors: { ...theme.colors, ...roles } } : theme), [theme, key]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

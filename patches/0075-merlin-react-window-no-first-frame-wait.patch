@@ -1,0 +1,16 @@
+--- a/components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h
++++ b/components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h
+@@ -125,6 +125,13 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
+       NSObject<CommandDispatcherDelegate>* delegate,
+       id<UserInterfaceItemCommandHandler> command_handler);
+ 
++  // Shows the window without waiting for its first compositor frame. For a
++  // window whose visible contents are AppKit views drawn outside the
++  // compositor (Merlin's React shell), which decides itself when to show it.
++  void ShowWithoutWaitingForFirstFrame() {
++    ca_transaction_sync_suppressed_ = true;
++  }
++
+   // Start moving the window, pinned to the mouse cursor, and monitor events.
+   // Return true on mouse up or false on premature termination via EndMoveLoop()
+   // or when window is destroyed during the drag.
