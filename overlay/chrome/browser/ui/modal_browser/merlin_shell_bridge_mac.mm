@@ -51,6 +51,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
 #include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_switcher.h"
+#include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 #include "base/base64.h"
 #include "base/hash/hash.h"
 #include "content/public/browser/favicon_status.h"
@@ -183,6 +184,9 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
         browser_, base::BindRepeating(&WindowState::Changed, base::Unretained(this)));
     content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
         &WindowState::WatchDownloads, weak_factory_.GetWeakPtr()));
+    // Headers change colour as pages script, scroll and switch theme.
+    edge_timer_.Start(FROM_HERE, base::Milliseconds(1200),
+        base::BindRepeating(&WindowState::SampleEdge, base::Unretained(this)));
   }
   ~WindowState() override {
     browser_->GetTabStripModel()->RemoveObserver(this);
@@ -207,7 +211,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
                               const TabStripSelectionChange&) override;
   void OnTabChangedAt(tabs::TabInterface*, TabChangeType) override { Changed(); }
   void DidStartLoading() override { Changed(); }
-  void DidStopLoading() override { Changed(); }
+  void DidStopLoading() override { Changed(); SampleEdgeSoon(); }
+  void DocumentOnLoadCompletedInPrimaryMainFrame() override { SampleEdgeSoon(); }
   void PrimaryPageChanged(content::Page&) override { Changed(); }
   void DidStartNavigation(content::NavigationHandle* navigation) override;
   void DidFinishNavigation(content::NavigationHandle* navigation) override;
@@ -240,6 +245,12 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   bool delivery_pending_ = false;
   base::TimeTicks last_delivery_;
   void StopHoldingStartPage();
+  // The active page's top edge colour (see PageEdgeColor): read now, and again
+  // shortly after, once the page has styled itself.
+  void SampleEdge();
+  void SampleEdgeSoon();
+  base::RepeatingTimer edge_timer_;
+  base::OneShotTimer edge_soon_;
   // A navigation that started on the start page, and then the page it
   // committed to, which is drawing its first content: the shell keeps the
   // start page up meanwhile instead of an empty page.
@@ -315,7 +326,18 @@ void WindowState::DidStartNavigation(content::NavigationHandle* navigation) {
   if (!navigation->IsInPrimaryMainFrame() || navigation->IsSameDocument()) return;
   navigation_from_start_ = CommittedStartPage(web_contents()) ? navigation->GetNavigationId() : 0;
 }
+void WindowState::SampleEdge() {
+  modal_browser::PageEdgeColor::Sample(web_contents(),
+      base::BindRepeating(&WindowState::Changed, weak_factory_.GetWeakPtr()));
+}
+void WindowState::SampleEdgeSoon() {
+  SampleEdge();
+  edge_soon_.Start(FROM_HERE, base::Milliseconds(250),
+      base::BindOnce(&WindowState::SampleEdge, base::Unretained(this)));
+}
 void WindowState::DidFinishNavigation(content::NavigationHandle* navigation) {
+  if (navigation->IsInPrimaryMainFrame() && !navigation->IsSameDocument() && navigation->HasCommitted())
+    modal_browser::PageEdgeColor::PageChanged(web_contents());
   if (!navigation->IsInPrimaryMainFrame() || navigation->IsSameDocument() ||
       navigation->GetNavigationId() != navigation_from_start_)
     return;
@@ -329,6 +351,7 @@ void WindowState::DidFinishNavigation(content::NavigationHandle* navigation) {
   Changed();
 }
 void WindowState::DidFirstVisuallyNonEmptyPaint() {
+  SampleEdgeSoon();
   if (painting_ && painting_.get() == web_contents()) StopHoldingStartPage();
 }
 void WindowState::StopHoldingStartPage() {
@@ -345,6 +368,7 @@ void WindowState::OnTabStripModelChanged(TabStripModel*, const TabStripModelChan
   if (!web_contents()) navigation_from_start_ = 0;
   if (switcher) switcher->TabsChanged();
   SyncSplitVisibility();
+  SampleEdgeSoon();
   Changed();
 }
 // Both halves of a split are on screen. The window only hears about the
@@ -381,6 +405,7 @@ Dict WindowState::Snapshot() {
       .Set("canGoForward", contents->GetController().CanGoForward())
       .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
     if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
+    if (const auto edge = modal_browser::PageEdgeColor::Get(contents)) entry.Set("surface", HexColor(*edge));
     tabs.Append(std::move(entry));
   }
   // Running downloads and the most recent others; the Library asks for all

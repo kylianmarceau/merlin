@@ -22,6 +22,7 @@ export function BrowserWindow() {
   const snapshot = useSnapshot();
   const actions = useActions();
   const { colors } = useTheme();
+  const chrome = useSiteChrome();
   const tabs = !snapshot.modal.sidebarHidden;
   const top = snapshot.modal.tabLayout === 'top';
   const side = tabs && !top;
@@ -32,7 +33,9 @@ export function BrowserWindow() {
     <Panel fill="contentBackground" radius={tabs ? 'window' : 'none'} border={tabs ? 'contentBorder' : null}
       elevation={tabs ? 'card' : 'none'} style={{ flex: 1 }}>
       <View style={{ flex: 1, overflow: 'hidden', borderRadius: tabs ? radius.window : 0 }}>
-        {!side && <View style={{ borderBottomWidth: geometry.hairline, borderBottomColor: colors.toolbarDivider }}><Toolbar /></View>}
+        {!side && <View style={{ borderBottomWidth: geometry.hairline,
+          // A toolbar in the page's own colour runs straight on into it.
+          borderBottomColor: chrome.seamless ? chrome.bar : colors.toolbarDivider }}><Toolbar /></View>}
         <View style={{ flex: 1 }}><PageArea /></View>
         <StatusLine />
       </View>

@@ -273,17 +273,20 @@ export type ShadowName = keyof typeof shadow;
 export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, paintDark: 0.82 } as const;
 
 // Site colours. In the tabs-on-top layout the active tab joins the toolbar,
-// and both take the colour of the site (its theme-color, else its icon's
-// main colour, from the engine). Three treatments, chosen in Settings:
-//   soft   the site colour mixed with 86% white, ink from the same hue
-//   vivid  the site colour darkened until white text reaches 4.5:1
+// and both take a colour from the site. Four treatments, chosen in Settings:
+//   match  exactly the colour the page draws along its top edge (sampled by
+//          the engine), so the toolbar continues the page; ink is light or
+//          dark to suit it
+//   soft   the site's brand colour (its theme-color, else its icon's main
+//          colour) mixed with 86% white, ink from the same hue
+//   vivid  that brand colour darkened until white text reaches 4.5:1
 //   white  the plain toolbar, whatever the site
 // A new tab page always uses white. Everything here returns roles to patch
 // over the palette (see PaletteScope), so components keep naming roles.
 
-export type ToolbarColor = 'soft' | 'vivid' | 'white';
-export const toolbarColors: readonly ToolbarColor[] = ['soft', 'vivid', 'white'];
-export const toolbarColorLabels: Record<ToolbarColor, string> = { soft: 'Soft', vivid: 'Vivid', white: 'White' };
+export type ToolbarColor = 'match' | 'soft' | 'vivid' | 'white';
+export const toolbarColors: readonly ToolbarColor[] = ['match', 'soft', 'vivid', 'white'];
+export const toolbarColorLabels: Record<ToolbarColor, string> = { match: 'Match', soft: 'Soft', vivid: 'Vivid', white: 'White' };
 
 type Rgb = [number, number, number];
 const channels = (hex: string): Rgb => {
@@ -324,15 +327,25 @@ export type SiteChrome = {
   shell: string | null;
   /** Roles to patch over the palette inside the toolbar and the active tab. */
   roles: Partial<Palette>;
+  /** The bar is the page's own colour, so no rule separates them. */
+  seamless?: boolean;
 };
 
-export function siteChrome(mode: Mode, site: string | null | undefined, style: ToolbarColor, followShell: boolean): SiteChrome {
+const hex = /^#[0-9A-Fa-f]{6}$/;
+/**
+ * `site` is the site's brand colour and `surface` the colour along the top of
+ * the page, each "#RRGGBB" when the engine has one.
+ */
+export function siteChrome(mode: Mode, site: string | null | undefined, style: ToolbarColor, followShell: boolean,
+  surface?: string | null): SiteChrome {
   const light = mode === 'light';
   const plain = light ? ink[0] : ink[900];
-  if (!site || !/^#[0-9A-Fa-f]{6}$/.test(site) || style === 'white') return { bar: plain, shell: null, roles: {} };
-  const shell = followShell
-    ? (light ? withAlpha(mixColor(site, white, 0.72), 0.86) : withAlpha(mixColor(site, ink[950], 0.8), 0.88))
+  const tint = (colour: string) => followShell
+    ? (light ? withAlpha(mixColor(colour, white, 0.72), 0.86) : withAlpha(mixColor(colour, ink[950], 0.8), 0.88))
     : null;
+  if (style === 'match') return surface && hex.test(surface) ? matchChrome(surface, tint(surface)) : { bar: plain, shell: null, roles: {} };
+  if (!site || !hex.test(site) || style === 'white') return { bar: plain, shell: null, roles: {} };
+  const shell = tint(site);
   if (style === 'vivid') {
     let bar = site;
     for (let t = 0.04; contrastRatio(white, bar) < 4.5 && t <= 1; t += 0.04) bar = mixColor(site, black, t);
@@ -361,5 +374,29 @@ export function siteChrome(mode: Mode, site: string | null | undefined, style: T
     fillHover: withAlpha(light ? text : white, light ? 0.07 : 0.08),
     fillPressed: withAlpha(light ? text : white, light ? 0.12 : 0.13),
     fillSelected: withAlpha(light ? text : white, light ? 0.1 : 0.11),
+  } };
+}
+
+/**
+ * The toolbar in the page's own colour. Ink is near-white or near-black,
+ * whichever reads better on it, so a white page gets the plain toolbar's
+ * ink and a black one the dark theme's, whatever Merlin's own mode.
+ */
+function matchChrome(bar: string, shell: string | null): SiteChrome {
+  const onDark = contrastRatio(white, bar) >= contrastRatio(ink[900], bar);
+  const toward = onDark ? white : black;
+  const text = readable(onDark ? ink[25] : ink[900], bar, toward, 7);
+  const muted = readable(mixColor(text, bar, 0.35), bar, toward, 4.5);
+  const icon = readable(mixColor(text, bar, 0.12), bar, toward, 4.5);
+  const wash = (alpha: number) => withAlpha(onDark ? white : ink[900], alpha);
+  return { bar, shell, seamless: true, roles: {
+    textPrimary: text, textSecondary: muted, textTertiary: muted, tabText: text, tabTextActive: text,
+    iconPrimary: icon, iconSecondary: readable(mixColor(icon, bar, 0.25), bar, toward, 3), iconDisabled: mixColor(icon, bar, 0.55),
+    siteSecure: muted, omniboxCompletion: muted, tabLoading: icon,
+    omniboxIdle: wash(onDark ? 0.09 : 0.05), omniboxHover: wash(onDark ? 0.13 : 0.08),
+    omniboxActive: onDark ? mixColor(bar, white, 0.1) : mixColor(bar, white, 0.7),
+    textSelection: wash(onDark ? 0.3 : 0.18), borderDefault: wash(onDark ? 0.2 : 0.12),
+    fillHover: wash(onDark ? 0.1 : 0.06), fillPressed: wash(onDark ? 0.16 : 0.1), fillSelected: wash(onDark ? 0.13 : 0.08),
+    focusRing: wash(onDark ? 0.6 : 0.45),
   } };
 }

@@ -147,6 +147,8 @@ source_set("modal_browser") {
       "merlin_react_extension_popup.h",
       "merlin_tab_switcher.h",
       "merlin_tab_switcher_mac.mm",
+      "merlin_page_color.cc",
+      "merlin_page_color.h",
     ]
     frameworks = [ "AppKit.framework" ]
   }
@@ -162,6 +164,7 @@ source_set("modal_browser") {
   ]
   deps = [
     "//base/version_info",
+    "//components/viz/common",
     "//cc/paint",
     "//chrome/app:command_ids",
     "//chrome/browser:browser_process",

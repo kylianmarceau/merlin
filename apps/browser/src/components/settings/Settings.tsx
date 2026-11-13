@@ -77,7 +77,7 @@ export function Settings({ open }: { open: boolean }) {
             {p && <FormRow title="Tabs" detail="Down the side or across the top. Command-S hides them either way.">
               <Segmented label="Tab position" value={p.tabs} onChange={tabs => set('tabs', tabs)}
                 options={[{ value: 'side', label: 'Sidebar' }, { value: 'top', label: 'Top' }]} /></FormRow>}
-            {p?.tabs === 'top' && <FormRow title="Site colour" detail="The active tab and toolbar take the colour of the site. New tabs stay white.">
+            {p?.tabs === 'top' && <FormRow title="Site colour" detail="The active tab and toolbar take the site's colour. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white.">
               <Segmented label="Site colour" value={toolbarColor} onChange={style => void setToolbarColor(style)}
                 options={toolbarColors.map(value => ({ value, label: toolbarColorLabels[value] }))} /></FormRow>}
             {p?.tabs === 'top' && toolbarColor !== 'white' && <FormRow title="Tint the window with the site colour"

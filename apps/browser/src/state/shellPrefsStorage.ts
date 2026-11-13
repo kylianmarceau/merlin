@@ -9,7 +9,9 @@ export function loadShellPrefs() {
   loaded = true;
   preference('newTabPopup').then(value => shellPrefs.setState({ newTabPopup: value === 'on' }), () => {});
   preference('toolbarColor').then(value => {
-    if (value === 'vivid' || value === 'white') shellPrefs.setState({ toolbarColor: value });
+    // Unset is the default, Match. Soft was the default before it, and saved
+    // nothing, so those windows move to Match too.
+    if (value === 'soft' || value === 'vivid' || value === 'white') shellPrefs.setState({ toolbarColor: value });
   }, () => {});
   preference('shellFollowsSite').then(value => shellPrefs.setState({ shellFollowsSite: value === 'on' }), () => {});
 }
@@ -21,7 +23,7 @@ export function setNewTabPopup(on: boolean) {
 
 export function setToolbarColor(style: ShellPrefs['toolbarColor']) {
   shellPrefs.setState({ toolbarColor: style });
-  return setPreference('toolbarColor', style === 'soft' ? null : style);
+  return setPreference('toolbarColor', style === 'match' ? null : style);
 }
 
 export function setShellFollowsSite(on: boolean) {

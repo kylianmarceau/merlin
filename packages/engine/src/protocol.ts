@@ -13,6 +13,8 @@ export type Tab = {
   start?: boolean;
   /** The site's colour as "#RRGGBB": its theme-color, else its icon's main colour. Absent when it has neither. */
   color?: string;
+  /** The colour most of the page's top edge has, as drawn, as "#RRGGBB". Absent until sampled, or when it has none. */
+  surface?: string;
 };
 export type Download = {
   id: string; name: string; received: number; total: number;
@@ -283,7 +285,8 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.favicon !== undefined && typeof tab.favicon !== 'string') ||
         (tab.crashed !== undefined && typeof tab.crashed !== 'boolean') ||
         (tab.start !== undefined && typeof tab.start !== 'boolean') ||
-        (tab.color !== undefined && (typeof tab.color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.color)))) {
+        (tab.color !== undefined && (typeof tab.color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.color))) ||
+        (tab.surface !== undefined && (typeof tab.surface !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.surface)))) {
       throw new Error('Invalid tab snapshot');
     }
     ids.add(tab.id);

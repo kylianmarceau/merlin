@@ -6,7 +6,8 @@ import { siteChrome, useTheme } from '../ui';
 
 /**
  * The colours of the joined tab, the toolbar under it and, if chosen, the
- * window shell: the active site's colour in the treatment picked in Settings.
+ * window shell: by default the colour along the top of the active page, so
+ * the toolbar runs on into it; or the site's brand colour (Settings).
  * Only with tabs across the top; new tab pages and crashed pages stay white.
  */
 export function useSiteChrome() {
@@ -16,6 +17,7 @@ export function useSiteChrome() {
   const style = useShellPrefs(s => s.toolbarColor);
   const follow = useShellPrefs(s => s.shellFollowsSite);
   const top = snapshot.modal.tabLayout === 'top';
-  const site = top && tab && !tab.crashed && !isStartUrl(tab.url) ? tab.color : undefined;
-  return useMemo(() => siteChrome(dark ? 'dark' : 'light', site, style, follow), [dark, site, style, follow]);
+  const page = top && tab && !tab.crashed && !tab.start && !isStartUrl(tab.url) ? tab : undefined;
+  const site = page?.color, surface = page?.surface;
+  return useMemo(() => siteChrome(dark ? 'dark' : 'light', site, style, follow, surface), [dark, site, style, follow, surface]);
 }
