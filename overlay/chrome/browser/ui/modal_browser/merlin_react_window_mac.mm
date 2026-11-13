@@ -6,6 +6,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_react_autofill.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_handler.h"
 #import <AppKit/AppKit.h>
+#import <QuartzCore/QuartzCore.h>
 #include <dlfcn.h>
 #include <cstddef>
 #include <algorithm>
@@ -19,6 +20,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -109,9 +111,14 @@ class ReactNativeWidget : public views::NativeWidgetMac {
     NativeWidgetMac::OnWidgetDestroyed(widget);
   }
   void OnWindowInitialized() override {
-    if (auto* bridge = GetInProcessNSWindowBridge())
+    if (auto* bridge = GetInProcessNSWindowBridge()) {
       bridge->SetCommandDispatcher([[ChromeCommandDispatcherDelegate alloc] init],
                                     [[BrowserWindowCommandHandler alloc] init]);
+      // React draws the window, not the Views layer under it, so the window
+      // is shown when React has drawn (ReactBrowserWindow::HoldUntilDrawn)
+      // rather than when that empty layer first composites (patches/0075).
+      bridge->ShowWithoutWaitingForFirstFrame();
+    }
   }
   void ValidateUserInterfaceItem(int32_t command,
       remote_cocoa::mojom::ValidateUserInterfaceItemResult* result) override {
@@ -236,6 +243,7 @@ class ReactBrowserWindow final : public BrowserWindow,
   }
   ~ReactBrowserWindow() override {
     weak_factory_.InvalidateWeakPtrs();
+    if (content_observer_) [NSNotificationCenter.defaultCenter removeObserver:content_observer_];
     modal_observers_.Notify(&web_modal::ModalDialogHostObserver::OnHostDestroying);
     browser_->GetFeatures().TearDownPreBrowserWindowDestruction();
     bubble_.reset();
@@ -255,8 +263,8 @@ class ReactBrowserWindow final : public BrowserWindow,
     CHECK(root_);
     page_host_->Attach(gfx::NativeView((__bridge NSView*)root_.get()));
   }
-  void Show() override { Mount(); BrowserActiveStateManager::From(browser_)->DidBecomeActive(); widget_->Show(); }
-  void ShowInactive() override { Mount(); widget_->ShowInactive(); }
+  void Show() override { Mount(); HoldUntilDrawn(); BrowserActiveStateManager::From(browser_)->DidBecomeActive(); widget_->Show(); }
+  void ShowInactive() override { Mount(); HoldUntilDrawn(); widget_->ShowInactive(); }
   void Hide() override { widget_->Hide(); }
   void Close() override { widget_->Close(); }
   void Activate() override { widget_->Activate(); }
@@ -299,6 +307,16 @@ class ReactBrowserWindow final : public BrowserWindow,
     SetBounds(bounds);
   }
   void OnActiveTabChanged(content::WebContents* old_contents, content::WebContents* new_contents, int index, int) override {
+    // One Core Animation transaction for the whole switch. Hiding a page
+    // commits a transaction of its own, which would otherwise make AppKit lay
+    // out and draw the whole window before the new page is in place; this way
+    // the old page goes and the new one appears in the same frame.
+    [CATransaction begin];
+    SwitchPages(old_contents, new_contents, index);
+    [CATransaction commit];
+    NotifyShellWindow(browser_);
+  }
+  void SwitchPages(content::WebContents* old_contents, content::WebContents* new_contents, int index) {
     // Both halves of a split stay visible; everything else the old tab showed
     // is hidden.
     auto* strip = browser_->GetTabStripModel();
@@ -318,14 +336,23 @@ class ReactBrowserWindow final : public BrowserWindow,
       before = shown(strip->GetIndexOfWebContents(old_contents));
       if (before.empty()) before.push_back(old_contents);  // Detached or closing.
     }
-    for (auto* page : before)
-      if (std::find(now.begin(), now.end(), page) == now.end()) page->WasHidden();
+    NSWindow* window = GetNativeWindow().GetNativeNSWindow();
+    for (auto* page : before) {
+      if (std::find(now.begin(), now.end(), page) != now.end()) continue;
+      // A page losing its focus as it hides makes AppKit search the whole
+      // window's key-view loop for a replacement; the new page takes the
+      // focus straight after (PlacePage), so give it up first.
+      NSView* view = page->GetNativeView().GetNativeNSView();
+      NSResponder* focus = window.firstResponder;
+      if (view && [focus isKindOfClass:NSView.class] && [(NSView*)focus isDescendantOf:view])
+        [window makeFirstResponder:nil];
+      page->WasHidden();
+    }
     for (auto* page : now) page->WasShown();
     if (new_contents && std::find(now.begin(), now.end(), new_contents) == now.end()) new_contents->WasShown();
     // Show the new page now; React re-renders the rest of the window after.
     // A start page or a crashed page is React's own view, not the page's.
     RevealActivePage(browser_, new_contents && (ShowsShellStartPage(browser_, new_contents) || new_contents->IsCrashed()));
-    NotifyShellWindow(browser_);
   }
   void OnTabDetached(content::WebContents* contents, bool) override {
     [contents->GetNativeView().GetNativeNSView() removeFromSuperview];
@@ -609,6 +636,30 @@ class ReactBrowserWindow final : public BrowserWindow,
  protected:
   void DeleteBrowserWindow() override { delete this; }
  private:
+  // Keeps a newly shown window transparent until React has drawn into it,
+  // then shows it in one piece. At launch that is about 100 ms before the
+  // Views layer under React first composites, which is when Chromium would
+  // otherwise show it.
+  void HoldUntilDrawn() {
+    if (drawn_ || content_observer_) return;
+    NSWindow* window = GetNativeWindow().GetNativeNSWindow();
+    NSView* root = (__bridge NSView*)root_.get();
+    if (!window || !root) { drawn_ = true; return; }
+    window.alphaValue = 0;
+    base::WeakPtr<ReactBrowserWindow> weak = weak_factory_.GetWeakPtr();
+    content_observer_ = [NSNotificationCenter.defaultCenter addObserverForName:@"RCTContentDidAppearNotification"
+        object:root queue:nil usingBlock:^(NSNotification*) { if (weak) weak->Reveal(); }];
+    // Shown anyway after 300 ms, should React be slow or not report.
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(FROM_HERE,
+        base::BindOnce(&ReactBrowserWindow::Reveal, weak), base::Milliseconds(300));
+  }
+  void Reveal() {
+    if (drawn_) return;
+    drawn_ = true;
+    if (content_observer_) [NSNotificationCenter.defaultCenter removeObserver:content_observer_];
+    content_observer_ = nil;
+    GetNativeWindow().GetNativeNSWindow().alphaValue = 1;
+  }
   void ArmClose() {
     widget_->MakeCloseSynchronous(base::BindOnce(&ReactBrowserWindow::RequestClose, weak_factory_.GetWeakPtr()));
   }
@@ -626,6 +677,9 @@ class ReactBrowserWindow final : public BrowserWindow,
   std::unique_ptr<views::Widget> widget_;
   raw_ptr<views::NativeViewHost> page_host_ = nullptr;
   raw_ptr<void> root_ = nullptr;  // Retained Objective-C view; released through shell ABI.
+  // Whether React has drawn the window, and the notification that says so.
+  bool drawn_ = false;
+  id content_observer_ = nil;
   bool editable_ = true;
   std::unique_ptr<ExclusiveAccessBubbleViews> bubble_;
   uint64_t bubble_generation_ = 0;

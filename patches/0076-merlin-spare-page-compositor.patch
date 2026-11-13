@@ -1,0 +1,130 @@
+--- a/content/browser/renderer_host/browser_compositor_view_mac.mm
++++ b/content/browser/renderer_host/browser_compositor_view_mac.mm
+@@ -9,14 +9,19 @@
+ 
+ #include <memory>
+ #include <utility>
++#include <vector>
+ 
+ #include "base/command_line.h"
+ #include "base/containers/circular_deque.h"
++#include "base/functional/bind.h"
+ #include "base/no_destructor.h"
++#include "base/task/single_thread_task_runner.h"
++#include "base/time/time.h"
+ #include "base/trace_event/trace_event.h"
+ #include "components/viz/common/features.h"
+ #include "components/viz/common/surfaces/local_surface_id.h"
+ #include "content/browser/compositor/image_transport_factory.h"
++#include "content/public/browser/browser_task_traits.h"
+ #include "content/public/browser/browser_thread.h"
+ #include "content/public/browser/context_factory.h"
+ #include "ui/accelerated_widget_mac/accelerated_widget_mac.h"
+@@ -41,6 +46,58 @@
+   return *instance.get();
+ }
+ 
++// A page that has no parent ui::Layer (Merlin's React shell places page views
++// itself) draws through a compositor of its own, created each time the page is
++// shown and destroyed each time it is hidden. Both sat on the tab-switch path.
++// Keep one fresh compositor ready for the next page to be shown, and destroy
++// outgoing ones after the switch. A spare is never reused after drawing, so it
++// can't show a previous page's frame.
++constexpr base::TimeDelta kCompositorUpkeepDelay = base::Milliseconds(500);
++bool g_compositor_recycling_disabled = false;
++
++std::unique_ptr<ui::RecyclableCompositorMac>& SpareCompositor() {
++  static base::NoDestructor<std::unique_ptr<ui::RecyclableCompositorMac>>
++      instance;
++  return *instance.get();
++}
++
++std::vector<std::unique_ptr<ui::RecyclableCompositorMac>>&
++RetiredCompositors() {
++  static base::NoDestructor<
++      std::vector<std::unique_ptr<ui::RecyclableCompositorMac>>>
++      instance;
++  return *instance.get();
++}
++
++void CompositorUpkeep() {
++  RetiredCompositors().clear();
++  if (g_compositor_recycling_disabled || SpareCompositor() ||
++      GetBrowserCompositors().empty()) {
++    return;
++  }
++  SpareCompositor() =
++      std::make_unique<ui::RecyclableCompositorMac>(GetContextFactory());
++}
++
++void ScheduleCompositorUpkeep() {
++  static bool scheduled = false;
++  if (scheduled || g_compositor_recycling_disabled) {
++    return;
++  }
++  scheduled = true;
++  GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
++      ->PostDelayedTask(FROM_HERE, base::BindOnce([] {
++                          scheduled = false;
++                          CompositorUpkeep();
++                        }),
++                        kCompositorUpkeepDelay);
++}
++
++void DropSpareCompositors() {
++  SpareCompositor().reset();
++  RetiredCompositors().clear();
++}
++
+ }  // namespace
+ 
+ ////////////////////////////////////////////////////////////////////////////////
+@@ -79,6 +136,9 @@
+ 
+   size_t num_erased = GetBrowserCompositors().erase(this);
+   CHECK_EQ(1u, num_erased, base::NotFatalUntil::M152);
++  if (GetBrowserCompositors().empty()) {
++    DropSpareCompositors();
++  }
+ }
+ 
+ DelegatedFrameHost* BrowserCompositorMac::GetDelegatedFrameHost() {
+@@ -251,7 +311,12 @@
+   if (state_ == HasOwnCompositor) {
+     recyclable_compositor_->widget()->ResetNSView();
+     recyclable_compositor_->compositor()->SetRootLayer(nullptr);
+-    recyclable_compositor_.reset();
++    if (g_compositor_recycling_disabled) {
++      recyclable_compositor_.reset();
++    } else {
++      RetiredCompositors().push_back(std::move(recyclable_compositor_));
++      ScheduleCompositorUpkeep();
++    }
+   }
+ 
+   // The compositor is now detached. If this is the target state, we're done.
+@@ -272,8 +337,13 @@
+     state_ = UseParentLayerCompositor;
+   }
+   if (new_state == HasOwnCompositor) {
+-    recyclable_compositor_ = std::make_unique<ui::RecyclableCompositorMac>(
+-        content::GetContextFactory());
++    if (SpareCompositor()) {
++      recyclable_compositor_ = std::move(SpareCompositor());
++    } else {
++      recyclable_compositor_ = std::make_unique<ui::RecyclableCompositorMac>(
++          content::GetContextFactory());
++    }
++    ScheduleCompositorUpkeep();
+     display::ScreenInfo current = client_->GetCurrentScreenInfo();
+     recyclable_compositor_->UpdateSurface(
+         dfh_size_pixels_, current.device_scale_factor,
+@@ -297,6 +367,8 @@
+   // Ensure that the client has destroyed its BrowserCompositorViewMac before
+   // it dependencies are destroyed.
+   // https://crbug.com/805726
++  g_compositor_recycling_disabled = true;
++  DropSpareCompositors();
+   while (!GetBrowserCompositors().empty()) {
+     BrowserCompositorMac* browser_compositor = *GetBrowserCompositors().begin();
+     browser_compositor->client_->DestroyCompositorForShutdown();

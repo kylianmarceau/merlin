@@ -45,6 +45,13 @@ bool ShouldShowChromiumPromos();
 // Lens, Help me write, casting, and the built-in AI APIs pages can call
 // (which download an on-device model of several GB). Chromium's desktop code
 // can't be built without them, so they are off at run time instead.
+//
+// Also the code-sign clone: at startup Chromium hard-links the main executable
+// into a temporary copy of the app, so the running app's signature stays valid
+// if an updater replaces it in place. Merlin has no updater (replace the app
+// after quitting, docs/RELEASE.md), and the link changes the executable's
+// inode, so macOS checks the 14 MB React host again before the next launch:
+// about 120 ms before Merlin's code runs at all.
 inline constexpr const char* kMerlinDisabledFeatures[] = {
     "Glic",                // Gemini in Chrome
     "ApiGlicPrivate",      // Gemini's component extension
@@ -57,6 +64,7 @@ inline constexpr const char* kMerlinDisabledFeatures[] = {
     "AIWriterAPI",         // Writer
     "AIRewriterAPI",       // Rewriter
     "AIProofreadingAPI",   // Proofreader
+    "MacAppCodeSignClone", // hard link of the main executable, see above
 };
 
 // Called by ChromeFeatureListCreator::SetUpFieldTrials (patches/0065) before

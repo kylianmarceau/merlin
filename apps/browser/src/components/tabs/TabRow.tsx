@@ -6,6 +6,8 @@ import { useActions } from '../../state/window';
 import { ContextMenu, IconButton, Panel, Text, useInteraction, useTheme, geometry, radius, space } from '../ui';
 import { Favicon } from '../favicon/Favicon';
 
+const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
+
 /**
  * A tab in the sidebar list. The active tab is lifted off the shell as a white
  * card; the others wash white on hover. Right-click opens its native menu.
@@ -18,6 +20,7 @@ export const TabRow = React.memo(function TabRow({ tab, active }: { tab: Tab; ac
   const row = <ContextMenu onOpen={() => void actions.tabMenu(tab.id)}>
     <View onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ flexDirection: 'row', alignItems: 'center', minHeight: geometry.tabRow, borderRadius: radius.row,
       backgroundColor: colors[!active && hovered ? 'tabHover' : 'fillTransparent'] }}>
+      {active && <Panel fill="tabActive" radius="row" elevation="tab" border="tabActiveBorder" style={cover} />}
       <Pressable accessibilityRole="button" accessibilityState={{ selected: active }}
         accessibilityLabel={`${title}${tab.loading ? ', loading' : ''}${tab.audible ? ', playing audio' : ''}`}
         onPress={() => void actions.activateTab(tab.id)}
@@ -32,7 +35,9 @@ export const TabRow = React.memo(function TabRow({ tab, active }: { tab: Tab; ac
       </View>
     </View>
   </ContextMenu>;
-  return active ? <Panel fill="tabActive" radius="row" elevation="tab" border="tabActiveBorder">{row}</Panel> : row;
+  // The active card sits behind the row rather than around it, so a tab
+  // becoming active or not keeps its views.
+  return row;
 });
 
 /** A pinned tab, shown as a favourite tile above the tab list. */
@@ -45,12 +50,12 @@ export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, wi
     onPress={() => void actions.activateTab(tab.id)} {...handlers}
     style={{ width, height: geometry.favourite, borderRadius: radius.tile, alignItems: 'center', justifyContent: 'center',
       backgroundColor: colors[active ? 'fillTransparent' : hovered ? 'fillShellControl' : 'tilePinned'] }}>
+    {active && <Panel fill="tilePinnedActive" radius="tile" elevation="tab" border="tabActiveBorder" style={cover} />}
     <Favicon tab={tab} large />
     {tab.audible && <View style={{ position: 'absolute', bottom: space.hair, right: space.xs }}>
       <Text variant="micro">♪</Text>
     </View>}
   </Pressable>;
-  return <ContextMenu onOpen={() => void actions.tabMenu(tab.id)}>
-    {active ? <Panel fill="tilePinnedActive" radius="tile" elevation="tab" border="tabActiveBorder">{tile}</Panel> : tile}
-  </ContextMenu>;
+  // As in TabRow, the active card is behind the tile, not around it.
+  return <ContextMenu onOpen={() => void actions.tabMenu(tab.id)}>{tile}</ContextMenu>;
 });
