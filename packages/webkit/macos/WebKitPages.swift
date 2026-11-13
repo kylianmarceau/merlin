@@ -357,11 +357,34 @@ final class MerlinWKWebView: WKWebView {
   var onKey: ((String) -> Void)?
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    // The browser's reserved shortcuts never reach the page, as in Chromium:
+    // WebKit offers every key to the page first, and a page that takes all
+    // keys (Netflix's player does) would keep Control-Tab from the browser.
+    // Declining the key here lets Chromium's own key handling run it.
+    if Self.reserved(event) { return false }
     guard let responder = window?.firstResponder as? NSView, responder.isDescendant(of: self), let onKey,
       let command = Self.command(for: event)
     else { return super.performKeyEquivalent(with: event) }
     onKey(command)
     return true
+  }
+
+  /// Tab cycling, new and closed tabs and windows, quitting: what Chromium
+  /// keeps from its own pages (BrowserCommandController::IsReservedCommand
+  /// and Merlin's Control-Tab).
+  static func reserved(_ event: NSEvent) -> Bool {
+    guard event.type == .keyDown else { return false }
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
+    if event.keyCode == 48 /* kVK_Tab */ { return flags == [.control] || flags == [.control, .shift] }
+    let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+    switch (flags, key) {
+    case ([.command], "t"), ([.command, .shift], "t"), ([.command], "w"), ([.command, .shift], "w"),
+         ([.command], "n"), ([.command, .shift], "n"), ([.command], "q"):
+      return true
+    default:
+      // Command-Option-Left/Right: the previous and next tab.
+      return flags == [.command, .option] && (event.keyCode == 123 || event.keyCode == 124)
+    }
   }
 
   static func command(for event: NSEvent) -> String? {
