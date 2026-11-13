@@ -64,6 +64,8 @@ export type Snapshot = {
   downloads: Download[];
   prompt: Prompt | null; appearance: Appearance; find?: FindState; split?: Split | null;
   switcher?: TabSwitcher | null;
+  /** The page asked for fullscreen (a video, a PDF, a game): it fills the window with no browser chrome. */
+  fullscreen?: boolean;
   modal: {
     mode: string; pending: string; message: string; messageIsError?: boolean; sidebarHidden?: boolean;
     tabLayout?: 'sidebar' | 'top'; whichKey?: WhichKey[]; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string;
@@ -277,6 +279,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
   if (s.modal.hints !== undefined && (!Array.isArray(s.modal.hints) || s.modal.hints.some(h =>
       !h || typeof h.label !== 'string' || !Number.isFinite(h.x) || !Number.isFinite(h.y)))) throw new Error('Invalid link hints');
   if (s.modal.hintPrefix !== undefined && typeof s.modal.hintPrefix !== 'string') throw new Error('Invalid hint prefix');
+  if (s.fullscreen !== undefined && typeof s.fullscreen !== 'boolean') throw new Error('Invalid fullscreen state');
   if (s.modal.sidebarHidden !== undefined && typeof s.modal.sidebarHidden !== 'boolean') throw new Error('Invalid sidebar state');
   if (s.modal.messageIsError !== undefined && typeof s.modal.messageIsError !== 'boolean') throw new Error('Invalid message state');
   if (s.modal.tabLayout !== undefined && s.modal.tabLayout !== 'sidebar' && s.modal.tabLayout !== 'top') throw new Error('Invalid tab layout');

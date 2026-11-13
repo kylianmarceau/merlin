@@ -9,13 +9,13 @@ import { Page } from '../page/Page';
 import { WebKitPage } from '../page/WebKitPage';
 import { StartPage } from '../start/StartPage';
 
-/** The active page, both halves of a split view, or the start page. */
+/** The active page, both halves of a split view, or the start page. A page in fullscreen is shown alone. */
 export function PageArea() {
   const snapshot = useSnapshot();
   const actions = useActions();
   const active = useActiveTab();
   const { colors } = useTheme();
-  const split = snapshot.split && active && snapshot.split.tabs.includes(active.id) ? snapshot.split : null;
+  const split = !snapshot.fullscreen && snapshot.split && active && snapshot.split.tabs.includes(active.id) ? snapshot.split : null;
   if (!active) return <Box flex={1} center>
     <EmptyState icon="square.dashed" title="No tabs open" detail="Open a tab, or use the command menu."
       action={<Button label="New Tab" variant="primary" icon="plus" onPress={() => void actions.openNewTab()} />} />

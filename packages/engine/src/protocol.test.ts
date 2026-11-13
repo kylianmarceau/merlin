@@ -13,6 +13,10 @@ test('rejects a snapshot for another window', () => {
 test('rejects an active tab absent from the authoritative tab list', () => {
   assert.throws(() => validateSnapshot({ ...snapshot(), activeTabId: 'stale' }, 'window-one'));
 });
+test('a page in fullscreen is a flag, nothing else', () => {
+  assert.equal(validateSnapshot({ ...snapshot(), fullscreen: true }, 'window-one').fullscreen, true);
+  assert.throws(() => validateSnapshot({ ...snapshot(), fullscreen: 'yes' as unknown as boolean }, 'window-one'));
+});
 test('rejects malformed prompts rather than rendering unsafe actions', () => {
   assert.throws(() => validateSnapshot({ ...snapshot(), prompt: { id: 'p', actions: [] } }, 'window-one'));
 });

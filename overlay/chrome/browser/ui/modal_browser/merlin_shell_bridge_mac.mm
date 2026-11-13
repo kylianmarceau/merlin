@@ -38,6 +38,8 @@
 #include "ui/base/base_window.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
+#include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/find_bar/find_bar.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "components/find_in_page/find_tab_helper.h"
@@ -436,6 +438,10 @@ Dict WindowState::Snapshot() {
     .Set("downloads", std::move(downloads)).Set("prompt", prompts.empty() ? base::Value() : base::Value(prompts.front().description.Clone()))
     .Set("appearance", std::move(appearance)).Set("find", find.Clone()).Set("split", std::move(split))
     .Set("switcher", switcher ? switcher->State() : base::Value())
+    // A page in fullscreen (HTML video, a PDF, a game) fills the window
+    // alone, as in Chrome; browser fullscreen (Control-Command-F) keeps the
+    // tabs and toolbar.
+    .Set("fullscreen", ExclusiveAccessManager::From(browser_)->fullscreen_controller()->IsWindowFullscreenForTabOrPending())
     .Set("modal", controller ? controller->ShellModalState() : Dict().Set("mode", "Normal").Set("pending", "").Set("message", ""));
 }
 void WindowState::Suggest(const std::string& query, const std::string& text, bool prevent_inline) {
