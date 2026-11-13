@@ -4,7 +4,10 @@
 // driven over DevTools. Dia runs in your own profile, driven by AppleScript
 // in a test window that is closed afterwards (Dia needs onboarding and an
 // account for a new profile). See docs/PERFORMANCE.md for the method and the
-// baseline. Requires Node 22+ and a Mac left alone while it runs.
+// baseline. Requires Node 22+ and a Mac left alone while it runs, or
+// --background to keep working meanwhile: focus goes straight back to your app
+// whenever the browser takes it, and the browser isn't brought to the front.
+// Timings are noisier while the Mac is in use.
 //
 //   node scripts/benchmark_browsers.mjs --browser merlin-release --out /tmp/bench
 //   node scripts/benchmark_browsers.mjs --browser brave --app "/path/Brave Browser.app" --out /tmp/bench
@@ -20,6 +23,7 @@ import { tmpdir, homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { CDP } from "./lib/cdp.mjs";
+import { keepFocus } from "./lib/focus_keeper.mjs";
 
 const run = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -36,6 +40,7 @@ for (let i = 2; i < process.argv.length; i++) {
   else if (k === "--app") args.app = resolve(process.argv[++i]);
   else if (k === "--arg") args.extra.push(process.argv[++i]);
   else if (k === "--name") args.name = process.argv[++i];
+  else if (k === "--background") args.background = true;
   else if (k === "--skip") process.argv[++i].split(",").forEach((s) => args.skip.add(s));
   else throw Error("unknown argument " + k);
 }
@@ -58,6 +63,7 @@ B.extra = [...(B.extra || []), ...args.extra];
 const NAME = args.name || args.browser;
 const BIN = join(B.app, "Contents", "MacOS", B.bin);
 await access(BIN);
+if (args.background && !(await keepFocus([B.app]))) throw Error("--background needs swiftc (Xcode command line tools)");
 await mkdir(args.out, { recursive: true });
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), NAME, ...a);
 
@@ -303,6 +309,7 @@ class CdpDriver {
   async activate(id) { await this.cdp.call("Target.activateTarget", { targetId: id }); }
   async close(id) { await this.cdp.call("Target.closeTarget", { targetId: id }); this.sessions.delete(id); }
   async front() {
+    if (args.background) return;
     await run("osascript", ["-l", "JavaScript", "-e",
       `ObjC.import('AppKit');$.NSRunningApplication.runningApplicationWithProcessIdentifier(${this.pid}).activateWithOptions(3)`]).catch(() => {});
   }
@@ -361,7 +368,7 @@ class DiaDriver {
     await osa(`tell application "Dia" to focus tab id "${t}" of window id "${w}"`);
   }
   async close(id) { await osa(`tell application "Dia" to close ${this.ref(id)}`); }
-  async front() { await run("open", ["-a", B.app]); }
+  async front() { if (!args.background) await run("open", ["-a", B.app]); }
   async closeWindow() { if (this.win) await osa(`tell application "Dia" to close window id "${this.win}"`).catch(() => {}); this.win = null; }
   async quit() {
     for (let k = 0; k < 3; k++) {
@@ -377,7 +384,7 @@ class DiaDriver {
 }
 
 // ---------------------------------------------------------------- helpers
-const result = { browser: NAME, app: B.app, switches: B.extra, started: new Date().toISOString(), errors: [] };
+const result = { browser: NAME, app: B.app, switches: B.extra, background: !!args.background, started: new Date().toISOString(), errors: [] };
 const median = (a) => { const s = [...a].filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
 async function save() { await writeFile(join(args.out, `${NAME}.json`), JSON.stringify(result, null, 1)); }
 async function step(name, fn) {
