@@ -108,6 +108,15 @@ public final class MerlinShellGradientModule: Module {
   }
 }
 
+public final class MerlinShellWindowAppearanceModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellWindowAppearance")
+    View(MerlinWindowAppearance.self) {
+      Prop("appearanceMode") { (view, value: String) in view.mode = value }
+    }
+  }
+}
+
 public final class MerlinShellFadeModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MerlinShellFade")

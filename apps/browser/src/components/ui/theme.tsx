@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, useColorScheme } from 'react-native';
+import { AccessibilityInfo, StyleSheet, useColorScheme } from 'react-native';
+import { WindowAppearance } from '../../platform/shell';
 import type { Appearance } from '../../state/types';
 import { palette, type Palette } from './tokens';
 
@@ -29,8 +30,16 @@ export function ThemeScope({ appearance, children }: React.PropsWithChildren<{ a
   const reduceMotion = appearance.reduceMotion || systemReduce;
   const theme = useMemo(() => ({ colors: palette(mode, appearance.accent), dark: mode === 'dark',
     reduceMotion }), [mode, appearance.accent, reduceMotion]);
-  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
+  // AppKit draws the caret, text selection and menus from the view's own
+  // macOS appearance (Chromium keeps the window on macOS's mode), so the
+  // shell's views follow Merlin's setting too: a black caret in Light.
+  return <ThemeContext.Provider value={theme}>
+    {children}
+    <WindowAppearance appearanceMode={appearance.mode} pointerEvents="none" style={hidden} />
+  </ThemeContext.Provider>;
 }
+
+const hidden = StyleSheet.create({ view: { position: 'absolute', width: 0, height: 0 } }).view;
 
 export function useTheme() {
   const theme = useContext(ThemeContext);

@@ -47,6 +47,9 @@ export const Surface = view<SurfaceProps>('Surface');
 
 export const WindowDragRegion = view<ViewProps>('WindowDragRegion');
 
+/** Puts its React root in the macOS appearance for the shell's theme, so AppKit's own caret and menus match; "system" follows the window. */
+export const WindowAppearance = view<ViewProps & { appearanceMode: 'light' | 'dark' | 'system' }>('WindowAppearance');
+
 export type OutsidePressEvent = NativeSyntheticEvent<{ reason: 'press' | 'blur' }>;
 export const OutsidePress = view<ViewProps & { onOutsidePress(event: OutsidePressEvent): void }>('OutsidePress');
 
