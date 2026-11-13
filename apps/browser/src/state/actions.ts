@@ -2,6 +2,8 @@
 // engine or call getState(); they call these, and failures become notices.
 import { showMenu, type MenuItem } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
+import { canUseWebKit } from '../lib/engines';
+import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
 import type { Appearance, Calls, DownloadAction, EngineClient, Method, Request, Requests } from '../platform/protocol';
 import {
   dismissToast, pushToast, rememberFavicon, type AnchorName, type BrowserStore, type Panel, type PopoverName, type Rect,
@@ -21,6 +23,16 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
   const active = () => {
     const s = store.getState().snapshot;
     return s?.tabs.find(t => t.id === s.activeTabId);
+  };
+  const isPrivate = () => store.getState().snapshot?.private ?? false;
+  /**
+   * Where typed text or a suggestion goes in the active tab when it shows
+   * WebKit: true when WebKit loaded it, false when Chromium should (the tab
+   * then leaves WebKit). `url` is null when only Chromium can tell.
+   */
+  const webKitTakes = (url: string | null, newTab: boolean) => {
+    const t = active();
+    return !newTab && t?.engine === 'webkit' && navigateWebKitTab(t.id, url, isPrivate());
   };
   const faviconLoads = new Set<string>();
   let lastClosed: { name: PopoverName | null; at: number } = { name: null, at: 0 };
@@ -58,6 +70,9 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         { id: 'pin', title: tab.pinned ? 'Unpin Tab' : 'Pin Tab' },
         { id: 'duplicate', title: 'Duplicate Tab', enabled: !!tab.url },
         { id: 'bookmark', title: 'Bookmark Page…', enabled: tab.id === store.getState().snapshot?.activeTabId },
+        // Sites Chromium can't play open in WebKit; either can show any site.
+        ...(canUseWebKit(tab.url) ? [tab.engine === 'webkit'
+          ? { id: 'chromium', title: 'Open Site in Chromium' } : { id: 'webkit', title: 'Open Site in WebKit' }] : []),
         { separator: true },
         { id: 'up', title: 'Move Up', enabled: !!previous && previous.pinned === tab.pinned },
         { id: 'down', title: 'Move Down', enabled: !!next && next.pinned === tab.pinned },
@@ -71,11 +86,31 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         case 'pin': await actions.pinTab(tabId, !tab.pinned); break;
         case 'duplicate': await actions.newTab(tab.url); break;
         case 'bookmark': await actions.bookmarkTab(tabId); break;
+        case 'webkit': case 'chromium':
+          try { await moveSite(engine, tabId, tab.url, choice); } catch (e) { fail(e); }
+          break;
         case 'up': if (previous) await actions.moveTab(tabId, previous.id); break;
         case 'down': await actions.moveTab(tabId, tabs[index + 2]?.id ?? null); break;
         case 'close': await actions.closeTab(tabId); break;
         case 'others': for (const t of others) if (!(await actions.closeTab(t.id))) break; break;
         default: break;
+      }
+    },
+
+    /** The address's button on a WebKit tab: what WebKit is for, and the way back to Chromium. */
+    async engineMenu() {
+      const tab = active();
+      if (!tab || tab.engine !== 'webkit') return;
+      const items: MenuItem[] = [
+        { id: 'about', title: 'Shown in WebKit, which plays protected video', enabled: false, symbol: 'safari' },
+        { id: 'signins', title: 'WebKit keeps its own sign-ins', enabled: false },
+        { separator: true },
+        { id: 'chromium', title: 'Open Site in Chromium' },
+      ];
+      let choice: string | null;
+      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      if (choice === 'chromium') {
+        try { await moveSite(engine, tab.id, tab.url, 'chromium'); } catch (e) { fail(e); }
       }
     },
 
@@ -93,14 +128,29 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     },
 
     // The active page.
-    back: () => { const t = active(); return t ? run('navigation.back', { tabId: t.id }) : Promise.resolve(false); },
-    forward: () => { const t = active(); return t ? run('navigation.forward', { tabId: t.id }) : Promise.resolve(false); },
-    reloadTab: (tabId: string) => run('navigation.reload', { tabId }),
+    // A tab shown in WebKit goes to its WebKit page instead (state/webkit.ts).
+    back: () => {
+      const t = active();
+      if (!t) return Promise.resolve(false);
+      return runPageCommand(t.id, 'back') ? Promise.resolve(true) : run('navigation.back', { tabId: t.id });
+    },
+    forward: () => {
+      const t = active();
+      if (!t) return Promise.resolve(false);
+      return runPageCommand(t.id, 'forward') ? Promise.resolve(true) : run('navigation.forward', { tabId: t.id });
+    },
+    reloadTab: (tabId: string) => (runPageCommand(tabId, 'reload') ? Promise.resolve(true) : run('navigation.reload', { tabId })),
     reloadOrStop: () => {
       const t = active();
-      return t ? run(t.loading ? 'navigation.stop' : 'navigation.reload', { tabId: t.id }) : Promise.resolve(false);
+      if (!t) return Promise.resolve(false);
+      const command = t.loading ? 'stop' : 'reload';
+      return runPageCommand(t.id, command) ? Promise.resolve(true) : run(t.loading ? 'navigation.stop' : 'navigation.reload', { tabId: t.id });
     },
-    openInTab: (tabId: string, text: string) => run('navigation.open', { tabId, text }),
+    openInTab: (tabId: string, text: string) => {
+      const t = store.getState().snapshot?.tabs.find(x => x.id === tabId);
+      if (t?.engine === 'webkit' && navigateWebKitTab(tabId, addressUrl(text), isPrivate())) return Promise.resolve(true);
+      return run('navigation.open', { tabId, text });
+    },
     siteInfo: () => run('site.info', {}),
 
     // The address field. Suggestions arrive as events for the latest query.
@@ -130,17 +180,22 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const omnibox = store.getState().omnibox;
       if (!omnibox) return false;
       store.setState({ omnibox: null });
+      if (webKitTakes(omnibox.items[index]?.url ?? null, newTab)) return true;
       return run('omnibox.open', { queryId: omnibox.queryId, index, newTab });
     },
     async submitAddress(text: string, newTab: boolean) {
       const omnibox = store.getState().omnibox;
       store.setState({ omnibox: null });
+      // Enter takes the default suggestion, as Chromium does; without one only Chromium knows.
+      const top = omnibox?.items[0];
+      if (webKitTakes(top?.default ? top.url : addressUrl(text), newTab)) return true;
       return run('omnibox.enter', { ...(omnibox ? { queryId: omnibox.queryId } : {}), text, newTab });
     },
 
     // Icons, fetched once per favicon key.
     loadFavicon(tabId: string, key: string) {
-      if (!key || store.getState().favicons[key] || faviconLoads.has(key)) return;
+      // WebKit's icons come with its pages (state/webkit.ts), not from Chromium.
+      if (!key || key.startsWith('webkit:') || store.getState().favicons[key] || faviconLoads.has(key)) return;
       faviconLoads.add(key);
       engine.call('favicons.get', { tabId }).then(icon => {
         if (icon) rememberFavicon(store, icon.key, icon.url);
@@ -221,3 +276,9 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
   return actions;
 }
 export type Actions = ReturnType<typeof createActions>;
+
+/** A typed address that is plainly a web address ("https://…"), or null. */
+function addressUrl(text: string): string | null {
+  const trimmed = text.trim();
+  return /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : null;
+}

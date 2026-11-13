@@ -1,0 +1,250 @@
+// Tabs the shell shows in WebKit: it runs the rules in webkitModel.ts
+// against Chromium's snapshots and the native WebKit pages. One record per
+// tab for the whole app; each window draws its own tabs' records over its
+// snapshot (store.overlay).
+import { createStore } from 'zustand/vanilla';
+import { engineFor, hostLabel, siteOf, type PageEngine } from '../lib/engines';
+import type { EngineClient } from '../platform/protocol';
+import {
+  closeWebKitPage, focusWebKitPage, loadWebKitPage, subscribeWebKit, webKitCommand, type WebKitCommand, type WebKitEvent,
+} from '../platform/webkit';
+import { shellPrefs } from './shellPrefs';
+import { loadEnginePrefs, setSiteEngine } from './shellPrefsStorage';
+import { acceptSnapshot, pushToast, refreshOverlay, rememberFavicon, type BrowserStore } from './store';
+import { backLeavesWebKit, decide, iconKey, leaveTimeoutMs, overlayCache, overlaySnapshot, type WebKitTab } from './webkitModel';
+
+export const webkitTabs = createStore<Record<string, WebKitTab>>()(() => ({}));
+
+type Window = { store: BrowserStore; engine: EngineClient; openTab(url: string): void };
+const windows = new Map<string, Window>();
+/** Sites already explained in a notice this session. */
+const announced = new Set<string>();
+/** Saved site choices have been read; until then no tab moves to WebKit. */
+let prefsReady = false;
+/** The shell was built without the WebKit module: every page stays in Chromium. */
+let unavailable = false;
+let stopListening: (() => void) | null = null;
+/** A closed tab's page goes once no window has had the tab for this long (a tab moving windows leaves one first). */
+const closedTabGraceMs = 1000;
+const recheckSlackMs = 100;
+
+const engineOf = (url: string): PageEngine => engineFor(url, shellPrefs.getState());
+const pages = () => webkitTabs.getState();
+
+function patch(tabId: string, change: Partial<WebKitTab>) {
+  const wk = pages()[tabId];
+  if (wk) webkitTabs.setState({ [tabId]: { ...wk, ...change } });
+}
+
+/** The tab shows Chromium's page again; WebKit's page and its media stop. */
+function remove(tabId: string) {
+  if (!pages()[tabId]) return;
+  const { [tabId]: _gone, ...rest } = pages();
+  webkitTabs.setState(rest, true);
+  void closeWebKitPage(tabId).catch(() => {});
+}
+
+export const webKitTab = (tabId: string): WebKitTab | undefined => pages()[tabId];
+
+/**
+ * Connects a window: its snapshot shows its WebKit tabs, and its tabs move to
+ * WebKit when they reach a WebKit site. Returns the disconnect.
+ */
+export function attachWebKit(store: BrowserStore, engine: EngineClient, openTab: (url: string) => void) {
+  const cache = overlayCache();
+  store.overlay = snapshot => overlaySnapshot(snapshot, pages(), cache);
+  windows.set(store.windowId, { store, engine, openTab });
+  listenToPages();
+  const run = () => reconcile(store, engine);
+  const offStore = store.subscribe((s, previous) => { if (s.engineSnapshot !== previous.engineSnapshot) run(); });
+  const offPages = webkitTabs.subscribe(() => { refreshOverlay(store); showIcons(store); });
+  const offPrefs = shellPrefs.subscribe((s, previous) => {
+    if (s.siteEngines !== previous.siteEngines || s.protectedVideoInWebKit !== previous.protectedVideoInWebKit) run();
+  });
+  void loadEnginePrefs().then(() => { prefsReady = true; run(); });
+  refreshOverlay(store);
+  run();
+  return () => {
+    offStore(); offPages(); offPrefs();
+    windows.delete(store.windowId);
+    store.overlay = snapshot => snapshot;
+    pruneLater();
+  };
+}
+
+/** Applies the rules to every tab in the window's latest Chromium snapshot. */
+function reconcile(store: BrowserStore, engine: EngineClient) {
+  const snapshot = store.getState().engineSnapshot;
+  if (!snapshot || unavailable) return;
+  const now = Date.now();
+  for (const tab of snapshot.tabs) {
+    const wk = pages()[tab.id];
+    if (wk && wk.windowId !== store.windowId) patch(tab.id, { windowId: store.windowId });
+    if (!wk && !prefsReady) continue;
+    const step = decide(tab, wk, engineOf, now);
+    switch (step.kind) {
+      case 'open': open(store, engine, tab.id, step.url, snapshot.private); break;
+      case 'settle': patch(tab.id, { base: step.base }); break;
+      case 'leave':
+        patch(tab.id, { leavingSince: now, leaveTries: (wk?.leaveTries ?? 0) + 1 });
+        void (step.how === 'back' ? engine.call('navigation.back', { tabId: tab.id })
+          : step.how === 'stop' ? engine.call('navigation.stop', { tabId: tab.id })
+          : engine.call('navigation.open', { tabId: tab.id, text: 'about:blank' })).catch(() => {});
+        recheckLater(store, engine);
+        break;
+      case 'follow':
+        void loadWebKitPage(tab.id, step.url, snapshot.private).catch(() => {});
+        patch(tab.id, { url: step.url, base: null, leavingSince: now, leaveTries: 0 });
+        void leave(store, engine, tab.id);
+        break;
+      case 'close': remove(tab.id); break;
+      default: break;
+    }
+  }
+  pruneLater();
+}
+
+function open(store: BrowserStore, engine: EngineClient, tabId: string, url: string, ephemeral: boolean) {
+  webkitTabs.setState({ [tabId]: {
+    url, title: '', loading: true, canGoBack: false, canGoForward: false, crashed: false,
+    windowId: store.windowId, base: null, leavingSince: Date.now(), leaveTries: 0,
+  } });
+  loadWebKitPage(tabId, url, ephemeral).catch(() => {
+    // An older shell without the module: say so once and leave pages in Chromium.
+    unavailable = true;
+    remove(tabId);
+    pushToast(store, 'This copy of Merlin can’t open pages in WebKit, so protected video won’t play.');
+  });
+  void leave(store, engine, tabId);
+  const site = siteOf(url);
+  if (site && !announced.has(site)) {
+    announced.add(site);
+    pushToast(store, `${hostLabel(url)} opens in WebKit, which can play its video. WebKit keeps its own sign-ins.`, 'info');
+  }
+}
+
+/**
+ * Starts moving Chromium's own tab off the site. A navigation Chromium
+ * hasn't committed yet just stops, and its tab stays on the page before;
+ * one it has committed goes back to that page once it has loaded, or to a
+ * blank page in a tab that has none (decide(), step "leave"). That page
+ * waits behind WebKit's, and Back on WebKit's first page shows it.
+ */
+async function leave(store: BrowserStore, engine: EngineClient, tabId: string) {
+  try {
+    await engine.call('navigation.stop', { tabId });
+    acceptSnapshot(store, await engine.call('window.snapshot', {}));
+  } catch {
+    // The tab closed meanwhile, or the window did.
+  }
+  recheckLater(store, engine);
+}
+
+/** Chromium may send nothing more while the shell waits on it; look again regardless. */
+function recheckLater(store: BrowserStore, engine: EngineClient) {
+  setTimeout(() => { if (windows.has(store.windowId)) reconcile(store, engine); }, leaveTimeoutMs + recheckSlackMs);
+}
+
+let pruneTimer: ReturnType<typeof setTimeout> | null = null;
+/** Closes the pages of tabs no window has any more. */
+function pruneLater() {
+  if (pruneTimer) return;
+  pruneTimer = setTimeout(() => {
+    pruneTimer = null;
+    const open = new Set<string>();
+    for (const { store } of windows.values()) for (const t of store.getState().engineSnapshot?.tabs ?? []) open.add(t.id);
+    for (const tabId of Object.keys(pages())) if (!open.has(tabId)) remove(tabId);
+  }, closedTabGraceMs);
+}
+
+/** WebKit's icons, under the favicon keys its tabs show. */
+function showIcons(store: BrowserStore) {
+  const known = store.getState().favicons;
+  for (const wk of Object.values(pages()))
+    if (wk.windowId === store.windowId && wk.faviconKey && wk.favicon && !known[wk.faviconKey]) rememberFavicon(store, wk.faviconKey, wk.favicon);
+}
+
+function listenToPages() {
+  if (stopListening) return;
+  try {
+    stopListening = subscribeWebKit(onPageEvent);
+  } catch {
+    unavailable = true;
+  }
+}
+
+function onPageEvent(event: WebKitEvent) {
+  const tabId = event.type === 'pageState' ? event.state.tabId : event.tabId;
+  const wk = pages()[tabId];
+  if (!wk) return;
+  const window = windows.get(wk.windowId);
+  switch (event.type) {
+    case 'pageState': {
+      const s = event.state;
+      patch(tabId, {
+        url: s.url || wk.url, title: s.title, loading: s.loading, canGoBack: s.canGoBack, canGoForward: s.canGoForward,
+        crashed: s.crashed, color: s.color, surface: s.surface, favicon: s.favicon,
+        faviconKey: s.favicon ? (s.favicon === wk.favicon && wk.faviconKey ? wk.faviconKey : iconKey(s.favicon)) : undefined,
+      });
+      break;
+    }
+    case 'openTab':
+      if (!window) break;
+      if (event.download) pushToast(window.store, 'Pages in WebKit can’t download files. Open the site in Chromium to download it.', 'info');
+      else window.openTab(event.url);
+      break;
+    case 'pageKey': runPageCommand(tabId, event.command); break;
+    case 'pageError': if (window) pushToast(window.store, event.message); break;
+    default: break;
+  }
+}
+
+/**
+ * Back, Forward, Reload and Stop on a WebKit tab. False when the tab isn't
+ * one, so the caller asks Chromium instead.
+ */
+export function runPageCommand(tabId: string, command: WebKitCommand): boolean {
+  const wk = pages()[tabId];
+  if (!wk) return false;
+  if (command === 'back' && !wk.canGoBack) {
+    // WebKit's first page: Back shows the page Chromium has behind it.
+    if (backLeavesWebKit(wk)) remove(tabId);
+    return true;
+  }
+  if (command === 'forward' && !wk.canGoForward) return true;
+  void webKitCommand(tabId, command).catch(() => {});
+  return true;
+}
+
+/**
+ * An address typed or chosen for a WebKit tab. A WebKit site loads in its
+ * page; anything else leaves WebKit, and the caller asks Chromium. True when
+ * WebKit took it.
+ */
+export function navigateWebKitTab(tabId: string, url: string | null, ephemeral: boolean): boolean {
+  const wk = pages()[tabId];
+  if (!wk) return false;
+  if (url && engineOf(url) === 'webkit') {
+    void loadWebKitPage(tabId, url, ephemeral).then(() => focusWebKitPage(tabId)).catch(() => {});
+    patch(tabId, { url });
+    return true;
+  }
+  remove(tabId);
+  return false;
+}
+
+/**
+ * The tab menu's "Open in WebKit" or "Open in Chromium": the tab's site
+ * moves, and stays moved. Returns whether anything changed.
+ */
+export async function moveSite(engine: EngineClient, tabId: string, url: string, to: PageEngine) {
+  const site = siteOf(url);
+  if (!site) return false;
+  await setSiteEngine(site, to);
+  if (to === 'webkit') return true; // The new choice reaches every window's tabs (attachWebKit's preference watch).
+  const wk = pages()[tabId];
+  if (!wk) return true;
+  remove(tabId);
+  await engine.call('navigation.open', { tabId, text: wk.url || url });
+  return true;
+}

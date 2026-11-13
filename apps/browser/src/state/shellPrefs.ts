@@ -3,6 +3,7 @@
 // Reading and saving them is in shellPrefsStorage.ts.
 import { createStore } from 'zustand/vanilla';
 import { useStore } from 'zustand';
+import type { SiteEngines } from '../lib/engines';
 
 export type ShellPrefs = {
   /** New tabs start as a pop-up over the current page instead of a page of their own. */
@@ -11,9 +12,15 @@ export type ShellPrefs = {
   toolbarColor: 'match' | 'soft' | 'vivid' | 'white';
   /** The window shell takes the site's colour too, instead of the workspace colour. */
   shellFollowsSite: boolean;
+  /** Sites with DRM-protected video (Netflix and the like) open in WebKit, which can play them. */
+  protectedVideoInWebKit: boolean;
+  /** Sites the person moved to the other engine by hand. */
+  siteEngines: SiteEngines;
 };
 
-export const shellPrefs = createStore<ShellPrefs>()(() => ({ newTabPopup: false, toolbarColor: 'match', shellFollowsSite: false }));
+export const shellPrefs = createStore<ShellPrefs>()(() => ({
+  newTabPopup: false, toolbarColor: 'match', shellFollowsSite: false, protectedVideoInWebKit: true, siteEngines: {},
+}));
 
 export function useShellPrefs<T>(select: (prefs: ShellPrefs) => T): T {
   return useStore(shellPrefs, select);

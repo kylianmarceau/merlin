@@ -26,7 +26,7 @@ pnpm ui:test
 # the app builds but shows "Cannot find native module" at launch.
 PROVIDER="apps/browser/macos/Pods/Target Support Files/Pods-MerlinShell-macOS/ExpoModulesProvider.swift"
 for module in $(python3 -c 'import json,sys
-for p in sys.argv[1:]: print(*json.load(open(p))["apple"]["modules"])' packages/engine/expo-module.config.json packages/shell/expo-module.config.json); do
+for p in sys.argv[1:]: print(*json.load(open(p))["apple"]["modules"])' packages/engine/expo-module.config.json packages/shell/expo-module.config.json packages/webkit/expo-module.config.json); do
   grep -q "$module.self" "$PROVIDER" || {
     echo "Expo autolinking did not register $module; check its expo-module.config.json" >&2; exit 1;
   }

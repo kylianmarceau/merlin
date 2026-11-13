@@ -91,7 +91,7 @@ test('layers import only downwards', () => {
         (isUi(path) && (target.startsWith('components/') && !target.startsWith('components/ui/'))) ||
         (isUi(path) && target.startsWith('state/') && !typeOnly) ||
         (isUi(path) && target.startsWith('platform/') && target !== 'platform/shell') ||
-        (isFeature(path) && target.startsWith('platform/') && !(path.startsWith('components/page/') && target === 'platform/engine')) ||
+        (isFeature(path) && target.startsWith('platform/') && !(path.startsWith('components/page/') && (target === 'platform/engine' || target === 'platform/webkit'))) ||
         (isFeature(path) && target.startsWith('components/ui/') && target !== 'components/ui');
       if (bad) found.push(`${path} imports ${from}`);
     }

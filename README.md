@@ -236,11 +236,12 @@ Chrome. Some things are missing:
 
 - **No automatic updates.** Watch the repository for releases, which
   include Chromium security fixes.
-- **No Netflix.** Merlin includes Widevine (downloaded a few minutes after
-  first launch) and H.264/AAC, so Spotify's web player and similar sites
-  play, but Netflix refuses browsers Google hasn't signed for Widevine's
-  verified media path. Some other services may cap quality for the same
-  reason.
+- **Netflix and other DRM sites open in WebKit.** Merlin's Chromium has no
+  Widevine, so Netflix, Disney+, Prime Video, Spotify's web player and
+  similar services open in WebKit (Safari's engine) inside the same tab,
+  which plays them. WebKit keeps its own sign-ins, and those tabs have no
+  modal keys, find in page or downloads. Right-click a tab to move a site
+  between engines.
 - **No Google Sync.** Bookmarks and passwords stay on your Mac.
 - **Chrome Web Store installs may need extra steps.** Unpacked and `.crx`
   extensions work.

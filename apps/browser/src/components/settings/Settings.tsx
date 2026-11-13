@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import type { PreferenceKey, Preferences } from '../../state/types';
 import { useShellPrefs } from '../../state/shellPrefs';
-import { setNewTabPopup, setShellFollowsSite, setToolbarColor } from '../../state/shellPrefsStorage';
+import {
+  forgetSiteEngines, setNewTabPopup, setProtectedVideoInWebKit, setShellFollowsSite, setToolbarColor,
+} from '../../state/shellPrefsStorage';
 import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
 import {
   Box, Button, Field, FormGroup, FormRow, ListRow, Notice, SectionHeader, Segmented, Sheet, SheetBody, Text, Toggle,
@@ -181,9 +183,23 @@ function General({ p, set, openPage }: { p: Preferences; set: Set; openPage(key:
       </FormRow>
       <ListRow title="Manage search engines" onPress={() => openPage('search-engines')} trailing={<Text variant="caption">Open</Text>} />
     </FormGroup>
+    <ProtectedVideo />
     <PageLinks openPage={openPage} links={[['languages', 'Languages'], ['fonts', 'Fonts'], ['accessibility', 'Accessibility'],
       ['system', 'System'], ['import', 'Import bookmarks and settings'], ['reset', 'Reset settings']]} />
   </>;
+}
+
+/** Sites Chromium can't play open in WebKit (state/webkit.ts). */
+function ProtectedVideo() {
+  const on = useShellPrefs(s => s.protectedVideoInWebKit);
+  const moved = useShellPrefs(s => Object.keys(s.siteEngines).length);
+  return <FormGroup title="Protected video"
+    detail="Netflix, Disney+, Prime Video, Spotify and similar services need DRM that Merlin’s Chromium doesn’t have. WebKit, Safari’s engine, plays them. WebKit keeps its own sign-ins.">
+    <FormRow title="Open protected video sites in WebKit">
+      <Toggle label="Open protected video sites in WebKit" value={on} onChange={v => void setProtectedVideoInWebKit(v)} /></FormRow>
+    <FormRow title="Sites you moved" detail={moved ? `${moved} site${moved === 1 ? '' : 's'} open in the engine you chose from the tab menu.` : 'Right-click a tab to open its site in the other engine.'}>
+      <Button label="Forget" disabled={!moved} onPress={() => void forgetSiteEngines()} /></FormRow>
+  </FormGroup>;
 }
 
 function Blocking({ p, set }: { p: Preferences; set: Set }) {

@@ -1,6 +1,8 @@
 // One store per window. Chromium owns browser state and sends it as
 // snapshots; the store adds only what the shell itself decides: which panel
 // or popover is open, notices, address suggestions, icons and anchor places.
+// Tabs the shell shows in WebKit are drawn over Chromium's (state/webkit.ts):
+// `snapshot` is what components show, `engineSnapshot` what Chromium sent.
 import { createStore } from 'zustand/vanilla';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
 
@@ -19,7 +21,10 @@ export type SearchOwner = 'address' | 'search';
 export type Omnibox = { queryId: string; text: string; items: Suggestion[]; selected: number; owner: SearchOwner };
 
 export type BrowserState = {
+  /** What the window shows: Chromium's snapshot, with WebKit tabs as WebKit shows them. */
   snapshot: Snapshot | null;
+  /** Chromium's own snapshot. */
+  engineSnapshot: Snapshot | null;
   connectionError: string | null;
   panel: Panel;
   popover: PopoverName | null;
@@ -37,23 +42,35 @@ export type BrowserState = {
 
 export function initialState(): BrowserState {
   return {
-    snapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [],
+    snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [],
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, anchors: {}, windowSize: { width: 0, height: 0 },
   };
 }
 
+/** Draws the shell's own changes (WebKit tabs) over a Chromium snapshot. */
+export type SnapshotOverlay = (snapshot: Snapshot) => Snapshot;
+
 export function createBrowserStore(windowId: string) {
   const store = createStore<BrowserState>()(() => initialState());
-  return Object.assign(store, { windowId });
+  return Object.assign(store, { windowId, overlay: ((s: Snapshot) => s) as SnapshotOverlay });
 }
 export type BrowserStore = ReturnType<typeof createBrowserStore>;
 
 /** Applies a snapshot unless an equal or newer one from this session is already shown. */
 export function acceptSnapshot(store: BrowserStore, input: unknown) {
   const next = validateSnapshot(input, store.windowId);
-  const current = store.getState().snapshot;
+  const current = store.getState().engineSnapshot;
   if (current && current.session === next.session && current.revision >= next.revision) return;
-  store.setState({ snapshot: current ? shareUnchanged(current, next) : next, connectionError: null });
+  const engineSnapshot = current ? shareUnchanged(current, next) : next;
+  store.setState({ engineSnapshot, snapshot: store.overlay(engineSnapshot), connectionError: null });
+}
+
+/** Shows the snapshot again after the overlay's own state changed. */
+export function refreshOverlay(store: BrowserStore) {
+  const { engineSnapshot, snapshot } = store.getState();
+  if (!engineSnapshot) return;
+  const next = store.overlay(engineSnapshot);
+  if (next !== snapshot) store.setState({ snapshot: next });
 }
 
 /**
