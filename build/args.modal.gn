@@ -11,14 +11,13 @@ blink_symbol_level = 0
 v8_symbol_level = 0
 # Not Google Chrome branding (Merlin's is below).
 is_chrome_branded = false
-# Widevine, Google's DRM module, which Chromium's component updater downloads
-# after launch, and the AAC and H.264 formats that DRM sites (Spotify,
-# Disney+, Prime Video) and many ordinary videos use, as Brave, Thorium and
-# ungoogled-chromium ship them (decision 55). Netflix still refuses builds
-# Google has not signed for Widevine's verified media path.
+# AAC and H.264, which many ordinary videos use, as Brave, Thorium and
+# ungoogled-chromium ship them. No Widevine: unsigned builds can't play
+# Netflix and similar DRM services with it, so the shell opens those sites
+# in WebKit instead, which plays them with FairPlay (decision 59).
 proprietary_codecs = true
 ffmpeg_branding = "Chrome"
-enable_widevine = true
+enable_widevine = false
 # Merlin's name, bundle ID and icon (overlay/chrome/app/theme/merlin,
 # linked in by scripts/apply_overlay.sh; patch 0004 makes the icon follow).
 branding_file_path = "//chrome/app/theme/merlin/BRANDING"

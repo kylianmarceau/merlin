@@ -131,6 +131,7 @@ export function AddressField({ variant = 'toolbar' }: { variant?: 'toolbar' | 's
     </View>
     {!!completion && top && <Text variant="caption" tone="omniboxCompletion" lines={1}>{`→ ${displayHost(top.url) || top.title}`}</Text>}
     {tab?.loading && !editing && !shell && <Text variant="caption" tone="textTertiary">Loading…</Text>}
+    {tab?.engine === 'webkit' && !editing && !shell && <Text variant="caption" tone="textTertiary">WebKit</Text>}
     {waiting && !editing && <Pressable accessibilityRole="button" accessibilityLabel={promptChipLabel(waiting)}
       accessibilityHint="Shows a request this page is waiting on" onPress={() => actions.revealPrompt(waiting.id)}
       style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs, height: geometry.control - space.xs,
@@ -138,7 +139,9 @@ export function AddressField({ variant = 'toolbar' }: { variant?: 'toolbar' | 's
       <Icon name={promptIcon(waiting)} tone="accentSoftText" size="small" />
       <Text variant="caption" weight="semibold" tone="accentSoftText">{promptChipLabel(waiting)}</Text>
     </Pressable>}
-    {!editing && !start && <IconButton label={security === 'secure' ? 'Connection is secure. Show site controls' : 'Show site controls'}
+    {!editing && !start && tab?.engine === 'webkit' && <IconButton label="Shown in WebKit. Show engine options" icon="safari"
+      tone="siteSecure" size="small" onFrame={f => actions.setAnchor('site', f)} onPress={() => void actions.engineMenu()} />}
+    {!editing && !start && tab?.engine !== 'webkit' && <IconButton label={security === 'secure' ? 'Connection is secure. Show site controls' : 'Show site controls'}
       icon={security === 'secure' ? 'lock' : security === 'insecure' ? 'exclamationmark.triangle' : 'info.circle'}
       tone={security === 'insecure' ? 'siteInsecure' : 'siteSecure'} size="small"
       onFrame={f => actions.setAnchor('site', f)} onPress={() => void actions.siteInfo()} />}

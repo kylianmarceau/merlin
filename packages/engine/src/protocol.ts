@@ -15,6 +15,11 @@ export type Tab = {
   color?: string;
   /** The colour most of the page's top edge has, as drawn, as "#RRGGBB". Absent until sampled, or when it has none. */
   surface?: string;
+  /**
+   * Never sent by Chromium: the shell sets it on tabs it shows in WebKit,
+   * whose title, address and state then come from WebKit's page.
+   */
+  engine?: 'webkit';
 };
 export type Download = {
   id: string; name: string; received: number; total: number;

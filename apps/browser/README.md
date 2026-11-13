@@ -14,7 +14,8 @@ runtime-qualified** (see the checklist at the end).
 | C ABI | `packages/engine/include/` | Versioned engine calls/events and host root creation; no C++ objects cross the framework boundary |
 | Engine module | `packages/engine/` | The `MerlinEngine` Expo module: calls, events and native page attachment |
 | AppKit module | `packages/shell/` | One Expo module per AppKit view (`MerlinShell`, `MerlinShellSymbol`, …; pod `MerlinShellViews`): SF Symbols, vibrancy, shadowed surfaces, the window drag region, outside-press detection, context-menu areas and native menus |
-| Platform | `apps/browser/src/platform/` | The only JS that imports the two native packages |
+| WebKit module | `packages/webkit/` | The `MerlinWebKit` Expo module: a WKWebView per tab for sites Chromium can't play (Netflix and other DRM services). `state/webkit.ts` decides which tabs show one ([decision 59](../../docs/DECISIONS.md#59-protected-video-opens-in-webkit)) |
+| Platform | `apps/browser/src/platform/` | The only JS that imports the native packages |
 | State | `apps/browser/src/state/` | A Zustand store per window, its actions and hooks, validated snapshots and the rules for which overlays show |
 | Components | `apps/browser/src/components/` | `ui/` (tokens, motion, about 30 shared pieces) and one folder per feature |
 | Host process | `apps/browser/macos/MerlinShell-macOS/` | Loads Chromium, calls `ChromeMain`, and supplies React roots to engine-owned windows |

@@ -53,7 +53,7 @@ def stale_engine_sources(engine_app, shell_app):
                 if upstream.is_file():
                     engine_sources.append(upstream)
     host_sources = [path for root in ('apps/browser/src', 'apps/browser/macos/MerlinShell-macOS', 'packages/engine',
-                                      'packages/shell', 'pnpm-patches')
+                                      'packages/shell', 'packages/webkit', 'pnpm-patches')
                     for path in (REPO / root).rglob('*')
                     if path.is_file() and path.name != '.DS_Store' and not path.name.endswith('.test.ts')]
     built_engine = framework.resolve().stat().st_mtime

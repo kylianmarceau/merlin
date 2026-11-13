@@ -82,6 +82,8 @@ PODS:
     - ExpoModulesCore
   - MerlinShellViews (0.1.0):
     - ExpoModulesCore
+  - MerlinWebKit (0.1.0):
+    - ExpoModulesCore
   - RCT-Folly (2024.11.18.00):
     - boost
     - DoubleConversion
@@ -2320,6 +2322,7 @@ DEPENDENCIES:
   - hermes-engine (from `../../../node_modules/react-native-macos/sdks/hermes-engine/hermes-engine.podspec`)
   - MerlinEngine (from `../../../packages/engine`)
   - MerlinShellViews (from `../../../packages/shell`)
+  - MerlinWebKit (from `../../../packages/webkit`)
   - RCT-Folly (from `../../../node_modules/react-native-macos/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../../../node_modules/react-native-macos/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../../../node_modules/react-native-macos/Libraries/Required`)
@@ -2425,6 +2428,8 @@ EXTERNAL SOURCES:
     :path: "../../../packages/engine"
   MerlinShellViews:
     :path: "../../../packages/shell"
+  MerlinWebKit:
+    :path: "../../../packages/webkit"
   RCT-Folly:
     :podspec: "../../../node_modules/react-native-macos/third-party-podspecs/RCT-Folly.podspec"
   RCTDeprecation:
@@ -2571,6 +2576,7 @@ SPEC CHECKSUMS:
   hermes-engine: 7219f6e751ad6ec7f3d7ec121830ee34dae40749
   MerlinEngine: 894d4614034dbb704b13346e0faf7bf2822b1415
   MerlinShellViews: 1fbaa9a5ae5593839ed7eaff3afed2e0bb2a493c
+  MerlinWebKit: d233afa543f039e57c46e2ca4ace117f43d21c80
   RCT-Folly: a3d9b23289a456c318f4814703664bdc33c771cc
   RCTDeprecation: ae9e1391708bf992a2a94fb724b0923015be995b
   RCTRequired: eb7a65dfaf816b64d40e1c96e4fc597bfa28bedc

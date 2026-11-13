@@ -6,6 +6,7 @@ import { useActions, useActiveTab, useSnapshot } from '../../state/window';
 import { Box, Button, EmptyState, Text, geometry, radius, space, useTheme } from '../ui';
 import { FindBar } from '../find/FindBar';
 import { Page } from '../page/Page';
+import { WebKitPage } from '../page/WebKitPage';
 import { StartPage } from '../start/StartPage';
 
 /** The active page, both halves of a split view, or the start page. */
@@ -39,8 +40,8 @@ export function PageArea() {
 }
 
 /**
- * One page: the start page for a new tab, otherwise the tab's web page with
- * link hints over it. A search from the start page leaves it at once: until
+ * One page: the start page for a new tab, the tab's WebKit page for a site
+ * that opens in WebKit, otherwise the tab's web page with link hints over it. A search from the start page leaves it at once: until
  * the new page has drawn something, a plain sheet in the start page's colour
  * covers it, so Enter answers immediately and no white page flashes.
  */
@@ -50,6 +51,8 @@ function Pane({ tab, hints }: { tab: Tab; hints: boolean }) {
   const loading = !isStartUrl(tab.url);
   const start = tab.start ?? !loading;
   if (tab.crashed) return <CrashedPage tab={tab} />;
+  // Chromium's page behind it, and its link hints, aren't shown.
+  if (tab.engine === 'webkit') return <WebKitPage key="webkit" tabId={tab.id} active={hints} />;
   const prefix = snapshot.modal.hintPrefix ?? '';
   return <View style={{ flex: 1 }}>
     {loading && <Page key="page" tabId={tab.id} />}

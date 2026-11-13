@@ -7,6 +7,7 @@ import type { Request, Requests } from '../platform/protocol';
 import { createActions, type Actions } from './actions';
 import { attachEngine, createBrowserStore, type BrowserState, type BrowserStore } from './store';
 import { overlays } from './surfaces';
+import { attachWebKit } from './webkit';
 
 type Window = { store: BrowserStore; actions: Actions };
 const WindowContext = createContext<Window | null>(null);
@@ -23,7 +24,14 @@ export function useWindowConnection(windowId: string) {
       return { store, actions: null, engine: null };
     }
   });
-  useEffect(() => (connection.engine ? attachEngine(connection.store, connection.engine) : undefined), [connection]);
+  useEffect(() => {
+    const { engine, store, actions } = connection;
+    if (!engine || !actions) return undefined;
+    // WebKit first: Chromium's first snapshot already shows its WebKit tabs.
+    const detachWebKit = attachWebKit(store, engine, url => void actions.newTab(url));
+    const detachEngine = attachEngine(store, engine);
+    return () => { detachEngine(); detachWebKit(); };
+  }, [connection]);
   return connection;
 }
 
