@@ -48,6 +48,12 @@ public final class MerlinWebKitModule: Module {
 
 /// Places a tab's WebKit page in the layout. The page lives on in
 /// WebKitPages while no view shows it, as a background tab's page does.
+///
+/// A page never leaves its window on a tab switch: it moves between this
+/// view and the window's hidden parking view (WebKitPages.park) with
+/// addSubview alone. Taken out of the window, WebKit drops the layer that
+/// shows protected (FairPlay) video, and Netflix comes back black with its
+/// sound still playing. Ardia keeps its WebKit pages in the window too.
 final class MerlinWebKitPageView: ExpoView {
   var tabID = ""
   var active = false
@@ -68,9 +74,10 @@ final class MerlinWebKitPageView: ExpoView {
     var placed = false
     if shown !== webView || webView.superview !== self {
       detach()
-      webView.removeFromSuperview()
       webView.frame = bounds
       webView.autoresizingMask = [.width, .height]
+      // From the parking view, or another place in this window: a move
+      // within the window, never through no window at all.
       addSubview(webView)
       shown = webView
       placed = true
@@ -86,13 +93,20 @@ final class MerlinWebKitPageView: ExpoView {
     shown?.frame = bounds
   }
 
+  // React removes this view when its tab stops showing; park the page while
+  // this view is still in the window, so the page stays in it.
+  override func viewWillMove(toWindow newWindow: NSWindow?) {
+    if newWindow !== window { detach() }
+    super.viewWillMove(toWindow: newWindow)
+  }
+
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
     bind()
   }
 
   private func detach() {
-    if let shown, shown.superview === self { shown.removeFromSuperview() }
+    if let shown, shown.superview === self { WebKitPages.shared.park(shown) }
     shown = nil
   }
 }
