@@ -15,15 +15,17 @@ import { Toolbar } from './Toolbar';
  * the page sits in one white card on it. Tabs run down a sidebar (which also
  * holds navigation and the address, so the card has no toolbar) or across the
  * top (the card gets one quiet toolbar row, joined by the active tab, both in
- * the site's colour). Command-S hides the tabs either way. Overlays sit above
- * everything.
+ * the site's colour). Command-S hides the tabs either way. A page in
+ * fullscreen (a video, a PDF) fills the window alone, with no tabs, toolbar or
+ * status line, as in Chrome. Overlays sit above everything.
  */
 export function BrowserWindow() {
   const snapshot = useSnapshot();
   const actions = useActions();
   const { colors } = useTheme();
   const chrome = useSiteChrome();
-  const tabs = !snapshot.modal.sidebarHidden;
+  const fullscreen = !!snapshot.fullscreen;
+  const tabs = !snapshot.modal.sidebarHidden && !fullscreen;
   const top = snapshot.modal.tabLayout === 'top';
   const side = tabs && !top;
   // With tabs on top the strip is drawn after the card, so the active tab can
@@ -33,11 +35,11 @@ export function BrowserWindow() {
     <Panel fill="contentBackground" radius={tabs ? 'window' : 'none'} border={tabs ? 'contentBorder' : null}
       elevation={tabs ? 'card' : 'none'} style={{ flex: 1 }}>
       <View style={{ flex: 1, overflow: 'hidden', borderRadius: tabs ? radius.window : 0 }}>
-        {!side && <View style={{ borderBottomWidth: geometry.hairline,
+        {!side && !fullscreen && <View style={{ borderBottomWidth: geometry.hairline,
           // A toolbar in the page's own colour runs straight on into it.
           borderBottomColor: chrome.seamless ? chrome.bar : colors.toolbarDivider }}><Toolbar /></View>}
         <View style={{ flex: 1 }}><PageArea /></View>
-        <StatusLine />
+        {!fullscreen && <StatusLine />}
       </View>
     </Panel>
   </View>;

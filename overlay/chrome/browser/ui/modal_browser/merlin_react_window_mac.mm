@@ -120,6 +120,16 @@ class ReactNativeWidget : public views::NativeWidgetMac {
       bridge->ShowWithoutWaitingForFirstFrame();
     }
   }
+  // As BrowserNativeWidgetMac: once macOS has finished going into or out of
+  // fullscreen, Chromium's fullscreen state follows the window. Leaving it
+  // with the green button or Mission Control also ends a page's fullscreen,
+  // and the shell brings its tabs and toolbar back.
+  void OnWindowFullscreenTransitionComplete() override {
+    NativeWidgetMac::OnWindowFullscreenTransitionComplete();
+    if (!browser_) return;
+    ExclusiveAccessManager::From(browser_)->fullscreen_controller()->WindowFullscreenStateChanged();
+    NotifyShellWindow(browser_);
+  }
   void ValidateUserInterfaceItem(int32_t command,
       remote_cocoa::mojom::ValidateUserInterfaceItemResult* result) override {
     result->enable = browser_ && chrome::IsCommandEnabled(browser_, command);
@@ -584,15 +594,23 @@ class ReactBrowserWindow final : public BrowserWindow,
   void ShowChromeLabs() override { chrome::AddTabAt(browser_, GURL("chrome://flags/"), -1, true); }
 
   ExclusiveAccessContext* GetExclusiveAccessContext() override { return this; }
+  // A page's fullscreen request (a video, a PDF, a game) makes the window
+  // fullscreen and tells the shell, which then draws only the page, edge to
+  // edge, as Chrome does. Browser fullscreen keeps the tabs and toolbar.
   void EnterFullscreen(const url::Origin&, ExclusiveAccessBubbleType, FullscreenTabParams params) override {
     widget_->SetFullscreen(true, params.display_id);
     ExclusiveAccessManager::From(browser_)->fullscreen_controller()->WindowFullscreenStateChanged();
+    NotifyShellWindow(browser_);
   }
   void ExitFullscreen() override {
     if (!CanUserExitFullscreen()) return;
     widget_->SetFullscreen(false);
     ExclusiveAccessManager::From(browser_)->fullscreen_controller()->WindowFullscreenStateChanged();
+    NotifyShellWindow(browser_);
   }
+  // A page going into or out of fullscreen while the window already is
+  // (after Control-Command-F): only the shell's chrome changes.
+  void UpdateUIForTabFullscreen() override { NotifyShellWindow(browser_); }
   bool CanUserEnterFullscreen() const override { return true; }
   bool CanUserExitFullscreen() const override { return !BrowserWindowFullscreenController::From(browser_)->IsForceFullscreen(); }
   content::WebContents* GetWebContentsForExclusiveAccess() override { return browser_->GetTabStripModel()->GetActiveWebContents(); }
