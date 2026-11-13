@@ -40,9 +40,9 @@ export function PageArea() {
 
 /**
  * One page: the start page for a new tab, otherwise the tab's web page with
- * link hints over it. After a search from the start page, the start page
- * stays over the loading page until it has drawn something, then goes in
- * one step: no empty page and no fade in between.
+ * link hints over it. A search from the start page leaves it at once: until
+ * the new page has drawn something, a plain sheet in the start page's colour
+ * covers it, so Enter answers immediately and no white page flashes.
  */
 function Pane({ tab, hints }: { tab: Tab; hints: boolean }) {
   const snapshot = useSnapshot();
@@ -53,8 +53,9 @@ function Pane({ tab, hints }: { tab: Tab; hints: boolean }) {
   const prefix = snapshot.modal.hintPrefix ?? '';
   return <View style={{ flex: 1 }}>
     {loading && <Page key="page" tabId={tab.id} />}
-    {start && <View key="start" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-      <StartPage tab={tab} />
+    {start && <View key="start" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: colors.startBackground }}>
+      {!loading && <StartPage tab={tab} />}
     </View>}
     {hints && !start && !!snapshot.modal.hints?.length && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
       {snapshot.modal.hints.filter(h => h.label.startsWith(prefix)).map(h =>
