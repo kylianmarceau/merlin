@@ -15,7 +15,28 @@ final class WebKitPages {
   /// Chromium's off-the-record profile. It goes when Merlin quits.
   private lazy var privateStore = WKWebsiteDataStore.nonPersistent()
 
+  /// One hidden view per window that holds the pages of tabs not shown.
+  private let parking = NSMapTable<NSWindow, NSView>.weakToStrongObjects()
+
   func page(_ tabId: String) -> WebKitPage? { pages[tabId] }
+
+  /// Keeps a page that stops showing in its window, hidden. Its video and
+  /// sound play on, as in a background tab, and it shows again at once.
+  func park(_ webView: MerlinWKWebView) {
+    guard let window = webView.window, let content = window.contentView else { return }
+    var holder = parking.object(forKey: window)
+    if holder?.superview !== content {
+      let view = NSView(frame: content.bounds)
+      view.autoresizingMask = [.width, .height]
+      view.isHidden = true
+      content.addSubview(view, positioned: .below, relativeTo: nil)
+      parking.setObject(view, forKey: window)
+      holder = view
+    }
+    // A hidden page keeps no keys: they go back to the window.
+    if let responder = window.firstResponder as? NSView, responder.isDescendant(of: webView) { window.makeFirstResponder(nil) }
+    holder?.addSubview(webView)
+  }
 
   func load(tabId: String, url: String, ephemeral: Bool) {
     guard let target = URL(string: url), let scheme = target.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return }
