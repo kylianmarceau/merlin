@@ -79,6 +79,8 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/visibility.h"
+#include "content/public/browser/navigation_handle.h"
+#include "base/timer/timer.h"
 
 namespace {
 using Dict = base::DictValue;
@@ -207,6 +209,10 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void DidStartLoading() override { Changed(); }
   void DidStopLoading() override { Changed(); }
   void PrimaryPageChanged(content::Page&) override { Changed(); }
+  void DidStartNavigation(content::NavigationHandle* navigation) override;
+  void DidFinishNavigation(content::NavigationHandle* navigation) override;
+  void DidFirstVisuallyNonEmptyPaint() override;
+  bool ShowsStartPage(content::WebContents* contents) const;
   // The joined tab and toolbar take the site's colour.
   void DidChangeThemeColor() override { Changed(); }
   // The shell shows a crashed page's own view (no sad tab: BrowserView draws it).
@@ -233,6 +239,13 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   int revision_ = 0;
   bool delivery_pending_ = false;
   base::TimeTicks last_delivery_;
+  void StopHoldingStartPage();
+  // A navigation that started on the start page, and then the page it
+  // committed to, which is drawing its first content: the shell keeps the
+  // start page up meanwhile instead of an empty page.
+  int64_t navigation_from_start_ = 0;
+  base::WeakPtr<content::WebContents> painting_;
+  base::OneShotTimer paint_timeout_;
   // Icon colours by icon key (see SiteColor).
   std::map<std::string, std::string> icon_colors_;
   PrefChangeRegistrar prefs_;
@@ -288,9 +301,48 @@ void WindowState::Deliver() {
   last_delivery_ = base::TimeTicks::Now();
   GetRegistry().Emit(Dict().Set("type", "snapshot").Set("snapshot", Snapshot()));
 }
+bool CommittedStartPage(content::WebContents* contents) {
+  auto* entry = contents->GetController().GetLastCommittedEntry();
+  return entry && !entry->IsInitialEntry() && modal_browser::IsShellStartUrl(entry->GetURL());
+}
+bool WindowState::ShowsStartPage(content::WebContents* contents) const {
+  if (modal_browser::IsShellStartUrl(contents->GetVisibleURL())) return true;
+  // Typed on the start page: until it commits, and then until it has drawn.
+  if (contents == web_contents() && navigation_from_start_ && CommittedStartPage(contents)) return true;
+  return painting_ && painting_.get() == contents;
+}
+void WindowState::DidStartNavigation(content::NavigationHandle* navigation) {
+  if (!navigation->IsInPrimaryMainFrame() || navigation->IsSameDocument()) return;
+  navigation_from_start_ = CommittedStartPage(web_contents()) ? navigation->GetNavigationId() : 0;
+}
+void WindowState::DidFinishNavigation(content::NavigationHandle* navigation) {
+  if (!navigation->IsInPrimaryMainFrame() || navigation->IsSameDocument() ||
+      navigation->GetNavigationId() != navigation_from_start_)
+    return;
+  navigation_from_start_ = 0;
+  if (navigation->HasCommitted() && !modal_browser::IsShellStartUrl(navigation->GetURL())) {
+    painting_ = web_contents()->GetWeakPtr();
+    // A page that never draws anything still replaces the start page.
+    paint_timeout_.Start(FROM_HERE, base::Seconds(3),
+        base::BindOnce(&WindowState::StopHoldingStartPage, base::Unretained(this)));
+  }
+  Changed();
+}
+void WindowState::DidFirstVisuallyNonEmptyPaint() {
+  if (painting_ && painting_.get() == web_contents()) StopHoldingStartPage();
+}
+void WindowState::StopHoldingStartPage() {
+  paint_timeout_.Stop();
+  if (!painting_) return;
+  painting_.reset();
+  Changed();
+}
 void WindowState::OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
                                         const TabStripSelectionChange&) {
   Observe(browser_->GetTabStripModel()->GetActiveWebContents());
+  // The hold belongs to the tab it started in.
+  if (painting_ && painting_.get() != web_contents()) StopHoldingStartPage();
+  if (!web_contents()) navigation_from_start_ = 0;
   if (switcher) switcher->TabsChanged();
   SyncSplitVisibility();
   Changed();
@@ -327,7 +379,7 @@ Dict WindowState::Snapshot() {
       .Set("pinned", strip->IsTabPinned(i)).Set("audible", contents->IsCurrentlyAudible())
       .Set("canGoBack", contents->GetController().CanGoBack())
       .Set("canGoForward", contents->GetController().CanGoForward())
-      .Set("favicon", FaviconKey(contents));
+      .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
     if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
     tabs.Append(std::move(entry));
   }
@@ -728,6 +780,19 @@ void TracePageShown(const std::string& tab) {
   fprintf(file, "page-shown %s %.1f\n", tab.c_str(), base::Time::Now().InMillisecondsFSinceUnixEpoch());
   fflush(file);
 }
+// Chromium gives a page a new RenderWidgetHostViewCocoa on most navigations
+// and removes the old one a moment later. The page view's layer has no view
+// delegate to veto implicit actions inside the shell, so each sublayer change
+// cross-faded the whole page over a quarter second. Pages appear at once.
+void DisableImplicitAnimations(NSView* page) {
+  CALayer* layer = page.layer;
+  if (!layer || layer.actions[@"sublayers"] == NSNull.null) return;
+  NSMutableDictionary* actions = [layer.actions mutableCopy] ?: [NSMutableDictionary dictionary];
+  for (NSString* key in @[ @"sublayers", @"onOrderIn", @"onOrderOut", @"transition", @"contents", @"hidden", @"opacity",
+                           @"bounds", @"position" ])
+    actions[key] = NSNull.null;
+  layer.actions = actions;
+}
 // Puts the page at `index` into `container`. As BrowserView restores focus to
 // the page on a tab switch: modal keys and page shortcuts need the page to
 // hold focus. A text field (the address, the command menu, a panel's field)
@@ -736,6 +801,7 @@ NSView* PlacePage(TabStripModel* strip, int index, NSView* container) {
   NSView* page = strip->GetWebContentsAt(index)->GetNativeView().GetNativeNSView();
   if (page.window && page.window != container.window) return nil;
   if (page.superview != container) [container addSubview:page];
+  DisableImplicitAnimations(page);
   page.frame = container.bounds;
   // Chromium creates a background tab's view hidden and relies on Views'
   // NativeViewHost to unhide it (WebContentsViewMac::CreateView). Without
@@ -760,6 +826,7 @@ void* AttachPage(const char* window, const char* tab, void* parent) {
     NSView* popup = contents ? contents->GetNativeView().GetNativeNSView() : nil;
     if (!popup || (popup.window && popup.window != container.window)) return nullptr;
     [container addSubview:popup];
+    DisableImplicitAnimations(popup);
     popup.frame = container.bounds;
     popup.hidden = NO;  // As in PlacePage.
     contents->WasShown();
@@ -826,6 +893,17 @@ extern "C" __attribute__((visibility("default"))) const MerlinEngineAPI* MerlinE
 
 namespace modal_browser {
 bool ReactShellEnabled() { return Enabled(); }
+bool IsShellStartUrl(const GURL& url) {
+  if (url.is_empty() || url == GURL(url::kAboutBlankURL)) return true;
+  if (!url.SchemeIs("chrome")) return false;
+  const std::string_view host = url.host();
+  return (url.path() == "/" || url.path().empty()) &&
+         (host == "newtab" || host == "new-tab-page" || host == "merlin-start");
+}
+bool ShowsShellStartPage(BrowserWindowInterface* browser, content::WebContents* contents) {
+  auto* state = Enabled() && browser ? FindWindow(WindowId(browser).c_str()) : nullptr;
+  return state ? state->ShowsStartPage(contents) : IsShellStartUrl(contents->GetVisibleURL());
+}
 void NotifyShellWindow(BrowserWindowInterface* browser) {
   if (!Enabled() || !browser) return;
   if (auto* state = FindWindow(WindowId(browser).c_str())) state->Changed();

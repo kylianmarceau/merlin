@@ -92,14 +92,7 @@ const MerlinShellAPI* ShellAPI() {
         api->create_root && api->release_root) << "Launch with Merlin's React Native host executable";
   return api;
 }
-// The tabs the shell shows its start page for (lib/format.ts isStartUrl).
-bool IsStartPage(const GURL& url) {
-  if (url.is_empty() || url == GURL(url::kAboutBlankURL)) return true;
-  if (!url.SchemeIs("chrome")) return false;
-  const std::string_view host = url.host();
-  return (url.path() == "/" || url.path().empty()) &&
-         (host == "newtab" || host == "new-tab-page" || host == "merlin-start");
-}
+
 Dict Action(const char* id, const char* label, const char* emphasis = "normal") {
   return Dict().Set("id", id).Set("label", label).Set("emphasis", emphasis);
 }
@@ -331,7 +324,7 @@ class ReactBrowserWindow final : public BrowserWindow,
     if (new_contents && std::find(now.begin(), now.end(), new_contents) == now.end()) new_contents->WasShown();
     // Show the new page now; React re-renders the rest of the window after.
     // A start page or a crashed page is React's own view, not the page's.
-    RevealActivePage(browser_, new_contents && (IsStartPage(new_contents->GetVisibleURL()) || new_contents->IsCrashed()));
+    RevealActivePage(browser_, new_contents && (ShowsShellStartPage(browser_, new_contents) || new_contents->IsCrashed()));
     NotifyShellWindow(browser_);
   }
   void OnTabDetached(content::WebContents* contents, bool) override {

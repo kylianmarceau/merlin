@@ -39,13 +39,15 @@ export function autoPlacement(anchor: Frame | undefined, bounds: { height: numbe
  * content sets its own side padding (see PopoverRow and MenuRow).
  */
 export function Popover({ open, anchor, bounds, placement = 'below-start', width = 'popover', kind = 'popover', fill = 'surfacePopover',
-  label, onClose, children, flush = false }: {
+  label, onClose, children, flush = false, instant = false }: {
   open: boolean; anchor: Frame | undefined; bounds: { width: number; height: number }; placement?: Placement;
   width?: keyof typeof geometry | number; kind?: PresenceKind; fill?: ColorRole; label: string; onClose(): void;
   children?: React.ReactNode; flush?: boolean;
+  /** Shows and hides at once, like the address field's suggestions: a list that faded out over the page after Enter read as the page fading in. */
+  instant?: boolean;
 }) {
   const { reduceMotion } = useTheme();
-  const { mounted, progress } = usePresence(open && !!anchor, kind, reduceMotion);
+  const { mounted, progress } = usePresence(open && !!anchor, kind, reduceMotion || instant);
   const frame = useLatest(anchor);
   const content = useLatest(open ? children : null);
   if (!mounted || !frame) return null;

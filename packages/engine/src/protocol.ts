@@ -6,6 +6,11 @@ export type Tab = {
   favicon?: string;
   /** The page's renderer has gone; the shell shows a reload view instead. */
   crashed?: boolean;
+  /**
+   * The shell shows its start page: on a new tab, and after a search typed
+   * there until the new page has drawn something. Absent from older engines.
+   */
+  start?: boolean;
   /** The site's colour as "#RRGGBB": its theme-color, else its icon's main colour. Absent when it has neither. */
   color?: string;
 };
@@ -277,6 +282,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         ![tab.loading, tab.pinned, tab.audible, tab.canGoBack, tab.canGoForward].every(x => typeof x === 'boolean') ||
         (tab.favicon !== undefined && typeof tab.favicon !== 'string') ||
         (tab.crashed !== undefined && typeof tab.crashed !== 'boolean') ||
+        (tab.start !== undefined && typeof tab.start !== 'boolean') ||
         (tab.color !== undefined && (typeof tab.color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.color)))) {
       throw new Error('Invalid tab snapshot');
     }

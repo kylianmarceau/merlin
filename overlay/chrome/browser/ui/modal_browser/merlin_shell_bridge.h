@@ -7,6 +7,8 @@
 #include "base/values.h"
 
 class BrowserWindowInterface;
+class GURL;
+namespace content { class WebContents; }
 namespace modal_browser {
 // Browser UI thread only. No page renderer can access these functions.
 struct ShellPromptReply {
@@ -20,6 +22,12 @@ bool ReactShellEnabled();
 // the start page (`start_page`) are left to React.
 void RevealActivePage(BrowserWindowInterface* browser, bool start_page);
 void NotifyShellWindow(BrowserWindowInterface* browser);
+// The addresses the shell draws its start page for (lib/format.ts isStartUrl).
+bool IsShellStartUrl(const GURL& url);
+// Whether the shell shows its start page for `contents` rather than the page:
+// on a start page, and after a search or address typed there until the new
+// page has drawn something, so the window never shows an empty page.
+bool ShowsShellStartPage(BrowserWindowInterface* browser, content::WebContents* contents);
 void SetShellFindState(BrowserWindowInterface* browser, base::DictValue state);
 bool ShellFindHasFocus(BrowserWindowInterface* browser);
 void SendShellEvent(BrowserWindowInterface* browser, const char* type);

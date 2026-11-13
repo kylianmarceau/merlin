@@ -38,16 +38,25 @@ export function PageArea() {
   </View>;
 }
 
-/** One page: the start page for a new tab, otherwise the tab's web page with link hints over it. */
+/**
+ * One page: the start page for a new tab, otherwise the tab's web page with
+ * link hints over it. After a search from the start page, the start page
+ * stays over the loading page until it has drawn something, then goes in
+ * one step: no empty page and no fade in between.
+ */
 function Pane({ tab, hints }: { tab: Tab; hints: boolean }) {
   const snapshot = useSnapshot();
   const { colors } = useTheme();
-  if (isStartUrl(tab.url)) return <StartPage tab={tab} />;
+  const loading = !isStartUrl(tab.url);
+  const start = tab.start ?? !loading;
   if (tab.crashed) return <CrashedPage tab={tab} />;
   const prefix = snapshot.modal.hintPrefix ?? '';
   return <View style={{ flex: 1 }}>
-    <Page tabId={tab.id} />
-    {hints && !!snapshot.modal.hints?.length && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+    {loading && <Page key="page" tabId={tab.id} />}
+    {start && <View key="start" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+      <StartPage tab={tab} />
+    </View>}
+    {hints && !start && !!snapshot.modal.hints?.length && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
       {snapshot.modal.hints.filter(h => h.label.startsWith(prefix)).map(h =>
         <View key={h.label} style={{ position: 'absolute', left: h.x, top: h.y, backgroundColor: colors.hintFill, borderRadius: radius.xs,
           paddingHorizontal: space.xs, borderWidth: geometry.hairline, borderColor: colors.hintBorder }}>
