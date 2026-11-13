@@ -131,6 +131,14 @@ class ReactNativeWidget : public views::NativeWidgetMac {
     // chrome::Show* (patches/0073) from every caller; extensions open the
     // shell's popover here.
     if (command == IDC_MANAGE_EXTENSIONS && OpenShellPanel(browser_, "extensions")) return true;
+    // Command-T and File > New Tab: the shell's pop-up when new tabs are
+    // pop-ups, so no blank tab opens and closes again behind it.
+    if (command == IDC_NEW_TAB && OpenNewTabPopup(browser_)) return true;
+    // Ctrl-Tab: Merlin's switcher, which walks through every recent tab
+    // while Control is held (Chromium's only toggles between two).
+    if ((command == IDC_CYCLE_TO_NEXT_TAB || command == IDC_CYCLE_TO_PREV_TAB) &&
+        CycleShellTabs(browser_, command == IDC_CYCLE_TO_NEXT_TAB))
+      return true;
     chrome::ExecuteCommandWithDisposition(browser_, command, disposition);
     return true;
   }
@@ -369,6 +377,14 @@ class ReactBrowserWindow final : public BrowserWindow,
   void HandleDragEnded() override {}
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(const input::NativeWebKeyboardEvent& event) override {
     if (event.GetType() == blink::WebInputEvent::Type::kRawKeyDown) {
+      // Ctrl-Tab and Ctrl-Shift-Tab belong to the browser, as in Chrome,
+      // before the page or modal keys see them.
+      constexpr int kModifiers = blink::WebInputEvent::kControlKey | blink::WebInputEvent::kShiftKey |
+          blink::WebInputEvent::kAltKey | blink::WebInputEvent::kMetaKey;
+      const int modifiers = event.GetModifiers() & kModifiers;
+      if (event.windows_key_code == ui::VKEY_TAB && (modifiers & ~blink::WebInputEvent::kShiftKey) == blink::WebInputEvent::kControlKey &&
+          CycleShellTabs(browser_, !(modifiers & blink::WebInputEvent::kShiftKey)))
+        return content::KeyboardEventProcessingResult::HANDLED;
       if (auto* controller = ModalBrowserController::From(browser_); controller && controller->PreHandleKeyDown(event))
         return content::KeyboardEventProcessingResult::HANDLED;
     }

@@ -42,7 +42,7 @@ test('suggestions for an older query are ignored', () => {
   const client = new EngineClient('w', { call: () => new Promise(() => {}), subscribe: l => { listener = l; return () => {}; } });
   const store = createBrowserStore('w');
   attachEngine(store, client);
-  store.setState({ omnibox: { queryId: 'q2', text: 'exa', items: [], selected: -1 } });
+  store.setState({ omnibox: { queryId: 'q2', text: 'exa', items: [], selected: -1, owner: 'address' } });
   const item = { kind: 'url' as const, title: 'Example', detail: 'example.com', url: 'https://example.com/', completion: 'mple.com', default: true };
   listener({ type: 'omnibox.results', windowId: 'w', queryId: 'q1', items: [item] });
   assert.equal(store.getState().omnibox?.items.length, 0);
@@ -55,6 +55,14 @@ test('native menu commands open the matching panel or popover', () => {
   assert.equal(store.getState().popover, 'extensions');
   openNativePanel(store, 'history');
   assert.deepEqual([store.getState().panel, store.getState().popover], ['history', null]);
+});
+test('Command-T opens the new-tab pop-up, and again asks its field for the focus', () => {
+  const store = createBrowserStore('w');
+  openNativePanel(store, 'newTab');
+  assert.equal(store.getState().panel, 'newTab');
+  const focus = store.getState().addressFocus;
+  openNativePanel(store, 'newTab');
+  assert.equal(store.getState().addressFocus, focus + 1);
 });
 test('unchanged tabs and downloads keep their objects, so their rows skip rendering', () => {
   const tab = (id: string, title: string) => ({ id, title, url: 'https://a.test/', loading: false, pinned: false, audible: false,

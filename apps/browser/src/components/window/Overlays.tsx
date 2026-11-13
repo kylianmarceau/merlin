@@ -12,6 +12,7 @@ import { ProfilesPopover } from '../profiles/ProfilesPopover';
 import { Settings } from '../settings/Settings';
 import { PromptOverlay } from '../site/PromptOverlay';
 import { NewTabPopup } from '../start/NewTabPopup';
+import { TabSwitcher } from '../tabs/TabSwitcher';
 
 /**
  * Everything drawn over the window, in fixed layers: sheets, then dialogs,
@@ -28,7 +29,6 @@ export function Overlays() {
   const settings = usePresence(shown.panel === 'settings', 'sheet', reduceMotion);
   const libraryOpen = shown.panel === 'history' || shown.panel === 'bookmarks' || shown.panel === 'downloads';
   const library = usePresence(libraryOpen, 'sheet', reduceMotion);
-  const command = usePresence(shown.panel === 'command', 'dialog', reduceMotion);
   const popup = snapshot.extensionPopup;
   // Buttons in the sidebar footer open upwards; toolbar and strip buttons open downwards.
   const place = (anchor: Frame | undefined) => autoPlacement(anchor, bounds, anchor && anchor.x < bounds.width / 2 ? 'start' : 'end');
@@ -38,9 +38,10 @@ export function Overlays() {
       {library.mounted && <Library open={libraryOpen} />}
     </Layer>
     <Layer level="dialog">
-      {command.mounted && <CommandDialog open={shown.panel === 'command'} />}
+      <CommandDialog open={shown.panel === 'command'} />
       <CommandMenu open={shown.palette} palette={snapshot.modal.palette ?? null} />
-      <NewTabPopup open={shown.panel === 'newTab'} />
+      <NewTabPopup open={shown.panel === 'newTab' && !shown.palette} />
+      <TabSwitcher />
     </Layer>
     <Layer level="popover">
       <PromptOverlay shown={shown.prompt} />

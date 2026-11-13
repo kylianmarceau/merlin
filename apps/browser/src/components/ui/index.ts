@@ -28,3 +28,4 @@ export { ContextMenu, DragRegion } from './Native';
 export { useInteraction } from './interaction';
 export { useEscape } from './keys';
 export { Fade } from './Fade';
+export { CenteredPopup, PopupField, PopupFooter, PopupRow } from './CenteredPopup';

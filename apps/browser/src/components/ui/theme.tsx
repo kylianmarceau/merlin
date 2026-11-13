@@ -1,17 +1,34 @@
-import React, { createContext, useContext, useMemo } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, useColorScheme } from 'react-native';
 import type { Appearance } from '../../state/types';
 import { palette, type Palette } from './tokens';
 
 export type Theme = { colors: Palette; dark: boolean; reduceMotion: boolean };
 const ThemeContext = createContext<Theme | null>(null);
 
-/** Resolves the window's appearance into colour roles. "system" follows macOS. */
+/** macOS's Reduce Motion (System Settings > Accessibility > Display), kept current. */
+function useSystemReduceMotion() {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    AccessibilityInfo.isReduceMotionEnabled().then(value => { if (alive) setReduce(value); }, () => {});
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduce);
+    return () => { alive = false; subscription.remove(); };
+  }, []);
+  return reduce;
+}
+
+/**
+ * Resolves the window's appearance into colour roles. "system" follows macOS.
+ * Motion is reduced when either Merlin's setting or macOS's asks for it.
+ */
 export function ThemeScope({ appearance, children }: React.PropsWithChildren<{ appearance: Appearance }>) {
   const system = useColorScheme();
+  const systemReduce = useSystemReduceMotion();
   const mode = appearance.mode === 'system' ? (system === 'dark' ? 'dark' : 'light') : appearance.mode;
+  const reduceMotion = appearance.reduceMotion || systemReduce;
   const theme = useMemo(() => ({ colors: palette(mode, appearance.accent), dark: mode === 'dark',
-    reduceMotion: appearance.reduceMotion }), [mode, appearance.accent, appearance.reduceMotion]);
+    reduceMotion }), [mode, appearance.accent, reduceMotion]);
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
 

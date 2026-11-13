@@ -5,6 +5,7 @@ import { shellPrefs } from './shellPrefs';
 import type { Appearance, Calls, DownloadAction, EngineClient, Method, Request, Requests } from '../platform/protocol';
 import {
   dismissToast, pushToast, rememberFavicon, type AnchorName, type BrowserStore, type Panel, type PopoverName, type Rect,
+  type SearchOwner,
 } from './store';
 
 let queryCounter = 0;
@@ -35,7 +36,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     /** The New Tab buttons: a pop-up over the page when Settings asks for one, otherwise a blank tab. */
     openNewTab() {
       const s = store.getState();
-      if (shellPrefs.getState().newTabPopup && s.snapshot?.tabs.length) store.setState({ panel: 'newTab', popover: null });
+      if (shellPrefs.getState().newTabPopup && s.snapshot?.tabs.length)
+        store.setState(state => ({ panel: 'newTab', popover: null, addressFocus: state.addressFocus + 1 }));
       else void actions.newTab();
     },
     activateTab: (tabId: string) => run('tabs.activate', { tabId }),
@@ -102,11 +104,11 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     siteInfo: () => run('site.info', {}),
 
     // The address field. Suggestions arrive as events for the latest query.
-    suggest(text: string, preventInline: boolean) {
+    suggest(text: string, preventInline: boolean, owner: SearchOwner = 'address') {
       if (!text.trim()) { actions.stopSuggesting(); return; }
       const queryId = `q${(++queryCounter).toString(36)}`;
       const current = store.getState().omnibox;
-      store.setState({ omnibox: { queryId, text, items: current?.items ?? [], selected: -1 } });
+      store.setState({ omnibox: { queryId, text, items: current?.owner === owner ? current.items : [], selected: -1, owner } });
       void engine.call('omnibox.query', { queryId, text, preventInline }).catch(fail);
     },
     stopSuggesting() {
@@ -196,6 +198,11 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const revision = store.getState().snapshot?.revision ?? 0;
       return run('modal.palette.select', { index, revision });
     },
+
+    // Ctrl-Tab's cards.
+    thumbnail: (tabId: string) => engine.call('tabs.thumbnail', { tabId }).catch(() => null),
+    chooseSwitcherTab: (index: number) => run('switcher.choose', { index }),
+    cancelSwitcher: () => run('switcher.cancel', {}),
 
     // Find in page.
     findQuery: (tabId: string, text: string, forward: boolean) => run('find.query', { tabId, text, forward }),

@@ -509,6 +509,11 @@ void ModalBrowserController::OpenSearch(std::string_view terms,
 }
 
 void ModalBrowserController::NewTab() {
+#if BUILDFLAG(IS_MAC)
+  if (OpenNewTabPopup(browser_.get())) {
+    return;
+  }
+#endif
   chrome::NewTab(browser_, NewTabTypes::kNewTabCommand);
 }
 

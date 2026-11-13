@@ -50,6 +50,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_shell_services.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
 #include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
+#include "chrome/browser/ui/modal_browser/merlin_tab_switcher.h"
 #include "base/base64.h"
 #include "base/hash/hash.h"
 #include "content/public/browser/favicon_status.h"
@@ -77,6 +78,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/browser/visibility.h"
 
 namespace {
 using Dict = base::DictValue;
@@ -175,6 +177,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     Observe(browser_->GetTabStripModel()->GetActiveWebContents());
     prefs_.Init(browser_->GetProfile()->GetPrefs());
     prefs_.Add("merlin.shell.appearance", base::BindRepeating(&WindowState::Changed, base::Unretained(this)));
+    switcher = std::make_unique<modal_browser::TabSwitcher>(
+        browser_, base::BindRepeating(&WindowState::Changed, base::Unretained(this)));
     content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
         &WindowState::WatchDownloads, weak_factory_.GetWeakPtr()));
   }
@@ -187,6 +191,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     }
   }
   std::deque<ShellPrompt> prompts;
+  // Ctrl-Tab's cards.
+  std::unique_ptr<modal_browser::TabSwitcher> switcher;
   // Address-bar suggestions, created on first use.
   std::unique_ptr<modal_browser::MerlinSuggestions> suggestions;
   std::string suggest_query;
@@ -214,6 +220,7 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     Changed();
   }
   void Changed();
+  void SyncSplitVisibility();
   void Deliver();
   void OnSuggestions(const std::vector<modal_browser::MerlinSuggestions::Suggestion>& results);
   Dict Snapshot();
@@ -284,7 +291,29 @@ void WindowState::Deliver() {
 void WindowState::OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
                                         const TabStripSelectionChange&) {
   Observe(browser_->GetTabStripModel()->GetActiveWebContents());
+  if (switcher) switcher->TabsChanged();
+  SyncSplitVisibility();
   Changed();
+}
+// Both halves of a split are on screen. The window only hears about the
+// active tab changing, and `:vsplit` makes the split after its new tab is
+// active, so the page it was split from was left hidden (and stayed blank).
+// `:only` hides the side that leaves the screen. Occluded pages are left to
+// Chromium's occlusion tracking.
+void WindowState::SyncSplitVisibility() {
+  auto* strip = browser_->GetTabStripModel();
+  const int active = strip->active_index();
+  auto* window = browser_->GetWindow();
+  // A minimized or hidden window shows nothing.
+  if (active < 0 || !window || !window->IsVisible() || window->IsMinimized()) return;
+  const auto split = strip->GetSplitForTab(active);
+  for (int i = 0; i < strip->count(); ++i) {
+    auto* contents = strip->GetWebContentsAt(i);
+    const bool shown = i == active || (split && strip->GetSplitForTab(i) == split);
+    const auto visibility = contents->GetVisibility();
+    if (shown && visibility == content::Visibility::HIDDEN) contents->WasShown();
+    else if (!shown && visibility == content::Visibility::VISIBLE) contents->WasHidden();
+  }
 }
 Dict WindowState::Snapshot() {
   auto* strip = browser_->GetTabStripModel();
@@ -329,6 +358,7 @@ Dict WindowState::Snapshot() {
     .Set("activeTabId", strip->active_index() >= 0 ? base::Value(TabId(strip->GetTabAtIndex(strip->active_index()))) : base::Value())
     .Set("downloads", std::move(downloads)).Set("prompt", prompts.empty() ? base::Value() : base::Value(prompts.front().description.Clone()))
     .Set("appearance", std::move(appearance)).Set("find", find.Clone()).Set("split", std::move(split))
+    .Set("switcher", switcher ? switcher->State() : base::Value())
     .Set("modal", controller ? controller->ShellModalState() : Dict().Set("mode", "Normal").Set("pending", "").Set("message", ""));
 }
 void WindowState::Suggest(const std::string& query, const std::string& text, bool prevent_inline) {
@@ -429,6 +459,21 @@ char* Call(const char* window, const char* method, const char* json) {
     }, WindowId(browser), *request);
     if (!modal_browser::RunShellService(browser, name, *args, std::move(reply)))
       return Error("Unsupported engine request");
+    return Ok();
+  }
+  if (name == "tabs.thumbnail") {
+    const int at = FindTab(strip, args->FindString("tabId"));
+    if (at < 0) return Error("Tab has closed or belongs to another window");
+    return Ok(modal_browser::TabSwitcher::Thumbnail(strip->GetTabAtIndex(at)));
+  }
+  if (name == "switcher.choose") {
+    const auto index = args->FindInt("index");
+    if (!index) return Error("Invalid tab choice");
+    state->switcher->CommitIndex(*index);
+    return Ok();
+  }
+  if (name == "switcher.cancel") {
+    state->switcher->Cancel();
     return Ok();
   }
   if (name == "favicons.get") {
@@ -798,6 +843,22 @@ bool ShellFindHasFocus(BrowserWindowInterface* browser) {
 void SendShellEvent(BrowserWindowInterface* browser, const char* type) {
   if (!Enabled() || !browser) return;
   GetRegistry().Emit(Dict().Set("type", type).Set("windowId", WindowId(browser)));
+}
+bool OpenNewTabPopup(BrowserWindowInterface* browser) {
+  if (!Enabled() || !browser || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
+      browser->GetTabStripModel()->empty() || !FindWindow(WindowId(browser).c_str()))
+    return false;
+  // The shell keeps this setting in AppKit's defaults (packages/shell).
+  NSString* value = [NSUserDefaults.standardUserDefaults stringForKey:@"MerlinShell.newTabPopup"];
+  if (![value isEqualToString:@"on"]) return false;
+  GetRegistry().Emit(Dict().Set("type", "panel.open").Set("windowId", WindowId(browser)).Set("panel", "newTab"));
+  return true;
+}
+bool CycleShellTabs(BrowserWindowInterface* browser, bool forward) {
+  auto* state = Enabled() && browser ? FindWindow(WindowId(browser).c_str()) : nullptr;
+  if (!state || !state->switcher) return false;
+  state->switcher->Cycle(forward);
+  return true;
 }
 bool OpenShellPanel(BrowserWindowInterface* browser, const char* panel) {
   if (!Enabled() || !browser || !FindWindow(WindowId(browser).c_str())) return false;

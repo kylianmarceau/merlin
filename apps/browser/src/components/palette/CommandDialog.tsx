@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { useActions } from '../../state/window';
-import { Button, Dialog, Field } from '../ui';
+import { CenteredPopup, PopupField, PopupFooter } from '../ui';
 
-/** Type one Merlin command, as from the app menu. */
+/** Type one Merlin command, as from the app menu; in the same place as the command menu. */
 export function CommandDialog({ open }: { open: boolean }) {
   const actions = useActions();
   const [command, setCommand] = useState('');
+  if (!open) return null;
+  const close = () => { setCommand(''); actions.closePanel(); };
   const run = async () => {
-    if (command.trim() && await actions.command(command)) { actions.closePanel(); setCommand(''); }
+    if (command.trim() && await actions.command(command)) close();
   };
-  return <Dialog open={open} title="Run a Command" subtitle="For example: workspace open research" icon="command"
-    onClose={actions.closePanel} dismissOnScrim place="top"
-    actions={<Button label="Run" variant="primary" disabled={!command.trim()} onPress={() => void run()} />}>
-    <Field autoFocus icon="command" accessibilityLabel="Merlin command" placeholder="Command" value={command}
-      onChangeText={setCommand} onSubmitEditing={() => void run()} />
-  </Dialog>;
+  return <CenteredPopup label="Run a Command" onDismiss={close}>
+    <PopupField icon="command" value={command} label="Merlin command" placeholder="Run a command, for example: workspace open research"
+      onChangeText={setCommand} onSubmit={() => void run()} onEscape={close} />
+    <PopupFooter accept="Run" />
+  </CenteredPopup>;
 }

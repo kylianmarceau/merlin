@@ -1,34 +1,77 @@
-diff --git a/content/public/browser/worker_interface_binders.h b/content/public/browser/worker_interface_binders.h
-new file mode 100644
---- /dev/null
-+++ b/content/public/browser/worker_interface_binders.h
-@@ -0,0 +1,24 @@
-+// Copyright 2026 The Chromium Authors
-+// Use of this source code is governed by a BSD-style license that can be
-+// found in the LICENSE file.
-+#ifndef CONTENT_PUBLIC_BROWSER_WORKER_INTERFACE_BINDERS_H_
-+#define CONTENT_PUBLIC_BROWSER_WORKER_INTERFACE_BINDERS_H_
-+#include "base/functional/callback.h"
-+#include "content/common/content_export.h"
-+namespace mojo { class BinderMap; }
-+namespace url { class Origin; }
-+namespace content {
-+class BrowserContext;
-+class RenderFrameHost;
-+// Installed at embedder startup, called on UI while the worker's binder map is
-+// populated. Origin and ancestor are derived from browser-owned worker state.
-+// The ancestor is null for shared workers and detached dedicated workers.
-+using WorkerInterfaceBinderRegistration = base::RepeatingCallback<void(
-+    BrowserContext*, const url::Origin&, RenderFrameHost*, mojo::BinderMap*)>;
-+CONTENT_EXPORT void SetWorkerInterfaceBinderRegistration(
-+    WorkerInterfaceBinderRegistration registration);
-+CONTENT_EXPORT void PopulateEmbedderWorkerInterfaceBinders(
-+    BrowserContext* context, const url::Origin& origin, RenderFrameHost* ancestor,
-+    mojo::BinderMap* map);
-+}  // namespace content
-+#endif
+diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index cbb7936..d5bfda6 100644
+--- a/chrome/browser/chrome_content_browser_client.cc
++++ b/chrome/browser/chrome_content_browser_client.cc
+@@ -5,6 +5,8 @@
+ #include "chrome/browser/chrome_content_browser_client.h"
+ 
+ #include "chrome/browser/merlin_adblock/integration.h"
++#include "chrome/browser/merlin_adblock/worker_host.h"
++#include "content/public/browser/worker_interface_binders.h"
+ #include "chrome/browser/merlin_adblock/network.h"
+ #include "chrome/browser/merlin_adblock/handshake.h"
+ #include "chrome/browser/merlin_adblock/popups.h"
+@@ -1590,6 +1592,11 @@ ChromeContentBrowserClient::GetPopupNavigationDelegateFactoryForTesting() {
+ }
+ 
+ ChromeContentBrowserClient::ChromeContentBrowserClient() {
++  // Merlin: dedicated and shared workers ask for the adblock worker host
++  // (chrome/renderer/merlin_adblock); without this binder the browser treats
++  // the request as a bad message and ends the page's renderer.
++  content::SetWorkerInterfaceBinderRegistration(
++      base::BindRepeating(&merlin_adblock::RegisterWorkerBinders));
+ #if BUILDFLAG(ENABLE_PLUGINS)
+   extra_parts_.push_back(
+       std::make_unique<ChromeContentBrowserClientPluginsPart>());
+diff --git a/content/browser/browser_interface_binders.cc b/content/browser/browser_interface_binders.cc
+index ca98f58..b80ef3c 100644
+--- a/content/browser/browser_interface_binders.cc
++++ b/content/browser/browser_interface_binders.cc
+@@ -3,6 +3,7 @@
+ // found in the LICENSE file.
+ 
+ #include "content/browser/browser_interface_binders.h"
++#include "content/public/browser/worker_interface_binders.h"
+ 
+ #include <concepts>
+ 
+@@ -1675,6 +1676,10 @@ void PopulateBinderMapWithContext(
+ 
+ void PopulateBinderMap(DedicatedWorkerHost* host, mojo::BinderMap* map) {
+   PopulateDedicatedWorkerBinders(host, map);
++  PopulateEmbedderWorkerInterfaceBinders(
++      host->GetProcessHost()->GetBrowserContext(),
++      host->GetWorkerStorageKey().origin(), host->GetAncestorRenderFrameHost(),
++      map);
+ }
+ 
+ // Shared workers
+@@ -1817,6 +1822,9 @@ void PopulateBinderMapWithContext(
+ 
+ void PopulateBinderMap(SharedWorkerHost* host, mojo::BinderMap* map) {
+   PopulateSharedWorkerBinders(host, map);
++  PopulateEmbedderWorkerInterfaceBinders(
++      host->GetProcessHost()->GetBrowserContext(),
++      host->instance().worker_storage_key().origin(), nullptr, map);
+ }
+ 
+ 
+diff --git a/content/public/browser/BUILD.gn b/content/public/browser/BUILD.gn
+index 5725a11..48bded0 100644
+--- a/content/public/browser/BUILD.gn
++++ b/content/public/browser/BUILD.gn
+@@ -551,6 +551,8 @@ source_set("browser_sources") {
+     "webrtc_log.h",
+     "websocket_connection_policy.cc",
+     "websocket_connection_policy.h",
++    "worker_interface_binders.cc",
++    "worker_interface_binders.h",
+     "websocket_handshake_request_info.h",
+     "webui_config.cc",
+     "webui_config.h",
 diff --git a/content/public/browser/worker_interface_binders.cc b/content/public/browser/worker_interface_binders.cc
 new file mode 100644
+index 0000000..f0c0e73
 --- /dev/null
 +++ b/content/public/browser/worker_interface_binders.cc
 @@ -0,0 +1,26 @@
@@ -58,38 +101,33 @@ new file mode 100644
 +    Registration().Run(context, origin, ancestor, map);
 +}
 +}  // namespace content
-diff --git a/content/public/browser/BUILD.gn b/content/public/browser/BUILD.gn
---- a/content/public/browser/BUILD.gn
-+++ b/content/public/browser/BUILD.gn
-@@ -551,6 +551,8 @@
-     "webrtc_log.h",
-     "websocket_connection_policy.cc",
-     "websocket_connection_policy.h",
-+    "worker_interface_binders.cc",
-+    "worker_interface_binders.h",
-     "websocket_handshake_request_info.h",
-     "webui_config.cc",
-     "webui_config.h",
-diff --git a/content/browser/browser_interface_binders.cc b/content/browser/browser_interface_binders.cc
---- a/content/browser/browser_interface_binders.cc
-+++ b/content/browser/browser_interface_binders.cc
-@@ -3,6 +3,7 @@
- // found in the LICENSE file.
- 
- #include "content/browser/browser_interface_binders.h"
-+#include "content/public/browser/worker_interface_binders.h"
- 
- #include <concepts>
- 
-diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
---- a/chrome/browser/chrome_content_browser_client.cc
-+++ b/chrome/browser/chrome_content_browser_client.cc
-@@ -5,6 +5,8 @@
- #include "chrome/browser/chrome_content_browser_client.h"
- 
- #include "chrome/browser/merlin_adblock/integration.h"
-+#include "chrome/browser/merlin_adblock/worker_host.h"
-+#include "content/public/browser/worker_interface_binders.h"
- #include "chrome/browser/merlin_adblock/network.h"
- #include "chrome/browser/merlin_adblock/handshake.h"
- #include "chrome/browser/merlin_adblock/popups.h"
+diff --git a/content/public/browser/worker_interface_binders.h b/content/public/browser/worker_interface_binders.h
+new file mode 100644
+index 0000000..2a20496
+--- /dev/null
++++ b/content/public/browser/worker_interface_binders.h
+@@ -0,0 +1,24 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++#ifndef CONTENT_PUBLIC_BROWSER_WORKER_INTERFACE_BINDERS_H_
++#define CONTENT_PUBLIC_BROWSER_WORKER_INTERFACE_BINDERS_H_
++#include "base/functional/callback.h"
++#include "content/common/content_export.h"
++namespace mojo { class BinderMap; }
++namespace url { class Origin; }
++namespace content {
++class BrowserContext;
++class RenderFrameHost;
++// Installed at embedder startup, called on UI while the worker's binder map is
++// populated. Origin and ancestor are derived from browser-owned worker state.
++// The ancestor is null for shared workers and detached dedicated workers.
++using WorkerInterfaceBinderRegistration = base::RepeatingCallback<void(
++    BrowserContext*, const url::Origin&, RenderFrameHost*, mojo::BinderMap*)>;
++CONTENT_EXPORT void SetWorkerInterfaceBinderRegistration(
++    WorkerInterfaceBinderRegistration registration);
++CONTENT_EXPORT void PopulateEmbedderWorkerInterfaceBinders(
++    BrowserContext* context, const url::Origin& origin, RenderFrameHost* ancestor,
++    mojo::BinderMap* map);
++}  // namespace content
++#endif

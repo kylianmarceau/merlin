@@ -2,9 +2,7 @@
 // snapshots; the store adds only what the shell itself decides: which panel
 // or popover is open, notices, address suggestions, icons and anchor places.
 import { createStore } from 'zustand/vanilla';
-import { isStartUrl } from '../lib/format';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
-import { shellPrefs } from './shellPrefs';
 
 export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | null;
 export type PopoverName = 'extensions' | 'profiles' | 'downloads';
@@ -12,8 +10,13 @@ export type PopoverName = 'extensions' | 'profiles' | 'downloads';
 export type AnchorName = 'site' | 'requests' | 'extensions' | 'downloads' | 'profiles' | 'address';
 export type Rect = { x: number; y: number; width: number; height: number };
 export type Toast = { id: number; tone: 'error' | 'info'; text: string };
-/** `selected` is the highlighted suggestion; -1 means what was typed. */
-export type Omnibox = { queryId: string; text: string; items: Suggestion[]; selected: number };
+/**
+ * `selected` is the highlighted suggestion; -1 means what was typed. `owner`
+ * is the field that asked: the toolbar's address field shows its list under
+ * itself; the start page and the new-tab pop-up show theirs in place.
+ */
+export type SearchOwner = 'address' | 'search';
+export type Omnibox = { queryId: string; text: string; items: Suggestion[]; selected: number; owner: SearchOwner };
 
 export type BrowserState = {
   snapshot: Snapshot | null;
@@ -92,6 +95,8 @@ export function dismissToast(store: BrowserStore, id: number) {
 /** Native requests to open a panel. Extensions and profiles are popovers in this shell. */
 export function openNativePanel(store: BrowserStore, panel: PanelName) {
   if (panel === 'extensions' || panel === 'profiles') store.setState({ popover: panel, panel: null });
+  // Command-T again while the pop-up is open asks its field for the focus.
+  else if (panel === 'newTab') store.setState(s => ({ panel, popover: null, addressFocus: s.panel === 'newTab' ? s.addressFocus + 1 : s.addressFocus }));
   else store.setState({ panel, popover: null });
 }
 
@@ -102,23 +107,6 @@ export function rememberFavicon(store: BrowserStore, key: string, url: string) {
     const kept = keys.length >= faviconLimit ? Object.fromEntries(keys.slice(-faviconLimit / 2).map(k => [k, s.favicons[k]])) : s.favicons;
     return { favicons: { ...kept, [key]: url } };
   });
-}
-
-/**
- * With new tabs as a pop-up, a blank tab Chromium opened itself (Command-T,
- * the File menu) gives way to the pop-up over the page that was showing. The
- * tab is opened again once the person chooses where to go.
- */
-function routeNewTab(store: BrowserStore, engine: EngineClient, before: Snapshot | null, fail: (e: unknown) => void) {
-  const after = store.getState().snapshot;
-  if (!before || !after || after === before || after.session !== before.session || !shellPrefs.getState().newTabPopup) return;
-  const tab = after.tabs.find(t => t.id === after.activeTabId);
-  const previous = before.activeTabId;
-  if (!tab || !isStartUrl(tab.url) || before.tabs.some(t => t.id === tab.id)) return;
-  if (!previous || previous === tab.id || !after.tabs.some(t => t.id === previous)) return;
-  store.setState({ panel: 'newTab', popover: null });
-  void engine.call('tabs.activate', { tabId: previous })
-    .then(() => engine.call('tabs.close', { tabId: tab.id })).catch(fail);
 }
 
 export function attachEngine(store: BrowserStore, engine: EngineClient) {
@@ -134,12 +122,7 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
     if (disposed) return;
     try {
       switch (event.type) {
-        case 'snapshot': {
-          const before = store.getState().snapshot;
-          acceptSnapshot(store, event.snapshot);
-          routeNewTab(store, engine, before, fail);
-          break;
-        }
+        case 'snapshot': acceptSnapshot(store, event.snapshot); break;
         case 'address.focus': store.setState(s => ({ addressFocus: s.addressFocus + 1 })); break;
         case 'address.revert': store.setState(s => ({ addressRevert: s.addressRevert + 1, omnibox: null })); break;
         case 'command.open': store.setState({ panel: 'command', popover: null }); break;

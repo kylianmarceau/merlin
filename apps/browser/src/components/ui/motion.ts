@@ -1,6 +1,6 @@
 // Every timing, curve and spring the shell animates with. This is the only
 // file allowed to use Easing or a numeric duration (see conventions.test.ts).
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing } from 'react-native';
 
 export const duration = {
@@ -14,10 +14,10 @@ export const duration = {
   toast: 5000,
   /** The joined tab sliding to the newly active tab. */
   slide: 340,
-  /** The joined tab and toolbar cross-fading to a new site's colour. */
-  tint: 380,
   /** How long a dropped tab keeps its new place while the browser confirms it. */
   dropSettle: 1500,
+  /** A pop-up field takes the focus back if the page took it as the pop-up opened. */
+  refocus: 50,
   /** Debounce for search fields that ask the browser. */
   search: 180,
   /** Native prompts ignore answers for their first half second. */
@@ -120,24 +120,13 @@ export function useTimeout(fn: () => void, ms: number, deps: unknown[]) {
 }
 
 /**
- * A colour that cross-fades to each new value over `duration.tint`; set it on
- * an Animated.View. Immediate when motion is reduced.
+ * The toolbar, joined tab and shell colour as an Animated value. It changes
+ * at once: a cross-fade ran every time a page loaded and read as the page
+ * itself fading in.
  */
-export function useColorFade(color: string, reduce: boolean) {
-  const progress = useRef(new Animated.Value(1)).current;
-  const last = useRef(color);
-  const [pair, setPair] = useState({ from: color, to: color });
-  useEffect(() => {
-    if (color === last.current) return;
-    setPair({ from: last.current, to: color });
-    last.current = color;
-    progress.setValue(0);
-    const run = Animated.timing(progress, { toValue: 1, duration: reduce ? duration.instant : duration.tint, easing: curve.move,
-      useNativeDriver: false });
-    run.start();
-    return () => run.stop();
-  }, [color, reduce, progress]);
-  return progress.interpolate({ inputRange: [0, 1], outputRange: [pair.from, pair.to] });
+export function useColorFade(color: string, _reduce: boolean) {
+  const value = useRef(new Animated.Value(0)).current;
+  return useMemo(() => value.interpolate({ inputRange: [0, 1], outputRange: [color, color] }), [color, value]);
 }
 
 /**

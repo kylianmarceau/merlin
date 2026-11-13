@@ -145,6 +145,8 @@ source_set("modal_browser") {
       "merlin_react_passwords.h",
       "merlin_react_extension_popup_mac.mm",
       "merlin_react_extension_popup.h",
+      "merlin_tab_switcher.h",
+      "merlin_tab_switcher_mac.mm",
     ]
     frameworks = [ "AppKit.framework" ]
   }

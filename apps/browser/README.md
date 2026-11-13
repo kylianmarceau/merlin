@@ -149,8 +149,16 @@ Every normal-window surface is React; the Views interface (tab bar, toolbar,
 palette, hints, status pill, Control-Tab switcher, address editor and the
 `chrome://merlin-*` pages) has been deleted. Chromium keeps the behavior; the
 shell presents it. Command-comma and the History, Downloads and Bookmarks
-menu items open the React panels (`patches/0073`). Control-Tab uses
-Chromium's own most-recently-used switching, without an on-screen switcher.
+menu items open the React panels (`patches/0073`). Control-Tab is Merlin's
+switcher (`merlin_tab_switcher_mac.mm`): a tap goes to the last used tab,
+holding Control shows every tab as a card with its thumbnail
+(`tabs/TabSwitcher`), and releasing Control switches. Chromium's own
+`CycleToMruTab` only toggles between two tabs. With new tabs as a pop-up,
+Command-T opens the pop-up directly; no blank tab is opened and closed.
+
+The command menu, the new-tab pop-up and Run a Command share one centred
+frame (`ui/CenteredPopup`): same width, same place, no fade, and a field that
+keeps the keyboard while it is open.
 
 | Surface | React | Chromium side |
 | --- | --- | --- |

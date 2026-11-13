@@ -59,7 +59,8 @@ export function AddressField({ variant = 'toolbar' }: { variant?: 'toolbar' | 's
   };
   // A new-tab pop-up takes the focus request instead.
   const popupOpen = useBrowser(s => s.panel === 'newTab');
-  useEffect(() => { if (focusRequest && !popupOpen) input.current?.focus(); }, [focusRequest]);  // eslint-disable-line react-hooks/exhaustive-deps
+  // So does the start page's own field, on a start page.
+  useEffect(() => { if (focusRequest && !popupOpen && !start) input.current?.focus(); }, [focusRequest]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (revertRequest) { editingNow.current = false; setEditing(false); input.current?.blur(); } }, [revertRequest]);
   useEffect(() => () => { if (blurTimer.current) clearTimeout(blurTimer.current); }, []);
 

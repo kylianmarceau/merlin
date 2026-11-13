@@ -145,6 +145,20 @@ test('tab layout, message tone and next-key hints are validated', () => {
   assert.throws(() => validateSnapshot({ ...s, modal: { ...s.modal, messageIsError: 'yes' as never } }, s.windowId));
   assert.throws(() => validateSnapshot({ ...s, modal: { ...s.modal, whichKey: [{ keys: 'g' }] as never } }, s.windowId));
 });
+test('the Ctrl-Tab switcher names tabs of this window and a card among them', () => {
+  const tab = (id: string) => ({ id, title: id, url: 'https://a.test/', loading: false, pinned: false, audible: false, canGoBack: false, canGoForward: false });
+  const s = { ...snapshot(), tabs: [tab('1'), tab('2')], activeTabId: '1' };
+  const switcher = { tabs: ['1', '2'], selected: 1, recent: true };
+  assert.deepEqual(validateSnapshot({ ...s, switcher }, 'window-one').switcher, switcher);
+  assert.equal(validateSnapshot({ ...s, switcher: null }, 'window-one').switcher, null);
+  assert.throws(() => validateSnapshot({ ...s, switcher: { ...switcher, selected: 2 } }, 'window-one'));
+  assert.throws(() => validateSnapshot({ ...s, switcher: { ...switcher, tabs: ['1', '9'] } }, 'window-one'));
+  assert.throws(() => validateSnapshot({ ...s, switcher: { ...switcher, recent: 'yes' } }, 'window-one'));
+});
+test('Command-T asks for the new-tab pop-up as a panel', () => {
+  assert.deepEqual(parseEngineEvent(JSON.stringify({ type: 'panel.open', windowId: 'w', panel: 'newTab' })),
+    { type: 'panel.open', windowId: 'w', panel: 'newTab' });
+});
 test('crashed tabs and the full download list are validated', async () => {
   const tab = { id: '1', title: 'A', url: 'https://a.test/', loading: false, pinned: false, audible: false, canGoBack: false, canGoForward: false };
   assert.equal(validateSnapshot({ ...snapshot(), tabs: [{ ...tab, crashed: true }] }, 'window-one').tabs[0].crashed, true);

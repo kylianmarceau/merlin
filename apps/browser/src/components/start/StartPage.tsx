@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
-import { isStartUrl } from '../../lib/format';
+import { displayHost, isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
-import { useActions, useSnapshot } from '../../state/window';
-import { Button, Icon, Panel, Text, font, geometry, opacity, radius, space, useInteraction, useTheme } from '../ui';
+import { useActions, useBrowser, useSnapshot } from '../../state/window';
+import { Button, Icon, Panel, PopupRow, Text, font, geometry, opacity, radius, space, useEscape, useInteraction, useTheme } from '../ui';
 import { Favicon } from '../favicon/Favicon';
+import { suggestionDetail, suggestionIcons, useSearch } from '../omnibox/useSearch';
 import { PaintMark } from './PaintMark';
 
 /**
@@ -15,10 +16,16 @@ export function StartPage({ tab }: { tab: Tab }) {
   const snapshot = useSnapshot();
   const actions = useActions();
   const { colors } = useTheme();
-  const [query, setQuery] = useState('');
+  const search = useSearch();
+  const input = useRef<TextInput>(null);
+  // Chromium asks for the address to be focused as a new tab opens; on the
+  // start page that is this field.
+  const focusRequest = useBrowser(s => s.addressFocus);
+  useEffect(() => { input.current?.focus(); }, [focusRequest]);
   const others = snapshot.tabs.filter(t => t.id !== tab.id && !isStartUrl(t.url)).slice(0, 3);
-  const ready = !!query.trim();
-  const go = () => { if (ready) void actions.openInTab(tab.id, query); };
+  const ready = search.typing;
+  const go = () => { search.submit(false); };
+  const escape = useEscape(() => { search.reset(); input.current?.blur(); });
   return <View style={{ flex: 1, backgroundColor: colors.startBackground }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: geometry.newTabTop,
       paddingBottom: space.huge, paddingHorizontal: space.huge }}>
@@ -28,10 +35,25 @@ export function StartPage({ tab }: { tab: Tab }) {
           <View style={{ paddingTop: space.sm, paddingHorizontal: space.sm + space.hair, paddingBottom: space.sm + space.hair }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, height: geometry.newTabInput, paddingHorizontal: space.sm }}>
               <Icon name="magnifyingglass" tone="iconSecondary" />
-              <TextInput autoFocus enableFocusRing={false} accessibilityLabel="Search or enter an address" placeholder="Search or enter an address"
-                placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection} value={query} onChangeText={setQuery}
-                onSubmitEditing={go} style={{ flex: 1, color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.input }} />
+              <TextInput ref={input} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel="Search or enter an address"
+                placeholder="Search or enter an address" placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection}
+                value={search.text} onChangeText={search.change} onSubmitEditing={go}
+                keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Escape' }]}
+                onKeyDown={e => {
+                  const key = e.nativeEvent.key;
+                  if (key === 'ArrowDown') search.move(1);
+                  else if (key === 'ArrowUp') search.move(-1);
+                  else if (key === 'Escape') escape();
+                }}
+                onKeyPress={e => { if (e.nativeEvent.key === 'Escape') escape(); }}
+                style={{ flex: 1, color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.input }} />
             </View>
+            {search.suggestions.length > 0 && <View style={{ gap: space.hair, paddingBottom: space.sm }}>
+              {search.suggestions.map((item, index) => <PopupRow key={`${index}:${item.url}`} title={item.title || item.url}
+                detail={suggestionDetail(item, displayHost(item.url))}
+                leading={<Icon name={suggestionIcons[item.kind]} tone={search.selected === index ? 'paletteSelectedText' : 'iconSecondary'} size="small" />}
+                selected={search.selected === index} onPress={() => search.open(index, false)} />)}
+            </View>}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair }}>
               <Button label="Jump to a tab or file" icon="plus" size="small" onPress={() => void actions.command('palette menu')} />
               <View style={{ flex: 1 }} />

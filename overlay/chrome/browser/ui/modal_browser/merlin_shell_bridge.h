@@ -26,6 +26,14 @@ void SendShellEvent(BrowserWindowInterface* browser, const char* type);
 // Opens a React shell panel: "settings", "history", "bookmarks", "downloads",
 // "extensions" or "profiles". False when `browser` has no React window.
 bool OpenShellPanel(BrowserWindowInterface* browser, const char* panel);
+// With new tabs as a pop-up (Settings > Appearance), shows the shell's
+// new-tab pop-up over the current page instead of opening a blank tab.
+// False when the setting is off or `browser` has no React window or no tabs;
+// the caller then opens a tab as usual.
+bool OpenNewTabPopup(BrowserWindowInterface* browser);
+// Ctrl-Tab (forward) or Ctrl-Shift-Tab in a React window: the tab switcher.
+// False when `browser` has no React window.
+bool CycleShellTabs(BrowserWindowInterface* browser, bool forward);
 // Prompt IDs and permitted actions are owned by native code. A reply is consumed
 // once; dismissing/closing the owning window replies with an empty action.
 std::string ShowShellPrompt(BrowserWindowInterface* browser,

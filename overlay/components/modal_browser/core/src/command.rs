@@ -2036,7 +2036,7 @@ fn builtin_specs() -> Vec<CommandSpec> {
         ),
         available(
             "split",
-            &["sp"],
+            &["sp", "hsplit", "hsp"],
             SPLIT_USAGE,
             "split the window top and bottom",
             cmd_split,

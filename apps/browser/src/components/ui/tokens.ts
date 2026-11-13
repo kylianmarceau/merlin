@@ -31,6 +31,8 @@ export const geometry = {
   rowTall: 44, popoverRow: 32, icon: 16, iconSmall: 13, iconLarge: 20, favicon: 16, tile: 28, round: 20, roundGlyph: 9, keycap: 18,
   toggleWidth: 28, toggleHeight: 16, toggleThumb: 12, progress: 4, focusRing: 2, hairline: 1, splitGap: 6, dot: 7,
   popover: 300, popoverWide: 340, menu: 240, dialog: 380, dialogWide: 520, palette: 620, paletteInput: 60, paletteRow: 42,
+  /** Every centred pop-up (commands, new tab, Ctrl-Tab): the most rows its list shows, and its full height. */
+  popupList: 336, popupHeight: 440, switcherCard: 176, switcherThumb: 110,
   sheetWidth: 840, sheetHeight: 640, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
   suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, paintWidth: 400, paintHeight: 172, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
 } as const;

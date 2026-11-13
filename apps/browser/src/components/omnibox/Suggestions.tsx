@@ -11,8 +11,8 @@ export function Suggestions() {
   const omnibox = useBrowser(s => s.omnibox);
   const anchor = useBrowser(s => s.anchors.address);
   const bounds = useBrowser(s => s.windowSize);
-  // The new-tab pop-up shows its own suggestions.
-  const elsewhere = useBrowser(s => s.panel === 'newTab');
+  // The start page and the new-tab pop-up show their own suggestions.
+  const elsewhere = useBrowser(s => s.panel === 'newTab') || omnibox?.owner !== 'address';
   const items = elsewhere ? [] : omnibox?.items ?? [];
   return <Popover open={items.length > 0} anchor={anchor} bounds={bounds} kind="menu" fill="surfaceMenu" label="Suggestions"
     width={Math.max(anchor?.width ?? 0, geometry.dialogWide)} onClose={actions.stopSuggesting}>

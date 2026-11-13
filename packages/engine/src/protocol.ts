@@ -39,6 +39,8 @@ export type CommandPalette = {
 export type Hint = { label: string; x: number; y: number };
 /** A key that can follow what has been typed so far, and what it does. */
 export type WhichKey = { keys: string; description: string };
+/** Ctrl-Tab's cards while Control is held: the tabs in switching order and the highlighted one. */
+export type TabSwitcher = { tabs: string[]; selected: number; recent: boolean };
 export type FindState = { visible: boolean; text: string; matches: number; ordinal: number; focus: number };
 export type Snapshot = {
   session: string; windowId: string; revision: number; private: boolean;
@@ -49,6 +51,7 @@ export type Snapshot = {
   /** Running downloads and the most recent others; `downloads.list` has them all. */
   downloads: Download[];
   prompt: Prompt | null; appearance: Appearance; find?: FindState; split?: Split | null;
+  switcher?: TabSwitcher | null;
   modal: {
     mode: string; pending: string; message: string; messageIsError?: boolean; sidebarHidden?: boolean;
     tabLayout?: 'sidebar' | 'top'; whichKey?: WhichKey[]; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string;
@@ -82,6 +85,10 @@ export type Calls = {
   'modal.palette.key': { args: { key: 'accept' | 'cancel' | 'next' | 'previous' }; result: null };
   'modal.palette.select': { args: { index: number; revision: number }; result: null };
   'favicons.get': { args: { tabId: string }; result: Favicon | null };
+  /** The tab's last thumbnail as a JPEG data URL, or null before it has one. */
+  'tabs.thumbnail': { args: { tabId: string }; result: string | null };
+  'switcher.choose': { args: { index: number }; result: null };
+  'switcher.cancel': { args: {}; result: null };
   'omnibox.query': { args: { queryId: string; text: string; preventInline: boolean }; result: null };
   'omnibox.stop': { args: {}; result: null };
   'omnibox.open': { args: { queryId: string; index: number; newTab: boolean }; result: null };
@@ -143,7 +150,7 @@ export type Requests = {
   'profiles.create': { args: { name: string }; result: null };
 };
 export type Request = keyof Requests;
-export const panels = ['settings', 'history', 'bookmarks', 'downloads', 'extensions', 'profiles'] as const;
+export const panels = ['settings', 'history', 'bookmarks', 'downloads', 'extensions', 'profiles', 'newTab'] as const;
 export type PanelName = typeof panels[number];
 
 export type EngineEvent = { type: 'snapshot'; snapshot: Snapshot } | { type: 'address.focus' | 'address.revert' | 'command.open'; windowId: string }
@@ -195,6 +202,11 @@ export class EngineClient {
     if (method === 'favicons.get') {
       if (reply.value !== null && !fields(reply.value, { key: isString, url: v => isString(v) && v.startsWith('data:image/png;base64,') }))
         throw new Error('Invalid icon from the browser');
+      return reply.value as Calls[M]['result'];
+    }
+    if (method === 'tabs.thumbnail') {
+      if (reply.value !== null && !(isString(reply.value) && reply.value.startsWith('data:image/jpeg;base64,')))
+        throw new Error('Invalid thumbnail from the browser');
       return reply.value as Calls[M]['result'];
     }
     if (reply.value !== null) throw new Error('Invalid command acknowledgement');
@@ -276,6 +288,9 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
       s.split.tabs.length < 2 || s.split.tabs.some(id => !ids.has(id)) || !['sideBySide', 'stacked'].includes(s.split.layout) ||
       !Number.isFinite(s.split.ratio) || (s.activeTabId !== null && !s.split.tabs.includes(s.activeTabId)))) throw new Error('Invalid split view');
   if (s.kind !== undefined && s.kind !== 'normal' && s.kind !== 'popup') throw new Error('Invalid window kind');
+  if (s.switcher !== undefined && s.switcher !== null && (!fields(s.switcher, { tabs: listOf(isString), recent: isBool }) ||
+      !Number.isInteger(s.switcher.selected) || s.switcher.selected < 0 || s.switcher.selected >= s.switcher.tabs.length ||
+      s.switcher.tabs.some(id => !ids.has(id)))) throw new Error('Invalid tab switcher');
   if (s.extensionPopup !== undefined && s.extensionPopup !== null && !fields(s.extensionPopup, {
       extensionId: isString, name: isString, ready: isBool,
       width: v => isNumber(v) && v > 0 && v <= 4096, height: v => isNumber(v) && v > 0 && v <= 4096 })) throw new Error('Invalid extension popup');
