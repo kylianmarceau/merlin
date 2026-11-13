@@ -46,6 +46,10 @@ const BROWSERS = {
   "merlin-dev": { kind: "cdp", app: `${CHROMIUM}/src/out/Modal/Merlin.app`, bin: "Merlin", merlin: true },
   brave: { kind: "cdp", app: "/Applications/Brave Browser.app", bin: "Brave Browser" },
   dia: { kind: "dia", app: "/Applications/Dia.app", bin: "Dia" },
+  // Ardia ignores --user-data-dir and --remote-debugging-port; its data folder
+  // and DevTools port come from ARDIA_DATA_DIR / ARDIA_REMOTE_DEBUGGING_PORT, and
+  // it opens a launch URL only through LaunchServices (open -n --env).
+  ardia: { kind: "cdp", app: "/Applications/Ardia.app", bin: "Ardia", ardia: true },
 };
 const B = BROWSERS[args.browser];
 if (!B || !args.out) throw Error("usage: --browser " + Object.keys(BROWSERS).join("|") + " --out dir [--app path]");
@@ -166,7 +170,9 @@ async function idleProbe(root, seconds = 30) {
     const slot = (out.by_kind[k] ||= { cpu_percent: 0, wakeups_per_s: 0, footprint_mb: 0 });
     slot.cpu_percent += c; slot.wakeups_per_s += w;
   }
-  const fp = JSON.parse((await run("python3", [`${REPO}/scripts/lib/process_footprint.py`, ...pids.map(String)])).stdout);
+  // a helper may have exited during the sample; read only the live ones
+  const live = (await treePids(root)).filter((p) => kind.has(p));
+  const fp = JSON.parse((await run("python3", [`${REPO}/scripts/lib/process_footprint.py`, ...live.map(String)])).stdout);
   for (const p of fp.processes) {
     const slot = (out.by_kind[kind.get(p.pid) || "other"] ||= { cpu_percent: 0, wakeups_per_s: 0, footprint_mb: 0 });
     slot.footprint_mb += p.physical_footprint_bytes / 1048576;
@@ -227,6 +233,7 @@ class CdpDriver {
       this.traceFile = join(profile, "merlin-trace.txt");
       env.MERLIN_TRACE_FILE = this.traceFile;
     }
+    if (B.ardia) return this.launchArdia(url, profile);
     await rm(join(profile, "DevToolsActivePort"), { force: true });
     const t0 = Date.now();
     this.proc = spawn(BIN, [`--user-data-dir=${profile}`, "--remote-debugging-port=0", "--no-first-run",
@@ -244,6 +251,37 @@ class CdpDriver {
     this.cdp = await CDP.connect(`ws://127.0.0.1:${p}${path}`);
     this.sessions = new Map();
     return t0;
+  }
+  async launchArdia(url, profile) {
+    // mark onboarding done (copied from the user's install, if any)
+    await copyFile(`${HOME}/Library/Application Support/com.ardia.browser/onboarding.json`, join(profile, "onboarding.json")).catch(() => {});
+    const before = new Set(((await run("pgrep", ["-f", `^${BIN}( |$)`]).catch(() => ({ stdout: "" }))).stdout).split("\n").filter(Boolean));
+    const port = 20000 + Math.floor(Math.random() * 30000);
+    const t0 = Date.now();
+    await run("open", ["-n", "-a", B.app, "--env", `ARDIA_DATA_DIR=${profile}`, "--env", `ARDIA_REMOTE_DEBUGGING_PORT=${port}`,
+      url, "--args", "--no-first-run", "--no-default-browser-check", "--use-mock-keychain", ...(B.extra || [])]);
+    this.pid = undefined;
+    for (let i = 0; i < 300 && !this.pid; i++) {
+      const { stdout } = await run("pgrep", ["-f", `^${BIN}( |$)`]).catch(() => ({ stdout: "" }));
+      this.pid = Number(stdout.split("\n").filter(Boolean).find((p) => !before.has(p))) || undefined;
+      if (!this.pid) await sleep(20);
+    }
+    if (!this.pid) throw Error("Ardia did not start");
+    this.proc = null;
+    this.windowAt = windowShownAt(this.pid);
+    let ws;
+    for (let i = 0; i < 600 && !ws; i++) {
+      ws = await fetch(`http://127.0.0.1:${port}/json/version`).then((r) => r.json()).then((j) => j.webSocketDebuggerUrl).catch(() => null);
+      if (!ws) await sleep(50);
+    }
+    if (!ws) throw Error("no DevTools port");
+    this.cdp = await CDP.connect(ws);
+    this.sessions = new Map();
+    return t0;
+  }
+  // Ardia restores its last session; keep only the tab showing `keep`.
+  async closeOthers(keep) {
+    for (const t of await this.tabs()) if (!t.url.includes(keep)) await this.close(t.targetId).catch(() => {});
   }
   async session(id) {
     if (!this.sessions.has(id)) {
@@ -270,6 +308,13 @@ class CdpDriver {
   }
   async quit() {
     try { await this.cdp.call("Browser.close"); } catch {}
+    if (!this.proc) { // launched through open: wait on the pid
+      const alive = () => { try { process.kill(this.pid, 0); return true; } catch { return false; } };
+      for (let i = 0; i < 100 && alive(); i++) await sleep(100);
+      if (alive()) process.kill(this.pid, "SIGKILL");
+      await sleep(1500);
+      return;
+    }
     for (let i = 0; i < 100 && this.proc.exitCode === null && this.proc.signalCode === null; i++) await sleep(100);
     if (this.proc.exitCode === null) this.proc.kill("SIGKILL");
     await sleep(1500);
@@ -397,6 +442,7 @@ await step("startup", async () => {
     const ms = (await waitBeacon(id)) - t0;
     const shown = await windowMs(t0);
     if (i > 0) { warm.push(ms); window.push(shown); } // first launch creates the profile
+    if (B.ardia) await D.closeOthers(`id=${id}`); // don't let restored tabs pile up
     await sleep(2000); await D.quit();
   }
   result.startup = { cold_ms: cold, cold_median_ms: median(cold), warm_ms: warm, warm_median_ms: median(warm),
@@ -413,9 +459,12 @@ if (B.kind === "dia") {
 } else {
   // a first run creates the profile; measure on a second, warm launch
   const id0 = "main-init", id = "main";
-  await D.launch(`${LOCAL}/launch?id=${id0}`, mainProfile); await waitBeacon(id0); await sleep(3000); await D.quit();
+  await D.launch(`${LOCAL}/launch?id=${id0}`, mainProfile); await waitBeacon(id0); await sleep(3000);
+  if (B.ardia) await D.closeOthers(`id=${id0}`);
+  await D.quit();
   await D.launch(`${LOCAL}/launch?id=${id}`, mainProfile); await waitBeacon(id);
   await sleep(3000);
+  if (B.ardia) await D.closeOthers(`id=${id}`);
 }
 await D.front();
 result.memory = {};
@@ -435,6 +484,12 @@ await step("pageload-local", async () => {
   tab = await D.newTab(`${LOCAL}/simple?warmup`);
   await D.activate(tab); await D.front();
   let prev = (await waitLoaded(D, tab, null)).origin;
+  if (B.ardia) { // Ardia can leave a tab activated before it is placed hidden; activate until visible
+    for (let i = 0; i < 20 && (await D.eval(tab, "document.visibilityState")) !== "visible"; i++) {
+      await D.activate(tab); await D.front(); await sleep(250);
+    }
+  }
+  result.pageload_visibility = await D.eval(tab, "document.visibilityState").catch(() => null);
   const out = { simple: [], heavy: [] };
   for (let i = 0; i < 8; i++) {
     for (const kind of ["simple", "heavy"]) {
