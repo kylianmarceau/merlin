@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="branding/merlin-app-icon.svg" alt="Merlin icon" width="112">
+<img src="packages/shell/macos/AppIcons/MerlinAppIcon-daylight.png" alt="Merlin icon" width="112">
 
 <h1>Merlin</h1>
 

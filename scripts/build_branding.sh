@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
-# Regenerates every Merlin icon file from the SVGs in branding/:
-#   * branding/merlin-app-icon-1024.png and branding/merlin.icns
-#   * the asset catalog PNGs in overlay/chrome/app/theme/merlin/mac/
+# Regenerates every Merlin icon file:
+#   * from the falcon SVGs in branding/: product tiles, favicons, the mono
+#     glyph and the wordmarks
+#   * from the painted app icon, branding/app-icons/daylight.png (Apple grid)
+#     and daylight-tile.png (full bleed): branding/merlin-app-icon-1024.png,
+#     branding/merlin.icns, the asset catalog PNGs and the Icon Composer layer
+#     in overlay/chrome/app/theme/merlin/mac/
 #   * overlay/.../mac/Assets.car and app.icns, compiled with Chromium's
 #     tools/mac/icons/compile_car.py (needs Xcode 26+ and the checkout)
 #
 # The macOS 26+ icon comes from overlay/.../mac/AppIcon.icon (Icon Composer
-# format). scripts/merlin_mark.py owns the SVG layer and palette.
+# format), whose one layer is the full-bleed Daylight painting.
+# branding/impasto/export_app_icons.py renders the painted icons.
 #
-# Run after changing branding/merlin-app-icon.svg or AppIcon.icon, then
-# commit the outputs: Chromium checks its compiled icons in, and so do we.
+# Run after changing an app icon or the falcon, then commit the outputs:
+# Chromium checks its compiled icons in, and so do we.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 CHROMIUM_DIR="${CHROMIUM_DIR:-$HOME/chromium}"
 SRC="$CHROMIUM_DIR/src"
-ICON="$ROOT/branding/merlin-app-icon.svg"
+ICON="$ROOT/branding/app-icons/daylight.png"
+ICON_TILE="$ROOT/branding/app-icons/daylight-tile.png"
 MAC="$ROOT/overlay/chrome/app/theme/merlin/mac"
 XC="$MAC/Assets.xcassets"
 
@@ -24,7 +30,8 @@ trap 'rm -rf "$work"' EXIT
 python3 "$ROOT/scripts/merlin_mark.py" --write
 swiftc -module-cache-path "$work/swift-cache" -O "$ROOT/scripts/render_svg.swift" -o "$work/render_svg"
 swiftc -module-cache-path "$work/swift-cache" -O "$ROOT/scripts/render_wordmark.swift" -o "$work/render_wordmark"
-render() { "$work/render_svg" "$ICON" "$1" "$2"; }
+# The painted app icon is raster: scale it down with sips.
+render() { sips -s format png -z "$2" "$2" "$ICON" --out "$1" >/dev/null; }
 
 # Product tiles, template glyph and password favicon at every resource scale.
 TILE="$ROOT/branding/merlin-favicon.svg"
@@ -47,6 +54,12 @@ for scale in 1 2; do
     "$work/render_wordmark" "$TILE" "$ROOT/branding/merlin-wordmark-version-mask.png" "$components/product_logo$suffix.png" $((32 * scale)) "$ink"
   done
 done
+
+# macOS 26+: the Icon Composer layer is the full-bleed painting; macOS
+# applies the icon shape itself.
+mkdir -p "$MAC/AppIcon.icon/Assets"
+rm -f "$MAC/AppIcon.icon/Assets/"*
+cp "$ICON_TILE" "$MAC/AppIcon.icon/Assets/daylight.png"
 
 # Pre-macOS 26 app icon and the document badge, in the asset catalog.
 for s in 16 32 64 128 256 512; do

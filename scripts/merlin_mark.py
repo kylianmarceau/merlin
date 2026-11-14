@@ -7,6 +7,8 @@
 The vector contours in branding/merlin-falcon.json were traced from the approved
 artwork, retaining its wing channel, eye and beak. All SVG, WebUI and native
 Views representations use those same contours; no surface draws its own mark.
+The macOS app icon is the exception: it is the painted 'Wrapped' artwork in
+branding/app-icons/ (see branding/README.md).
 
     python3 scripts/merlin_mark.py --write
 
@@ -80,19 +82,6 @@ def tile_svg(size: float = 200, label: str = "Merlin") -> str:
             f'{mark(size / TILE)}</svg>\n')
 
 
-def app_icon_svg() -> str:
-    """macOS icon on Apple's 1024 grid, preserving native padding and mask."""
-    return ('<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" '
-            'viewBox="0 0 1024 1024" role="img" aria-label="Merlin app icon">'
-            f'<rect x="100" y="100" width="824" height="824" rx="185" fill="{CREAM}"/>'
-            f'{mark(824 / TILE, 100, 100)}</svg>\n')
-
-
-def icon_composer_layer() -> str:
-    return ('<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" '
-            f'viewBox="0 0 1024 1024">{mark(1024 / TILE)}</svg>\n')
-
-
 def mark_svg() -> str:
     margin = 6
     x, y = BOX[0] - margin, BOX[1] - margin
@@ -122,13 +111,11 @@ def outputs(root: str) -> dict:
     icons = root / "overlay/components/vector_icons/merlin"
     return {
         root / "branding/merlin-mark.svg": mark_svg(),
-        root / "branding/merlin-app-icon.svg": app_icon_svg(),
         root / "branding/merlin-favicon.svg": tile_svg(),
         root / "branding/merlin-password-favicon.svg": password_svg(),
         root / "branding/merlin-mono.svg": mono_svg(),
         theme / "product_logo.svg": tile_svg(),
         theme / "product_logo_animation.svg": tile_svg(),
-        theme / "mac/AppIcon.icon/Assets/merlin.svg": icon_composer_layer(),
         icons / "product.icon": vector_icon(24),
         icons / "product_refresh.icon": vector_icon(24),
     }

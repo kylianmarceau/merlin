@@ -36,5 +36,7 @@ FORCE_BUNDLING=1 RCT_NEW_ARCH_ENABLED=0 xcodebuild \
   -scheme MerlinShell-macOS -configuration "$CONFIGURATION" \
   -destination 'generic/platform=macOS' -derivedDataPath "$DERIVED_DATA" \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+# The Dock tile plug-in that keeps the chosen app icon after Merlin quits.
+packages/shell/docktile/build.sh "$DERIVED_DATA/Build/Products/$CONFIGURATION/MerlinShell.app"
 echo "React host: $DERIVED_DATA/Build/Products/$CONFIGURATION/MerlinShell.app"
 echo "Next: assemble it with the rebuilt Chromium app using scripts/assemble_react_app.py."
