@@ -73,7 +73,9 @@ export type PopoverBubbleProps = ViewProps & {
   /** The glass tint, or the solid fill when `glass` is false. */
   bubbleFill?: string; bubbleEdgeColor?: string; bubbleEdgeWidth?: number;
   bubbleShadowColor?: string; bubbleShadowOpacity?: number; bubbleShadowRadius?: number; bubbleShadowOffsetY?: number;
-  glass: boolean; clearGlass?: boolean;
+  glass: boolean;
+  /** With glass: 0 is regular (frosted) glass, 1 clear glass, between them a cross-fade. */
+  glassFade?: number; glassTint?: string;
 };
 /** A popover's surface: Liquid Glass or a solid panel, with an arrow pointing at its control. */
 export const PopoverBubble = view<PopoverBubbleProps>('PopoverBubble');

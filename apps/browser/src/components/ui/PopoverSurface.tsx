@@ -17,7 +17,7 @@ export function PopoverSurface({ arrow = 'none', arrowX = 0, radius = radii.bubb
   const drop = shadow[elevation];
   const tinted = panelGlass(dark ? 'dark' : 'light', accent, glass);
   return <PopoverBubble pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, style ?? {}]}
-    glass={glass.on} clearGlass={tinted.clear} bubbleRadius={radius} arrowEdge={arrow} arrowX={arrowX}
+    glass={glass.on} glassFade={tinted.fade} glassTint={tinted.tint} bubbleRadius={radius} arrowEdge={arrow} arrowX={arrowX}
     arrowWidth={geometry.arrowWidth} arrowHeight={geometry.arrowHeight}
     bubbleFill={glass.on ? tinted.fill : colors[fill]} bubbleEdgeColor={colors.surfaceBorder} bubbleEdgeWidth={geometry.hairline / 2}
     bubbleShadowColor={colors.shadowColor} bubbleShadowOpacity={dark ? Math.min(1, drop.opacity * 2) : drop.opacity}

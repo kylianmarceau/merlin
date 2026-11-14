@@ -73,7 +73,8 @@ final class MerlinGlass: ExpoView {
 }
 
 // A popover's surface: a rounded panel, with an arrow pointing at its control
-// when it has one. As glass it is one SwiftUI glass shape in that outline. As
+// when it has one. As glass it is SwiftUI glass in that outline: regular glass
+// fading into clear by `glassFade`, under `fill` as a colour layer. As
 // a solid panel it is an opaque fill with a hairline edge and a layer shadow
 // cut out under the fill. Its content is drawn over it by React.
 final class MerlinPopoverBubble: ExpoView {
@@ -101,7 +102,8 @@ final class MerlinPopoverBubble: ExpoView {
   var dropRadius: Double = 0 { didSet { needsLayout = true } }
   var dropOffsetY: Double = 0 { didSet { needsLayout = true } }
   var glass = false { didSet { needsLayout = true } }
-  var clearGlass = false { didSet { needsLayout = true } }
+  var glassFade: Double = 0 { didSet { needsLayout = true } }
+  var glassTint: NSColor? { didSet { needsLayout = true } }
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -166,8 +168,9 @@ final class MerlinPopoverBubble: ExpoView {
       glassKey = ""
       return
     }
-    let next = "\(key) \(fill?.description ?? "") \(clearGlass)"
-    let view = BubbleGlass(outline: BubbleOutline(outline: Path(path)), tint: fill.map { Color(nsColor: $0) }, clear: clearGlass)
+    let next = "\(key) \(fill?.description ?? "") \(glassTint?.description ?? "") \(glassFade)"
+    let view = BubbleGlass(outline: BubbleOutline(outline: Path(path)), fill: fill.map { Color(nsColor: $0) },
+                           tint: glassTint.map { Color(nsColor: $0) }, fade: min(1, max(0, glassFade)))
     if let host = glassHost as? NSHostingView<BubbleGlass> {
       if next != glassKey { host.rootView = view }
     } else {
@@ -236,13 +239,19 @@ private final class BubbleOverlay: NSView {
 @available(macOS 26.0, *)
 private struct BubbleGlass: View {
   let outline: BubbleOutline
+  let fill: Color?
   let tint: Color?
-  let clear: Bool
+  let fade: Double
 
+  // Liquid Glass has no amount, only regular and clear, so the two are
+  // cross-faded. SwiftUI's opacity fades a glass effect evenly.
   var body: some View {
-    Color.clear
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .glassEffect((clear ? Glass.clear : Glass.regular).tint(tint), in: outline)
+    ZStack {
+      if fade > 0 { Color.clear.glassEffect(Glass.clear.tint(tint), in: outline) }
+      if fade < 1 { Color.clear.glassEffect(Glass.regular.tint(tint), in: outline).opacity(1 - fade) }
+      if let fill { outline.fill(fill) }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 }
 

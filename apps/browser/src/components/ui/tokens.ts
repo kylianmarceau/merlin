@@ -414,11 +414,14 @@ function matchChrome(bar: string, shell: string | null): SiteChrome {
   } };
 }
 
-// Glass. Settings › Appearance › Interface style: Glass draws popovers, the
-// address field, toolbar buttons and pinned tiles in macOS Liquid Glass
-// (macOS 26 and later); Classic draws them solid. Liquid Glass amplifies its
-// tint steeply: about 0.45 alpha already reads as an opaque panel and 0.1 as
-// Ardia's frosted one, so transparency maps onto that range on a curve.
+// Glass. Settings › Appearance › Interface style: Glass draws popovers and
+// menus in macOS Liquid Glass (macOS 26 and later); Classic draws them solid.
+// Liquid Glass has two fixed looks, regular (frosted) and clear, and its tint
+// barely changes the regular one, so a tint alone can't make a slider. Measured
+// in a test window, Transparency runs in two even halves instead: below the
+// middle a colour layer over the glass thickens it towards a solid panel;
+// above it the regular glass fades into the clear one. The middle is plain
+// regular glass, Ardia's look.
 
 export type GlassLook = {
   /** Glass is chosen and macOS can draw it. */
@@ -432,7 +435,7 @@ export type GlassLook = {
 };
 export const classicLook: GlassLook = { on: false, translucent: true, tint: 0, transparency: 0.5 };
 
-const glassCurve = { maxAlpha: 0.6, power: 2.5, clearFrom: 0.9, accentShare: 0.55 } as const;
+const glassCurve = { solid: 0.95, middle: 0.5, tintAlpha: 0.25, accentShare: 0.55 } as const;
 const glassBase = { light: ink[0], dark: ink[850] } as const;
 const controlAlpha = { rest: 0, lit: 0.05, pressed: 0.1, active: 0.22 } as const;
 export type GlassState = keyof typeof controlAlpha;
@@ -441,10 +444,23 @@ function glassHue(mode: Mode, accent: AccentName, tint: number) {
   return tint > 0 ? mixColor(glassBase[mode], accentScale[accent][mode].base, tint * glassCurve.accentShare) : glassBase[mode];
 }
 
-/** A popover or panel in glass: its tint, and whether it uses the clear glass. */
+const thousandths = (v: number) => Math.round(v * 1000) / 1000;
+
+/**
+ * A popover or panel in glass: `fill` is the colour layer over the glass,
+ * `fade` how far the regular glass has faded into clear (0 to 1), and `tint`
+ * the workspace colour the glass itself takes, if any.
+ */
 export function panelGlass(mode: Mode, accent: AccentName, look: GlassLook) {
-  const alpha = glassCurve.maxAlpha * (1 - look.transparency) ** glassCurve.power;
-  return { fill: withAlpha(glassHue(mode, accent, look.tint), Math.round(alpha * 1000) / 1000), clear: look.transparency >= glassCurve.clearFrom };
+  const t = Math.min(1, Math.max(0, look.transparency));
+  const { middle } = glassCurve;
+  const solid = t < middle ? glassCurve.solid * (middle - t) / middle : 0;
+  const fade = t > middle ? (t - middle) / (1 - middle) : 0;
+  return {
+    fill: withAlpha(glassHue(mode, accent, look.tint), thousandths(solid)),
+    fade: thousandths(fade),
+    tint: look.tint > 0 ? withAlpha(glassHue(mode, accent, 1), thousandths(look.tint * glassCurve.tintAlpha)) : undefined,
+  };
 }
 
 /** A control's glass plate (a lit button, the address field, a pinned tile). */

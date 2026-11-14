@@ -86,9 +86,11 @@ shadow. React Native's shadow props do nothing on macOS views. **(tested)**
 Glass panels follow Settings › Appearance › Interface style
 ([decision 60](../../docs/DECISIONS.md#60-ardias-interface-style-general-and-appearance-settings)):
 with **Glass** (macOS 26 and later) they are macOS Liquid Glass
-(`PopoverSurface`, drawn by the native `PopoverBubble`), tinted by
-`panelGlass()` from the transparency and workspace-tint settings, with no
-extra edge or shadow; with **Classic** they are `surfacePopoverSolid` with a
+(`PopoverSurface`, drawn by the native `PopoverBubble`), with no extra edge
+or shadow. Liquid Glass has only a regular and a clear look, and tint barely
+changes the regular one, so `panelGlass()` maps Transparency in two halves:
+below the middle a colour layer over the glass thickens it towards solid,
+above it the regular glass cross-fades into clear; with **Classic** they are `surfacePopoverSolid` with a
 half-point edge and a layer shadow, nothing showing through. Controls light
 up the same way: `GlassFill` is a glass plate with Glass and a flat wash
 (`rowHover`, `rowPressed`) with Classic.

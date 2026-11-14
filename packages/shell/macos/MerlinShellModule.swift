@@ -196,7 +196,8 @@ public final class MerlinShellPopoverBubbleModule: Module {
       Prop("bubbleShadowRadius") { (view, value: Double) in view.dropRadius = value }
       Prop("bubbleShadowOffsetY") { (view, value: Double) in view.dropOffsetY = value }
       Prop("glass") { (view, value: Bool) in view.glass = value }
-      Prop("clearGlass") { (view, value: Bool) in view.clearGlass = value }
+      Prop("glassFade") { (view, value: Double) in view.glassFade = value }
+      Prop("glassTint") { (view, value: String?) in view.glassTint = ShellColor.parse(value) }
     }
   }
 }

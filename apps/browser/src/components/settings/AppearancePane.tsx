@@ -50,7 +50,7 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
         <StyleChoice glass={false} selected={prefs.interfaceStyle === 'classic'} onPress={() => void setShellPref('interfaceStyle', 'classic')} />
       </View>
       {prefs.interfaceStyle === 'glass' && <FormGroup>
-        <FormRow title="Transparency" detail="How much shows through the glass, from frosted to clear. The window around the page follows it.">
+        <FormRow title="Transparency" detail="From nearly solid to clear glass; the middle is frosted. The window around the page follows it.">
           <AmountRow label="Transparency" value={prefs.glassTransparency} onChange={v => void setShellPref('glassTransparency', v)}
             reset={GLASS_DEFAULTS.transparency} />
         </FormRow>
