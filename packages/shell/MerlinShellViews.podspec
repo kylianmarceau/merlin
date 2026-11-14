@@ -11,6 +11,6 @@ Pod::Spec.new do |s|
   s.static_framework = true
   s.source_files = 'macos/**/*.swift'
   s.dependency 'ExpoModulesCore'
-  s.frameworks = 'AppKit'
+  s.frameworks = 'AppKit', 'SwiftUI', 'ServiceManagement', 'UniformTypeIdentifiers'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 end

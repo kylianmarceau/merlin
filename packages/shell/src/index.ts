@@ -16,7 +16,10 @@ export type SymbolName = 'arrow.left' | 'arrow.right' | 'arrow.up' | 'arrow.down
   // Tide's set: chevrons for navigation, and Merlin's own picks for Settings and the toolbar.
   'chevron.left' | 'chevron.up' | 'switch.2' | 'arrow.down.to.line' | 'nosign' | 'speedometer' | 'shippingbox' |
   'curlybraces' | 'm.square' | 'minus' | 'arrow.up.right' | 'person.crop.circle.badge.plus' | 'clock.arrow.circlepath' |
-  'square.dashed' | 'safari';
+  'square.dashed' | 'safari' |
+  // Ardia's downloads panel and the bookmarks bar.
+  'magnifyingglass.circle.fill' | 'pause.circle.fill' | 'play.circle.fill' | 'xmark.circle.fill' | 'arrow.clockwise.circle.fill' |
+  'doc' | 'folder.fill' | 'chevron.up.chevron.down' | 'checkmark.seal.fill' | 'sparkles.rectangle.stack' | 'link.circle';
 
 // Each view is its own native module (MerlinShell<Name>); see MerlinShellModule.swift.
 function view<P>(name: string) {
@@ -62,16 +65,82 @@ export const Fade = view<ViewProps & { fadeLength: number }>('Fade');
 export type GradientProps = ViewProps & { gradientKind: 'orb' | 'glow'; gradientColors: string[] };
 export const Gradient = view<GradientProps>('Gradient');
 
+/** A Liquid Glass plate behind a control (vibrancy before macOS 26). Never takes a click. */
+export const Glass = view<ViewProps & { glassRadius: number; glassTint?: string; glassClear?: boolean }>('Glass');
+
+export type PopoverBubbleProps = ViewProps & {
+  bubbleRadius: number; arrowEdge: 'top' | 'bottom' | 'none'; arrowX?: number; arrowWidth?: number; arrowHeight?: number;
+  /** The glass tint, or the solid fill when `glass` is false. */
+  bubbleFill?: string; bubbleEdgeColor?: string; bubbleEdgeWidth?: number;
+  bubbleShadowColor?: string; bubbleShadowOpacity?: number; bubbleShadowRadius?: number; bubbleShadowOffsetY?: number;
+  glass: boolean; clearGlass?: boolean;
+};
+/** A popover's surface: Liquid Glass or a solid panel, with an arrow pointing at its control. */
+export const PopoverBubble = view<PopoverBubbleProps>('PopoverBubble');
+
+export type FullScreenEvent = NativeSyntheticEvent<{ fullScreen: boolean }>;
+/** Reports whether its window is in macOS full screen. */
+export const WindowState = view<ViewProps & { onFullScreen(event: FullScreenEvent): void }>('WindowState');
+
 export type MenuItem =
   | { id: string; title: string; enabled?: boolean; checked?: boolean; destructive?: boolean; symbol?: SymbolName }
   | { title: string; children: MenuItem[]; enabled?: boolean; symbol?: SymbolName }
   | { separator: true };
+export type LoginItemStatus = 'enabled' | 'requiresApproval' | 'notRegistered' | 'notFound';
+export type AppIconChoice = { id: string; name: string; preview: string };
 type NativeShell = {
   showMenu(items: MenuItem[]): Promise<string | null>;
   preference(key: string): Promise<string | null>;
   setPreference(key: string, value: string | null): Promise<void>;
+  isLiquidGlass(): boolean;
+  fileIcon(ext: string, size: number): Promise<string | null>;
+  isDefaultBrowser(): Promise<boolean>;
+  makeDefaultBrowser(): Promise<boolean>;
+  loginItem(): Promise<LoginItemStatus>;
+  setLoginItem(on: boolean): Promise<LoginItemStatus>;
+  setThinScrollBars(thin: boolean): Promise<void>;
+  installQuitGuard(): Promise<void>;
+  setBookmarksMenuHidden(hidden: boolean): Promise<void>;
+  appIcons(size: number): Promise<AppIconChoice[]>;
+  appIcon(): Promise<string>;
+  setAppIcon(id: string): Promise<void>;
+  copyText(text: string): Promise<void>;
+  releaseVersion(): string | null;
+  chooseSaveFile(name: string): Promise<string | null>;
+  addListener(event: 'onPreferenceChanged', listener: (event: { key: string; value: string | null }) => void): { remove(): void };
 };
 let shell: NativeShell | undefined;
+const native = () => (shell ??= requireNativeModule<NativeShell>('MerlinShell'));
+
+/** Whether macOS draws Liquid Glass (macOS 26 and later). */
+export function isLiquidGlass(): boolean {
+  try { return native().isLiquidGlass(); } catch { return false; }
+}
+/** The Finder icon for files with this extension, as a PNG data URL. */
+export const fileIcon = (ext: string, size: number) => native().fileIcon(ext, size);
+export const isDefaultBrowser = () => native().isDefaultBrowser();
+/** macOS asks the person to confirm; resolves with whether Merlin is now the default. */
+export const makeDefaultBrowser = () => native().makeDefaultBrowser();
+export const loginItem = () => native().loginItem();
+export const setLoginItem = (on: boolean) => native().setLoginItem(on);
+export const setThinScrollBars = (thin: boolean) => native().setThinScrollBars(thin);
+/** Routes ⌘Q through the "Warn before quitting" question. */
+export const installQuitGuard = () => native().installQuitGuard();
+export const setBookmarksMenuHidden = (hidden: boolean) => native().setBookmarksMenuHidden(hidden);
+export const appIcons = (size: number) => native().appIcons(size);
+export const appIcon = () => native().appIcon();
+export const setAppIcon = (id: string) => native().setAppIcon(id);
+export const copyText = (text: string) => native().copyText(text);
+/** Asks where to save a file; resolves with its path, or null when cancelled. */
+export const chooseSaveFile = (name: string) => native().chooseSaveFile(name);
+/** Merlin's release version ("0.2.0-beta.13"), or null for a build that was not packaged as a release. */
+export function releaseVersion(): string | null {
+  try { return native().releaseVersion() ?? null; } catch { return null; }
+}
+/** A shell preference AppKit changed itself, such as "Don't ask again" on the quit question. */
+export function onPreferenceChanged(listener: (key: string, value: string | null) => void) {
+  return native().addListener('onPreferenceChanged', e => listener(e.key, e.value));
+}
 /** Shows a native menu at the pointer; resolves with the chosen item's id. */
 export function showMenu(items: MenuItem[]): Promise<string | null> {
   shell ??= requireNativeModule<NativeShell>('MerlinShell');

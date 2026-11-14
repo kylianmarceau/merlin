@@ -11,6 +11,8 @@ export type Space = keyof typeof space;
 
 export const radius = {
   none: 0, xs: 4, sm: 6, control: 8, row: 9, field: 10, tile: 10, tab: 10, card: 12, window: 12, panel: 16, popover: 18, dialog: 18,
+  /** Anchored popovers and their rows, as in Ardia's panels (rows are concentric: 12 − 6). */
+  bubble: 12, bubbleRow: 6,
   pill: 999,
 } as const;
 export type Radius = keyof typeof radius;
@@ -19,7 +21,7 @@ export const font = {
   family: 'System', mono: 'Menlo', serif: 'Georgia',
   size: { micro: 10, caption: 11, label: 12, body: 13, callout: 14, title: 15, input: 17, headline: 20, display: 30, greeting: 52 },
   weight: { regular: '400', medium: '500', semibold: '600', bold: '700' },
-  line: { micro: 13, caption: 14, label: 16, body: 18, callout: 19, title: 20, input: 22, headline: 26, display: 36, greeting: 56 },
+  line: { micro: 13, caption: 14, label: 16, body: 18, row: 16, callout: 19, title: 20, input: 22, headline: 26, display: 36, greeting: 56 },
   tracking: { tight: -0.6, snug: -0.2, normal: 0, wide: 0.4, label: 0.8 },
 } as const;
 
@@ -33,6 +35,11 @@ export const geometry = {
   popover: 300, popoverWide: 340, menu: 240, dialog: 380, dialogWide: 520, palette: 620, paletteInput: 60, paletteRow: 42,
   /** Every centred pop-up (commands, new tab, Ctrl-Tab): the most rows its list shows, and its full height. */
   popupList: 336, popupHeight: 440, switcherCard: 176, switcherThumb: 110,
+  /** Ardia's panel geometry: the arrow, row inset and padding, icon gap, downloads rows. */
+  arrowWidth: 20, arrowHeight: 9, arrowGap: 1, popoverMargin: 8, panelRowInset: 6, panelRowPadding: 10, panelIconGap: 10,
+  panelRow: 32, panelHeader: 24, panelSeparatorGap: 5, downloadRow: 40, fileIcon: 24, rowButton: 22, rowGlyph: 13, chevron: 9,
+  slider: 160, sliderTrack: 4, sliderThumb: 16, pictureChoice: 128, pictureChoiceHeight: 80, appIcon: 56, popUpMin: 160, bookmarksBar: 28,
+  bookmarksBarLarge: 34, toolbarCompact: 32, controlCompact: 24,
   sheetWidth: 840, sheetHeight: 640, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
   suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, paintWidth: 400, paintHeight: 172, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
 } as const;
@@ -175,6 +182,11 @@ function roles(mode: Mode, accentName: AccentName) {
     surfacePopover: pick('rgba(243, 247, 244, 0.78)', 'rgba(34, 39, 36, 0.80)'),
     surfaceMenu: pick('rgba(243, 247, 244, 0.82)', 'rgba(34, 39, 36, 0.84)'),
     surfaceSolid: pick('#F5F7F5', ink[850]),
+    // Classic popovers: solid, with an edge and a shadow, nothing showing through.
+    surfacePopoverSolid: pick(ink[0], ink[850]),
+    // Rows in popovers and menus, as in Ardia's panels.
+    rowHover: pick('rgba(0, 0, 0, 0.06)', 'rgba(255, 255, 255, 0.07)'),
+    rowPressed: pick('rgba(0, 0, 0, 0.10)', 'rgba(255, 255, 255, 0.12)'),
     surfaceDialog: pick('rgba(246, 249, 247, 0.90)', 'rgba(36, 41, 38, 0.92)'),
     surfaceSheet: pick(ink[0], ink[900]),
     surfaceSheetNav: pick(ink[0], ink[925]),
@@ -262,6 +274,8 @@ export const shadow = {
   none: { opacity: 0, radius: 0, offsetY: 0 },
   card: { opacity: 0.10, radius: 12, offsetY: 4 },
   tab: { opacity: 0.12, radius: 2, offsetY: 1 },
+  /** Settings › Appearance › Glow around the selected tab: Full, as in Ardia and Dia. */
+  tabGlow: { opacity: 0.14, radius: 12, offsetY: 0 },
   popover: { opacity: 0.17, radius: 22, offsetY: 12 },
   menu: { opacity: 0.16, radius: 18, offsetY: 8 },
   dialog: { opacity: 0.30, radius: 36, offsetY: 20 },
@@ -399,4 +413,51 @@ function matchChrome(bar: string, shell: string | null): SiteChrome {
     fillHover: wash(onDark ? 0.1 : 0.06), fillPressed: wash(onDark ? 0.16 : 0.1), fillSelected: wash(onDark ? 0.13 : 0.08),
     focusRing: wash(onDark ? 0.6 : 0.45),
   } };
+}
+
+// Glass. Settings › Appearance › Interface style: Glass draws popovers, the
+// address field, toolbar buttons and pinned tiles in macOS Liquid Glass
+// (macOS 26 and later); Classic draws them solid. Liquid Glass amplifies its
+// tint steeply: about 0.45 alpha already reads as an opaque panel and 0.1 as
+// Ardia's frosted one, so transparency maps onto that range on a curve.
+
+export type GlassLook = {
+  /** Glass is chosen and macOS can draw it. */
+  on: boolean;
+  /** Glass is chosen: the shell shows the desktop through it, even before macOS 26. */
+  translucent: boolean;
+  /** How much of the workspace colour the glass takes, 0 to 1; 0 is neutral. */
+  tint: number;
+  /** 0 frosted, 1 clear. */
+  transparency: number;
+};
+export const classicLook: GlassLook = { on: false, translucent: true, tint: 0, transparency: 0.5 };
+
+const glassCurve = { maxAlpha: 0.6, power: 2.5, clearFrom: 0.9, accentShare: 0.55 } as const;
+const glassBase = { light: ink[0], dark: ink[850] } as const;
+const controlAlpha = { rest: 0, lit: 0.05, pressed: 0.1, active: 0.22 } as const;
+export type GlassState = keyof typeof controlAlpha;
+
+function glassHue(mode: Mode, accent: AccentName, tint: number) {
+  return tint > 0 ? mixColor(glassBase[mode], accentScale[accent][mode].base, tint * glassCurve.accentShare) : glassBase[mode];
+}
+
+/** A popover or panel in glass: its tint, and whether it uses the clear glass. */
+export function panelGlass(mode: Mode, accent: AccentName, look: GlassLook) {
+  const alpha = glassCurve.maxAlpha * (1 - look.transparency) ** glassCurve.power;
+  return { fill: withAlpha(glassHue(mode, accent, look.tint), Math.round(alpha * 1000) / 1000), clear: look.transparency >= glassCurve.clearFrom };
+}
+
+/** A control's glass plate (a lit button, the address field, a pinned tile). */
+export function controlGlass(mode: Mode, accent: AccentName, look: GlassLook, state: GlassState) {
+  const lift = (1 - look.transparency) * controlAlpha.lit;
+  return withAlpha(glassHue(mode, accent, look.tint), controlAlpha[state] + (state === 'rest' ? 0 : lift));
+}
+
+/** The window shell's tint over its vibrancy: more transparent glass shows more of the desktop; Classic is opaque. */
+export function shellTintFor(tint: string, look: GlassLook) {
+  const m = /rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/.exec(tint);
+  if (!m) return tint;
+  const alpha = look.translucent ? Math.min(1, Number(m[4]) + (0.5 - look.transparency) * 0.28) : 1;
+  return `rgba(${m[1]}, ${m[2]}, ${m[3]}, ${Math.round(alpha * 1000) / 1000})`;
 }

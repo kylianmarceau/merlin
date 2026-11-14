@@ -13,50 +13,58 @@ import { suggestionDetail, suggestionIcons, useSearch } from '../omnibox/useSear
  * go. Before typing it offers the window's other pages; while typing,
  * Chromium's suggestions.
  */
-export function NewTabPopup({ open }: { open: boolean }) {
+export function NewTabPopup({ open, location = false }: { open: boolean; location?: boolean }) {
   const actions = useActions();
   if (!open) return null;
   const close = () => { actions.stopSuggesting(); actions.closePanel(); };
-  return <CenteredPopup label="New tab" onDismiss={close}><Body onClose={close} /></CenteredPopup>;
+  return <CenteredPopup label={location ? 'Address' : 'New tab'} onDismiss={close}><Body onClose={close} location={location} /></CenteredPopup>;
 }
 
-function Body({ onClose }: { onClose(): void }) {
+/**
+ * `location`: ⌘L with Settings › Appearance › ⌘L opens the command bar set to
+ * In the centre. The same pop-up starts with the page's address, selected,
+ * and goes wherever is chosen in the current tab.
+ */
+function Body({ onClose, location }: { onClose(): void; location: boolean }) {
   const { colors } = useTheme();
   const actions = useActions();
   const snapshot = useSnapshot();
   const focusRequest = useBrowser(s => s.addressFocus);
-  const search = useSearch();
+  const current = snapshot.tabs.find(t => t.id === snapshot.activeTabId);
+  const search = useSearch(location && current && !isStartUrl(current.url) ? current.url : '');
   const [picked, setPicked] = useState(0);
   const pages = snapshot.tabs.filter(t => t.id !== snapshot.activeTabId && !isStartUrl(t.url)).slice(0, 6);
-  const count = search.typing ? search.suggestions.length : pages.length;
+  const typing = search.typing && (!location || search.edited);
+  const count = typing ? search.suggestions.length : pages.length;
 
   const openPage = (tab: Tab) => { onClose(); void actions.activateTab(tab.id); };
   const submit = () => {
-    if (!search.typing) { if (pages[picked]) openPage(pages[picked]); return; }
+    if (location && !search.edited) { onClose(); return; }
+    if (!typing) { if (pages[picked]) openPage(pages[picked]); return; }
     // Each request reads the current suggestions, so it goes before they are cleared.
-    search.submit(true);
+    search.submit(!location);
     actions.closePanel();
   };
   const move = (step: 1 | -1) => {
-    if (search.typing) search.move(step);
+    if (typing) search.move(step);
     else if (count) setPicked(p => (p + step + count) % count);
   };
 
   return <>
     <PopupField value={search.text} label="Search or enter an address" placeholder="Search or enter an address"
-      focusRequest={focusRequest} onChangeText={search.change} onSubmit={submit} onEscape={onClose}
+      focusRequest={focusRequest} onChangeText={search.change} onSubmit={submit} onEscape={onClose} selectAll={location}
       onKey={key => { if (key === 'down') move(1); else if (key === 'up') move(-1); }}
       trailing={<View style={{ paddingHorizontal: space.xs + space.hair, paddingVertical: space.hair, borderRadius: radius.sm,
         backgroundColor: colors.fillControl }}>
-        <Text variant="caption" weight="semibold" tone="textSecondary">New tab</Text>
+        <Text variant="caption" weight="semibold" tone="textSecondary">{location ? 'This tab' : 'New tab'}</Text>
       </View>} />
     {count > 0 && <View style={{ padding: space.sm, gap: space.hair }}>
-      {search.typing
+      {typing
         ? search.suggestions.map((item, index) => <PopupRow key={`${index}:${item.url}`} title={item.title || item.url}
           detail={suggestionDetail(item, displayHost(item.url))}
           leading={<Icon name={suggestionIcons[item.kind]} tone={search.selected === index ? 'paletteSelectedText' : 'iconSecondary'} size="small" />}
           selected={search.selected === index}
-          onPress={() => { search.open(index, true); actions.closePanel(); }} />)
+          onPress={() => { search.open(index, !location); actions.closePanel(); }} />)
         : pages.map((tab, index) => <PopupRow key={tab.id} title={tab.title || tab.url} detail="Switch to tab"
           leading={<Favicon tab={tab} />} selected={picked === index} onPress={() => openPage(tab)} />)}
     </View>}

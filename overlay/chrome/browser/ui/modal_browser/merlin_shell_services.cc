@@ -19,6 +19,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
+#include "base/task/bind_post_task.h"
+#include "chrome/browser/bookmarks/bookmark_html_writer.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
@@ -53,6 +55,7 @@
 #include "components/history/core/browser/history_types.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/web_contents.h"
@@ -530,6 +533,28 @@ bool RunBookmarks(BrowserWindowInterface* browser,
     }
     model->Remove(node, edit, FROM_HERE);
     Reply(std::move(reply), base::Value());
+  } else if (method == "bookmarks.export") {
+    // Settings > General > Export bookmarks: the shell's save panel chose
+    // the file; Chromium writes the bookmarks.html every browser imports.
+    const std::string* path = args.FindString("path");
+    const base::FilePath file = path ? base::FilePath(*path) : base::FilePath();
+    if (!path || path->size() > kMaxText || !file.IsAbsolute() || file.ReferencesParent()) {
+      Fail(std::move(reply), "Choose where to save the bookmarks");
+      return true;
+    }
+    bookmark_html_writer::WriteBookmarks(
+        browser->GetProfile(), file,
+        base::BindPostTask(
+            content::GetUIThreadTaskRunner({}),
+            base::BindOnce(
+                [](ShellServiceReply reply, bookmark_html_writer::Result result) {
+                  if (result == bookmark_html_writer::Result::kSuccess) {
+                    Reply(std::move(reply), base::Value());
+                  } else {
+                    Fail(std::move(reply), "The bookmarks could not be saved there");
+                  }
+                },
+                std::move(reply))));
   } else if (method == "bookmarks.createFolder") {
     const BookmarkNode* parent = NodeArg(model, args, "parentId");
     const std::string* title = args.FindString("title");

@@ -1,24 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import type { PreferenceKey, Preferences } from '../../state/types';
-import { useShellPrefs } from '../../state/shellPrefs';
+import { useAction, useActions, useRequest } from '../../state/window';
 import {
-  forgetSiteEngines, setNewTabPopup, setProtectedVideoInWebKit, setShellFollowsSite, setToolbarColor,
-} from '../../state/shellPrefsStorage';
-import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
-import {
-  Box, Button, Field, FormGroup, FormRow, ListRow, Notice, SectionHeader, Segmented, Sheet, SheetBody, Text, Toggle,
-  accentLabels, accentSwatch, accents, geometry, opacity, radius, space, themePreview, toolbarColorLabels, toolbarColors, useTheme,
-  type AccentName, type SheetSection,
+  Box, Button, Field, FormGroup, FormRow, ListRow, Notice, SectionHeader, Sheet, SheetBody, Text, Toggle, geometry,
+  type SheetSection,
 } from '../ui';
-import type { Appearance } from '../../state/types';
+import { AppearancePane } from './AppearancePane';
+import { GeneralPane } from './GeneralPane';
 
 // Merlin's own icons for each section: a window with its sidebar, a switch, a
 // closed eye, a no-entry sign, a box, stacked cards, ⌘, braces and the M.
 const sections = [
   { id: 'appearance', label: 'Appearance', icon: 'sidebar.left' },
   { id: 'general', label: 'General', icon: 'switch.2' },
-  { id: 'downloads', label: 'Downloads', icon: 'arrow.down.to.line' },
   { id: 'privacy', label: 'Privacy', icon: 'eye.slash' },
   { id: 'blocking', label: 'Blocking', icon: 'nosign' },
   { id: 'performance', label: 'Performance', icon: 'speedometer' },
@@ -41,10 +36,6 @@ type Set = (key: PreferenceKey, value: unknown) => void;
 
 export function Settings({ open }: { open: boolean }) {
   const actions = useActions();
-  const { appearance } = useSnapshot();
-  const newTabPopup = useShellPrefs(s => s.newTabPopup);
-  const toolbarColor = useShellPrefs(s => s.toolbarColor);
-  const shellFollowsSite = useShellPrefs(s => s.shellFollowsSite);
   const [section, setSection] = useState<SettingsSection>('appearance');
   const prefs = useRequest('settings.get', {});
   const action = useAction();
@@ -59,51 +50,12 @@ export function Settings({ open }: { open: boolean }) {
     <SheetBody>
       {action.error && <Box marginBottom="lg"><Notice tone="error">{action.error}</Notice></Box>}
       {prefs.error && !p ? <Notice tone="error">{prefs.error}</Notice> : !p && section !== 'appearance' ? <Text tone="textSecondary">Loading settings…</Text> : <>
-        {section === 'appearance' && <>
-          <Box marginBottom="xl" gap="sm">
-            <Text variant="label" weight="semibold" tone="groupLabel">Theme</Text>
-            <View accessibilityRole="radiogroup" accessibilityLabel="Colour scheme" style={{ flexDirection: 'row', gap: space.md + space.hair }}>
-              {(['system', 'light', 'dark'] as const).map(mode => <ThemeChoice key={mode} mode={mode} accent={appearance.accent}
-                selected={appearance.mode === mode} onPress={() => void actions.setAppearance({ mode })} />)}
-            </View>
-          </Box>
-          <Box marginBottom="xl" gap="sm">
-            <Text variant="label" weight="semibold" tone="groupLabel">Workspace colour</Text>
-            <View accessibilityRole="radiogroup" accessibilityLabel="Workspace colour" style={{ flexDirection: 'row', gap: space.lg }}>
-              {accents.map(a => <Swatch key={a} name={a} selected={appearance.accent === a} onPress={() => void actions.setAppearance({ accent: a })} />)}
-            </View>
-          </Box>
-          <FormGroup>
-            <FormRow title="Reduce motion" detail="Panels and popovers appear without animation.">
-              <Toggle label="Reduce motion" value={appearance.reduceMotion} onChange={reduceMotion => void actions.setAppearance({ reduceMotion })} /></FormRow>
-            {p && <FormRow title="Tabs" detail="Down the side or across the top. Command-S hides them either way.">
-              <Segmented label="Tab position" value={p.tabs} onChange={tabs => set('tabs', tabs)}
-                options={[{ value: 'side', label: 'Sidebar' }, { value: 'top', label: 'Top' }]} /></FormRow>}
-            {p?.tabs === 'top' && <FormRow title="Site colour" detail="The active tab and toolbar take the site's colour. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white.">
-              <Segmented label="Site colour" value={toolbarColor} onChange={style => void setToolbarColor(style)}
-                options={toolbarColors.map(value => ({ value, label: toolbarColorLabels[value] }))} /></FormRow>}
-            {p?.tabs === 'top' && toolbarColor !== 'white' && <FormRow title="Tint the window with the site colour"
-              detail="The space around the page takes the site's colour instead of the workspace colour.">
-              <Toggle label="Tint the window with the site colour" value={shellFollowsSite} onChange={on => void setShellFollowsSite(on)} /></FormRow>}
-            <FormRow title="Open new tabs as a pop-up" detail="Search over the current page; the tab opens once you choose where to go.">
-              <Toggle label="Open new tabs as a pop-up" value={newTabPopup} onChange={on => void setNewTabPopup(on)} /></FormRow>
-            {p && <FormRow title="Default page zoom"><Segmented label="Default zoom" value={p.zoom} onChange={zoom => set('zoom', zoom)}
-              options={p.zoomChoices.filter(z => z >= 75 && z <= 150).map(z => ({ value: z, label: `${z}%` }))} /></FormRow>}
-          </FormGroup>
-        </>}
-        {p && section === 'general' && <General p={p} set={set} openPage={openPage} />}
-        {p && section === 'downloads' && <>
-          <SectionHeader title="Downloads" />
-          <FormGroup>
-            <FormRow title="Save files to" detail={p.downloadDir || 'Not set'}>
-              <Button label="Change…" disabled={action.busy} onPress={async () => {
-                // The system folder picker stays open until the person chooses.
-                const dir = await action.run('settings.chooseDownloadDir', {}, 10 * 60_000);
-                if (dir !== undefined) prefs.reload();
-              }} /></FormRow>
-            <FormRow title="Ask where to save each file"><Toggle label="Ask where to save each file" value={p.askWhere} onChange={v => set('askWhere', v)} /></FormRow>
-          </FormGroup>
-        </>}
+        {section === 'appearance' && <AppearancePane p={p} set={set} />}
+        {p && section === 'general' && <GeneralPane p={p} set={set} openPage={openPage} onChooseDownloadDir={async () => {
+          // The system folder picker stays open until the person chooses.
+          const dir = await action.run('settings.chooseDownloadDir', {}, 10 * 60_000);
+          if (dir !== undefined) prefs.reload();
+        }} />}
         {p && section === 'privacy' && <>
           <SectionHeader title="Privacy" detail="Passwords, site permissions and browsing data." />
           <FormGroup>
@@ -163,42 +115,6 @@ function PageLinks({ links, openPage }: { links: readonly (readonly [string, str
   return <FormGroup>
     {links.map(([key, title]) => <ListRow key={key} title={title} onPress={() => openPage(key)}
       trailing={<Text variant="caption">Open</Text>} />)}
-  </FormGroup>;
-}
-
-function General({ p, set, openPage }: { p: Preferences; set: Set; openPage(key: string): void }) {
-  return <>
-    <SectionHeader title="General" />
-    <FormGroup title="Startup">
-      <FormRow title="When Merlin starts"><Segmented label="When Merlin starts" value={p.startup} onChange={v => set('startup', v)}
-        options={[{ value: 'last', label: 'Reopen my tabs' }, { value: 'start', label: 'Start page' }]} /></FormRow>
-      <FormRow title="Control-Tab switches" detail="Between tabs in the order they appear, or most recently used first.">
-        <Segmented label="Control-Tab order" value={p.ctrlTab} onChange={v => set('ctrlTab', v)}
-          options={[{ value: 'recent', label: 'Recent first' }, { value: 'order', label: 'In order' }]} /></FormRow>
-    </FormGroup>
-    <FormGroup title="Search" detail={p.engineManaged ? 'Your organisation manages the search engine.' : 'Used by the address field and the command menu.'}>
-      <FormRow title="Search engine">
-        <Segmented label="Search engine" value={p.engine} disabled={p.engineManaged} onChange={id => set('engine', id)}
-          options={p.engines.map(e => ({ value: e.id, label: e.name }))} />
-      </FormRow>
-      <ListRow title="Manage search engines" onPress={() => openPage('search-engines')} trailing={<Text variant="caption">Open</Text>} />
-    </FormGroup>
-    <ProtectedVideo />
-    <PageLinks openPage={openPage} links={[['languages', 'Languages'], ['fonts', 'Fonts'], ['accessibility', 'Accessibility'],
-      ['system', 'System'], ['import', 'Import bookmarks and settings'], ['reset', 'Reset settings']]} />
-  </>;
-}
-
-/** Sites Chromium can't play open in WebKit (state/webkit.ts). */
-function ProtectedVideo() {
-  const on = useShellPrefs(s => s.protectedVideoInWebKit);
-  const moved = useShellPrefs(s => Object.keys(s.siteEngines).length);
-  return <FormGroup title="Protected video"
-    detail="Netflix, Disney+, Prime Video, Spotify and similar services need DRM that Merlin’s Chromium doesn’t have. WebKit, Safari’s engine, plays them. WebKit keeps its own sign-ins.">
-    <FormRow title="Open protected video sites in WebKit">
-      <Toggle label="Open protected video sites in WebKit" value={on} onChange={v => void setProtectedVideoInWebKit(v)} /></FormRow>
-    <FormRow title="Sites you moved" detail={moved ? `${moved} site${moved === 1 ? '' : 's'} open in the engine you chose from the tab menu.` : 'Right-click a tab to open its site in the other engine.'}>
-      <Button label="Forget" disabled={!moved} onPress={() => void forgetSiteEngines()} /></FormRow>
   </FormGroup>;
 }
 
@@ -282,46 +198,3 @@ function ConfigEditor({ onSaved }: { onSaved(): void }) {
   </>;
 }
 
-/** A colour-scheme choice drawn as a small Merlin window. */
-function ThemeChoice({ mode, accent, selected, onPress }: {
-  mode: Appearance['mode']; accent: AccentName; selected: boolean; onPress(): void;
-}) {
-  const { colors } = useTheme();
-  const label = mode === 'system' ? 'Match system' : mode === 'light' ? 'Light' : 'Dark';
-  const halves = mode === 'system' ? (['light', 'dark'] as const) : [mode];
-  return <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected }} onPress={onPress}
-    style={{ flex: 1, gap: space.sm, alignItems: 'center' }}>
-    <View style={{ alignSelf: 'stretch', height: geometry.themePreview, borderRadius: radius.card, overflow: 'hidden', flexDirection: 'row',
-      borderWidth: selected ? geometry.focusRing : geometry.hairline, borderColor: colors[selected ? 'accent' : 'borderDefault'] }}>
-      {halves.map(half => {
-        const c = themePreview(half, accent);
-        return <View key={half} style={{ flex: 1, flexDirection: 'row', gap: space.xs + space.hair, padding: space.sm, backgroundColor: c.shell }}>
-          {(half === 'light' || mode !== 'system') && <View style={{ width: geometry.previewSidebar, gap: space.xs }}>
-            {[0, 1, 2].map(i => <View key={i} style={{ height: space.xs + space.hair, borderRadius: radius.xs, backgroundColor: c.bar,
-              opacity: i === 1 ? 1 : opacity.dim }} />)}
-          </View>}
-          <View style={{ flex: 1, borderRadius: radius.sm, backgroundColor: c.card }} />
-        </View>;
-      })}
-    </View>
-    <Text weight="medium">{label}</Text>
-  </Pressable>;
-}
-
-/** A workspace colour: the tint it gives the window, with its name. */
-function Swatch({ name, selected, onPress }: { name: AccentName; selected: boolean; onPress(): void }) {
-  const { colors, dark } = useTheme();
-  const swatch = accentSwatch(dark ? 'dark' : 'light', name);
-  return <Pressable accessibilityRole="radio" accessibilityLabel={accentLabels[name]} accessibilityState={{ selected }} onPress={onPress}
-    style={{ alignItems: 'center', gap: space.xs + space.hair }}>
-    <View style={{ padding: space.hair, borderRadius: radius.pill, borderWidth: geometry.focusRing,
-      borderColor: colors[selected ? 'accent' : 'fillTransparent'] }}>
-      <View style={{ width: geometry.swatch, height: geometry.swatch, borderRadius: radius.pill, backgroundColor: swatch.fill,
-        alignItems: 'flex-end', justifyContent: 'flex-end' }}>
-        <View style={{ width: geometry.dot + space.hair, height: geometry.dot + space.hair, borderRadius: radius.pill,
-          backgroundColor: swatch.accent, borderWidth: geometry.hairline, borderColor: colors.contentBackground }} />
-      </View>
-    </View>
-    <Text variant="label" tone={selected ? 'textPrimary' : 'textSecondary'}>{accentLabels[name]}</Text>
-  </Pressable>;
-}

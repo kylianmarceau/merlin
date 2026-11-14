@@ -25,6 +25,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -681,7 +682,37 @@ class ReactBrowserWindow final : public BrowserWindow,
   void ArmClose() {
     widget_->MakeCloseSynchronous(base::BindOnce(&ReactBrowserWindow::RequestClose, weak_factory_.GetWeakPtr()));
   }
+  // Settings > General > Warn before closing a window with multiple tabs.
+  // The shell keeps the choice in AppKit's defaults; absent means on.
+  static bool WarnBeforeClosing() {
+    NSString* value = [NSUserDefaults.standardUserDefaults stringForKey:@"MerlinShell.warnBeforeClosingWindow"];
+    return ![value isEqualToString:@"off"];
+  }
+  bool ShouldAskBeforeClosing() const {
+    if (close_confirmed_ || browser_shutdown::IsTryingToQuit() || !WarnBeforeClosing()) return false;
+    if (browser_->GetType() != BrowserWindowInterface::TYPE_NORMAL) return false;
+    return browser_->GetTabStripModel()->count() > 1;
+  }
+  void AskBeforeClosing() {
+    if (asking_to_close_) return;
+    asking_to_close_ = true;
+    const int count = browser_->GetTabStripModel()->count();
+    ShowShellPrompt(browser_, Dict().Set("kind", "confirm").Set("origin", "Merlin").Set("canSuppress", true)
+        .Set("title", "Close this window?").Set("message", "Its " + base::NumberToString(count) + " tabs close with it.")
+        .Set("actions", List().Append(Action("cancel", "Keep window")).Append(Action("close", "Close window", "danger"))),
+        base::BindOnce([](base::WeakPtr<ReactBrowserWindow> self, ShellPromptReply answer) {
+          if (!self) return;
+          self->asking_to_close_ = false;
+          if (answer.action != "close") return;
+          if (answer.suppress)
+            [NSUserDefaults.standardUserDefaults setObject:@"off" forKey:@"MerlinShell.warnBeforeClosingWindow"];
+          self->close_confirmed_ = true;
+          self->widget_->Close();
+        }, weak_factory_.GetWeakPtr()));
+  }
   void RequestClose(views::Widget::ClosedReason) {
+    if (ShouldAskBeforeClosing()) { AskBeforeClosing(); ArmClose(); return; }
+    close_confirmed_ = false;
     auto* unload = UnloadController::From(browser_);
     if (!unload->HandleBeforeClose()) { ArmClose(); return; }
     unload->OnWindowClosing();
@@ -698,6 +729,9 @@ class ReactBrowserWindow final : public BrowserWindow,
   // Whether React has drawn the window, and the notification that says so.
   bool drawn_ = false;
   id content_observer_ = nil;
+  // The close question is showing, or was answered "Close window".
+  bool asking_to_close_ = false;
+  bool close_confirmed_ = false;
   bool editable_ = true;
   std::unique_ptr<ExclusiveAccessBubbleViews> bubble_;
   uint64_t bubble_generation_ = 0;

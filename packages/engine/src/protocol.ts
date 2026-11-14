@@ -152,6 +152,8 @@ export type Requests = {
   'bookmarks.search': { args: { text: string }; result: BookmarkView };
   'bookmarks.edit': { args: { id: string; title: string; url?: string }; result: null };
   'bookmarks.remove': { args: { id: string }; result: null };
+  /** Writes every bookmark to `path` as a bookmarks.html file. */
+  'bookmarks.export': { args: { path: string }; result: null };
   'bookmarks.createFolder': { args: { parentId: string; title: string }; result: null };
   'bookmarks.move': { args: { id: string; parentId: string; index: number }; result: null };
   'extensions.list': { args: {}; result: ExtensionInfo[] };

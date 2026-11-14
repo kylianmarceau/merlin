@@ -14,7 +14,7 @@ export function Suggestions() {
   // The start page and the new-tab pop-up show their own suggestions.
   const elsewhere = useBrowser(s => s.panel === 'newTab') || omnibox?.owner !== 'address';
   const items = elsewhere ? [] : omnibox?.items ?? [];
-  return <Popover open={items.length > 0} anchor={anchor} bounds={bounds} kind="menu" fill="surfaceMenu" label="Suggestions" instant
+  return <Popover open={items.length > 0} anchor={anchor} bounds={bounds} kind="menu" label="Suggestions" instant arrow={false}
     width={Math.max(anchor?.width ?? 0, geometry.dialogWide)} onClose={actions.stopSuggesting}>
     {items.map((item: Suggestion, index) => <MenuRow key={`${index}:${item.url}`} icon={icons[item.kind]}
       label={item.title || item.url} detail={item.kind === 'tab' ? 'Switch to this tab' : item.detail || undefined}

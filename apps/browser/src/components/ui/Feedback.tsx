@@ -40,10 +40,12 @@ export function IconTile({ icon, tone = 'iconSecondary', fill = 'fillControl', s
 }
 
 /** Download or loading progress; indeterminate when `value` is null. */
-export function ProgressTrack({ value }: { value: number | null }) {
+export function ProgressTrack({ value, thin = false, muted = false }: { value: number | null; thin?: boolean; muted?: boolean }) {
   const { colors } = useTheme();
-  return <View style={{ height: geometry.progress, borderRadius: radius.pill, backgroundColor: colors.progressTrack, overflow: 'hidden' }}>
-    <View style={{ height: geometry.progress, width: `${value ?? 30}%`, borderRadius: radius.pill, backgroundColor: colors.progressFill }} />
+  const height = thin ? geometry.progress - geometry.hairline : geometry.progress;
+  return <View style={{ height, borderRadius: radius.pill, backgroundColor: colors.progressTrack, overflow: 'hidden' }}>
+    <View style={{ height, width: `${Math.max(3, value ?? 30)}%`, borderRadius: radius.pill,
+      backgroundColor: colors[muted ? 'textTertiary' : 'progressFill'] }} />
   </View>;
 }
 

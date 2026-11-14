@@ -1,51 +1,63 @@
 import React from 'react';
-import { View } from 'react-native';
-import { percent } from '../../lib/format';
+import { Image, Pressable, View } from 'react-native';
+import { downloadLine, percent } from '../../lib/format';
+import { useFileIcon } from '../../state/fileIcons';
 import type { Download, DownloadAction } from '../../state/types';
-import { Icon, PopoverRow, ProgressTrack, RoundButton, Text, geometry, radius, space, useTheme } from '../ui';
+import { Icon, MenuTextButton, PopoverRow, ProgressTrack, RowFill, geometry, opacity, rowState, space, useInteraction, type SymbolName } from '../ui';
 
 export function downloadStatus(d: Download) {
   return d.status ?? (d.state === 'complete' ? 'done' : d.state === 'interrupted' ? 'failed' : d.state);
 }
 
-/** A document with its type on it, like the file's own icon in Finder. */
-export function FileIcon({ name, warning = false }: { name: string; warning?: boolean }) {
-  const { colors } = useTheme();
-  const ext = (/\.([a-z0-9]{1,4})$/i.exec(name)?.[1] ?? '').toUpperCase();
-  return <View style={{ width: geometry.fileWidth, height: geometry.fileHeight, borderRadius: radius.xs, alignItems: 'center',
-    justifyContent: 'flex-end', paddingBottom: space.xs, backgroundColor: colors.contentBackground,
-    borderWidth: geometry.hairline, borderColor: colors.borderDefault }}>
-    <View style={{ position: 'absolute', top: -geometry.hairline, right: -geometry.hairline, width: geometry.fileFold,
-      height: geometry.fileFold, borderBottomLeftRadius: radius.xs, backgroundColor: colors.fillField,
-      borderLeftWidth: geometry.hairline, borderBottomWidth: geometry.hairline, borderColor: colors.borderDefault }} />
-    {warning ? <Icon name="exclamationmark.triangle" tone="danger" size="small" />
-      : !!ext && <Text variant="micro" weight="bold" tone={ext === 'PDF' ? 'textDanger' : 'textTertiary'}>{ext}</Text>}
+/** The file's own Finder icon, by its type. */
+export function FileIcon({ name, faded = false }: { name: string; faded?: boolean }) {
+  const uri = useFileIcon(name, geometry.fileIcon);
+  const side = { width: geometry.fileIcon, height: geometry.fileIcon };
+  return <View style={[side, { alignItems: 'center', justifyContent: 'center', opacity: faded ? opacity.disabled : 1 }]}>
+    {uri ? <Image source={{ uri }} style={side} /> : <Icon name="doc" tone="iconSecondary" size="regular" />}
   </View>;
 }
 
+/** A row's round action, drawn as Ardia draws them: a filled SF Symbol circle. */
+function RowButton({ icon, label, onPress }: { icon: SymbolName; label: string; onPress(): void }) {
+  const { hovered, handlers } = useInteraction();
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} {...handlers}>
+    {({ pressed }) => <View style={{ width: geometry.rowButton, height: geometry.rowButton, alignItems: 'center', justifyContent: 'center',
+      opacity: pressed ? opacity.pressed : 1 }}>
+      <RowFill state={rowState(hovered, false)} />
+      <Icon name={icon} tone="iconPrimary" size="small" />
+    </View>}
+  </Pressable>;
+}
+
 /**
- * One download, as in the downloads panel: the file, a progress bar while it
- * arrives, what is happening, and round buttons for what can be done.
+ * One download, as in Ardia's downloads panel: the file's icon, its name and
+ * one quiet line (its size once done), a thin progress bar while it arrives.
+ * Show in Finder appears on hover; everything else is in the right-click menu.
  */
-export function DownloadRow({ download: d, onAction }: { download: Download; onAction(action: DownloadAction): void }) {
+export const DownloadRow = React.memo(function DownloadRow({ download: d, onAction, onMenu }: {
+  download: Download; onAction(action: DownloadAction): void; onMenu(): void;
+}) {
   const status = downloadStatus(d);
   const value = percent(d.received, d.total);
   const running = status === 'progress' || status === 'paused';
-  const detail = d.detail || (status === 'progress' && value !== null ? `${value}%` : status === 'done' ? 'Done' : status);
-  return <PopoverRow title={d.name || 'Download'} detail={detail}
-    titleTone={status === 'failed' || status === 'dangerous' ? 'textDanger' : 'textPrimary'}
-    leading={<FileIcon name={d.name} warning={status === 'dangerous'} />}
-    onPress={status === 'done' ? () => onAction('open') : undefined}
+  const removed = status === 'removed';
+  const dangerous = status === 'dangerous';
+  return <PopoverRow title={d.name || 'Preparing…'} detail={downloadLine(d)} strike={removed}
+    titleTone={removed ? 'textSecondary' : status === 'failed' ? 'textDanger' : 'textPrimary'}
+    detailTone={dangerous || status === 'failed' ? 'textDanger' : 'textSecondary'}
+    leading={<FileIcon name={d.name} faded={removed} />}
+    onPress={status === 'done' ? () => onAction('open') : undefined} onContextMenu={onMenu}
     accessibilityLabel={status === 'done' ? `Open ${d.name}` : d.name}
-    trailing={<View style={{ flexDirection: 'row', gap: space.xs + space.hair }}>
-      {running && <RoundButton label={status === 'paused' ? 'Resume' : 'Pause'} icon={status === 'paused' ? 'play' : 'pause'}
-        onPress={() => onAction('pause')} />}
-      {running && <RoundButton label="Cancel" icon="xmark" onPress={() => onAction('cancel')} />}
-      {status === 'done' && <RoundButton label="Show in Finder" icon="magnifyingglass" onPress={() => onAction('show')} />}
-      {(status === 'failed' || status === 'cancelled') && <RoundButton label="Retry" icon="arrow.clockwise" onPress={() => onAction('retry')} />}
-      {status === 'dangerous' && <RoundButton label="Discard" icon="trash" onPress={() => onAction('discard')} />}
-      {!running && status !== 'dangerous' && <RoundButton label="Remove from list" icon="xmark" soft onPress={() => onAction('forget')} />}
-    </View>}>
-    {running && <View style={{ marginTop: space.xs + space.hair, marginBottom: space.hair }}><ProgressTrack value={value} /></View>}
+    trailing={dangerous ? <View style={{ marginRight: -space.sm }}>
+      <MenuTextButton label="Discard" onPress={() => onAction('discard')} />
+    </View> : running ? <View style={{ flexDirection: 'row' }}>
+      <RowButton icon={status === 'paused' ? 'play.circle.fill' : 'pause.circle.fill'} label={status === 'paused' ? 'Resume' : 'Pause'}
+        onPress={() => onAction('pause')} />
+      <RowButton icon="xmark.circle.fill" label="Cancel" onPress={() => onAction('cancel')} />
+    </View> : undefined}
+    hoverTrailing={status === 'done' ? <RowButton icon="magnifyingglass.circle.fill" label="Show in Finder" onPress={() => onAction('show')} />
+      : undefined}>
+    {running && <View style={{ marginTop: space.xs, marginBottom: space.hair }}><ProgressTrack value={value} thin muted={status === 'paused'} /></View>}
   </PopoverRow>;
-}
+});

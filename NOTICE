@@ -1,0 +1,18 @@
+Merlin
+Copyright 2026 The Merlin Authors
+
+Merlin is licensed under the BSD 3-Clause licence (see LICENSE).
+
+Portions of the macOS shell are adapted from Ardia
+(https://github.com/mantrakp04/ardia), Copyright 2026 Mantra Patel,
+licensed under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0):
+
+- packages/shell/macos/ShellGlass.swift: Liquid Glass plates and the
+  popover bubble outline (from Ardia's GlassEffect, LiquidGlass and
+  PopoverBubble).
+- packages/shell/macos/ShellSystem.swift: ThinScrollBars.
+- pnpm-patches/: fixes to React Native macOS and Expo Modules Core.
+
+The adapted files carry a notice saying so. Changes: renamed, reduced to
+what Merlin uses, solid Classic surfaces, Merlin's colour handling.

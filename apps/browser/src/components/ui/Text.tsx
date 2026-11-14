@@ -4,7 +4,7 @@ import { useTheme } from './theme';
 import { font, type ColorRole } from './tokens';
 
 export type TextVariant = 'micro' | 'caption' | 'label' | 'body' | 'bodyStrong' | 'callout' | 'calloutStrong' | 'title' | 'headline' |
-  'display' | 'greeting' | 'input' | 'section' | 'group' | 'mono';
+  'display' | 'greeting' | 'input' | 'section' | 'group' | 'mono' | 'row' | 'rowDetail';
 const variants: Record<TextVariant, TextStyle> = {
   micro: { fontSize: font.size.micro, lineHeight: font.line.micro, fontWeight: font.weight.medium },
   caption: { fontSize: font.size.caption, lineHeight: font.line.caption },
@@ -19,13 +19,16 @@ const variants: Record<TextVariant, TextStyle> = {
   greeting: { fontSize: font.size.greeting, lineHeight: font.line.greeting, fontFamily: font.serif, letterSpacing: font.tracking.snug },
   input: { fontSize: font.size.input, lineHeight: font.line.input },
   /** Uppercase popover and panel headings, as in the downloads panel. */
-  section: { fontSize: font.size.caption, lineHeight: font.line.caption, fontWeight: font.weight.semibold, letterSpacing: font.tracking.label },
+  section: { fontSize: font.size.caption, lineHeight: font.line.caption, fontWeight: font.weight.semibold, letterSpacing: font.tracking.wide },
+  /** A popover row's title and its detail line, as in Ardia's panels. */
+  row: { fontSize: font.size.body, lineHeight: font.line.row },
+  rowDetail: { fontSize: font.size.caption, lineHeight: font.line.caption },
   /** Sentence-case group headings on the shell and in lists. */
   group: { fontSize: font.size.caption, lineHeight: font.line.caption, fontWeight: font.weight.semibold },
   mono: { fontSize: font.size.label, lineHeight: font.line.label, fontFamily: font.mono },
 };
 const defaultTone: Partial<Record<TextVariant, ColorRole>> = {
-  section: 'sectionLabel', group: 'groupLabel', caption: 'textSecondary', micro: 'textSecondary',
+  section: 'sectionLabel', group: 'groupLabel', caption: 'textSecondary', micro: 'textSecondary', rowDetail: 'textSecondary',
 };
 
 export type TextOwnProps = TextProps & {

@@ -83,6 +83,12 @@ done < <(find "$stage/Merlin.app/Contents/Resources" \
   -not -path '*/Helpers/*' -print0)
 echo "removed $removed translations"
 
+echo "==> release version"
+# The shell compares this with GitHub Releases for Settings › General ›
+# Updates. Chromium's own version stays in CFBundleShortVersionString.
+/usr/libexec/PlistBuddy -c "Delete :MerlinVersion" "$stage/Merlin.app/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :MerlinVersion string $VERSION" "$stage/Merlin.app/Contents/Info.plist"
+
 echo "==> ad-hoc signing, innermost first"
 # Every Mach-O file and code bundle, deepest path first, so each container
 # is signed after everything inside it. Symlinks are skipped.

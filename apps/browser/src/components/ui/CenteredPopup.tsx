@@ -28,7 +28,7 @@ export function CenteredPopup({ label, onDismiss, width = geometry.palette, chil
     <Pressable accessible={false} onPress={onDismiss}
       style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.scrim }} />
     <View style={{ width, maxWidth: '90%' }}>
-      <Panel fill="surfacePalette" radius="popover" elevation="dialog" accessibilityLabel={label} accessibilityViewIsModal>
+      <Panel glass fill="surfacePalette" radius="popover" elevation="dialog" accessibilityLabel={label} accessibilityViewIsModal>
         <View style={{ borderRadius: radius.popover, overflow: 'hidden' }}>{children}</View>
       </Panel>
     </View>
@@ -43,15 +43,22 @@ type FieldKey = 'up' | 'down' | 'tab';
  * focuses the page), which used to leave typing and Escape going to the page.
  */
 export function PopupField({ value, placeholder, label, icon = 'magnifyingglass', onChangeText, onSubmit, onEscape, onKey,
-  focusRequest, trailing }: {
+  focusRequest, trailing, selectAll = false }: {
   value: string; placeholder: string; label: string; icon?: SymbolName;
   onChangeText(text: string): void; onSubmit(): void; onEscape(): void; onKey?(key: FieldKey): void;
   /** Changes when something asks for the field to take the focus again. */
   focusRequest?: number;
   trailing?: React.ReactNode;
+  /** Selects what the field starts with, so typing replaces it (⌘L's address). */
+  selectAll?: boolean;
 }) {
   const { colors } = useTheme();
   const input = useRef<TextInput>(null);
+  useEffect(() => {
+    if (!selectAll) return;
+    const timer = setTimeout(() => input.current?.setNativeProps({ selection: { start: 0, end: value.length } }), duration.fast);
+    return () => clearTimeout(timer);
+  }, [focusRequest]);  // eslint-disable-line react-hooks/exhaustive-deps
   const open = useRef(true);
   const escape = useEscape(onEscape);
   const focus = () => { if (open.current) input.current?.focus(); };

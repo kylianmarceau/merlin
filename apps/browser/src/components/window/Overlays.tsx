@@ -41,6 +41,7 @@ export function Overlays() {
       <CommandDialog open={shown.panel === 'command'} />
       <CommandMenu open={shown.palette} palette={snapshot.modal.palette ?? null} />
       <NewTabPopup open={shown.panel === 'newTab' && !shown.palette} />
+      <NewTabPopup location open={shown.panel === 'location' && !shown.palette} />
       <TabSwitcher />
     </Layer>
     <Layer level="popover">
@@ -59,7 +60,7 @@ export function Overlays() {
         <ProfilesPopover />
       </Popover>
       <Popover open={shown.popover === 'downloads'} anchor={anchors.downloads} bounds={bounds} placement={place(anchors.downloads)}
-        label="Downloads" width="popoverWide" onClose={actions.closePopover}>
+        label="Downloads" width="popover" onClose={actions.closePopover}>
         <DownloadsPopover />
       </Popover>
     </Layer>
