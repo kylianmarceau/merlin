@@ -192,7 +192,6 @@ function roles(mode: Mode, accentName: AccentName) {
     surfaceSheetNav: pick(ink[0], ink[925]),
     surfaceSheetBody: pick('#F9FAF9', ink[900]),
     surfacePalette: pick(ink[0], ink[850]),
-    surfacePaletteFooter: pick('#F9FAF9', ink[900]),
     surfaceToast: pick(ink[900], ink[100]),
     surfaceCard: pick(ink[0], 'rgba(255, 255, 255, 0.04)'),
     surfaceCardHover: pick(ink[75], 'rgba(255, 255, 255, 0.07)'),

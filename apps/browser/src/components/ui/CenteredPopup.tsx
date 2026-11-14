@@ -109,11 +109,11 @@ export function PopupRow({ title, detail, keys, leading, selected, onPress }: {
   </Pressable>;
 }
 
-/** The pop-up's footer: the keys that work in it. */
+/** The pop-up's footer: the keys that work in it, on the pop-up's own surface. */
 export function PopupFooter({ accept = 'Open', children }: React.PropsWithChildren<{ accept?: string }>) {
   const { colors } = useTheme();
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.lg + space.hair, paddingHorizontal: space.lg + space.xs,
-    paddingVertical: space.sm + space.hair, backgroundColor: colors.surfacePaletteFooter, borderTopWidth: geometry.hairline,
+    paddingVertical: space.sm + space.hair, borderTopWidth: geometry.hairline,
     borderTopColor: colors.borderSubtle }}>
     <Hint keys="↩" label={accept} />
     <Hint keys="↑↓" label="Move" />
