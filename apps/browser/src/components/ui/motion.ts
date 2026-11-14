@@ -43,7 +43,7 @@ export const spring = {
 
 /** How each overlay moves between hidden (0) and shown (1). */
 export const presence = {
-  popover: { enter: duration.base, exit: duration.fast, scaleFrom: 0.96, shiftFrom: -4 },
+  popover: { enter: duration.base, exit: duration.fast, scaleFrom: 0.94, shiftFrom: -4 },
   menu: { enter: duration.fast, exit: duration.fast, scaleFrom: 0.98, shiftFrom: -2 },
   dialog: { enter: duration.slow, exit: duration.base, scaleFrom: 0.97, shiftFrom: 8 },
   sheet: { enter: duration.slow, exit: duration.base, scaleFrom: 0.985, shiftFrom: 12 },
@@ -80,12 +80,15 @@ export function usePresence(open: boolean, kind: PresenceKind, reduce: boolean) 
 }
 
 /** Opacity, scale and shift for a presence; pass to an Animated.View style. */
-export function presenceStyle(progress: Animated.Value, kind: PresenceKind) {
+export function presenceStyle(progress: Animated.Value, kind: PresenceKind, origin?: [number, number | string, number], upward = false) {
   const spec = presence[kind];
+  const shift = upward ? -spec.shiftFrom : spec.shiftFrom;
   return {
     opacity: progress,
+    // Grows out of its arrow, so it reads as coming from the control.
+    ...(origin ? { transformOrigin: origin } : null),
     transform: [
-      { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [spec.shiftFrom, 0] }) },
+      { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [shift, 0] }) },
       { scale: progress.interpolate({ inputRange: [0, 1], outputRange: [spec.scaleFrom, 1] }) },
     ],
   };

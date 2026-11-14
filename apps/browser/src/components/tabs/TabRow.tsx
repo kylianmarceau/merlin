@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
+import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions } from '../../state/window';
-import { ContextMenu, IconButton, Panel, Text, useInteraction, useTheme, geometry, radius, space } from '../ui';
+import { ContextMenu, GlassFill, IconButton, Panel, Text, useInteraction, useTheme, geometry, radius, space, type ShadowName } from '../ui';
+
+const glowElevation: Record<'full' | 'soft' | 'off', ShadowName> = { full: 'tabGlow', soft: 'tab', off: 'none' };
 import { Favicon } from '../favicon/Favicon';
 
 const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
@@ -16,11 +19,12 @@ export const TabRow = React.memo(function TabRow({ tab, active }: { tab: Tab; ac
   const actions = useActions();
   const { colors } = useTheme();
   const [hovered, setHovered] = useState(false);
+  const glow = useShellPrefs(p => p.selectedTabGlow);
   const title = isStartUrl(tab.url) ? 'New Tab' : tab.title || tab.url || 'New Tab';
   const row = <ContextMenu onOpen={() => void actions.tabMenu(tab.id)}>
     <View onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} style={{ flexDirection: 'row', alignItems: 'center', minHeight: geometry.tabRow, borderRadius: radius.row,
       backgroundColor: colors[!active && hovered ? 'tabHover' : 'fillTransparent'] }}>
-      {active && <Panel fill="tabActive" radius="row" elevation="tab" border="tabActiveBorder" style={cover} />}
+      {active && <Panel fill="tabActive" radius="row" elevation={glowElevation[glow]} border="tabActiveBorder" style={cover} />}
       <Pressable accessibilityRole="button" accessibilityState={{ selected: active }}
         accessibilityLabel={`${title}${tab.loading ? ', loading' : ''}${tab.audible ? ', playing audio' : ''}`}
         onPress={() => void actions.activateTab(tab.id)}
@@ -42,15 +46,18 @@ export const TabRow = React.memo(function TabRow({ tab, active }: { tab: Tab; ac
 
 /** A pinned tab, shown as a favourite tile above the tab list. */
 export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, width }: { tab: Tab; active: boolean; width: number }) {
-  const { colors } = useTheme();
+  const { colors, glass } = useTheme();
+  const glow = useShellPrefs(p => p.selectedTabGlow);
   const actions = useActions();
   const { hovered, handlers } = useInteraction();
   const title = tab.title || tab.url || 'Pinned tab';
   const tile = <Pressable accessibilityRole="button" accessibilityLabel={`Pinned: ${title}`} accessibilityState={{ selected: active }}
     onPress={() => void actions.activateTab(tab.id)} {...handlers}
     style={{ width, height: geometry.favourite, borderRadius: radius.tile, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: colors[active ? 'fillTransparent' : hovered ? 'fillShellControl' : 'tilePinned'] }}>
-    {active && <Panel fill="tilePinnedActive" radius="tile" elevation="tab" border="tabActiveBorder" style={cover} />}
+      backgroundColor: colors[active || glass.on ? 'fillTransparent' : hovered ? 'fillShellControl' : 'tilePinned'] }}>
+    {/* With Glass, pinned tiles are glass plates, lit on hover and brightest when chosen, as in Ardia. */}
+    {glass.on && <GlassFill radius={radius.tile} state={active ? 'active' : hovered ? 'lit' : 'rest'} />}
+    {active && !glass.on && <Panel fill="tilePinnedActive" radius="tile" elevation={glowElevation[glow]} border="tabActiveBorder" style={cover} />}
     <Favicon tab={tab} large />
     {tab.audible && <View style={{ position: 'absolute', bottom: space.hair, right: space.xs }}>
       <Text variant="micro">♪</Text>

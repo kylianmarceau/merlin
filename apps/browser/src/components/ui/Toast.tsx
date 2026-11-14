@@ -6,7 +6,7 @@ import { Text } from './Text';
 import { useTheme } from './theme';
 import { geometry, radius, space } from './tokens';
 
-export type ToastItem = { id: number; tone: 'error' | 'info'; text: string };
+export type ToastItem = { id: number; tone: 'error' | 'info'; text: string; action?: { label: string; run(): void } };
 
 /** Short notices at the bottom centre of the window. They leave on their own or on click. */
 export function ToastStack({ toasts, onDismiss }: { toasts: readonly ToastItem[]; onDismiss(id: number): void }) {
@@ -29,6 +29,10 @@ function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss(): void }) {
           <View style={{ width: geometry.dot, height: geometry.dot, borderRadius: radius.pill,
             backgroundColor: colors[toast.tone === 'error' ? 'notice' : 'accentSoft'] }} />
           <Text tone="textOnToast" weight="medium" style={{ flexShrink: 1 }}>{toast.text}</Text>
+          {toast.action && <Pressable accessibilityRole="button" accessibilityLabel={toast.action.label}
+            onPress={() => { toast.action?.run(); onDismiss(); }}>
+            <Text tone="textOnToast" weight="semibold" style={{ textDecorationLine: 'underline' }}>{toast.action.label}</Text>
+          </Pressable>}
         </View>
       </Panel>
     </Pressable>

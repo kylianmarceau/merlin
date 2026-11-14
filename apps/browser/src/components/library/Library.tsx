@@ -256,7 +256,8 @@ function Downloads() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: space.xl }}>
       {!shown.length && <EmptyState icon="arrow.down.to.line" title={q ? 'No downloads match' : 'No downloads'}
         detail={q ? undefined : 'Files you download appear here.'} />}
-      {shown.map(d => <DownloadRow key={d.id} download={d} onAction={a => void actions.downloadAction(d.id, a)} />)}
+      {shown.map(d => <DownloadRow key={d.id} download={d} onAction={a => void actions.downloadAction(d.id, a)}
+        onMenu={() => void actions.downloadMenu(d.id)} />)}
     </ScrollView>
   </Box>;
 }

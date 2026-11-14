@@ -1,6 +1,7 @@
 import React from 'react';
 import { Animated, View } from 'react-native';
 import { isStartUrl } from '../../lib/format';
+import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
 import { DragRegion, IconButton, PaletteScope, geometry, space, useColorFade, useTheme } from '../ui';
 import { useSiteChrome } from '../tabs/siteChrome';
@@ -24,30 +25,37 @@ export function Toolbar() {
   const chrome = useSiteChrome();
   const fill = useColorFade(chrome.bar, reduceMotion);
   const top = snapshot.modal.tabLayout === 'top';
-  return <PaletteScope roles={chrome.roles}><Animated.View style={{ height: geometry.toolbar, flexDirection: 'row', alignItems: 'center',
+  const compact = useShellPrefs(p => p.compactToolbar);
+  const showBookmarks = useShellPrefs(p => p.showBookmarks);
+  const size = compact ? 'compact' : 'regular';
+  return <PaletteScope roles={chrome.roles}><Animated.View style={{ height: compact ? geometry.toolbarCompact : geometry.toolbar, flexDirection: 'row', alignItems: 'center',
     gap: space.hair, paddingHorizontal: space.sm, paddingLeft: hidden ? geometry.sidebarCollapsedInset : space.sm, backgroundColor: fill }}>
     <DragRegion style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
     {top
-      ? <IconButton label={hidden ? 'Show tabs' : 'Hide tabs'} icon="rectangle.topthird.inset.filled" onPress={() => void actions.command('sidebar')} />
-      : hidden && <IconButton label="Show sidebar" icon="sidebar.left" onPress={() => void actions.command('sidebar')} />}
-    <NavigationButtons />
-    <View style={{ flex: 1, flexDirection: 'row', marginHorizontal: space.sm }}><AddressField /></View>
-    <IconButton label="Bookmark this page" icon="bookmark" disabled={!page}
-      onPress={() => { if (tab) void actions.bookmarkTab(tab.id); }} />
-    <IconButton label="Extensions" icon="shippingbox" disabled={!tab}
+      ? <IconButton label={hidden ? 'Show tabs' : 'Hide tabs'} icon="rectangle.topthird.inset.filled" size={size} onPress={() => void actions.command('sidebar')} />
+      : hidden && <IconButton label="Show sidebar" icon="sidebar.left" size={size} onPress={() => void actions.command('sidebar')} />}
+    <NavigationButtons size={size} />
+    <View style={{ flex: 1, flexDirection: 'row', marginHorizontal: space.sm }}><AddressField compact={compact} /></View>
+    {/* With bookmarks hidden (Settings › Appearance › Bookmarks) the button copies the address instead. */}
+    {showBookmarks
+      ? <IconButton label="Bookmark this page" icon="bookmark" disabled={!page} size={size}
+        onPress={() => { if (tab) void actions.bookmarkTab(tab.id); }} />
+      : <IconButton label="Copy address" icon="link" disabled={!page} size={size}
+        onPress={() => { if (tab) void actions.copyAddress(tab.url); }} />}
+    <IconButton label="Extensions" icon="shippingbox" disabled={!tab} size={size}
       selected={popover === 'extensions' || !!snapshot.extensionPopup}
       onFrame={frame => actions.setAnchor('extensions', frame)} onPress={() => actions.togglePopover('extensions')} />
   </Animated.View></PaletteScope>;
 }
 
 /** Back, forward and reload (stop while loading). */
-export function NavigationButtons() {
+export function NavigationButtons({ size = 'regular' }: { size?: 'regular' | 'compact' }) {
   const actions = useActions();
   const tab = useActiveTab();
   return <>
-    <IconButton label="Back" icon="chevron.left" disabled={!tab?.canGoBack} onPress={() => void actions.back()} />
-    <IconButton label="Forward" icon="chevron.right" disabled={!tab?.canGoForward} onPress={() => void actions.forward()} />
-    <IconButton label={tab?.loading ? 'Stop loading' : 'Reload'} icon={tab?.loading ? 'xmark' : 'arrow.clockwise'}
+    <IconButton label="Back" icon="chevron.left" size={size} disabled={!tab?.canGoBack} onPress={() => void actions.back()} />
+    <IconButton label="Forward" icon="chevron.right" size={size} disabled={!tab?.canGoForward} onPress={() => void actions.forward()} />
+    <IconButton label={tab?.loading ? 'Stop loading' : 'Reload'} icon={tab?.loading ? 'xmark' : 'arrow.clockwise'} size={size}
       disabled={!tab} onPress={() => void actions.reloadOrStop()} />
   </>;
 }

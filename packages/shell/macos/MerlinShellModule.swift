@@ -1,5 +1,6 @@
 import AppKit
 import ExpoModulesCore
+import UniformTypeIdentifiers
 
 // AppKit pieces the React shell draws with: symbols, vibrancy, shadowed
 // surfaces, the window drag region, outside-press detection and native
@@ -21,6 +22,47 @@ public final class MerlinShellModule: Module {
       if let value { UserDefaults.standard.set(value, forKey: "MerlinShell.\(key)") }
       else { UserDefaults.standard.removeObject(forKey: "MerlinShell.\(key)") }
     }
+
+    // Settings › General and Appearance: system state the shell reads and sets.
+    Events("onPreferenceChanged")
+    OnCreate {
+      AppIcons.restore()
+      QuitGuard.shared.onSuppressed = { [weak self] in
+        self?.sendEvent("onPreferenceChanged", ["key": "warnBeforeQuitting", "value": nil])
+      }
+    }
+    Function("isLiquidGlass") { LiquidGlass.available }
+    AsyncFunction("fileIcon") { (ext: String, size: Double) -> String? in FileIcons.dataURL(ext: ext, size: size) }.runOnQueue(.main)
+    AsyncFunction("isDefaultBrowser") { DefaultBrowser.isDefault }.runOnQueue(.main)
+    AsyncFunction("makeDefaultBrowser") { (promise: Promise) in DefaultBrowser.make { promise.resolve($0) } }.runOnQueue(.main)
+    AsyncFunction("loginItem") { LoginItem.status }.runOnQueue(.main)
+    AsyncFunction("setLoginItem") { (on: Bool) -> String in
+      try? LoginItem.set(on)
+      return LoginItem.status
+    }.runOnQueue(.main)
+    AsyncFunction("setThinScrollBars") { (thin: Bool) in ThinScrollBars.set(thin) }.runOnQueue(.main)
+    // The menu bar exists by the time a window's React root asks for this.
+    AsyncFunction("installQuitGuard") { QuitGuard.shared.install() }.runOnQueue(.main)
+    AsyncFunction("setBookmarksMenuHidden") { (hidden: Bool) in BookmarksMenu.setHidden(hidden) }.runOnQueue(.main)
+    AsyncFunction("appIcons") { (size: Double) in AppIcons.choices(size: size) }.runOnQueue(.main)
+    AsyncFunction("appIcon") { AppIcons.current }
+    // Merlin's release version, stamped by scripts/package_mac.sh; nil for a local build.
+    Function("releaseVersion") { Bundle.main.object(forInfoDictionaryKey: "MerlinVersion") as? String }
+    // A save panel for a file Chromium then writes, such as exported bookmarks.
+    AsyncFunction("chooseSaveFile") { (name: String, promise: Promise) in
+      let panel = NSSavePanel()
+      panel.nameFieldStringValue = name
+      panel.canCreateDirectories = true
+      if let ext = name.split(separator: ".").last, let type = UTType(filenameExtension: String(ext)) {
+        panel.allowedContentTypes = [type]
+      }
+      panel.begin { response in promise.resolve(response == .OK ? panel.url?.path : nil) }
+    }.runOnQueue(.main)
+    AsyncFunction("copyText") { (text: String) in
+      NSPasteboard.general.clearContents()
+      NSPasteboard.general.setString(text, forType: .string)
+    }.runOnQueue(.main)
+    AsyncFunction("setAppIcon") { (id: String) in AppIcons.set(id) }.runOnQueue(.main)
 
     AsyncFunction("showMenu") { (items: [[String: Any]], promise: Promise) in
       let choice = MenuChoice()
@@ -122,6 +164,49 @@ public final class MerlinShellFadeModule: Module {
     Name("MerlinShellFade")
     View(MerlinFade.self) {
       Prop("fadeLength") { (view, value: Double) in view.length = value }
+    }
+  }
+}
+
+public final class MerlinShellGlassModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellGlass")
+    View(MerlinGlass.self) {
+      Prop("glassRadius") { (view, value: Double) in view.radius = value }
+      Prop("glassTint") { (view, value: String?) in view.tint = ShellColor.parse(value) }
+      Prop("glassClear") { (view, value: Bool) in view.clear = value }
+    }
+  }
+}
+
+public final class MerlinShellPopoverBubbleModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellPopoverBubble")
+    View(MerlinPopoverBubble.self) {
+      Prop("bubbleRadius") { (view, value: Double) in view.cornerRadius = value }
+      Prop("arrowEdge") { (view, value: String) in view.arrowEdge = MerlinPopoverBubble.Edge(rawValue: value) ?? .none }
+      Prop("arrowX") { (view, value: Double) in view.arrowX = value }
+      Prop("arrowWidth") { (view, value: Double) in view.arrowWidth = value }
+      Prop("arrowHeight") { (view, value: Double) in view.arrowHeight = value }
+      Prop("bubbleFill") { (view, value: String?) in view.fill = ShellColor.parse(value) }
+      Prop("bubbleEdgeColor") { (view, value: String?) in view.edgeColor = ShellColor.parse(value) }
+      Prop("bubbleEdgeWidth") { (view, value: Double) in view.edgeWidth = value }
+      Prop("bubbleShadowColor") { (view, value: String?) in view.dropColor = ShellColor.parse(value) }
+      Prop("bubbleShadowOpacity") { (view, value: Double) in view.dropOpacity = value }
+      Prop("bubbleShadowRadius") { (view, value: Double) in view.dropRadius = value }
+      Prop("bubbleShadowOffsetY") { (view, value: Double) in view.dropOffsetY = value }
+      Prop("glass") { (view, value: Bool) in view.glass = value }
+      Prop("glassFade") { (view, value: Double) in view.glassFade = value }
+      Prop("glassTint") { (view, value: String?) in view.glassTint = ShellColor.parse(value) }
+    }
+  }
+}
+
+public final class MerlinShellWindowStateModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellWindowState")
+    View(MerlinWindowState.self) {
+      Events("onFullScreen")
     }
   }
 }

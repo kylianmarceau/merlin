@@ -42,7 +42,7 @@ export function TabSwitcher() {
     justifyContent: 'center' }}>
     <Pressable accessible={false} onPress={() => void actions.cancelSwitcher()}
       style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.scrim }} />
-    <Panel fill="surfacePalette" radius="popover" elevation="dialog" accessibilityLabel={switcher.recent ? 'Recent tabs' : 'Tabs'}
+    <Panel glass fill="surfacePalette" radius="popover" elevation="dialog" accessibilityLabel={switcher.recent ? 'Recent tabs' : 'Tabs'}
       accessibilityViewIsModal style={{ maxWidth: '94%' }}>
       <View style={{ padding: space.md, gap: space.sm }}>
         <Text variant="label" weight="semibold" tone="textSecondary">{switcher.recent ? 'Recent tabs' : 'Tabs'}</Text>

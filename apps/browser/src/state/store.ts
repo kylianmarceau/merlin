@@ -4,14 +4,17 @@
 // Tabs the shell shows in WebKit are drawn over Chromium's (state/webkit.ts):
 // `snapshot` is what components show, `engineSnapshot` what Chromium sent.
 import { createStore } from 'zustand/vanilla';
+import { shellPrefs } from './shellPrefs';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
 
-export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | null;
+/** `location` is ⌘L's centred field for the current tab (Settings › Appearance › ⌘L opens the command bar: In the centre). */
+export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | 'location' | null;
 export type PopoverName = 'extensions' | 'profiles' | 'downloads';
 /** Places popovers attach to. Toolbar and sidebar controls report their frames. */
 export type AnchorName = 'site' | 'requests' | 'extensions' | 'downloads' | 'profiles' | 'address';
 export type Rect = { x: number; y: number; width: number; height: number };
-export type Toast = { id: number; tone: 'error' | 'info'; text: string };
+/** A notice; `action` adds one button to it ("View" on an update). */
+export type Toast = { id: number; tone: 'error' | 'info'; text: string; action?: { label: string; run(): void } };
 /**
  * `selected` is the highlighted suggestion; -1 means what was typed. `owner`
  * is the field that asked: the toolbar's address field shows its list under
@@ -99,10 +102,10 @@ function shallowEqual(a: object, b: object) {
 }
 
 let toastCounter = 0;
-export function pushToast(store: BrowserStore, text: string, tone: Toast['tone'] = 'error') {
+export function pushToast(store: BrowserStore, text: string, tone: Toast['tone'] = 'error', action?: Toast['action']) {
   const id = ++toastCounter;
   // The newest three; an identical notice replaces its older copy.
-  store.setState(s => ({ toasts: [...s.toasts.filter(t => t.text !== text), { id, tone, text }].slice(-3) }));
+  store.setState(s => ({ toasts: [...s.toasts.filter(t => t.text !== text), { id, tone, text, ...(action ? { action } : {}) }].slice(-3) }));
   return id;
 }
 export function dismissToast(store: BrowserStore, id: number) {
@@ -140,7 +143,12 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
     try {
       switch (event.type) {
         case 'snapshot': acceptSnapshot(store, event.snapshot); break;
-        case 'address.focus': store.setState(s => ({ addressFocus: s.addressFocus + 1 })); break;
+        case 'address.focus':
+          // ⌘L in the centre edits the current page's address over the page, as in Arc.
+          if (shellPrefs.getState().commandBarPlacement === 'centred' && store.getState().panel !== 'newTab' && store.getState().snapshot?.activeTabId)
+            store.setState(s => ({ panel: 'location', popover: null, addressFocus: s.addressFocus + 1 }));
+          else store.setState(s => ({ addressFocus: s.addressFocus + 1 }));
+          break;
         case 'address.revert': store.setState(s => ({ addressRevert: s.addressRevert + 1, omnibox: null })); break;
         case 'command.open': store.setState({ panel: 'command', popover: null }); break;
         case 'panel.open': openNativePanel(store, event.panel); break;

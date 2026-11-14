@@ -4,6 +4,7 @@ import { Box, Text, ThemeScope } from './components/ui';
 import { BrowserWindow } from './components/window/BrowserWindow';
 import { PopupWindow } from './components/window/PopupWindow';
 import { loadShellPrefs } from './state/shellPrefsStorage';
+import { useGlassLook } from './state/glass';
 import { useWindowConnection, WindowProvider } from './state/window';
 
 const fallbackAppearance = { mode: 'system', accent: 'fern', reduceMotion: false } as const;
@@ -14,7 +15,8 @@ export function App({ windowId }: { windowId: string }) {
   useEffect(loadShellPrefs, []);
   const snapshot = useStore(store, s => s.snapshot);
   const error = useStore(store, s => s.connectionError);
-  return <ThemeScope appearance={snapshot?.appearance ?? fallbackAppearance}>
+  const glass = useGlassLook();
+  return <ThemeScope appearance={snapshot?.appearance ?? fallbackAppearance} glass={glass}>
     {actions && snapshot ? <WindowProvider store={store} actions={actions}>
       {snapshot.kind === 'popup' ? <PopupWindow /> : <BrowserWindow />}
     </WindowProvider> : <Startup error={error} />}

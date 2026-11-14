@@ -4,7 +4,7 @@ import { useTheme } from './theme';
 import { geometry, type ColorRole } from './tokens';
 
 export type { SymbolName };
-const sizes = { tiny: geometry.roundGlyph, small: geometry.iconSmall, regular: geometry.icon, large: geometry.iconLarge } as const;
+const sizes = { chevron: geometry.chevron, tiny: geometry.roundGlyph, small: geometry.iconSmall, regular: geometry.icon, large: geometry.iconLarge } as const;
 
 /** An SF Symbol tinted with a colour role. */
 export function Icon({ name, tone = 'iconPrimary', size = 'regular', weight = 'medium' }: {

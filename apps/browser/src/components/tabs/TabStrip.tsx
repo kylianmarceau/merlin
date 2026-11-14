@@ -107,9 +107,10 @@ export function TabStrip() {
       </>}
     </View>
     <View style={{ height: geometry.strip, flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
-      <DownloadsButton />
       <LibraryButtons />
       <ProfilesButton />
+      {/* Last, so its popover hangs at the window's right edge, as in Ardia. */}
+      <DownloadsButton />
     </View>
   </View>;
 }

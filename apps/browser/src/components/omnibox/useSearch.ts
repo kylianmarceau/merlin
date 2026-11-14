@@ -7,18 +7,19 @@ import { useActions, useBrowser } from '../../state/window';
  * address field has them: the start page's field and the new-tab pop-up.
  * Their suggestions show in place, never under the toolbar.
  */
-export function useSearch() {
+export function useSearch(initial = '') {
   const actions = useActions();
   const omnibox = useBrowser(s => s.omnibox);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initial);
   const deleting = useRef(false);
   const typing = !!text.trim();
+  const edited = text !== initial;
   const mine = typing && omnibox?.owner === 'search' && omnibox.text === text ? omnibox : null;
   const suggestions: Suggestion[] = mine?.items ?? [];
   // -1 is what was typed; Enter then opens the top suggestion when it is Chromium's default, as the address field does.
   const selected = mine ? (mine.selected >= 0 ? mine.selected : suggestions[0]?.default ? 0 : -1) : -1;
   return {
-    text, typing, suggestions, selected,
+    text, typing, edited, suggestions, selected,
     change(next: string) {
       deleting.current = next.length < text.length;
       setText(next);

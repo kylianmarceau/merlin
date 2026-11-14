@@ -46,7 +46,7 @@ export function Button({ label, variant = 'secondary', icon, trailingIcon, size 
 
 export type IconButtonProps = Omit<PressableProps, 'style' | 'children'> & {
   label: string; icon: SymbolName; variant?: 'ghost' | 'secondary' | 'primary'; selected?: boolean;
-  size?: 'small' | 'regular'; tone?: ColorRole;
+  size?: 'small' | 'regular' | 'compact'; tone?: ColorRole;
   /** The fill while selected; on the tinted shell this is a white wash. */
   selectedFill?: ColorRole;
   /** Reports the button's frame in the window, for anchoring a popover. */
@@ -60,8 +60,9 @@ export function IconButton({ label, icon, variant = 'ghost', selected, size = 'r
   const look = looks[variant];
   const { hovered, focused, handlers } = useInteraction();
   const ref = React.useRef<View>(null);
-  const side = size === 'small' ? geometry.control - space.sm : geometry.control;
+  const side = size === 'small' ? geometry.control - space.sm : size === 'compact' ? geometry.controlCompact : geometry.control;
   const report = () => ref.current?.measureInWindow((x, y, width, height) => onFrame?.({ x, y, width, height }));
+  // Buttons look the same with Glass as with Classic: no glass plate around them.
   return <Pressable ref={ref} onLayout={onFrame ? report : undefined} accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={{ disabled: !!disabled, selected }} disabled={disabled} {...handlers} {...rest}
     onPressIn={e => { if (onFrame) report(); rest.onPressIn?.(e); }}

@@ -62,7 +62,7 @@ export function PromptBody({ prompt, compact }: { prompt: Prompt; compact: boole
           actions.updatePromptText(prompt.id, value).catch(e => { if (alive.current) setError(e instanceof Error ? e.message : String(e)); });
         }} />
     </Box>}
-    {prompt.canSuppress && <Checkbox label="Don't let this page show more dialogs" value={suppress} disabled={pending} onChange={setSuppress} />}
+    {prompt.canSuppress && <Checkbox label={prompt.origin === 'Merlin' ? "Don't ask again" : "Don't let this page show more dialogs"} value={suppress} disabled={pending} onChange={setSuppress} />}
     {error && <Text tone="textDanger">{error}</Text>}
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: space.sm, paddingTop: space.hair }}>
       {prompt.actions.map(action => <Button key={action.id} label={action.label} disabled={!armed || pending}

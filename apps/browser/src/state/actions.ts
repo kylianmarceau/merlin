@@ -1,6 +1,6 @@
 // Everything a window's components can ask for. Components never hold the
 // engine or call getState(); they call these, and failures become notices.
-import { showMenu, type MenuItem } from '../platform/shell';
+import { copyText, showMenu, type MenuItem } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
@@ -57,6 +57,53 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     pinTab: (tabId: string, pinned: boolean) => run('tabs.pin', { tabId, pinned }),
     moveTab: (tabId: string, beforeId: string | null) => run('tabs.move', { tabId, beforeId }),
     bookmarkTab: (tabId: string) => run('tabs.bookmark', { tabId }),
+    /** The bookmarks bar's contents: the first of Chromium's permanent folders. */
+    async bookmarksBar() {
+      const root = await engine.request('bookmarks.folder', {});
+      const bar = root.items.find(item => item.folder);
+      return bar ? (await engine.request('bookmarks.folder', { folderId: bar.id })).items : [];
+    },
+    openBookmark(url: string, newTab: boolean) {
+      const t = active();
+      if (newTab || !t) return actions.newTab(url);
+      if (webKitTakes(url, false)) return Promise.resolve(true);
+      return run('navigation.open', { tabId: t.id, text: url });
+    },
+    /** A bookmarks-bar folder as a native menu, two levels deep; choosing opens the bookmark. */
+    async bookmarkFolderMenu(folderId: string) {
+      const urls = new Map<string, string>();
+      const level = async (id: string, depth: number): Promise<MenuItem[]> => {
+        const { items } = await engine.request('bookmarks.folder', { folderId: id });
+        if (!items.length) return [{ id: 'empty', title: 'Empty', enabled: false }];
+        return Promise.all(items.map(async item => {
+          if (item.folder) return depth < 2 ? { title: item.title, symbol: 'folder' as const, children: await level(item.id, depth + 1) }
+            : { id: `folder:${item.id}`, title: item.title, enabled: false };
+          urls.set(item.id, item.url ?? '');
+          return { id: item.id, title: item.title || item.domain || item.url || 'Bookmark' };
+        }));
+      };
+      try {
+        const choice = await showMenu(await level(folderId, 0));
+        const url = choice ? urls.get(choice) : undefined;
+        if (url) await actions.openBookmark(url, false);
+      } catch (e) { fail(e); }
+    },
+    async bookmarkMenu(item: { id: string; url?: string; editable: boolean }, onChanged: () => void) {
+      const choice = await showMenu([
+        ...(item.url ? [{ id: 'open', title: 'Open' }, { id: 'tab', title: 'Open in New Tab' }, { id: 'copy', title: 'Copy Address' },
+          { separator: true as const }] : []),
+        { id: 'remove', title: 'Delete', enabled: item.editable, destructive: true },
+      ]);
+      if (choice === 'open' && item.url) return actions.openBookmark(item.url, false);
+      if (choice === 'tab' && item.url) return actions.openBookmark(item.url, true);
+      if (choice === 'copy' && item.url) return actions.copyAddress(item.url);
+      if (choice === 'remove') {
+        try { await engine.request('bookmarks.remove', { id: item.id }); onChanged(); } catch (e) { fail(e); }
+      }
+    },
+    async copyAddress(url: string) {
+      try { await copyText(url); pushToast(store, 'Address copied', 'info'); } catch (e) { fail(e); }
+    },
     async tabMenu(tabId: string) {
       const tabs = store.getState().snapshot?.tabs ?? [];
       const index = tabs.findIndex(t => t.id === tabId);
@@ -188,6 +235,13 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       store.setState({ omnibox: null });
       // Enter takes the default suggestion, as Chromium does; without one only Chromium knows.
       const top = omnibox?.items[0];
+      // Settings › General › When input looks like a website: Prefer Search Engine searches
+      // for "example.com" rather than opening it. A typed scheme ("https://…") still opens.
+      if (omnibox && top?.default && top.kind === 'url' && shellPrefs.getState().searchPreference === 'search'
+        && !/^[a-z][a-z0-9+.-]*:\/\//i.test(text.trim())) {
+        const search = omnibox.items.findIndex(item => item.kind === 'search');
+        if (search >= 0) return run('omnibox.open', { queryId: omnibox.queryId, index: search, newTab });
+      }
       if (webKitTakes(top?.default ? top.url : addressUrl(text), newTab)) return true;
       return run('omnibox.enter', { ...(omnibox ? { queryId: omnibox.queryId } : {}), text, newTab });
     },
@@ -248,6 +302,35 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     // Downloads.
     downloadAction: (downloadId: string, action: DownloadAction) => run('downloads.act', { downloadId, action }),
     openDownloadsFolder: () => run('downloads.openFolder', {}),
+    /** The downloads panel's Clear: forgets every download that is no longer arriving. */
+    clearDownloads() {
+      const done = (store.getState().snapshot?.downloads ?? []).filter(d => d.state !== 'progress');
+      store.setState({ popover: null });
+      return Promise.all(done.map(d => run('downloads.act', { downloadId: d.id, action: 'forget' })));
+    },
+    /** A download's right-click menu: what its row buttons do, and what the panel leaves out. */
+    async downloadMenu(downloadId: string) {
+      const d = store.getState().snapshot?.downloads.find(item => item.id === downloadId);
+      if (!d) return;
+      const status = d.status ?? (d.state === 'complete' ? 'done' : d.state === 'interrupted' ? 'failed' : d.state);
+      const running = status === 'progress' || status === 'paused';
+      const items: MenuItem[] = [
+        { id: 'open', title: 'Open', enabled: status === 'done' },
+        { id: 'show', title: 'Show in Finder', enabled: status === 'done' },
+        ...(running ? [{ id: 'pause', title: status === 'paused' ? 'Resume' : 'Pause' }, { id: 'cancel', title: 'Cancel' }] : []),
+        ...(status === 'failed' || status === 'cancelled' ? [{ id: 'retry', title: 'Try Again' }] : []),
+        ...(status === 'dangerous' ? [{ id: 'discard', title: 'Discard', destructive: true }] : []),
+        { separator: true },
+        ...(d.url ? [{ id: 'copy', title: 'Copy Download Link' }] : []),
+        { id: 'forget', title: 'Remove from List', enabled: !running },
+        { separator: true },
+        { id: 'folder', title: 'Open Downloads Folder' },
+      ];
+      const choice = await showMenu(items);
+      if (choice === 'folder') return actions.openDownloadsFolder();
+      if (choice === 'copy' && d.url) return copyText(d.url);
+      if (choice) return run('downloads.act', { downloadId, action: choice as DownloadAction });
+    },
 
     // Merlin commands and the command menu.
     command: (text: string) => run('modal.command', { text }),

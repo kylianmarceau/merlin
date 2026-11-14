@@ -13,7 +13,7 @@ import { Icon, IconButton, Text, duration, useEscape, useTheme, font, geometry, 
  * "shell" is the white pill at the top of the sidebar, showing just the site;
  * "toolbar" sits in the page card's toolbar and shows the path too.
  */
-export function AddressField({ variant = 'toolbar' }: { variant?: 'toolbar' | 'shell' }) {
+export function AddressField({ variant = 'toolbar', compact = false }: { variant?: 'toolbar' | 'shell'; compact?: boolean }) {
   const { colors } = useTheme();
   const snapshot = useSnapshot();
   const actions = useActions();
@@ -58,7 +58,7 @@ export function AddressField({ variant = 'toolbar' }: { variant?: 'toolbar' | 's
     }, duration.base);
   };
   // A new-tab pop-up takes the focus request instead.
-  const popupOpen = useBrowser(s => s.panel === 'newTab');
+  const popupOpen = useBrowser(s => s.panel === 'newTab' || s.panel === 'location');
   // So does the start page's own field, on a start page.
   useEffect(() => { if (focusRequest && !popupOpen && !start) input.current?.focus(); }, [focusRequest]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (revertRequest) { editingNow.current = false; setEditing(false); input.current?.blur(); } }, [revertRequest]);
@@ -90,12 +90,13 @@ export function AddressField({ variant = 'toolbar' }: { variant?: 'toolbar' | 's
   const rest = shown.startsWith(host) ? shown.slice(host.length) : '';
   const label = shown.startsWith(host) ? host : shown;
 
+  // The field looks the same with Glass as with Classic.
   const fill = shell
     ? colors[editing ? 'fillShellControlActive' : hovered ? 'fillShellControlActive' : 'fillShellControl']
     : colors[editing ? 'omniboxActive' : hovered ? 'omniboxHover' : 'omniboxIdle'];
   return <View ref={frame} onLayout={measure} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     style={{ flex: shell ? undefined : 1, flexDirection: 'row', alignItems: 'center', gap: space.xs,
-      height: shell ? geometry.address : geometry.controlLarge, paddingLeft: space.md, paddingRight: space.xs,
+      height: shell ? geometry.address : compact ? geometry.controlCompact : geometry.controlLarge, paddingLeft: space.md, paddingRight: space.xs,
       borderRadius: radius.field, backgroundColor: fill,
       borderWidth: geometry.hairline, borderColor: colors[editing && !shell ? 'borderDefault' : 'fillTransparent'] }}>
     {start && !editing && <Icon name="magnifyingglass" tone="iconSecondary" size="small" />}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
+import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import { DragRegion, Icon, IconButton, Text, useInteraction, useTheme, geometry, radius, space } from '../ui';
 import { AddressField } from '../omnibox/AddressField';
@@ -23,14 +24,16 @@ export function Sidebar() {
   const pinned = snapshot.tabs.filter(t => t.pinned);
   const open = snapshot.tabs.filter(t => !t.pinned);
   const tile = Math.floor((inner - tileGap * (columns - 1)) / columns);
+  // Settings › Appearance › Address bar: in the toolbar, the page card carries navigation and the address.
+  const addressHere = useShellPrefs(p => p.addressBar !== 'toolbar');
   return <View style={{ width: geometry.sidebar, paddingLeft: space.md, paddingRight: space.sm + space.hair,
     paddingBottom: space.sm + space.hair, gap: space.sm + space.hair }}>
     <View style={{ height: geometry.titlebar, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: space.hair }}>
       <DragRegion style={{ position: 'absolute', top: 0, left: -space.md, right: -space.sm, bottom: 0 }} />
       <IconButton label="Hide sidebar" icon="sidebar.left" onPress={() => void actions.command('sidebar')} />
-      <NavigationButtons />
+      {addressHere && <NavigationButtons />}
     </View>
-    <View onLayout={e => setInner(e.nativeEvent.layout.width)}><AddressField variant="shell" /></View>
+    <View onLayout={e => setInner(e.nativeEvent.layout.width)}>{addressHere && <AddressField variant="shell" />}</View>
     {snapshot.private && <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair, paddingHorizontal: space.sm + space.hair }}>
       <Icon name="eye.slash" tone="iconSecondary" size="small" />
       <Text variant="label" tone="textSecondary">Private window</Text>

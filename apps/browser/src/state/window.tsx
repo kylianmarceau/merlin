@@ -5,12 +5,26 @@ import { useStore } from 'zustand';
 import { connectEngine } from '../platform/engine';
 import type { Request, Requests } from '../platform/protocol';
 import { createActions, type Actions } from './actions';
-import { attachEngine, createBrowserStore, type BrowserState, type BrowserStore } from './store';
+import { attachEngine, createBrowserStore, pushToast, type BrowserState, type BrowserStore } from './store';
+import { followUpdateSetting } from './updates';
 import { overlays } from './surfaces';
 import { attachWebKit } from './webkit';
 
 type Window = { store: BrowserStore; actions: Actions };
 const WindowContext = createContext<Window | null>(null);
+
+// Open windows, newest last: app-wide notices (an update) go to one of them.
+const open: Window[] = [];
+let updatesFollowed = false;
+function followUpdates() {
+  if (updatesFollowed) return;
+  updatesFollowed = true;
+  followUpdateSetting(update => {
+    const window = open[open.length - 1];
+    if (window) pushToast(window.store, `${update.name} is available.`, 'info',
+      { label: 'View', run: () => void window.actions.newTab(update.url) });
+  });
+}
 
 /** Connects one window to Chromium. A missing engine is shown, never papered over. */
 export function useWindowConnection(windowId: string) {
@@ -30,7 +44,10 @@ export function useWindowConnection(windowId: string) {
     // WebKit first: Chromium's first snapshot already shows its WebKit tabs.
     const detachWebKit = attachWebKit(store, engine, url => void actions.newTab(url));
     const detachEngine = attachEngine(store, engine);
-    return () => { detachEngine(); detachWebKit(); };
+    const window = { store, actions };
+    open.push(window);
+    followUpdates();
+    return () => { detachEngine(); detachWebKit(); open.splice(open.indexOf(window), 1); };
   }, [connection]);
   return connection;
 }

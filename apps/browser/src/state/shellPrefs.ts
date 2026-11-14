@@ -5,6 +5,15 @@ import { createStore } from 'zustand/vanilla';
 import { useStore } from 'zustand';
 import type { SiteEngines } from '../lib/engines';
 
+export type InterfaceStyle = 'glass' | 'classic';
+export type AddressBarPlace = 'sidebar' | 'toolbar';
+export type CommandBarPlace = 'field' | 'centred';
+export type TabGlow = 'full' | 'soft' | 'off';
+export type ScrollBars = 'system' | 'thin';
+export type BarSize = 'default' | 'large';
+export type SearchPreference = 'website' | 'search';
+export type UpdateChannel = 'stable' | 'beta';
+
 export type ShellPrefs = {
   /** New tabs start as a pop-up over the current page instead of a page of their own. */
   newTabPopup: boolean;
@@ -16,11 +25,58 @@ export type ShellPrefs = {
   protectedVideoInWebKit: boolean;
   /** Sites the person moved to the other engine by hand. */
   siteEngines: SiteEngines;
+
+  // Appearance › Interface style (Ardia's), plus Merlin's transparency.
+  /** Glass draws popovers, fields and buttons in Liquid Glass; Classic keeps them solid. */
+  interfaceStyle: InterfaceStyle;
+  /** The glass takes the workspace colour. */
+  glassTintWithTheme: boolean;
+  /** How much of the workspace colour, 0 to 1. */
+  glassTintAmount: number;
+  /** How see-through glass is: 0 frosted, 1 clear. */
+  glassTransparency: number;
+  // Appearance › Address bar.
+  addressBar: AddressBarPlace;
+  commandBarPlacement: CommandBarPlace;
+  compactToolbar: boolean;
+  // Appearance › Bookmarks.
+  showBookmarks: boolean;
+  bookmarksBar: boolean;
+  bookmarksBarSize: BarSize;
+  // Appearance › Page frame.
+  borderlessMode: boolean;
+  /** Points between the page and the window's edges. */
+  pageFrame: number;
+  pageFrameZeroInFullScreen: boolean;
+  pageFrameZeroWhenTabsHidden: boolean;
+  // Appearance › Selected tab and Scroll bars.
+  selectedTabGlow: TabGlow;
+  pageScrollBars: ScrollBars;
+  // General.
+  warnBeforeQuitting: boolean;
+  warnBeforeClosingWindow: boolean;
+  searchPreference: SearchPreference;
+  updateChecks: boolean;
+  /** "auto" follows the running build: Beta while it is a pre-release, otherwise Stable. */
+  updateChannel: UpdateChannel | 'auto';
 };
 
-export const shellPrefs = createStore<ShellPrefs>()(() => ({
+export const PAGE_FRAME = { min: 0, max: 12, default: 8 } as const;
+export const GLASS_DEFAULTS = { tintAmount: 0.8, transparency: 0.5 } as const;
+
+export const defaultShellPrefs: ShellPrefs = {
   newTabPopup: false, toolbarColor: 'match', shellFollowsSite: false, protectedVideoInWebKit: true, siteEngines: {},
-}));
+  interfaceStyle: 'glass', glassTintWithTheme: false, glassTintAmount: GLASS_DEFAULTS.tintAmount,
+  glassTransparency: GLASS_DEFAULTS.transparency,
+  addressBar: 'sidebar', commandBarPlacement: 'field', compactToolbar: false,
+  showBookmarks: true, bookmarksBar: false, bookmarksBarSize: 'default',
+  borderlessMode: false, pageFrame: PAGE_FRAME.default, pageFrameZeroInFullScreen: false, pageFrameZeroWhenTabsHidden: false,
+  selectedTabGlow: 'soft', pageScrollBars: 'system',
+  warnBeforeQuitting: false, warnBeforeClosingWindow: true, searchPreference: 'website',
+  updateChecks: false, updateChannel: 'auto',
+};
+
+export const shellPrefs = createStore<ShellPrefs>()(() => ({ ...defaultShellPrefs }));
 
 export function useShellPrefs<T>(select: (prefs: ShellPrefs) => T): T {
   return useStore(shellPrefs, select);

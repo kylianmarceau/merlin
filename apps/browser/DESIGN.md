@@ -43,8 +43,9 @@ The stored accent names predate Tide and stay as the browser saves them:
   (the active tab always stays in the strip). Pinned tabs are icons in a
   soft group. A loading tab shows a spinner in place of its icon. Dragging
   a tab reorders it within its group, the joined shape following it.
-  Downloads, the command menu, Library, Settings and profiles sit at the
-  right. The card gets one 46 pt toolbar: hide tabs, back, forward, reload,
+  The command menu, Library, Settings, profiles and, last, Downloads sit at
+  the right, so the downloads panel hangs at the window's right edge.
+  The card gets one 46 pt toolbar (32 pt when compact): hide tabs, back, forward, reload,
   the address (site in medium weight, the rest of the path quiet), bookmark
   and extensions.
 - **Site colour** (tabs on top, Settings > Appearance): the joined tab and
@@ -82,23 +83,38 @@ The stored accent names predate Tide and stay as the browser saves them:
 
 Every raised surface is a `Panel`: one fill, a hairline edge and a native layer
 shadow. React Native's shadow props do nothing on macOS views. **(tested)**
-Glass panels put `popover` vibrancy (within-window blending) under a
-translucent fill and draw their edge on top.
+Glass panels follow Settings › Appearance › Interface style
+([decision 60](../../docs/DECISIONS.md#60-ardias-interface-style-general-and-appearance-settings)):
+with **Glass** (macOS 26 and later) they are macOS Liquid Glass
+(`PopoverSurface`, drawn by the native `PopoverBubble`), with no extra edge
+or shadow. Liquid Glass has only a regular and a clear look, and tint barely
+changes the regular one, so `panelGlass()` maps Transparency in two halves:
+below the middle a colour layer over the glass thickens it towards solid,
+above it the regular glass cross-fades into clear; with **Classic** they are `surfacePopoverSolid` with a
+half-point edge and a layer shadow, nothing showing through. Controls light
+up the same way: `GlassFill` is a glass plate with Glass and a flat wash
+(`rowHover`, `rowPressed`) with Classic.
 
 | Surface | Fill | Radius | Shadow | Blocks the page |
 | --- | --- | --- | --- | --- |
-| Popover, suggestions | glass, `surfacePopover` / `surfaceMenu` | 18 | `popover` / `menu` | No |
-| Find bar | glass, `surfacePopover` | pill | `popover` | No |
-| Command bar | `surfacePalette` | 18 | `dialog` | Light `scrim`; a press on it cancels |
-| New-tab pop-up | `surfacePalette` | 18 | `dialog` | `newTabVeil` over the page card only |
+| Popover (with arrow) | glass panel | `bubble` 12 | `popover` | No |
+| Suggestions | glass panel, no arrow | `bubble` 12 | `menu` | No |
+| Find bar | glass panel | pill | `popover` | No |
+| Command bar | glass panel | 18 | `dialog` | Light `scrim`; a press on it cancels |
+| New-tab and ⌘L pop-ups | glass panel | 18 | `dialog` | `newTabVeil` over the page card only |
 | Dialog | glass, `surfaceDialog` | 18 | `dialog` | Yes, with `scrim` |
 | Sheet (Settings, Library) | `surfaceSheetBody` / `surfaceSheet` | 16 | `dialog` | Yes, with `scrim` |
 | Toast | `surfaceToast` capsule | pill | `toast` | No |
 
-Popover content follows the downloads panel: an uppercase `MenuSection`
-label, `PopoverRow`s inset 18 pt with a 14 pt title and a 12 pt detail, small
-`RoundButton`s for row actions (dark for the main one, soft for the rest), a
-hairline `MenuSeparator` and a quiet `MenuFooter` ("View all downloads ›").
+Popover content follows Ardia's downloads panel: popovers are 300 pt wide,
+centred on their control with a 20 × 9 pt arrow pointing at it, and grow
+out of the arrow (scale 0.94 to 1). An uppercase `MenuSection` label
+(24 pt, with a quiet text action such as Clear), rows inset 6 pt with 10 pt
+of padding and a 6 pt corner (text 16 pt from the edge), a `row` title at
+13/16 and a `rowDetail` line at 11/14, a half-point `MenuSeparator` and a
+quiet `MenuFooter` ("View all downloads ›"). A download row is 40 pt with
+the file's Finder icon at 24 pt; Show in Finder appears on hover and the
+rest is in its right-click menu.
 Buttons are pills: `primary` is dark ink, `secondary` a soft wash.
 
 Settings shows its sections as icon tabs across the top; the Library as a
