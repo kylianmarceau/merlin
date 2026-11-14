@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import type { BookmarkItem } from '../../state/types';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions } from '../../state/window';
-import { ContextMenu, GlassFill, Icon, Text, geometry, radius, space, useInteraction, useTheme } from '../ui';
+import { ContextMenu, Icon, Text, geometry, radius, space, useInteraction, useTheme } from '../ui';
 
 /**
  * The bookmarks bar under the toolbar (Settings › Appearance › Bookmarks, or
@@ -31,6 +31,7 @@ export function BookmarksBar() {
 }
 
 function BarItem({ item, large, onChanged }: { item: BookmarkItem; large: boolean; onChanged(): void }) {
+  const { colors } = useTheme();
   const actions = useActions();
   const { hovered, handlers } = useInteraction();
   const title = item.title || item.domain || item.url || 'Bookmark';
@@ -43,7 +44,8 @@ function BarItem({ item, large, onChanged }: { item: BookmarkItem; large: boolea
       {({ pressed }) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair,
         height: large ? geometry.control : geometry.controlCompact - space.hair, paddingHorizontal: space.sm, borderRadius: radius.sm,
         maxWidth: geometry.stripTab + space.xl }}>
-        {(hovered || pressed) && <GlassFill radius={radius.sm} state={pressed ? 'pressed' : 'lit'} classic={pressed ? 'fillPressed' : 'fillHover'} />}
+        {(hovered || pressed) && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          borderRadius: radius.sm, backgroundColor: colors[pressed ? 'fillPressed' : 'fillHover'] }} />}
         <Icon name={item.folder ? 'folder' : 'globe'} tone="iconSecondary" size="small" />
         <Text variant={large ? 'body' : 'label'} weight="regular" lines={1}>{title}</Text>
       </View>}

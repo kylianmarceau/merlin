@@ -3,7 +3,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import { promptChipLabel, promptIcon } from '../../lib/prompts';
 import { displayAddress, displayHost, isStartUrl } from '../../lib/format';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
-import { GlassFill, Icon, IconButton, Text, duration, useEscape, useTheme, font, geometry, radius, space } from '../ui';
+import { Icon, IconButton, Text, duration, useEscape, useTheme, font, geometry, radius, space } from '../ui';
 
 /**
  * The address and search field. Chromium's address-bar engine suggests as the
@@ -14,7 +14,7 @@ import { GlassFill, Icon, IconButton, Text, duration, useEscape, useTheme, font,
  * "toolbar" sits in the page card's toolbar and shows the path too.
  */
 export function AddressField({ variant = 'toolbar', compact = false }: { variant?: 'toolbar' | 'shell'; compact?: boolean }) {
-  const { colors, glass } = useTheme();
+  const { colors } = useTheme();
   const snapshot = useSnapshot();
   const actions = useActions();
   const tab = useActiveTab();
@@ -90,9 +90,8 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
   const rest = shown.startsWith(host) ? shown.slice(host.length) : '';
   const label = shown.startsWith(host) ? host : shown;
 
-  // With Glass the field is a glass plate until it is edited; editing always gets a solid field to type on.
-  const glassy = glass.on && !editing;
-  const fill = glassy ? colors.fillTransparent : shell
+  // The field looks the same with Glass as with Classic.
+  const fill = shell
     ? colors[editing ? 'fillShellControlActive' : hovered ? 'fillShellControlActive' : 'fillShellControl']
     : colors[editing ? 'omniboxActive' : hovered ? 'omniboxHover' : 'omniboxIdle'];
   return <View ref={frame} onLayout={measure} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
@@ -100,7 +99,6 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
       height: shell ? geometry.address : compact ? geometry.controlCompact : geometry.controlLarge, paddingLeft: space.md, paddingRight: space.xs,
       borderRadius: radius.field, backgroundColor: fill,
       borderWidth: geometry.hairline, borderColor: colors[editing && !shell ? 'borderDefault' : 'fillTransparent'] }}>
-    {glassy && <GlassFill radius={radius.field} state={hovered ? 'lit' : 'rest'} />}
     {start && !editing && <Icon name="magnifyingglass" tone="iconSecondary" size="small" />}
     <View style={{ flex: 1, justifyContent: 'center' }}>
       <TextInput ref={input} accessibilityLabel="Address and search" enableFocusRing={false}

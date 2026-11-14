@@ -1,6 +1,5 @@
 import React from 'react';
 import { Pressable, View, type PressableProps } from 'react-native';
-import { GlassFill } from './GlassFill';
 import { Icon, type SymbolName } from './Icon';
 import { useInteraction } from './interaction';
 import { Text } from './Text';
@@ -57,27 +56,23 @@ export type IconButtonProps = Omit<PressableProps, 'style' | 'children'> & {
 /** A square icon button; its label is read by VoiceOver. */
 export function IconButton({ label, icon, variant = 'ghost', selected, size = 'regular', tone, selectedFill = 'fillSelected', disabled,
   onFrame, ...rest }: IconButtonProps) {
-  const { colors, glass } = useTheme();
+  const { colors } = useTheme();
   const look = looks[variant];
   const { hovered, focused, handlers } = useInteraction();
   const ref = React.useRef<View>(null);
   const side = size === 'small' ? geometry.control - space.sm : size === 'compact' ? geometry.controlCompact : geometry.control;
   const report = () => ref.current?.measureInWindow((x, y, width, height) => onFrame?.({ x, y, width, height }));
-  // Ghost buttons light up in glass with Glass; filled variants keep their fill.
-  const glassy = glass.on && variant === 'ghost';
+  // Buttons look the same with Glass as with Classic: no glass plate around them.
   return <Pressable ref={ref} onLayout={onFrame ? report : undefined} accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={{ disabled: !!disabled, selected }} disabled={disabled} {...handlers} {...rest}
     onPressIn={e => { if (onFrame) report(); rest.onPressIn?.(e); }}
     style={({ pressed }) => ({
       width: side, height: side, borderRadius: radius.control, alignItems: 'center', justifyContent: 'center',
-      backgroundColor: glassy ? colors.fillTransparent : colors[selected ? selectedFill : pressed ? look.pressed : hovered ? look.hover : look.fill],
+      backgroundColor: colors[selected ? selectedFill : pressed ? look.pressed : hovered ? look.hover : look.fill],
       borderWidth: geometry.focusRing, borderColor: focused ? colors.focusRing : colors.fillTransparent,
       opacity: disabled ? opacity.disabled : 1,
     })}>
-    {({ pressed }) => <>
-      {glassy && !disabled && <GlassFill radius={radius.control} state={selected ? 'active' : pressed ? 'pressed' : hovered ? 'lit' : 'rest'} />}
-      <Icon name={icon} tone={tone ?? (disabled ? 'iconDisabled' : look.icon)} size={size === 'small' ? 'small' : 'regular'} />
-    </>}
+    <Icon name={icon} tone={tone ?? (disabled ? 'iconDisabled' : look.icon)} size={size === 'small' ? 'small' : 'regular'} />
   </Pressable>;
 }
 
