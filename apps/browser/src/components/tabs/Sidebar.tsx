@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useShellPrefs } from '../../state/shellPrefs';
+import { reorderTarget } from '../../state/tabDrag';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import { DragRegion, Icon, IconButton, Text, useInteraction, useTheme, geometry, radius, space } from '../ui';
 import { AddressField } from '../omnibox/AddressField';
@@ -24,6 +25,13 @@ export function Sidebar() {
   const pinned = snapshot.tabs.filter(t => t.pinned);
   const open = snapshot.tabs.filter(t => !t.pinned);
   const tile = Math.floor((inner - tileGap * (columns - 1)) / columns);
+  // A row dragged up or down moves among the open tabs; read when it drops, so rows keep their memo.
+  const openIds = useRef<string[]>([]);
+  openIds.current = open.map(t => t.id);
+  const reorder = useCallback((id: string, steps: number) => {
+    const target = reorderTarget(openIds.current, id, steps);
+    if (target) void actions.moveTab(id, target.beforeId);
+  }, [actions]);
   // Settings › Appearance › Address bar: in the toolbar, the page card carries navigation and the address.
   const addressHere = useShellPrefs(p => p.addressBar !== 'toolbar');
   return <View style={{ width: geometry.sidebar, paddingLeft: space.md, paddingRight: space.sm + space.hair,
@@ -49,7 +57,7 @@ export function Sidebar() {
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: geometry.hairline, paddingBottom: space.md }}>
         <NewTabRow pending={pending} onPress={actions.openNewTab} />
-        {open.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} />)}
+        {open.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} onReorder={reorder} />)}
       </ScrollView>
     </View>
     <SidebarFooter />

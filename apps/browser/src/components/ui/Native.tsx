@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ViewProps } from 'react-native';
-import { ContextMenuArea as NativeContextMenuArea, WindowDragRegion, WindowState } from '../../platform/shell';
+import { ContextMenuArea as NativeContextMenuArea, FileDrag as NativeFileDrag, WindowDragRegion, WindowState } from '../../platform/shell';
 
 /** Empty space that moves the window when dragged and zooms it on a double click. */
 export function DragRegion(props: ViewProps) {
@@ -16,4 +16,13 @@ export function ContextMenu({ onOpen, children, style }: React.PropsWithChildren
 export function FullScreenWatch({ onChange }: { onChange(fullScreen: boolean): void }) {
   return <WindowState pointerEvents="none" style={{ position: 'absolute', width: 0, height: 0 }}
     onFullScreen={e => onChange(e.nativeEvent.fullScreen)} />;
+}
+
+/**
+ * Lets the file at `path` be dragged out of the window, to Finder, Mail or a
+ * page, as from Finder. Without a path it is a plain view. Clicks inside
+ * still work; a press that moves becomes the drag instead.
+ */
+export function FileDragArea({ path, children, style }: React.PropsWithChildren<{ path?: string; style?: ViewProps['style'] }>) {
+  return <NativeFileDrag filePath={path ?? ''} style={style}>{children}</NativeFileDrag>;
 }

@@ -72,6 +72,9 @@
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tabs/public/split_tab_data.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "ui/display/screen.h"
+#include "ui/gfx/geometry/rect.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/download/public/common/download_item.h"
@@ -786,6 +789,43 @@ char* Call(const char* window, const char* method, const char* json) {
     GURL url = ResolveAddress(browser->GetProfile(), *text);
     if (!url.is_valid()) return Error("This address cannot be opened");
     contents->GetController().LoadURL(url, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
+  } else if (name == "tabs.split") {
+    // A tab dropped on the page: it shows beside the active tab, on the side
+    // it was dropped on, and takes the focus.
+    const auto* side = args->FindString("side");
+    if (!side || (*side != "left" && *side != "right" && *side != "top" && *side != "bottom"))
+      return Error("Invalid split side");
+    if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL) return Error("This window can't show a split view");
+    const int active = strip->active_index();
+    if (active < 0 || index == active) return Error("Choose another tab to show beside this one");
+    tabs::TabInterface* dropped = strip->GetTabAtIndex(index);
+    // Splits hold two tabs: the dropped one replaces the other side.
+    if (const auto current = strip->GetSplitForTab(active)) strip->RemoveSplit(*current);
+    if (const auto other = strip->GetSplitForTab(strip->GetIndexOfTab(dropped))) strip->RemoveSplit(*other);
+    const bool stacked = *side == "top" || *side == "bottom";
+    const auto id = strip->AddToNewSplit({strip->GetIndexOfTab(dropped)},
+        split_tabs::SplitTabVisualData(stacked ? split_tabs::SplitTabLayout::kStacked : split_tabs::SplitTabLayout::kSideBySide),
+        split_tabs::SplitTabCreatedSource::kDragAndDropTab);
+    const auto members = strip->GetSplitData(id)->ListTabs();
+    const bool first = *side == "left" || *side == "top";
+    if (!members.empty() && (members.front() == dropped) != first) strip->ReverseTabsInSplit(id);
+    strip->ActivateTabAt(strip->GetIndexOfTab(dropped));
+  } else if (name == "tabs.detach") {
+    // A tab dragged out of the window becomes a window of its own, the size
+    // of this one, with its tabs under the pointer.
+    if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL) return Error("This tab can't move to a new window");
+    if (const auto split = strip->GetSplitForTab(index)) strip->RemoveSplit(*split);
+    tabs::TabInterface* moving = strip->GetTabAtIndex(index);
+    const int at = strip->GetIndexOfTab(moving);
+    if (!chrome::CanMoveTabsToNewWindow(browser, {at})) return Error("This is the window's only tab");
+    const gfx::Rect old_bounds = browser->GetWindow()->GetRestoredBounds();
+    const gfx::Point cursor = display::Screen::Get()->GetCursorScreenPoint();
+    chrome::MoveTabsToNewWindow(browser, {at});
+    if (auto* target = moving->GetBrowserWindowInterface(); target && target != browser && target->GetWindow()) {
+      constexpr int kGrabX = 96, kGrabY = 18;
+      target->GetWindow()->SetBounds(gfx::Rect(cursor.x() - kGrabX, cursor.y() - kGrabY,
+                                               old_bounds.width(), old_bounds.height()));
+    }
   } else return Error("Unsupported engine method");
   return Ok();
 }

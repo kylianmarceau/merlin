@@ -6,12 +6,13 @@
 import { createStore } from 'zustand/vanilla';
 import { shellPrefs } from './shellPrefs';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
+import type { TabDrag } from './tabDrag';
 
 /** `location` is ⌘L's centred field for the current tab (Settings › Appearance › ⌘L opens the command bar: In the centre). */
 export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | 'location' | null;
 export type PopoverName = 'extensions' | 'profiles' | 'downloads';
-/** Places popovers attach to. Toolbar and sidebar controls report their frames. */
-export type AnchorName = 'site' | 'requests' | 'extensions' | 'downloads' | 'profiles' | 'address';
+/** Places popovers attach to. Toolbar and sidebar controls report their frames; `page` is where pages show, for dropping tabs. */
+export type AnchorName = 'site' | 'requests' | 'extensions' | 'downloads' | 'profiles' | 'address' | 'page';
 export type Rect = { x: number; y: number; width: number; height: number };
 /** A notice; `action` adds one button to it ("View" on an update). */
 export type Toast = { id: number; tone: 'error' | 'info'; text: string; action?: { label: string; run(): void } };
@@ -41,12 +42,17 @@ export type BrowserState = {
   favicons: Record<string, string>;
   anchors: Partial<Record<AnchorName, Rect>>;
   windowSize: { width: number; height: number };
+  /** Counts new downloads' icons reaching the downloads button, which nudges each time. */
+  downloadLandings: number;
+  /** A tab being dragged, and where it would go if let go now. */
+  tabDrag: TabDrag | null;
 };
 
 export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [],
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, anchors: {}, windowSize: { width: 0, height: 0 },
+    downloadLandings: 0, tabDrag: null,
   };
 }
 

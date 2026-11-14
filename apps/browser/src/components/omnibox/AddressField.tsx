@@ -3,7 +3,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import { promptChipLabel, promptIcon } from '../../lib/prompts';
 import { displayAddress, displayHost, isStartUrl } from '../../lib/format';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
-import { Icon, IconButton, Text, duration, useEscape, useTheme, font, geometry, radius, space } from '../ui';
+import { Icon, IconButton, LoadingBar, Text, duration, useEscape, useTheme, font, geometry, radius, space } from '../ui';
 
 /**
  * The address and search field. Chromium's address-bar engine suggests as the
@@ -99,6 +99,8 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
       height: shell ? geometry.address : compact ? geometry.controlCompact : geometry.controlLarge, paddingLeft: space.md, paddingRight: space.xs,
       borderRadius: radius.field, backgroundColor: fill,
       borderWidth: geometry.hairline, borderColor: colors[editing && !shell ? 'borderDefault' : 'fillTransparent'] }}>
+    {/* The page loading runs along the field's bottom edge; a new tab starts its own. */}
+    <LoadingBar key={tab?.id ?? ''} loading={!!tab?.loading && !start} inset={radius.field} />
     {start && !editing && <Icon name="magnifyingglass" tone="iconSecondary" size="small" />}
     <View style={{ flex: 1, justifyContent: 'center' }}>
       <TextInput ref={input} accessibilityLabel="Address and search" enableFocusRing={false}
@@ -131,7 +133,6 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
       </View>}
     </View>
     {!!completion && top && <Text variant="caption" tone="omniboxCompletion" lines={1}>{`→ ${displayHost(top.url) || top.title}`}</Text>}
-    {tab?.loading && !editing && !shell && <Text variant="caption" tone="textTertiary">Loading…</Text>}
     {tab?.engine === 'webkit' && !editing && !shell && <Text variant="caption" tone="textTertiary">WebKit</Text>}
     {waiting && !editing && <Pressable accessibilityRole="button" accessibilityLabel={promptChipLabel(waiting)}
       accessibilityHint="Shows a request this page is waiting on" onPress={() => actions.revealPrompt(waiting.id)}

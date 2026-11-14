@@ -210,3 +210,26 @@ public final class MerlinShellWindowStateModule: Module {
     }
   }
 }
+
+public final class MerlinShellFileDragModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellFileDrag")
+    View(MerlinFileDrag.self) {
+      Prop("filePath") { (view, value: String) in view.path = value }
+      Events("onDragEnd")
+    }
+  }
+}
+
+public final class MerlinShellProgressRingModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellProgressRing")
+    View(MerlinProgressRing.self) {
+      Prop("ringProgress") { (view, value: Double) in view.progress = value }
+      Prop("ringColor") { (view, value: String?) in if let color = ShellColor.parse(value) { view.color = color } }
+      Prop("ringTrackColor") { (view, value: String?) in if let color = ShellColor.parse(value) { view.trackColor = color } }
+      Prop("ringWidth") { (view, value: Double) in view.lineWidth = value }
+      Prop("ringReduceMotion") { (view, value: Bool) in view.reduceMotion = value }
+    }
+  }
+}

@@ -41,8 +41,10 @@ The stored accent names predate Tide and stay as the browser saves them:
   and on the active tab. Tabs share the width up to 148 pt, become icons
   below 96 pt and, past 40 pt, the rest collect behind a "+N" native menu
   (the active tab always stays in the strip). Pinned tabs are icons in a
-  soft group. A loading tab shows a spinner in place of its icon. Dragging
-  a tab reorders it within its group, the joined shape following it.
+  soft group. A background tab that is loading breathes its icon
+  (`useBreathe`); the active tab's loading is the bar under the address.
+  Dragging a tab reorders it within its group, the joined shape following
+  it; pulled down past the strip it leaves the tabs (see Tab drops).
   The command menu, Library, Settings, profiles and, last, Downloads sit at
   the right, so the downloads panel hangs at the window's right edge.
   The card gets one 46 pt toolbar (32 pt when compact): hide tabs, back, forward, reload,
@@ -114,7 +116,28 @@ of padding and a 6 pt corner (text 16 pt from the edge), a `row` title at
 13/16 and a `rowDetail` line at 11/14, a half-point `MenuSeparator` and a
 quiet `MenuFooter` ("View all downloads ›"). A download row is 40 pt with
 the file's Finder icon at 24 pt; Show in Finder appears on hover and the
-rest is in its right-click menu.
+rest is in its right-click menu. A finished file drags out of its row like
+a file in Finder (`FileDragArea`), to the desktop, Mail or a page.
+
+- **Loading**: a 2 pt bar in `tabLoading` runs along the address field's
+  bottom edge, inset by the field's corner radius (`LoadingBar`): to 28% in
+  320 ms, then creeping towards 90% over 9 s, then to 100% and fading in
+  260 ms once the page has loaded. No spinners in tabs.
+- **Downloads button**: while files arrive a 2 pt `ProgressRing` around the
+  arrow fills with their combined progress (circling until every size is
+  known; muted while all are paused), with a count badge from two files up;
+  it holds full for 900 ms as the last one finishes. A new download's Finder
+  icon (40 pt) lifts off the middle of the window, arcs to the button
+  (across first, then up) shrinking to a third, and the button nudges as it
+  lands (`flyTo`, `useNudge`). Reduced motion only fades the icon in place.
+- **Tab drops**: a tab dragged out of the tabs (24 pt past the strip or the
+  sidebar, or out of the window) follows the pointer as a small card. Over
+  the page, the half it would take lights up (`accentSoft` with a
+  `splitFocus` edge) and slides as the pointer crosses the middle: let go
+  and it shows beside the current tab in a split view. Outside the window
+  it opens in a window of its own, under the pointer; dragging the current
+  tab onto the page does the same. Sidebar rows also reorder by dragging up
+  or down. The tab menu has Open in Split View and Move to New Window.
 Buttons are pills: `primary` is dark ink, `secondary` a soft wash.
 
 Settings shows its sections as icon tabs across the top; the Library as a

@@ -40,6 +40,10 @@ export const geometry = {
   panelRow: 32, panelHeader: 24, panelSeparatorGap: 5, downloadRow: 40, fileIcon: 24, rowButton: 22, rowGlyph: 13, chevron: 9,
   slider: 160, sliderTrack: 4, sliderThumb: 16, pictureChoice: 128, pictureChoiceHeight: 80, appIcon: 56, popUpMin: 160, bookmarksBar: 28,
   bookmarksBarLarge: 34, toolbarCompact: 32, controlCompact: 24,
+  /** The downloads button's progress ring, the page-loading bar under the address, and the icon that flies to the button. */
+  ringStroke: 2, loadingBar: 2, flyingIcon: 40,
+  /** A dragged tab leaves the tabs for the page once it is this far outside them; the page's split zones are this share of its width. */
+  tearOff: 24,
   sheetWidth: 840, sheetHeight: 640, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
   suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, paintWidth: 400, paintHeight: 172, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
 } as const;

@@ -30,6 +30,17 @@ export function percent(received: number, total: number) {
   return total > 0 ? Math.min(100, Math.round(received / total * 100)) : null;
 }
 
+/**
+ * How far along downloads arriving together are, 0 to 1: their bytes so far
+ * over their total. Null while any of them has no known size yet.
+ */
+export function overallProgress(downloads: { received: number; total: number }[]) {
+  if (!downloads.length || downloads.some(d => !(d.total > 0))) return null;
+  const total = downloads.reduce((sum, d) => sum + d.total, 0);
+  const received = downloads.reduce((sum, d) => sum + Math.min(d.received, d.total), 0);
+  return received / total;
+}
+
 /** "349 MB", as Chromium and Finder write sizes (decimal units). */
 export function formatBytes(bytes: number) {
   if (!(bytes > 0)) return '';

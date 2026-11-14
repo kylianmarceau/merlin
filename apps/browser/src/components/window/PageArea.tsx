@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Pressable, View } from 'react-native';
 import { isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
-import { useActions, useActiveTab, useSnapshot } from '../../state/window';
+import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
 import { Box, Button, EmptyState, Text, geometry, radius, space, useTheme } from '../ui';
 import { FindBar } from '../find/FindBar';
 import { Page } from '../page/Page';
@@ -15,12 +15,17 @@ export function PageArea() {
   const actions = useActions();
   const active = useActiveTab();
   const { colors } = useTheme();
+  const frame = useRef<View>(null);
+  const windowSize = useBrowser(s => s.windowSize);
+  // Where pages show, in the window, for tabs dropped on the page.
+  const measure = () => frame.current?.measureInWindow((x, y, width, height) => actions.setAnchor('page', { x, y, width, height }));
+  useEffect(measure, [windowSize, snapshot.modal.sidebarHidden, snapshot.modal.tabLayout]);  // eslint-disable-line react-hooks/exhaustive-deps
   const split = !snapshot.fullscreen && snapshot.split && active && snapshot.split.tabs.includes(active.id) ? snapshot.split : null;
   if (!active) return <Box flex={1} center>
     <EmptyState icon="square.dashed" title="No tabs open" detail="Open a tab, or use the command menu."
       action={<Button label="New Tab" variant="primary" icon="plus" onPress={() => void actions.openNewTab()} />} />
   </Box>;
-  return <View style={{ flex: 1 }}>
+  return <View ref={frame} onLayout={measure} style={{ flex: 1 }}>
     {split ? <View style={{ flex: 1, flexDirection: split.layout === 'stacked' ? 'column' : 'row', gap: geometry.splitGap }}>
       {split.tabs.map((id, index) => {
         const tab = snapshot.tabs.find(t => t.id === id)!;
