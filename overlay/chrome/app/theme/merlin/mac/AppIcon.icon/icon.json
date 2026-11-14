@@ -1,14 +1,14 @@
 {
   "fill": {
-    "solid": "srgb:0.96078,0.91373,0.84314,1.00000"
+    "solid": "srgb:0.95294,0.90980,0.83922,1.00000"
   },
   "groups": [
     {
       "layers": [
         {
           "glass": false,
-          "image-name": "merlin.svg",
-          "name": "merlin"
+          "image-name": "daylight.png",
+          "name": "daylight"
         }
       ],
       "shadow": {

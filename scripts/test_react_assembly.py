@@ -55,9 +55,47 @@ class AssemblyTest(unittest.TestCase):
         self.assertEqual((self.engine / 'Contents/MacOS/Merlin').read_text(), 'Merlin')
         self.assertFalse((self.engine / 'Contents/Resources/main.jsbundle').exists())
         self.assertEqual((self.output / 'Contents/Resources/app.icns').read_text(), 'icon')
+        self.assertNotIn('NSDockTilePlugIn', info)
         framework = self.output / 'Contents/Frameworks/Merlin Framework.framework'
         self.assertTrue((framework / 'Versions/Current').is_symlink())
         self.assertEqual((framework / 'Versions/Current/Helpers/fixture').read_text(), 'helper')
+
+    def test_dock_tile_plugin_and_its_info_key_are_carried_over(self):
+        plugin = self.shell / 'Contents/PlugIns/MerlinDockTile.plugin/Contents/MacOS'
+        plugin.mkdir(parents=True)
+        (plugin / 'MerlinDockTile').write_text('plug-in')
+        info_path = self.shell / 'Contents/Info.plist'
+        with info_path.open('rb') as stream:
+            info = plistlib.load(stream)
+        info['NSDockTilePlugIn'] = 'MerlinDockTile.plugin'
+        with info_path.open('wb') as stream:
+            plistlib.dump(info, stream)
+        assemble(self.engine, self.shell, self.output)
+        with (self.output / 'Contents/Info.plist').open('rb') as stream:
+            self.assertEqual(plistlib.load(stream)['NSDockTilePlugIn'], 'MerlinDockTile.plugin')
+        self.assertEqual((self.output / 'Contents/PlugIns/MerlinDockTile.plugin/Contents/MacOS/MerlinDockTile')
+                         .read_text(), 'plug-in')
+
+    def test_icon_assets_are_checked_against_the_copied_icons(self):
+        import os
+        import assemble_react_app
+        repo = self.root / 'repo'
+        icons = repo / 'overlay/chrome/app/theme/merlin/mac'
+        icons.mkdir(parents=True)
+        (repo / 'patches').mkdir()
+        (repo / 'apps/browser/src').mkdir(parents=True)
+        source = icons / 'Assets.car'
+        source.write_text('new icon')
+        framework = self.engine / 'Contents/Frameworks/Merlin Framework.framework/Versions/157/Merlin Framework'
+        copied = self.engine / 'Contents/Resources/app.icns'
+        os.utime(framework, (source.stat().st_mtime - 60,) * 2)
+        with patch.object(assemble_react_app, 'REPO', repo):
+            # Copied into the app after the change: current, though the framework is older.
+            os.utime(copied, (source.stat().st_mtime + 1,) * 2)
+            self.assertEqual(assemble_react_app.stale_engine_sources(self.engine, self.shell)[0], [])
+            # Not copied yet: stale.
+            os.utime(copied, (source.stat().st_mtime - 60,) * 2)
+            self.assertEqual(assemble_react_app.stale_engine_sources(self.engine, self.shell)[0], [source])
 
     def test_collision_leaves_no_partial_output(self):
         (self.shell / 'Contents/Resources/app.icns').write_text('wrong icon')

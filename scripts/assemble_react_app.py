@@ -36,8 +36,10 @@ def stale_engine_sources(engine_app, shell_app):
 
     The engine comes from out/<dir>/Merlin.app inside a Chromium checkout:
     Merlin's overlay and every upstream file the patch series touches must be
-    older than its framework. The host's native and JS sources must be older
-    than its executable. A stale engine once shipped without a crash fix.
+    older than its framework. The app icon assets only reach the bundle's
+    Resources, so they are checked against the copies there instead. The
+    host's native and JS sources must be older than its executable. A stale
+    engine once shipped without a crash fix.
     """
     framework = engine_app / 'Contents/Frameworks/Merlin Framework.framework/Merlin Framework'
     shell_info = plist(shell_app / 'Contents/Info.plist')
@@ -58,7 +60,11 @@ def stale_engine_sources(engine_app, shell_app):
                     if path.is_file() and path.name != '.DS_Store' and not path.name.endswith('.test.ts')]
     built_engine = framework.resolve().stat().st_mtime
     built_host = executable.stat().st_mtime
-    return ([path for path in engine_sources if path.stat().st_mtime > built_engine],
+    icon_assets = REPO / 'overlay/chrome/app/theme/merlin/mac'
+    copied = [engine_app / 'Contents/Resources' / name for name in ('Assets.car', 'app.icns')]
+    built_icons = min((path.stat().st_mtime for path in copied if path.is_file()), default=built_engine)
+    built = lambda path: built_icons if icon_assets in path.parents else built_engine
+    return ([path for path in engine_sources if path.stat().st_mtime > built(path)],
             [path for path in host_sources if path.stat().st_mtime > built_host])
 
 
@@ -117,9 +123,11 @@ def assemble(engine_app, shell_app, destination, check_only=False, allow_stale=F
         shutil.copy2(executable, stage / 'Contents/MacOS' / engine_info['CFBundleExecutable'])
         merge_directory(shell_app / 'Contents/Frameworks', stage / 'Contents/Frameworks')
         merge_directory(shell_app / 'Contents/Resources', stage / 'Contents/Resources')
+        # The Dock tile plug-in that keeps the chosen app icon after Merlin quits.
+        merge_directory(shell_app / 'Contents/PlugIns', stage / 'Contents/PlugIns')
         # Keep Chromium's version, identity and usage descriptions. React needs
         # its own bridge settings but never the template's application delegate.
-        for key in ('NSAppTransportSecurity', 'RCTNewArchEnabled'):
+        for key in ('NSAppTransportSecurity', 'RCTNewArchEnabled', 'NSDockTilePlugIn'):
             if key in shell_info:
                 engine_info[key] = shell_info[key]
         version = lambda text: tuple(int(part) for part in text.split('.'))

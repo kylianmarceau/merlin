@@ -236,7 +236,7 @@ function AddressBarChoice({ place, selected, onPress }: { place: 'toolbar' | 'si
 function AppIconSection() {
   const { choices, current, choose } = useAppIcons(geometry.appIcon);
   if (choices.length < 2) return null;
-  return <Section title="App Icon" detail="Shown in the Dock and the app switcher while Merlin is open.">
+  return <Section title="App Icon" detail="Shown in the Dock and the app switcher. The Dock keeps it after you quit.">
     <View accessibilityRole="radiogroup" accessibilityLabel="App icon" style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: space.sm, rowGap: space.md }}>
       {choices.map(icon => <PictureChoice key={icon.id} size="icon" title={icon.name} selected={icon.id === current} onPress={() => choose(icon.id)}>
         <Image source={{ uri: icon.preview }} style={{ width: geometry.appIcon, height: geometry.appIcon }} />
