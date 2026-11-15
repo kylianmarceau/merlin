@@ -59,8 +59,8 @@ The stored accent names predate Tide and stay as the browser saves them:
   workspace tint of the shell too. `siteChrome()` in tokens.ts turns the
   colour into roles that `PaletteScope` patches over the toolbar and the
   active tab, so components still only name roles.
-- **New tab page**: quiet. "Sunrise", the logo's globe and wing in thick
-  paint in the workspace colour, rising from behind the search card
+- **New tab page**: quiet. "Peek", the logo's globe and wing in thick
+  paint in the workspace colour, the globe peeking over the search card
   (`PaintMark`: pre-rendered 2x images, one per workspace colour, slightly
   dimmed in dark mode; the card overlaps its bottom edge), one search card with "Jump to a tab or file", and the
   window's other pages on one line under it, on the off-white ground.
