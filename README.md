@@ -294,6 +294,7 @@ are covered in [docs/RELEASE.md](docs/RELEASE.md).
 ```bash
 scripts/check.sh               # formatting, lints, Rust and C++ tests, patch checks
 scripts/run_browser_tests.sh   # headless ad-block browser tests inside Chromium
+scripts/run_e2e_tests.sh       # end-to-end tests against the real Merlin.app, in the background
 pnpm ui:check && pnpm ui:test  # React shell type and architecture checks
 scripts/check_upstream.py      # check for a newer Chromium security release
 cargo run -p modalctl          # try the modal core in a terminal, no Chromium needed
@@ -312,6 +313,7 @@ and tests with plain `cargo`, without a Chromium checkout.
 | `overlay/chrome/renderer/merlin_adblock/` | Scriptlets and cosmetic filtering in the page |
 | `patches/` | Edits to Chromium's own files, one small patch each |
 | `tools/` | `browserctl`, `modalctl` and a fake-browser test harness |
+| `tests/e2e/` | End-to-end tests that drive an assembled Merlin.app ([how they work](tests/e2e/README.md)) |
 | `branding/` | Name, icons and colors |
 | `scripts/` | Setup, build, test and packaging |
 

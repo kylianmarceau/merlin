@@ -1,0 +1,38 @@
+// Test-only. Keeps a Merlin under test from ever becoming the frontmost app,
+// so it can't take the keyboard from whoever is using the Mac. The harness
+// compiles this into a dylib and injects it with DYLD_INSERT_LIBRARIES into
+// the test instance's browser process only (merlin_e2e.py). The same two calls
+// Chromium's headless mode makes, and the deleted browser_tests shim made:
+// a background process type, then a prohibited activation policy once AppKit
+// has registered the app (which can undo the first call).
+//
+// Works only on builds without the hardened runtime, which Merlin's ad-hoc
+// signed releases are.
+
+#import <AppKit/AppKit.h>
+#import <ApplicationServices/ApplicationServices.h>
+#include <crt_externs.h>
+#include <stdlib.h>
+#include <string.h>
+
+__attribute__((constructor)) static void MerlinTestInBackground(void) {
+  // Helpers (renderers, GPU, utilities) never see this library: the browser
+  // removes the variable before it launches any of them.
+  unsetenv("DYLD_INSERT_LIBRARIES");
+  char** argv = *_NSGetArgv();
+  for (int i = 1; i < *_NSGetArgc(); ++i) {
+    if (strncmp(argv[i], "--type=", 7) == 0) return;
+  }
+  ProcessSerialNumber psn = {0, kCurrentProcess};
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  TransformProcessType(&psn, kProcessTransformToBackgroundApplication);
+#pragma clang diagnostic pop
+  [NSNotificationCenter.defaultCenter
+      addObserverForName:NSApplicationWillFinishLaunchingNotification
+                  object:nil
+                   queue:nil
+              usingBlock:^(NSNotification* note) {
+                [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+              }];
+}

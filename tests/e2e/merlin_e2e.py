@@ -1,0 +1,688 @@
+"""End-to-end harness: drives a real, assembled Merlin.app.
+
+Each test class launches its own Merlin instance with a throwaway profile,
+config directory, workspace directory and browserctl socket, so the person
+running the tests keeps their own browser, settings and clipboard. The app is
+launched with `open -g -n`, so it doesn't come to the front.
+
+Keys are sent with the DevTools protocol's Input.dispatchKeyEvent and a native
+key code. Chromium then builds a real NSEvent and the key takes the same path
+as a key typed on the keyboard: RenderWidgetHostImpl ->
+Browser::PreHandleKeyboardEvent -> ReactBrowserWindow -> ModalBrowserController
+(content/browser/devtools/protocol/input_handler.cc). A key without a native
+code would be marked skip_if_unhandled and never reach Merlin.
+
+Pages come from a local server (fixtures below). Every host ending in .test
+resolves to it, so cross-site frames need no network.
+
+The app under test is $MERLIN_APP, defaulting to the assembled build, then
+/Applications/Merlin.app.
+"""
+
+from __future__ import annotations
+
+import base64
+import contextlib
+import http.server
+import json
+import os
+import shutil
+import socket
+import struct
+import subprocess
+import tempfile
+import threading
+import time
+import unittest
+from pathlib import Path
+from typing import Any, Callable, Optional
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_APPS = [
+    ROOT / "apps/browser/build/assembled/Merlin.app",
+    Path("/Applications/Merlin.app"),
+]
+
+
+def app_path() -> Path:
+    if os.environ.get("MERLIN_APP"):
+        return Path(os.environ["MERLIN_APP"])
+    for candidate in DEFAULT_APPS:
+        if candidate.exists():
+            return candidate
+    raise unittest.SkipTest("no Merlin.app: set MERLIN_APP to an assembled build")
+
+
+def wait_until(check: Callable[[], Any], timeout: float = 10.0, interval: float = 0.05,
+               message: str = "condition") -> Any:
+    """Polls `check` until it returns something truthy and returns that."""
+    deadline = time.monotonic() + timeout
+    last_error: Optional[BaseException] = None
+    while time.monotonic() < deadline:
+        try:
+            value = check()
+            if value:
+                return value
+        except (AssertionError, KeyError, IndexError, ValueError, OSError, CdpError) as error:
+            last_error = error
+        time.sleep(interval)
+    raise AssertionError(f"timed out waiting for {message}" +
+                         (f" (last error: {last_error})" if last_error else ""))
+
+
+# ---------------------------------------------------------------------------
+# Pages
+
+
+PAGE_HTML = """<!doctype html>
+<title>modal</title>
+<input id="t">
+<div id="c" contenteditable>rich</div>
+<p id="log"></p>
+<div style="height: 5000px"></div>
+<script>
+  addEventListener('keydown', e => {
+    document.getElementById('log').textContent += e.key + ' ';
+  });
+</script>"""
+
+# Four targets in document order, three links and a text field. Hint tests
+# use hint_chars = "sdfjkl" (A can't be sent, see key_event_specs), so their
+# labels are s, d, f, j.
+HINTS_HTML = """<!doctype html>
+<title>hints</title>
+<style>a, input { display: block; margin: 12px; font-size: 18px; }</style>
+<a id="one" href="/one">One</a>
+<a id="two" href="/two">Two</a>
+<a id="three" href="/three" target="_blank">Three</a>
+<input id="field" placeholder="type here">
+<a id="hidden" href="/hidden" style="display:none">Hidden</a>
+<div style="position:relative; height: 40px">
+  <a id="covered" href="/covered">Covered</a>
+  <div style="position:absolute; inset:0; background:white"></div>
+</div>"""
+
+# The document doesn't scroll; an inner panel does, as on many docs sites.
+INNER_SCROLL_HTML = """<!doctype html>
+<title>inner</title>
+<style>html, body { margin: 0; height: 100%; overflow: hidden; }
+#panel { height: 100%; overflow: auto; }</style>
+<div id="panel"><div style="height: 5000px">tall</div></div>"""
+
+DOC_HTML = """<!doctype html>
+<title>Foo docs</title>
+<main>
+<h1>Foo</h1>
+<p id="intro">Read the <a href="https://docs.rs/foo">docs</a> or call
+<code>foo()</code> now.</p>
+<h2>Install</h2>
+<pre class="language-sh">cargo add foo</pre>
+<div style="height: 1500px"></div>
+<h2 id="usage">Usage</h2>
+<table><tr><th>Name</th><th>Value</th></tr><tr><td>a</td><td>1</td></tr></table>
+<div style="height: 3000px"></div>
+</main>"""
+
+FORM_HTML = """<!doctype html>
+<title>form</title>
+<textarea id="comment">first draft</textarea>
+<input id="pw" type="password" value="secret">
+<p id="log"></p>
+<script>
+  document.getElementById('comment').addEventListener('input', e => {
+    document.getElementById('log').textContent += 'input:' + e.inputType + ' ';
+  });
+</script>"""
+
+FRAMES_HTML = """<!doctype html>
+<title>frames</title>
+<style>a { display: block; margin: 12px; font-size: 18px; }
+iframe { display: block; width: 420px; height: 90px; border: 0; }</style>
+<a href="/one">Main link</a>
+<iframe id="same" srcdoc="<a href='/inner' style='font-size:18px'>Inner link</a>"></iframe>
+<iframe id="cross" src="CROSS"></iframe>"""
+
+CROSS_FRAME_HTML = '<!doctype html><a href="/two" style="font-size:18px">Cross link</a>'
+
+# A page asking for an ad script from a host on EasyList. The request reaches
+# the local server only if the blocker lets it through.
+ADS_HTML = """<!doctype html>
+<title>ads</title>
+<p id="state">waiting</p>
+<div class="Billboard-ad" id="banner">an advert</div>
+<div class="article" id="article">an article</div>
+<script>
+  const s = document.createElement('script');
+  s.src = 'AD_URL';
+  s.onload = () => document.getElementById('state').textContent = 'loaded';
+  s.onerror = () => document.getElementById('state').textContent = 'blocked';
+  document.head.append(s);
+</script>"""
+
+
+class PageServer:
+    """Serves the fixtures on 127.0.0.1 and records every path requested."""
+
+    def __init__(self) -> None:
+        server = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args: Any) -> None:  # keep test output clean
+                pass
+
+            def do_GET(self) -> None:  # noqa: N802 (http.server's name)
+                host = (self.headers.get("Host") or "").split(":")[0]
+                with server.lock:
+                    server.requests.append((host, self.path))
+                status, kind, body, headers = server.respond(host, self.path)
+                self.send_response(status)
+                self.send_header("Content-Type", kind)
+                self.send_header("Content-Length", str(len(body)))
+                for key, value in headers.items():
+                    self.send_header(key, value)
+                self.end_headers()
+                self.wfile.write(body)
+
+        self.lock = threading.Lock()
+        self.requests: list[tuple[str, str]] = []
+        class Server(http.server.ThreadingHTTPServer):
+            daemon_threads = True
+
+            def handle_error(self, request: Any, client_address: Any) -> None:
+                # Browsers drop keep-alive connections when a test moves on.
+                pass
+
+        self.httpd = Server(("127.0.0.1", 0), Handler)
+        self.port = self.httpd.server_address[1]
+        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
+        self.thread.start()
+
+    def clear(self) -> None:
+        with self.lock:
+            self.requests.clear()
+
+    def url(self, path: str, host: str = "localhost") -> str:
+        return f"http://{host}:{self.port}{path}"
+
+    def requested(self, path_prefix: str, host: Optional[str] = None) -> bool:
+        with self.lock:
+            return any(p.startswith(path_prefix) and (host is None or h == host)
+                       for h, p in self.requests)
+
+    def respond(self, host: str, path: str) -> tuple[int, str, bytes, dict]:
+        html = "text/html; charset=utf-8"
+        pages = {
+            "/hints": HINTS_HTML,
+            "/inner": INNER_SCROLL_HTML,
+            "/doc": DOC_HTML,
+            "/form": FORM_HTML,
+            "/frame": CROSS_FRAME_HTML,
+            "/frames": FRAMES_HTML.replace("CROSS", self.url("/frame", "b.test")),
+            "/ads": ADS_HTML.replace("AD_URL", self.url("/pagead/js/adsbygoogle.js",
+                                                        "pagead2.googlesyndication.com")),
+        }
+        if path.startswith("/pagead/"):
+            return 200, "text/javascript", b"window.adLoaded = true;", {}
+        if path == "/report-2026.pdf":
+            return 200, "application/octet-stream", b"x" * 20000, {
+                "Content-Disposition": 'attachment; filename="report-2026.pdf"'}
+        return 200, html, pages.get(path.split("?")[0], PAGE_HTML).encode(), {}
+
+    def close(self) -> None:
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+
+# ---------------------------------------------------------------------------
+# The DevTools protocol, over a minimal WebSocket client (no dependencies).
+
+
+class CdpError(Exception):
+    pass
+
+
+class TargetClosed(CdpError):
+    """The page went away while a call to it was pending (say, a key closed its tab)."""
+
+
+class Cdp:
+    """A DevTools browser connection with flattened page sessions."""
+
+    def __init__(self, port: int, browser_path: str) -> None:
+        self.sock = socket.create_connection(("127.0.0.1", port), timeout=30)
+        key = base64.b64encode(os.urandom(16)).decode()
+        self.sock.sendall((f"GET {browser_path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+                           "Upgrade: websocket\r\nConnection: Upgrade\r\n"
+                           f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+        response = b""
+        while b"\r\n\r\n" not in response:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise CdpError("DevTools closed the connection during the handshake")
+            response += chunk
+        head, _, self.buffer = response.partition(b"\r\n\r\n")
+        if b" 101 " not in head.split(b"\r\n")[0]:
+            raise CdpError(f"DevTools refused the WebSocket: {head[:200]!r}")
+        self.next_id = 0
+        self.events: list[dict] = []
+        self.sessions: dict[str, str] = {}  # target id -> session id
+
+    def _send_frame(self, payload: bytes) -> None:
+        header = bytearray([0x81])
+        length = len(payload)
+        if length < 126:
+            header.append(0x80 | length)
+        elif length < 1 << 16:
+            header.append(0x80 | 126)
+            header += struct.pack(">H", length)
+        else:
+            header.append(0x80 | 127)
+            header += struct.pack(">Q", length)
+        mask = os.urandom(4)
+        header += mask
+        self.sock.sendall(bytes(header) + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+    def _read(self, n: int) -> bytes:
+        while len(self.buffer) < n:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise CdpError("DevTools connection closed")
+            self.buffer += chunk
+        data, self.buffer = self.buffer[:n], self.buffer[n:]
+        return data
+
+    def _recv_message(self) -> dict:
+        message = b""
+        while True:
+            first, second = self._read(2)
+            length = second & 0x7F
+            if length == 126:
+                length = struct.unpack(">H", self._read(2))[0]
+            elif length == 127:
+                length = struct.unpack(">Q", self._read(8))[0]
+            payload = self._read(length)
+            opcode = first & 0x0F
+            if opcode == 0x8:
+                raise CdpError("DevTools closed the connection")
+            if opcode in (0x9, 0xA):  # ping/pong: nothing to answer for tests
+                continue
+            message += payload
+            if first & 0x80:
+                return json.loads(message)
+
+    def call(self, method: str, params: Optional[dict] = None,
+             session: Optional[str] = None, timeout: float = 30) -> dict:
+        self.next_id += 1
+        request: dict = {"id": self.next_id, "method": method, "params": params or {}}
+        if session:
+            request["sessionId"] = session
+        self._send_frame(json.dumps(request).encode())
+        self.sock.settimeout(timeout)
+        while True:
+            message = self._recv_message()
+            if message.get("id") == self.next_id:
+                if "error" in message:
+                    raise CdpError(f"{method}: {message['error'].get('message')}")
+                return message.get("result", {})
+            if "method" in message:
+                self.events.append(message)
+                if (message["method"] == "Target.detachedFromTarget" and session and
+                        message["params"].get("sessionId") == session):
+                    self.sessions = {t: s for t, s in self.sessions.items() if s != session}
+                    raise TargetClosed(f"{method}: the page closed")
+
+    def pages(self) -> list[dict]:
+        targets = self.call("Target.getTargets")["targetInfos"]
+        return [t for t in targets if t["type"] == "page"]
+
+    def session_for(self, target_id: str) -> str:
+        if target_id not in self.sessions:
+            result = self.call("Target.attachToTarget", {"targetId": target_id, "flatten": True})
+            self.sessions[target_id] = result["sessionId"]
+        return self.sessions[target_id]
+
+    def close(self) -> None:
+        with contextlib.suppress(OSError):
+            self.sock.close()
+
+
+# ---------------------------------------------------------------------------
+# Keys
+
+
+# macOS virtual key codes (Carbon's kVK_ANSI_*), Windows key codes and DOM codes.
+_MAC_LETTER = dict(zip("asdfhgzxcv bqweryt", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, 17]))
+_MAC_LETTER.update({"o": 0x1F, "u": 0x20, "i": 0x22, "p": 0x23, "l": 0x25, "j": 0x26,
+                    "k": 0x28, "n": 0x2D, "m": 0x2E})
+_MAC_DIGIT = {"1": 0x12, "2": 0x13, "3": 0x14, "4": 0x15, "6": 0x16, "5": 0x17,
+              "9": 0x19, "7": 0x1A, "8": 0x1C, "0": 0x1D}
+# character -> (mac code, windows code, DOM code, needs shift)
+_PUNCT = {
+    ":": (0x29, 0xBA, "Semicolon", True), ";": (0x29, 0xBA, "Semicolon", False),
+    "?": (0x2C, 0xBF, "Slash", True), "/": (0x2C, 0xBF, "Slash", False),
+    "'": (0x27, 0xDE, "Quote", False), "`": (0x32, 0xC0, "Backquote", False),
+    "]": (0x1E, 0xDD, "BracketRight", False), "[": (0x21, 0xDB, "BracketLeft", False),
+    "@": (0x13, 0x32, "Digit2", True), "$": (0x15, 0x34, "Digit4", True),
+    " ": (0x31, 0x20, "Space", False),
+}
+_SPECIAL = {
+    "Escape": (0x35, 0x1B, "Escape"), "Enter": (0x24, 0x0D, "Enter"),
+    "Tab": (0x30, 0x09, "Tab"), "Backspace": (0x33, 0x08, "Backspace"),
+}
+ALT, CTRL, META, SHIFT = 1, 2, 4, 8
+
+
+def key_event_specs(key: str, modifiers: int = 0) -> list[dict]:
+    """The rawKeyDown/char/keyUp events a real press of `key` produces.
+
+    `key` is one character, or a DOM key name from _SPECIAL.
+    """
+    if key in _SPECIAL:
+        mac, win, code = _SPECIAL[key]
+        text = {"Enter": "\r", "Tab": "\t"}.get(key, "")
+        dom_key = key
+    elif len(key) == 1 and key.isalpha():
+        lower = key.lower()
+        mac, win, code = _MAC_LETTER[lower], ord(lower.upper()), f"Key{lower.upper()}"
+        if key.isupper():
+            modifiers |= SHIFT
+        text, dom_key = key, key
+    elif key in _MAC_DIGIT:
+        mac, win, code, text, dom_key = _MAC_DIGIT[key], ord(key), f"Digit{key}", key, key
+    elif key in _PUNCT:
+        mac, win, code, shifted = _PUNCT[key]
+        if shifted:
+            modifiers |= SHIFT
+        text, dom_key = key, key
+    else:
+        raise ValueError(f"no key spec for {key!r}")
+    if mac == 0:
+        # kVK_ANSI_A is 0, and DevTools reads a native code of 0 as "none":
+        # it then marks the event skip_if_unhandled, so it never reaches
+        # Merlin (input_handler.cc). Tests use other letters.
+        raise ValueError("the A key can't be sent through DevTools; use another letter")
+    if modifiers & (CTRL | META):
+        # Control and Command chords type no text, as on a real keyboard.
+        text = ""
+        if key.isalpha():
+            dom_key = key.lower()
+    base = {"modifiers": modifiers, "key": dom_key, "code": code,
+            "windowsVirtualKeyCode": win, "nativeVirtualKeyCode": mac}
+    down = dict(base, type="rawKeyDown")
+    events = [down]
+    if text:
+        events.append(dict(base, type="char", text=text, unmodifiedText=text))
+    events.append(dict(base, type="keyUp"))
+    return events
+
+
+def parse_keys(keys: str) -> list[tuple[str, int]]:
+    """Splits Vim notation ("5j", "<C-w>v", "<Esc>", "<S-Esc>") into presses."""
+    names = {"esc": "Escape", "cr": "Enter", "enter": "Enter", "tab": "Tab",
+             "bs": "Backspace", "space": " "}
+    presses: list[tuple[str, int]] = []
+    i = 0
+    while i < len(keys):
+        if keys[i] == "<" and ">" in keys[i:]:
+            end = keys.index(">", i)
+            parts = keys[i + 1:end].split("-")
+            mods = 0
+            for part in parts[:-1]:
+                mods |= {"C": CTRL, "S": SHIFT, "A": ALT, "M": ALT, "D": META}[part]
+            last = parts[-1]
+            presses.append((names.get(last.lower(), last), mods))
+            i = end + 1
+        else:
+            presses.append((keys[i], 0))
+            i += 1
+    return presses
+
+
+# ---------------------------------------------------------------------------
+# The browser
+
+
+def background_library(directory: Path) -> Path:
+    """Builds background_app.m, which keeps the test instance in the background."""
+    out = directory / "libmerlin_e2e_background.dylib"
+    subprocess.run(["xcrun", "clang", "-dynamiclib", "-fobjc-arc", "-O1",
+                    "-framework", "AppKit", "-framework", "ApplicationServices",
+                    "-o", str(out), str(Path(__file__).with_name("background_app.m"))],
+                   check=True, capture_output=True)
+    return out
+
+
+class Merlin:
+    """One Merlin instance with isolated state."""
+
+    def __init__(self, server: PageServer, extra_args: Optional[list[str]] = None) -> None:
+        self.server = server
+        self.app = app_path()
+        self.dir = Path(tempfile.mkdtemp(prefix="merlin-e2e-"))
+        self.profile = self.dir / "profile"
+        self.config_home = self.dir / "config"
+        self.data_home = self.dir / "data"
+        # Unix socket paths are limited to 104 bytes; keep this one short.
+        self.socket_dir = Path(tempfile.mkdtemp(prefix="me2e-", dir="/tmp"))
+        self.socket = self.socket_dir / "s.sock"
+        for path in (self.profile, self.config_dir, self.data_home):
+            path.mkdir(parents=True)
+        self.config_file.write_text("")
+        args = [
+            f"--user-data-dir={self.profile}",
+            "--remote-debugging-port=0",
+            f"--modal-browser-socket={self.socket}",
+            "--no-first-run", "--no-default-browser-check",
+            # Never touch the login keychain of whoever runs the tests.
+            "--use-mock-keychain", "--password-store=basic",
+            f"--host-resolver-rules=MAP *.test 127.0.0.1, MAP pagead2.googlesyndication.com 127.0.0.1",
+            "--window-size=1280,900",
+            # A hidden window is occluded; keep its pages running at full speed.
+            "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
+            "--disable-background-timer-throttling",
+            *(extra_args or []),
+            "about:blank",
+        ]
+        env = {"XDG_CONFIG_HOME": str(self.config_home), "XDG_DATA_HOME": str(self.data_home),
+               "DYLD_INSERT_LIBRARIES": str(background_library(self.dir))}
+        # -g: don't bring it forward; -j: launch it hidden, so its window never
+        # takes the keyboard from whoever is using the Mac.
+        command = ["open", "-g", "-j", "-n", "-a", str(self.app)]
+        for key, value in env.items():
+            command += ["--env", f"{key}={value}"]
+        subprocess.run(command + ["--args", *args], check=True)
+        try:
+            self._connect()
+        except BaseException:
+            self.close()
+            raise
+
+    def _connect(self) -> None:
+        port_file = self.profile / "DevToolsActivePort"
+        wait_until(lambda: port_file.exists() and len(port_file.read_text().split()) >= 2,
+                   timeout=60, message="Merlin to start (DevToolsActivePort)")
+        port, path = port_file.read_text().split()[:2]
+        self.cdp = Cdp(int(port), path)
+        wait_until(lambda: self.browserctl("ping").get("ok"), timeout=30,
+                   message="browserctl to answer")
+
+    @property
+    def config_dir(self) -> Path:
+        return self.config_home / "modal_browser"
+
+    @property
+    def config_file(self) -> Path:
+        return self.config_dir / "config.toml"
+
+    @property
+    def workspace_dir(self) -> Path:
+        return self.data_home / "modal_browser" / "workspaces"
+
+    # -- browserctl ---------------------------------------------------------
+
+    def browserctl(self, cmd: str, **fields: Any) -> dict:
+        """One request over the browserctl socket; returns the reply object."""
+        request = {"v": 1, "id": 1, "cmd": cmd, **fields}
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(30)
+            s.connect(str(self.socket))
+            s.sendall((json.dumps(request) + "\n").encode())
+            data = b""
+            while not data.endswith(b"\n"):
+                chunk = s.recv(65536)
+                if not chunk:
+                    break
+                data += chunk
+        return json.loads(data)
+
+    def command(self, line: str) -> dict:
+        """Runs a `:` command line in the front window."""
+        reply = self.browserctl("command", line=line)
+        if not reply.get("ok"):
+            raise AssertionError(f":{line} failed: {reply}")
+        return reply
+
+    def tabs(self) -> list[dict]:
+        reply = self.browserctl("tabs")
+        assert reply.get("ok"), reply
+        return reply["result"]
+
+    def active_tab(self) -> dict:
+        return next(t for t in self.tabs() if t["active"] and t["window"] == 1)
+
+    # -- pages --------------------------------------------------------------
+
+    def active_session(self) -> str:
+        """The DevTools session of the front window's active tab."""
+        url = self.active_tab()["url"]
+        pages = [p for p in self.cdp.pages() if p["url"] == url]
+        if not pages:
+            raise AssertionError(f"no DevTools page for the active tab {url}")
+        # Several tabs can show the same URL; the front window's active one
+        # is the most recently attached when only one matches, else the last
+        # listed (DevTools lists the newest first).
+        return self.cdp.session_for(pages[0]["targetId"])
+
+    def open(self, path: str, host: str = "localhost") -> str:
+        """Loads a fixture in the active tab and waits until it has loaded."""
+        url = self.server.url(path, host)
+        reply = self.browserctl("open", url=url, where="current")
+        assert reply.get("ok"), reply
+        wait_until(lambda: self.active_tab()["url"] == url and
+                   self.eval("document.readyState") == "complete",
+                   message=f"{url} to load")
+        return url
+
+    def eval(self, expression: str, session: Optional[str] = None) -> Any:
+        result = self.cdp.call("Runtime.evaluate", {
+            "expression": expression, "returnByValue": True, "awaitPromise": True,
+        }, session or self.active_session())
+        if "exceptionDetails" in result:
+            raise CdpError(result["exceptionDetails"].get("text", "exception"))
+        return result["result"].get("value")
+
+    def press(self, keys: str, session: Optional[str] = None) -> None:
+        """Types keys in Vim notation at the active page, as the keyboard would."""
+        session = session or self.active_session()
+        for key, mods in parse_keys(keys):
+            for event in key_event_specs(key, mods):
+                try:
+                    self.cdp.call("Input.dispatchKeyEvent", event, session)
+                except TargetClosed:
+                    # The key closed its own tab; DevTools never answers it.
+                    if keys.endswith(key) or len(parse_keys(keys)) == 1:
+                        return
+                    session = self.active_session()
+                    break
+
+    def scroll_y(self) -> int:
+        return int(self.eval("Math.round(window.scrollY)"))
+
+    def page_log(self) -> str:
+        return self.eval("document.getElementById('log').textContent")
+
+    def focus(self, element_id: str) -> None:
+        self.eval(f"document.getElementById({element_id!r}).focus()")
+        wait_until(lambda: self.eval(f"document.activeElement.id === {element_id!r}"),
+                   message=f"#{element_id} to have focus")
+
+    # -- state between tests ------------------------------------------------
+
+    def write_config(self, text: str) -> None:
+        self.config_file.write_text(text)
+        self.command("config-reload")
+        # The file is read off the UI thread; give the reload a moment, then
+        # confirm the browser is answering again.
+        time.sleep(0.3)
+        self.browserctl("ping")
+
+    def reset(self) -> None:
+        """One window, one tab on the default page, in Normal mode."""
+        if self.config_file.read_text():
+            self.write_config("")
+        if len(self.tabs()) > 1:
+            keep = self.active_tab()["url"]
+            pages = self.cdp.pages()
+            kept = next((p for p in pages if p["url"] == keep), pages[0])
+            for page in pages:
+                if page["targetId"] != kept["targetId"]:
+                    with contextlib.suppress(CdpError):
+                        self.cdp.call("Target.closeTarget", {"targetId": page["targetId"]})
+            wait_until(lambda: len(self.tabs()) == 1, message="the other tabs to close")
+        if self.tabs()[0]["pinned"]:
+            self.command("pin")
+        # Leave Insert, Passthrough or a pending sequence before loading the
+        # page: a bare Esc in Normal mode reaches the page.
+        with contextlib.suppress(AssertionError, CdpError):
+            self.press("<Esc>")
+        self.open("/page")
+        # Loading the same address again is a reload, which restores the
+        # last test's scroll position.
+        self.eval("scrollTo(0, 0)")
+
+    def close(self) -> None:
+        if hasattr(self, "cdp"):
+            with contextlib.suppress(Exception):
+                self.cdp.call("Browser.close", timeout=10)
+            self.cdp.close()
+        marker = f"--user-data-dir={self.profile}"
+        with contextlib.suppress(AssertionError):
+            wait_until(lambda: subprocess.run(["pgrep", "-f", marker],
+                                              capture_output=True).returncode != 0,
+                       timeout=15, message="Merlin to quit")
+        subprocess.run(["pkill", "-f", marker], capture_output=True)
+        shutil.rmtree(self.dir, ignore_errors=True)
+        shutil.rmtree(self.socket_dir, ignore_errors=True)
+
+
+class MerlinTestCase(unittest.TestCase):
+    """Shares one Merlin per test class; each test starts from reset()."""
+
+    browser: Merlin
+    server: PageServer
+    extra_args: list[str] = []
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.server = PageServer()
+        try:
+            cls.browser = Merlin(cls.server, cls.extra_args)
+        except BaseException:
+            cls.server.close()
+            raise
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.browser.close()
+        cls.server.close()
+
+    def setUp(self) -> None:
+        self.browser.reset()
+        self.server.clear()
+
+    # Shorthands
+    def press(self, keys: str) -> None:
+        self.browser.press(keys)
+
+    def wait(self, check: Callable[[], Any], message: str = "condition", timeout: float = 10) -> Any:
+        return wait_until(check, timeout=timeout, message=message)
