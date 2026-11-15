@@ -20,7 +20,7 @@ using ShellServiceReply = base::OnceCallback<void(ShellServiceResult)>;
 
 // Requests the React shell makes for data Chromium produces asynchronously or
 // on demand: settings, the config file, workspaces, history, bookmarks,
-// extensions and profiles. Returns false when `method` is not one of them.
+// extensions and downloads. Returns false when `method` is not one of them.
 // `reply` runs exactly once, possibly before this returns, and must not
 // assume `browser` is still open. Browser UI thread only.
 bool RunShellService(BrowserWindowInterface* browser,

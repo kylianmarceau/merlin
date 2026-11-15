@@ -68,7 +68,8 @@ test('shadows and overlays use the shell, not React Native defaults', () => {
   assert.deepEqual(violations(/\b(shadowColor|shadowOpacity|shadowRadius|shadowOffset|elevation)\s*:/, p =>
     p.startsWith('components/') && p !== 'components/ui/tokens.ts'), []);
   // Modal opens a separate window on macOS; overlays are layers in the window.
-  assert.deepEqual(violations(/\bModal\b/, p => p.startsWith('components/') || p === 'App.tsx'), []);
+  // Matches the component (JSX or an import), not the words "Modal browsing".
+  assert.deepEqual(violations(/<Modal\b|\bModal\s*[,}]/, p => p.startsWith('components/') || p === 'App.tsx'), []);
 });
 
 test('only platform/ imports native packages', () => {

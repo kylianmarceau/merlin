@@ -10,7 +10,7 @@ import {
 import { StripGroupChip, chipWidth } from './TabGroups';
 import { Favicon } from '../favicon/Favicon';
 import { useSiteChrome } from './siteChrome';
-import { DownloadsButton, LibraryButtons, ProfilesButton } from './WindowButtons';
+import { DownloadsButton, LibraryButtons } from './WindowButtons';
 
 // Tabs sit on the bottom of the strip, so the active one can join the toolbar.
 const tabTop = geometry.strip - geometry.joinedTab;
@@ -132,7 +132,6 @@ export function TabStrip() {
     </View>
     <View style={{ height: geometry.strip, flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
       <LibraryButtons />
-      <ProfilesButton />
       {/* Last, so its popover hangs at the window's right edge, as in Ardia. */}
       <DownloadsButton />
     </View>

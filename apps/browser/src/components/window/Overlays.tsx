@@ -10,7 +10,6 @@ import { Suggestions } from '../omnibox/Suggestions';
 import { CommandDialog } from '../palette/CommandDialog';
 import { CommandMenu } from '../palette/CommandMenu';
 import { PeekOverlay } from '../page/PeekOverlay';
-import { ProfilesPopover } from '../profiles/ProfilesPopover';
 import { Settings } from '../settings/Settings';
 import { PromptOverlay } from '../site/PromptOverlay';
 import { NewTabPopup } from '../start/NewTabPopup';
@@ -61,10 +60,6 @@ export function Overlays() {
       <Popover open={shown.popover === 'extension-popup' && !!popup} anchor={anchors.extensions} bounds={bounds}
         placement={place(anchors.extensions)} width={(popup?.width ?? 0) + geometry.hairline * 2} label={popup?.name ?? 'Extension'} onClose={actions.closePopover} flush>
         {popup && <ExtensionPopupView popup={popup} />}
-      </Popover>
-      <Popover open={shown.popover === 'profiles'} anchor={anchors.profiles} bounds={bounds} placement={place(anchors.profiles)}
-        label="Profiles" onClose={actions.closePopover}>
-        <ProfilesPopover />
       </Popover>
       <Popover open={shown.popover === 'downloads'} anchor={anchors.downloads} bounds={bounds} placement={place(anchors.downloads)}
         label="Downloads" width="popover" onClose={actions.closePopover}>

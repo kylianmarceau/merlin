@@ -32,7 +32,7 @@ void SetShellFindState(BrowserWindowInterface* browser, base::DictValue state);
 bool ShellFindHasFocus(BrowserWindowInterface* browser);
 void SendShellEvent(BrowserWindowInterface* browser, const char* type);
 // Opens a React shell panel: "settings", "history", "bookmarks", "downloads",
-// "extensions" or "profiles". False when `browser` has no React window.
+// "extensions" or "newTab". False when `browser` has no React window.
 bool OpenShellPanel(BrowserWindowInterface* browser, const char* panel);
 // With new tabs as a pop-up (Settings > Appearance), shows the shell's
 // new-tab pop-up over the current page instead of opening a blank tab.

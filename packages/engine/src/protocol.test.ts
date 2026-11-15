@@ -86,9 +86,9 @@ test('request failures and malformed replies reject', async () => {
   const failing = replyTransport(requestId => ({ type: 'reply', windowId: 'window-one', requestId, ok: false, error: 'This bookmark cannot be removed' }));
   await assert.rejects(new EngineClient('window-one', failing.transport).request('bookmarks.remove', { id: '1' }), /cannot be removed/);
   const malformed = replyTransport(requestId => ({ type: 'reply', windowId: 'window-one', requestId, ok: true, value: [{ id: 3 }] }));
-  await assert.rejects(new EngineClient('window-one', malformed.transport).request('profiles.list', {}), /Invalid profiles/);
+  await assert.rejects(new EngineClient('window-one', malformed.transport).request('extensions.list', {}), /Invalid extensions/);
   const refused = replyTransport(() => null, '{"ok":false,"error":"Unsupported engine request"}');
-  await assert.rejects(new EngineClient('window-one', refused.transport).request('profiles.list', {}), /Unsupported/);
+  await assert.rejects(new EngineClient('window-one', refused.transport).request('extensions.list', {}), /Unsupported/);
 });
 test('ordinary subscribers never see request replies', () => {
   let deliver!: (event: EngineEvent) => void;
@@ -103,6 +103,8 @@ test('panel events name only known panels', () => {
   assert.deepEqual(parseEngineEvent('{"type":"panel.open","windowId":"window-one","panel":"bookmarks"}'),
     { type: 'panel.open', windowId: 'window-one', panel: 'bookmarks' });
   assert.throws(() => parseEngineEvent('{"type":"panel.open","windowId":"window-one","panel":"chrome-settings"}'));
+  // Merlin has one profile (decision 44), so there is no profiles panel.
+  assert.throws(() => parseEngineEvent('{"type":"panel.open","windowId":"window-one","panel":"profiles"}'));
 });
 test('split views must name open tabs, including the active one', () => {
   const tab = (id: string) => ({ id, title: id, url: 'https://example.com/', loading: false, pinned: false, audible: false, canGoBack: false, canGoForward: false });

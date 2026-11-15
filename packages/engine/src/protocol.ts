@@ -80,6 +80,8 @@ export type Snapshot = {
   /** The page asked for fullscreen (a video, a PDF, a game): it fills the window with no browser chrome. */
   fullscreen?: boolean;
   modal: {
+    /** Config `modal_browsing`; off, every key goes to the page. */
+    modalBrowsing?: boolean;
     mode: string; pending: string; message: string; messageIsError?: boolean; sidebarHidden?: boolean;
     tabLayout?: 'sidebar' | 'top'; whichKey?: WhichKey[]; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string;
   };
@@ -168,7 +170,6 @@ export type HistoryItem = { url: string; title: string; domain: string; time: nu
 export type HistoryPage = { items: HistoryItem[]; done: boolean };
 export type BookmarkItem = { id: string; title: string; folder: boolean; editable: boolean; count?: number; url?: string; domain?: string; where?: string };
 export type BookmarkView = { path: { id: string; title: string }[]; items: BookmarkItem[]; folderId: string };
-export type ProfileInfo = { id: string; name: string; active: boolean };
 export type PreferenceKey = 'theme' | 'tabs' | 'ctrlTab' | 'engine' | 'startup' | 'zoom' | 'askWhere' | 'memorySaver' | 'energySaver' |
   'autoPip' | 'savePasswords' | 'adblock' | 'adblockUpdates' | 'adblockLists' | 'adblockRefresh' | 'adblockException' | 'extension';
 export type Requests = {
@@ -177,6 +178,8 @@ export type Requests = {
   'settings.chooseDownloadDir': { args: {}; result: string };
   'settings.config': { args: {}; result: ConfigFile };
   'settings.saveConfig': { args: { text: string }; result: string };
+  /** Writes one [options] value into the config file; the reply is an error, empty when it saved. */
+  'settings.setOption': { args: { name: 'modal_browsing' | 'auto_insert' | 'smooth_scroll'; value: boolean } | { name: 'hint_chars'; value: string }; result: string };
   'settings.workspaces': { args: {}; result: Workspace[] };
   'settings.deleteWorkspace': { args: { name: string }; result: Workspace[] };
   'settings.openPage': { args: { key: string }; result: null };
@@ -194,13 +197,10 @@ export type Requests = {
   'extensions.setEnabled': { args: { id: string; enabled: boolean }; result: null };
   'extensions.run': { args: { id: string }; result: null };
   'extensions.manage': { args: { id?: string }; result: null };
-  'profiles.list': { args: {}; result: ProfileInfo[] };
   'downloads.list': { args: {}; result: Download[] };
-  'profiles.open': { args: { id: string }; result: null };
-  'profiles.create': { args: { name: string }; result: null };
 };
 export type Request = keyof Requests;
-export const panels = ['settings', 'history', 'bookmarks', 'downloads', 'extensions', 'profiles', 'newTab'] as const;
+export const panels = ['settings', 'history', 'bookmarks', 'downloads', 'extensions', 'newTab'] as const;
 export type PanelName = typeof panels[number];
 
 export type EngineEvent = { type: 'snapshot'; snapshot: Snapshot } | { type: 'address.focus' | 'address.revert' | 'command.open'; windowId: string }
@@ -317,6 +317,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
   if (s.modal.hintPrefix !== undefined && typeof s.modal.hintPrefix !== 'string') throw new Error('Invalid hint prefix');
   if (s.fullscreen !== undefined && typeof s.fullscreen !== 'boolean') throw new Error('Invalid fullscreen state');
   if (s.modal.sidebarHidden !== undefined && typeof s.modal.sidebarHidden !== 'boolean') throw new Error('Invalid sidebar state');
+  if (s.modal.modalBrowsing !== undefined && typeof s.modal.modalBrowsing !== 'boolean') throw new Error('Invalid modal browsing state');
   if (s.modal.messageIsError !== undefined && typeof s.modal.messageIsError !== 'boolean') throw new Error('Invalid message state');
   if (s.modal.tabLayout !== undefined && s.modal.tabLayout !== 'sidebar' && s.modal.tabLayout !== 'top') throw new Error('Invalid tab layout');
   if (s.modal.whichKey !== undefined && (!Array.isArray(s.modal.whichKey) || s.modal.whichKey.some(k =>
@@ -412,7 +413,7 @@ export function validateResult<R extends Request>(method: R, value: unknown): Re
         adblock: a => fields(a, { available: isBool, enabled: isBool, automatic: isBool, private: isBool, status: isString,
           updateStatus: isString, lastUpdate: isNumber, groups: listOf(isString), exceptions: listOf(isString) }),
       }), 'settings'); break;
-    case 'settings.chooseDownloadDir': case 'settings.saveConfig': check(isString(value), 'reply'); break;
+    case 'settings.chooseDownloadDir': case 'settings.saveConfig': case 'settings.setOption': check(isString(value), 'reply'); break;
     case 'settings.config': check(fields(value, { found: isBool, text: isString, error: isString, path: isString }), 'configuration'); break;
     case 'settings.workspaces': case 'settings.deleteWorkspace': check(workspaces(value), 'workspaces'); break;
     case 'history.search': check(fields(value, { done: isBool,
@@ -420,7 +421,6 @@ export function validateResult<R extends Request>(method: R, value: unknown): Re
     case 'bookmarks.folder': case 'bookmarks.search': check(bookmarkView(value), 'bookmarks'); break;
     case 'extensions.list': check(listOf(extension)(value), 'extensions'); break;
     case 'downloads.list': check(listOf(isDownload)(value), 'downloads'); break;
-    case 'profiles.list': check(listOf(p => fields(p, { id: isString, name: isString, active: isBool }))(value), 'profiles'); break;
     default: check(value === null || value === undefined, 'acknowledgement'); return null as Requests[R]['result'];
   }
   return value as Requests[R]['result'];

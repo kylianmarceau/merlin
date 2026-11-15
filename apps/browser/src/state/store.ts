@@ -10,9 +10,9 @@ import type { TabDrag } from './tabDrag';
 
 /** `location` is ⌘L's centred field for the current tab (Settings › Appearance › ⌘L opens the command bar: In the centre). */
 export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | 'location' | null;
-export type PopoverName = 'extensions' | 'profiles' | 'downloads';
+export type PopoverName = 'extensions' | 'downloads';
 /** Places popovers attach to. Toolbar and sidebar controls report their frames; `page` is where pages show, for dropping tabs. */
-export type AnchorName = 'site' | 'requests' | 'extensions' | 'downloads' | 'profiles' | 'address' | 'page';
+export type AnchorName = 'site' | 'requests' | 'extensions' | 'downloads' | 'address' | 'page';
 export type Rect = { x: number; y: number; width: number; height: number };
 /** Naming a tab group: a new one for `tabId`, or renaming `groupId`. */
 export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string };
@@ -121,9 +121,9 @@ export function dismissToast(store: BrowserStore, id: number) {
   store.setState(s => ({ toasts: s.toasts.filter(t => t.id !== id) }));
 }
 
-/** Native requests to open a panel. Extensions and profiles are popovers in this shell. */
+/** Native requests to open a panel. Extensions is a popover in this shell. */
 export function openNativePanel(store: BrowserStore, panel: PanelName) {
-  if (panel === 'extensions' || panel === 'profiles') store.setState({ popover: panel, panel: null });
+  if (panel === 'extensions') store.setState({ popover: panel, panel: null });
   // Command-T again while the pop-up is open asks its field for the focus.
   else if (panel === 'newTab') store.setState(s => ({ panel, popover: null, addressFocus: s.panel === 'newTab' ? s.addressFocus + 1 : s.addressFocus }));
   else store.setState({ panel, popover: null });

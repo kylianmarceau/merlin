@@ -25,7 +25,9 @@ a Developer ID identity or Apple notarization.
 - [x] The source repository and release downloads are public (2026-11-15).
   The public Homebrew tap is `kylianmarceau/homebrew-tap`.
 - [ ] Turn on **Settings > Security > Private vulnerability reporting** on
-  GitHub, which [SECURITY.md](../SECURITY.md) points reporters to.
+  GitHub. The README, release notes and [SECURITY.md](../SECURITY.md) send
+  security reports there; until
+  it is on, the Security tab has no **Report a vulnerability** button.
 
 ### Every release
 
@@ -120,7 +122,7 @@ Check `codesign --verify --deep --strict --verbose=2 /Applications/Merlin.app`.
 ### Security updates
 
 Updates are manual until an updater exists. Check for Chromium Stable
-releases with `scripts/check_upstream.py`, follow [Upstream](UPSTREAM.md) to
+releases with `scripts/check_upstream.py`, follow the rebase procedure in `docs/UPSTREAM.md` to
 update, then release as above. The targets: three days for a Stable security
 release, 24 hours when Google reports a fix for a bug exploited in the wild.
 Testers hear about releases by watching the repository.

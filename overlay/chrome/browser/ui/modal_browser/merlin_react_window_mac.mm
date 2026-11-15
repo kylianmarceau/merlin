@@ -560,7 +560,8 @@ class ReactBrowserWindow final : public BrowserWindow,
         }, weak_factory_.GetWeakPtr(), contents->GetWeakPtr(), source, target));
     return ShowTranslateBubbleResult::kSuccess;
   }
-  void ShowAvatarBubbleFromAvatarButton(bool) override { OpenShellPanel(browser_, "profiles"); }
+  // Merlin has one profile and no avatar button (decision 44).
+  void ShowAvatarBubbleFromAvatarButton(bool) override {}
   void ShowHatsDialog(const std::string&, const std::optional<std::string>&, const std::optional<uint64_t>,
       base::OnceClosure, base::OnceClosure failure, const SurveyBitsData&, const SurveyStringData&) override {
     if (failure) std::move(failure).Run();

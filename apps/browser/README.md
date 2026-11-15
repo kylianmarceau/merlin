@@ -1,10 +1,12 @@
 # Merlin's React Native macOS shell
 
-This replaces Merlin's Views-based interface. It uses the UI stack and
-host/engine separation researched in Ardia, with original Merlin components and
-styling. It is not a WebUI skin or a second browser engine. The migration is
-source-complete and passes source, syntax and dependency checks; it is **not yet
-runtime-qualified** (see the checklist at the end).
+Merlin's interface: every normal browser window and the pop-ups pages open.
+It replaced the Chromium Views interface on 2026-11-11 (0.2.0-beta.1) and has
+shipped in every release since, including 0.2.0. It uses the UI stack and
+host/engine separation researched in Ardia, with Merlin's own components and
+styling. It is not a WebUI skin or a second browser engine: Chromium still owns
+every page, profile and browser service. The release checklist at the end lists
+what each release is checked for by hand.
 
 ## Ownership
 
@@ -14,7 +16,7 @@ runtime-qualified** (see the checklist at the end).
 | C ABI | `packages/engine/include/` | Versioned engine calls/events and host root creation; no C++ objects cross the framework boundary |
 | Engine module | `packages/engine/` | The `MerlinEngine` Expo module: calls, events and native page attachment |
 | AppKit module | `packages/shell/` | One Expo module per AppKit view (`MerlinShell`, `MerlinShellSymbol`, …; pod `MerlinShellViews`): SF Symbols, vibrancy, shadowed surfaces, the window drag region, outside-press detection, context-menu areas and native menus |
-| WebKit module | `packages/webkit/` | The `MerlinWebKit` Expo module: a WKWebView per tab for sites Chromium can't play (Netflix and other DRM services). `state/webkit.ts` decides which tabs show one ([decision 59](../../docs/DECISIONS.md#59-protected-video-opens-in-webkit)) |
+| WebKit module | `packages/webkit/` | The `MerlinWebKit` Expo module: a WKWebView per tab for sites Chromium can't play (Netflix and other DRM services). `state/webkit.ts` decides which tabs show one (decision 59 in the decisions log) |
 | Platform | `apps/browser/src/platform/` | The only JS that imports the native packages |
 | State | `apps/browser/src/state/` | A Zustand store per window, its actions and hooks, validated snapshots and the rules for which overlays show |
 | Components | `apps/browser/src/components/` | `ui/` (tokens, motion, about 30 shared pieces) and one folder per feature |
@@ -131,7 +133,7 @@ pnpm 10.28.2 and CocoaPods. The React shell requires macOS 14 or later.
    ```sh
    MERLIN_APP="$PWD/apps/browser/build/assembled/Merlin.app" \
    MERLIN_SHELL_DSYM="$PWD/apps/browser/build/native/Build/Products/Release/MerlinShell.app.dSYM" \
-   MERLIN_VERSION=0.1.0-beta.1 scripts/package_mac.sh
+   MERLIN_VERSION=0.2.0 scripts/package_mac.sh
    ```
 
    `CHROMIUM_DIR` and `OUT` still identify the engine's credits, GN arguments
@@ -168,10 +170,10 @@ keeps the keyboard while it is open.
 | Split views (`:split`, `:vsplit`) | `window/PageArea` renders both halves; the other half focuses on click | Snapshot `split`, page attachment and visibility in the window |
 | Command palette, link hints, find in page | `palette/`, `window/PageArea`, `find/` | Modal controller, `merlin_react_find_bar.cc` |
 | Pop-up windows | `window/PopupWindow` | `patches/0068` (`TYPE_POPUP`), snapshot `kind` |
-| Settings: appearance, startup, search, downloads, privacy, blocking, performance, extensions, workspaces, keys, config file, about | `Settings` | `merlin_preferences.cc`, `merlin_shell_services.cc` |
+| Settings: appearance, general (startup, search, downloads, updates, import and export), privacy, blocking, performance, extensions, workspaces, keys (with the Modal browsing switch), config file, about | `settings/` | `merlin_preferences.cc`, `merlin_shell_services.cc` (`settings.setOption` writes one `[options]` value into `config.toml`) |
 | History, bookmarks with folders, downloads | `Library` | `merlin_shell_services.cc`, `merlin_downloads.cc` |
 | Extensions popover, and extension popups in place | `extensions/` | `merlin_shell_services.cc`, `merlin_react_extension_popup_mac.mm` |
-| Profiles and recent downloads popovers | `profiles/`, `library/DownloadsPopover` | `merlin_shell_services.cc` |
+| Recent downloads popover | `library/DownloadsPopover` | `merlin_downloads.cc` |
 | Permissions, JavaScript dialogs, leave-page, close with downloads | `site/` | `merlin_react_permission_prompt.cc`, `merlin_react_script_dialog.cc` |
 | Site information, bookmark editing, translate, open-in-app, update ready, caret browsing, private-window dialogs | `site/` | `merlin_react_window_mac.mm`, `ShowShellSiteInfo` |
 | Save or update passwords | `site/` | `merlin_react_passwords.cc`, hooked by `patches/0071` |
@@ -203,13 +205,18 @@ request button instead of interrupting the page.
 - Send-tab-to-self (needs Google Sync) and enterprise download scanning still
   expect Chromium's toolbar; Merlin does not enable either.
 
-Before declaring the migration complete, test the assembled app's actual window
+### Release checklist
+
+`tests/e2e` drives the assembled app for keys, hints, tabs, splits, config,
+browserctl, workspaces, the editor, ad blocking, groups, Peek and picture in
+picture. It can't see React's own surfaces, so before each release also check
+by hand the assembled app's window
 lifecycle, tab/page focus, keyboard shortcuts, native view layering, light/dark
 appearance, VoiceOver, private windows, multi-window routing, permission queues,
 JavaScript/before-unload dialogs, fullscreen exit, downloads and shutdown;
 also Settings and config saving, history paging, bookmark folders and moves,
 split views (both halves visible, focus on click), password and address save
-offers, translation, profile switching and extension actions. Check the new
+offers, translation and extension actions. Check the new
 AppKit pieces in particular: sidebar vibrancy, popover shadows and layering
 above the page, dragging and double-clicking the toolbar and sidebar strip,
 outside clicks on the page closing popovers, right-click tab menus, favicons,
@@ -219,3 +226,10 @@ windows. `pod install` (run by `build_react_shell.sh`) adds the new
 Source and syntax checks cannot establish that these work at runtime. Compare
 benchmarks only after a fresh build, using the same engine build type and test
 conditions as the previous baseline.
+
+### One profile
+
+Merlin keeps one Chromium profile and has no profile UI
+(decision 44 in the decisions log). The
+shell has no profiles popover or `profiles.*` requests, and Chromium's avatar
+bubble does nothing in a React window.

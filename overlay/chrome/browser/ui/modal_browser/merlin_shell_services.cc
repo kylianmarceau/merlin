@@ -22,16 +22,10 @@
 #include "base/task/bind_post_task.h"
 #include "chrome/browser/bookmarks/bookmark_html_writer.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_attributes_entry.h"
-#include "chrome/browser/profiles/profile_attributes_storage.h"
-#include "chrome/browser/profiles/profile_avatar_icon_util.h"
-#include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/modal_browser/config_file.h"
@@ -684,64 +678,6 @@ bool RunDownloads(BrowserWindowInterface* browser,
   return true;
 }
 
-// -- Profiles -----------------------------------------------------------------
-
-bool RunProfiles(BrowserWindowInterface* browser,
-                 const std::string& method,
-                 const Dict& args,
-                 ShellServiceReply& reply) {
-  if (!method.starts_with("profiles.")) {
-    return false;
-  }
-  ProfileManager* manager = g_browser_process->profile_manager();
-  if (!manager) {
-    Fail(std::move(reply), "Profiles are not available");
-    return true;
-  }
-  ProfileAttributesStorage& storage = manager->GetProfileAttributesStorage();
-  const base::FilePath current =
-      browser->GetProfile()->GetOriginalProfile()->GetPath();
-  if (method == "profiles.list") {
-    List list;
-    for (ProfileAttributesEntry* entry :
-         storage.GetAllProfilesAttributesSortedByNameWithCheck()) {
-      list.Append(Dict()
-                      .Set("id", entry->GetPath().AsUTF8Unsafe())
-                      .Set("name", entry->GetName())
-                      .Set("active", entry->GetPath() == current));
-    }
-    Reply(std::move(reply), base::Value(std::move(list)));
-  } else if (method == "profiles.open") {
-    const std::string* id = args.FindString("id");
-    const base::FilePath path =
-        id ? base::FilePath::FromUTF8Unsafe(*id) : base::FilePath();
-    if (!id || !storage.GetProfileAttributesWithPath(path)) {
-      Fail(std::move(reply), "That profile no longer exists");
-      return true;
-    }
-    profiles::SwitchToProfile(path, /*always_create=*/false);
-    Reply(std::move(reply), base::Value());
-  } else if (method == "profiles.create") {
-    const std::string* name = args.FindString("name");
-    if (!name || name->empty() || name->size() > 64) {
-      Fail(std::move(reply), "Name the new profile");
-      return true;
-    }
-    ProfileManager::CreateMultiProfileAsync(
-        base::UTF8ToUTF16(*name), profiles::GetPlaceholderAvatarIndex(),
-        /*is_hidden=*/false, base::BindOnce([](Profile* profile) {
-          if (profile) {
-            profiles::SwitchToProfile(profile->GetPath(),
-                                      /*always_create=*/true);
-          }
-        }));
-    Reply(std::move(reply), base::Value());
-  } else {
-    Fail(std::move(reply), "Unknown profiles request");
-  }
-  return true;
-}
-
 }  // namespace
 
 bool RunShellService(BrowserWindowInterface* browser,
@@ -756,8 +692,7 @@ bool RunShellService(BrowserWindowInterface* browser,
          RunHistory(browser, method, args, reply) ||
          RunBookmarks(browser, method, args, reply) ||
          RunExtensions(browser, method, args, reply) ||
-         RunDownloads(browser, method, args, reply) ||
-         RunProfiles(browser, method, args, reply);
+         RunDownloads(browser, method, args, reply);
 }
 
 void ShowShellSiteInfo(BrowserWindowInterface* browser) {

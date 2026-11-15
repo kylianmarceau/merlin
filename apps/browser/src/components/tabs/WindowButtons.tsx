@@ -4,16 +4,6 @@ import { overallProgress } from '../../lib/format';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import { Badge, IconButton, ProgressRing, duration, geometry, space, useNudge, useTheme, useTimeout } from '../ui';
 
-/** The profile switcher. Private windows have no profile to switch. */
-export function ProfilesButton() {
-  const snapshot = useSnapshot();
-  const actions = useActions();
-  const popover = useBrowser(s => s.popover);
-  if (snapshot.private) return null;
-  return <IconButton label="Profiles" icon="person.crop.circle" selected={popover === 'profiles'} selectedFill="fillShellControl"
-    onFrame={frame => actions.setAnchor('profiles', frame)} onPress={() => actions.togglePopover('profiles')} />;
-}
-
 /**
  * Recent downloads. While files arrive a ring around the arrow fills with
  * their progress (circling until their size is known), with a count when
@@ -73,10 +63,9 @@ export function ExtensionsButton() {
     onPress={() => actions.togglePopover('extensions')} />;
 }
 
-/** The bottom of the sidebar: profile and downloads on the left, the rest on the right. */
+/** The bottom of the sidebar: downloads on the left, the rest on the right. */
 export function SidebarFooter() {
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
-    <ProfilesButton />
     <DownloadsButton />
     <View style={{ flex: 1 }} />
     <ExtensionsButton />

@@ -4,6 +4,20 @@ Chromium 157.0.8103.26.
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
 
+## Since 0.2.0 (not yet released)
+
+Rename this section "What's new since 0.2.0" when the next version ships.
+
+* **Turn modal keys on or off in Settings.** **Settings > Keys > Modal
+  browsing** switches the keyboard layer off, so every key goes to the page
+  as in any other browser. ⌘K, the menus and the mouse still reach
+  everything. It writes `modal_browsing` in `config.toml`, so the file and
+  the switch always agree. In 0.2.0 this needed an edit to the file.
+* **No Profiles button.** Merlin has one profile. The toolbar's Profiles
+  button could create more, but the rest of Merlin (workspaces, browserctl,
+  the config file) only knows the one. Use workspaces and private windows to
+  keep browsing apart.
+
 ## Stable release
 
 Merlin 0.2.0 is the first stable release. It uses the same compiled browser
@@ -289,7 +303,8 @@ about new versions, including Chromium security updates.
 * One fuzzy palette for commands, URLs, tabs, history, bookmarks and
   workspaces; `?` searches every command and its keys.
 * Reading tools: page outline (`gO`), heading/code/table jumps, a list of
-  every link, copy the page as Markdown, Visual-mode selection, Reading mode.
+  every link, copy the page as Markdown and Visual-mode selection. (Chromium's
+  Reading mode needs its side panel, which Merlin doesn't have.)
 * A tab sidebar or tabs on top, hidden tabs (`⌘S`), tab groups, pinned
   tabs and splits (`<C-w>v`, `<C-w>s`).
 * `Ctrl+Tab` goes back to the tab you used last; hold `Ctrl` to see every
@@ -323,13 +338,17 @@ Press `?` in the browser for every key, or read the
 * **Chrome Web Store installs may be refused** or need manual steps;
   unpacked and `.crx` extensions work.
 * **One profile.** Use workspaces and private windows to separate things.
-* **Modal browsing has no switch in the new Settings yet.** To turn the
-  modal keys on or off, set `modal_browsing = true` or `false` in
-  `~/.config/modal_browser/config.toml` (Settings > Config File shows it).
+* **No Reading mode.** Chromium's needs the side panel, which Merlin
+  doesn't have. The outline (`gO`) and `yM` (copy as Markdown) cover some of
+  it.
+* **Error pages look like Chromium's.** Network errors and certificate
+  warnings use Chromium's own styling.
 
 ## Reporting problems
 
 Open an [issue](https://github.com/kylianmarceau/merlin/issues) with the
 version from `chrome://version`, your macOS version and the steps to
-reproduce. Report security problems privately: see
-[SECURITY.md](https://github.com/kylianmarceau/merlin/blob/main/SECURITY.md).
+reproduce. Report security problems privately, not in an issue: use
+**Report a vulnerability** on the repository's
+[Security tab](https://github.com/kylianmarceau/merlin/security) (see
+[SECURITY.md](https://github.com/kylianmarceau/merlin/blob/main/SECURITY.md)).

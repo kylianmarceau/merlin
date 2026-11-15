@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import type { PreferenceKey, Preferences } from '../../state/types';
-import { useAction, useActions, useRequest } from '../../state/window';
+import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
 import {
   Box, Button, Field, FormGroup, FormRow, ListRow, Notice, SectionHeader, Sheet, SheetBody, Text, Toggle, geometry,
   type SheetSection,
@@ -89,6 +89,7 @@ export function Settings({ open }: { open: boolean }) {
         {section === 'workspaces' && <Workspaces onOpen={name => { void actions.command(`workspace open ${name}`); actions.closePanel(); }} />}
         {p && section === 'keys' && <>
           <SectionHeader title="Keys" detail={`Normal-mode bindings from your config. Link hints use: ${p.hintChars || 'the default characters'}.`} />
+          <ModalBrowsing />
           <FormGroup>
             {p.bindings.map(b => <FormRow key={`${b.keys}:${b.command}`} title={b.desc || b.command} detail={b.desc ? b.command : undefined}>
               <Text variant="mono">{b.keys}</Text></FormRow>)}
@@ -198,3 +199,22 @@ function ConfigEditor({ onSaved }: { onSaved(): void }) {
   </>;
 }
 
+/**
+ * The keyboard layer on or off. The value lives in the config file
+ * (`modal_browsing`), so Settings writes it there and every window rereads it.
+ */
+function ModalBrowsing() {
+  const on = useSnapshot().modal.modalBrowsing ?? true;
+  const action = useAction();
+  const [error, setError] = useState('');
+  return <FormGroup>
+    {(error || action.error) && <Notice tone="error">{error || action.error}</Notice>}
+    <FormRow title="Modal browsing" detail="Vim-style keys on pages. Off, every key goes to the page as in any other browser; ⌘K, the menus and the mouse still reach everything.">
+      <Toggle label="Modal browsing" value={on} disabled={action.busy} onChange={async value => {
+        setError('');
+        const result = await action.run('settings.setOption', { name: 'modal_browsing', value });
+        if (result) setError(result);
+      }} />
+    </FormRow>
+  </FormGroup>;
+}

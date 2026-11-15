@@ -188,8 +188,6 @@ source_set("modal_browser") {
     "//chrome/browser/preloading/search_preload",
     "//chrome/browser/prefs:util",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/profiles:profile_manager",
-    "//chrome/browser/profiles:profile_util",
     "//chrome/browser/search_engines",
     "//chrome/browser/sessions",
     "//chrome/browser/ui:browser_commands",

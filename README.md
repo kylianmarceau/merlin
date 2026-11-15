@@ -4,7 +4,7 @@
 
 <h1>Merlin</h1>
 
-<p>A Chromium-based browser for macOS that you drive with Vim keys.</p>
+<p>A Chromium browser for macOS that you can drive entirely from the keyboard, with Vim keys.</p>
 
 <p>
   <a href="https://github.com/kylianmarceau/merlin/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/kylianmarceau/merlin?label=release&color=c2410c"></a>
@@ -14,12 +14,13 @@
 </p>
 
 <p>
-  <a href="https://github.com/kylianmarceau/merlin/releases"><b>Download</b></a> ·
+  <a href="#install"><b>Install</b></a> ·
   <a href="#features">Features</a> ·
   <a href="#keys">Keys</a> ·
   <a href="#configuration">Configuration</a> ·
-  <a href="#build-from-source">Build</a> ·
-  <a href="#documentation">Docs</a>
+  <a href="#privacy-and-your-data">Privacy</a> ·
+  <a href="#limitations">Limitations</a> ·
+  <a href="#build-from-source">Build</a>
 </p>
 
 </div>
@@ -28,112 +29,143 @@
 <p align="center"><img src="docs/images/merlin.png" alt="Merlin with link hints on a page" width="900"></p>
 -->
 
-Merlin is a normal Chromium browser with a modal keyboard layer on top. You
-can follow links, switch tabs, split the window, search history and edit
-text fields in Neovim without reaching for the mouse. Sites, extensions,
-passwords and DevTools work the same as in Chrome.
+Merlin is Chromium with a modal keyboard layer and its own native macOS
+interface. You can follow links, switch tabs, split the window, search your
+history and edit text fields in Neovim without touching the mouse. Sites,
+extensions, passwords and DevTools work as they do in Chrome.
 
 Typing in a text field always goes to the page, and any site can have its
-own shortcuts back. To turn the keyboard layer off entirely, switch off
-**Settings › Keys › Modal browsing**. Everything stays a click or Cmd-K
-away: Cmd-K opens Merlin's menu, and dragging a tab onto the edge of the
-page splits the window.
+own shortcuts back. If you only want a clean Chromium, switch off
+**Settings › Keys › Modal browsing**: every key then goes to the page, and
+everything stays a click or ⌘K away.
 
 > [!NOTE]
-> Merlin requires an Apple Silicon Mac and macOS 14 Sonoma or later.
-> Updates are available through Homebrew or by downloading a new release.
+> Merlin needs an Apple Silicon Mac (M1 or later) and macOS 14 Sonoma or
+> later. It is ad-hoc signed and not notarized by Apple, so macOS asks you to
+> approve it once (see below).
 
 ## Install
 
-With [Homebrew](https://brew.sh):
+### Homebrew
 
 ```bash
 brew install --cask kylianmarceau/tap/merlin
 ```
 
-After the first launch attempt, go to **System Settings › Privacy & Security**,
-click **Open Anyway** next to Merlin, then **Open**. The app is ad-hoc signed
-and isn't notarized by Apple.
+### Direct download
 
-Quit Merlin before updating:
+1. Download `Merlin-<version>-arm64.dmg` from the
+   [latest release](https://github.com/kylianmarceau/merlin/releases/latest).
+   To check it, compare `shasum -a 256 ~/Downloads/Merlin-*.dmg` with the
+   release's `.sha256` file.
+2. Open the disk image and drag **Merlin** into **Applications**.
+
+### First launch
+
+Open Merlin. macOS says it can't check the app for malicious software,
+because Merlin isn't notarized by Apple. Open **System Settings › Privacy &
+Security**, click **Open Anyway** next to the message about Merlin, then
+**Open**. You only do this once per download, and there is no need to turn
+off Gatekeeper.
+
+### Updating
+
+Merlin doesn't update itself. Quit it, then:
 
 ```bash
 brew update
 brew upgrade --cask kylianmarceau/tap/merlin
 ```
 
-Homebrew keeps your profile and configuration. The
-[Merlin tap](https://github.com/kylianmarceau/homebrew-tap) tracks stable
-releases and checks for new versions hourly; scheduled checks can be delayed.
-If you already installed Merlin manually, see the tap's instructions for
-letting Homebrew manage it.
+Or download the new release and replace the app in Applications. Your
+bookmarks, passwords, history, workspaces and `config.toml` are kept.
+**Settings › General › Updates** can check GitHub for new versions (off by
+default), and **Watch › Custom › Releases** on this repository announces
+them. Releases follow Chromium's security updates: the aim is a release
+within three days of a Chromium Stable security fix, and within a day for
+bugs exploited in the wild.
 
-You can also install the DMG directly:
+### Uninstalling
 
-1. Download the latest `Merlin-<version>-arm64.dmg` from
-   [Releases](https://github.com/kylianmarceau/merlin/releases/latest).
-2. Open the disk image and drag **Merlin** into **Applications**.
-3. Open Merlin. macOS will block it the first time because the app isn't
-   notarized by Apple.
-4. Go to **System Settings › Privacy & Security**, click **Open Anyway**
-   next to the message about Merlin, then **Open**.
+```bash
+brew uninstall --cask merlin
+```
 
-To update a manual installation, quit Merlin and replace the app. Your
-profile and config are kept. Use **Watch › Custom › Releases** on this repository to get notified
-of new versions. More detail in [docs/RELEASE.md](docs/RELEASE.md).
+or drag Merlin from Applications to the Bin. To remove your data as well,
+delete:
+
+- `~/Library/Application Support/Merlin` and `~/Library/Caches/Merlin` (the
+  browser profile and its cache)
+- `~/.config/modal_browser` (configuration) and `~/.local/share/modal_browser`
+  (workspaces)
+- `~/Library/Preferences/io.github.kylianmarceau.merlin.plist` (interface
+  settings)
+- `~/Library/WebKit/io.github.kylianmarceau.merlin` and
+  `~/Library/HTTPStorages/io.github.kylianmarceau.merlin` (sign-ins for
+  streaming sites)
 
 ## Features
 
 **Modes.** Normal for moving around, Insert for typing (entered
 automatically when a field is focused), Visual for selecting text, Command
-for the `:` line, Hint for link labels, and Passthrough to send every key
-to the site. The current mode shows in a small pill in the corner, and
-nothing covers the page in Normal mode.
+for the `:` line, Hint for link labels and Passthrough to send every key to
+the site. Outside Normal mode a slim line under the page shows the mode and
+the keys typed so far; in Normal mode nothing is shown.
 
 **Link hints.** `f` labels every link on the page and you type the label to
-follow it. `F` opens in a new tab, `yf` copies the link, `gi` jumps to a
-text field, and `gf` peeks at the link in a floating card over the page
-(`⌘↩` keeps it as a tab; `Esc` closes it). `:peek <url>` does the same for
-an address. Hints work inside iframes and web components.
+follow it. `F` opens it in a new tab, `yf` copies it, `gi` jumps to a text
+field and `gf` peeks at the link in a card floating over the page (`⌘↩` keeps
+it as a tab, `Esc` closes it). Hints reach into iframes and web components.
 
-**One palette.** `:` takes commands, URLs and searches. `b` switches tabs.
-`?` searches every command and shows its key. Everything is fuzzy-matched,
-and a which-key popup shows what follows a prefix like `g` or `<C-w>`.
+**One palette.** `:` and ⌘K take commands, addresses and searches. `b`
+switches tabs and `?` searches every command and shows its key. Everything
+is fuzzy-matched. Pause after a prefix like `g` or `<C-w>` and the line
+under the page lists every key that can follow.
 
 **Long pages.** `gO` opens an outline of headings, code blocks and tables.
-`]]` and `[[` jump between headings, `]c` between code blocks, `]t` between
-tables. `gl` lists every link on the page. `yM` copies the page as
+`]]` and `[[` jump between headings, `]c` between code blocks and `]t`
+between tables. `gl` lists every link on the page, `yM` copies the page as
 Markdown and `yc` copies a code block.
 
-**Tabs and splits.** Tabs in a sidebar or along the top, or hidden entirely
-with `⌘S`. Split the window with `<C-w>v` or `<C-w>s`. Pin tabs with `gp`.
-Group tabs from a tab's menu or with `:group research` (`:ungroup` takes a
-tab out); a group can be renamed, recoloured and collapsed from its header.
+**Tabs and splits.** Tabs in a sidebar or along the top, or hidden with `⌘S`.
+Split the window with `<C-w>v` or `<C-w>s`, or drag a tab onto either half
+of the page. Pin tabs with `gp`. Group tabs from a tab's menu or with
+`:group research`; a group can be renamed, recoloured and collapsed.
+Control-Tab goes to the tab you used last; hold Control to see every tab as
+a card.
 
-**Picture in picture.** A video playing with sound floats in a rounded
-window when you switch tabs, and goes back when you return. Turn it off in
-**Settings › General**.
+**Workspaces.** Save a window with `:workspace save research` and reopen it
+later with `gw`: its tabs, pins, splits, groups and place on screen come
+back. Workspaces save as you go, and your last session comes back on launch,
+even after a crash. A workspace can be tied to a project folder and opened
+from that folder's terminal with `browserctl workspace here`.
 
-**Workspaces.** Save a window with `:workspace save research` and reopen
-it later with `gw`: its tabs, pins, splits, tab groups and the window's
-place on screen come back. Workspaces save as you go, and your last
-session comes back on launch, even after a crash. A workspace can be tied
-to a project folder and reopened from that folder's terminal.
+**Edit in your editor.** Press `ge` to pick a field, or `Ctrl+Shift+E` while
+typing, and the text opens in Neovim or any editor you configure. Saving
+writes it back to the page. Password and payment fields are never sent out.
 
-**Edit in your editor.** Press `ge` to pick a field, or `Ctrl+Shift+E`
-while typing, and the text opens in Neovim or any editor you configure.
-Saving writes it back to the page. Password and payment fields are never
-sent out.
+**Ad blocking.** On by default, using Brave's Rust filter engine natively,
+not as an extension: network requests, cosmetic filters, scriptlets and
+pop-ups. Choose lists and turn it off in **Settings › Blocking**, or for one
+site with `:adblock site toggle`.
 
-**Ad blocking.** On by default, using Brave's Rust filter engine: network
-requests, cosmetic filters, scriptlets and popups. Turn it off per site
-with `:adblock site toggle`, or everywhere in **Settings › Ad blocking**.
-
-**Scripting.** `browserctl` controls the running browser from a terminal,
-Neovim or a shell script. See [browserctl](#browserctl).
+**Video.** H.264 and AAC play in Chromium. Netflix, Disney+, Prime Video,
+Spotify's web player and other DRM services open in WebKit (Safari's engine)
+inside the same tab, where they play. A video playing with sound floats in a
+picture-in-picture window when you switch tabs and goes back when you
+return.
 
 **Marks and macros.** `ma` sets a mark and `'a` returns to it. `qa` … `q`
 records a macro and `@a` replays it. Counts work too, as in `5j`.
+
+**Scripting.** `browserctl` controls the running browser from a terminal,
+Neovim or a script. See [browserctl](#browserctl).
+
+**Looks.** **Settings › Appearance** has a workspace colour, Glass (Liquid
+Glass on macOS 26) or Classic surfaces, the address bar in the sidebar or the
+toolbar, toolbars that take the site's colour, a bookmarks bar, a frame
+around the page and nine painted app icons. Merlin follows macOS's light and
+dark mode and Reduce Motion.
 
 ## Keys
 
@@ -152,7 +184,7 @@ Normal mode (`Shift+Esc` in Passthrough).
 | `gO` | Page outline | `gl` | Links on the page |
 | `<C-w>v` / `<C-w>s` | Split side by side / stacked | `<C-w>o` | Close split |
 | `gw` | Workspaces | `ge` | Edit field in your editor |
-| `:` | Command line | `?` | Search commands and keys |
+| `:` or `⌘K` | Command line | `?` | Search commands and keys |
 
 <details>
 <summary><b>More keys</b></summary>
@@ -177,13 +209,14 @@ Normal mode (`Shift+Esc` in Passthrough).
 ## Configuration
 
 Merlin reads `~/.config/modal_browser/config.toml` (or
-`$XDG_CONFIG_HOME/modal_browser/config.toml`). Every setting is optional.
-Run `:config-reload` to apply changes without restarting. Errors are
-reported with their line number and the rest of the file still loads.
+`$XDG_CONFIG_HOME/modal_browser/config.toml`). Every setting is optional;
+**Settings › Config File** opens and saves it. Run `:config-reload` to apply
+changes without restarting. Errors are reported with their line number, and
+the rest of the file still loads.
 
 ```toml
 [options]
-tabs = "top"                  # or "side"
+modal_browsing = true         # false: every key goes to the page
 hint_chars = "sadfjklewcmpgh"
 smooth_scroll = true
 passthrough_sites = ["mail.google.com", "*.figma.com"]
@@ -203,97 +236,126 @@ notes = "workspace open notes"
 normal = ["d"]                # give this key back to sites
 ```
 
-Every option is documented in
-[`docs/config.example.toml`](docs/config.example.toml).
+<details>
+<summary><b>Every option</b></summary>
+<br>
 
-### Appearance
+| Option | Default | What it does |
+|---|---|---|
+| `modal_browsing` | `true` | Modes, hints and key bindings. `false` sends every key to the page; Settings › Keys › Modal browsing writes this |
+| `scroll_step` | `60` | Pixels per `j`/`k`/`h`/`l` step |
+| `smooth_scroll` | `true` | Animate page-sized jumps (`gg`, `G`, `<C-d>`, `<C-f>`) |
+| `sequence_timeout_ms` | `1000` | How long a prefix like `g` waits for the next key |
+| `hint_chars` | `"sadfjklewcmpgh"` | Characters for hint labels, easiest first |
+| `auto_insert` | `true` | Enter Insert mode when a text field gets focus |
+| `vertical_tabs` | `true` | Tabs in a sidebar by default; a layout you pick in the window wins |
+| `hide_tabs` | `false` | Start with the tabs hidden |
+| `passthrough_exit` | `"<S-Esc>"` | The key that leaves Passthrough (plain `Esc` goes to the site) |
+| `passthrough_sites` | `[]` | Sites that start in Passthrough; `"*.example.com"` also matches `example.com` |
+| `restore_session` | `true` | Reopen last session's windows at launch; Settings › General › On startup wins |
+| `workspace_autosave` | `true` | Keep a workspace's file up to date as its window changes |
+| `browserctl` | `true` | Accept `browserctl` commands over a socket only you can reach |
+| `editor` | `$VISUAL`, then `$EDITOR` | The program `:edit` runs, as a list; `"{file}"` is the temporary file |
+| `edit_key` | `"<C-S-e>"` | While typing, opens the field in your editor |
 
-**Settings › Appearance** has eight theme-colour presets, a custom colour
-picker, full-window or accent-only tint, page-colour matching, rounded or
-sharper corners, compact or comfortable spacing, start-page backgrounds,
-and yellow or theme-coloured link hints. Changes apply to every open window
-without restarting. Private windows keep their dark palette, and accessibility
-colours retain priority.
+Tables: `[keys.normal]` and `[keys.visual]` map keys in Vim notation (`<C-x>`
+Control, `<D-x>` Command, `<A-x>` Option, `<S-x>` Shift) to command lines.
+`[aliases]` defines your own commands, which appear in completion and under
+`?`. `[unmap]` gives keys back to sites. Appearance is in Settings, not in
+this file. [docs/config.example.toml](docs/config.example.toml) is a
+commented example of everything.
 
-The config options and defaults are:
-
-```toml
-[options]
-theme_color = "default"             # or "#RRGGBB"
-theme_tint = "full"                 # or "accent"
-page_color_matching = true
-corner_style = "rounded"            # or "sharp"
-density = "compact"                 # or "comfortable"
-start_background = "plain"          # or "gradient", "image"
-hint_color = "yellow"               # or "theme"
-```
-
-Choose a PNG, JPEG or WebP in Settings for an image background. Merlin saves a
-resized copy locally in `start_background_image`; it does not upload the image
-or fetch it remotely. **Remove image** clears that copy.
+</details>
 
 ## browserctl
 
-`browserctl` talks to the running browser over a Unix socket that only
-your user can open. There is no network listener, and private windows are
-not visible to it.
+`browserctl` talks to the running browser over a Unix socket that only your
+user can open. There is no network listener, and private windows are not
+visible to it.
+
+It isn't in the app yet. Install it from a clone of this repository with
+[Rust](https://rustup.rs):
 
 ```bash
+git clone https://github.com/kylianmarceau/merlin.git
+cd merlin
 scripts/install_browserctl.sh                # installs to ~/.local/bin
 ```
 
 ```bash
 browserctl open https://docs.rs              # open in a new tab
 browserctl open --current rust lifetimes     # search in the current tab
-browserctl tabs --json                       # list tabs
+browserctl tabs --json                       # list tabs, with their groups
 browserctl focus --tab 3
 browserctl selection                         # print the selected text
 browserctl workspace here                    # open this folder's workspace
 browserctl command 'vsplit https://docs.rs'  # run any : command
 ```
 
-Disable it with `browserctl = false` in the config.
+Turn it off with `browserctl = false` in the config.
 
-## Privacy
+## Privacy and your data
 
-Merlin has no telemetry, no accounts and no AI features. The only network
-requests it adds are filter list updates for the ad blocker, fetched over
-HTTPS from EasyList and GitHub, with no browsing data attached.
+Merlin has no telemetry, crash reporting, accounts or AI features. On top of
+Chromium it adds two kinds of network request, both over HTTPS with no
+browsing data attached:
+
+- **Filter lists** for the ad blocker, from EasyList and GitHub. Turn off
+  automatic updates in **Settings › Blocking**.
+- **Update checks** to GitHub Releases, only if you turn them on in
+  **Settings › General › Updates**.
+
+Gemini, Lens, Help me write, Cast and Google's field trials are off, and
+Merlin has no Google API keys, so nothing goes to Google Sync or Safe
+Browsing either (see [Limitations](#limitations)). Chromium's own requests,
+such as extension updates from the Chrome Web Store, work as in Chromium.
+
 [docs/PRIVACY.md](docs/PRIVACY.md) lists every file, socket and piece of
-page data Merlin touches.
+page data Merlin touches. Everything else stays on your Mac: the Chromium
+profile in
+`~/Library/Application Support/Merlin`, `config.toml`, workspaces (`0600`
+JSON files), interface settings in macOS's defaults and WebKit's separate
+site data for streaming services. Text you send to your editor goes through
+a private temporary file, deleted when the edit ends (it is kept, and its
+path shown, only if writing it back fails).
 
 ## Limitations
 
 Merlin is Chromium underneath, so rendering, the sandbox, site isolation,
-passwords, autofill, PDFs, DevTools and extensions behave as they do in
-Chrome. Some things are missing:
+passwords, autofill, PDFs, DevTools and extensions behave as in Chrome.
+These are the differences:
 
-- **No background app updates.** Run `brew update` and
-  `brew upgrade --cask kylianmarceau/tap/merlin`, or download a new release.
-  Releases include Chromium security fixes.
-- **Netflix and other DRM sites open in WebKit.** Merlin's Chromium has no
-  Widevine, so Netflix, Disney+, Prime Video, Spotify's web player and
-  similar services open in WebKit (Safari's engine) inside the same tab,
-  which plays them. WebKit keeps its own sign-ins, and those tabs have no
-  modal keys, find in page or downloads. Right-click a tab to move a site
-  between engines.
-- **No Google Sync.** Bookmarks and passwords stay on your Mac.
+- **No Safe Browsing.** Chromium's phishing and malware lookups need Google
+  API keys that Merlin doesn't have. Other security warnings, such as for
+  certificates, still work.
+- **No Google Sync, Translate or spell-check downloads**, for the same
+  reason. Bookmarks and passwords stay on your Mac.
+- **No automatic updates.** Use Homebrew or replace the app; see
+  [Updating](#updating).
+- **Streaming sites run in WebKit.** Merlin's Chromium has no Widevine.
+  WebKit tabs keep their own sign-ins and have no modal keys, link hints,
+  find in page, downloads, ad blocking or Chromium history. Right-click a tab
+  to move a site between engines, or turn this off in **Settings › General ›
+  Protected video**.
+- **One profile.** Use workspaces and private windows to keep browsing apart.
+- **No Reading mode or side panels.** Extensions that use a side panel or
+  `chrome.action.openPopup()` don't get them.
 - **Chrome Web Store installs may need extra steps.** Unpacked and `.crx`
   extensions work.
-- **Apple Silicon Macs only.** No Intel, Windows or Linux builds.
+- **Error pages look like Chromium's.**
+- **Apple Silicon only.** No Intel, Windows or Linux builds.
 
 ## Build from source
 
-This repository contains only Merlin's own code (`overlay/`) and a set of
-small patches to Chromium (`patches/`). The build links them into a
-Chromium checkout at the version pinned in [`UPSTREAM_PIN`](UPSTREAM_PIN).
-
-The React Native macOS UI migration has a separate host build and assembly
-step. Its architecture, manual build instructions and remaining work are in
-[`apps/browser/README.md`](apps/browser/README.md).
+This repository holds only Merlin's code: the Chromium overlay (`overlay/`),
+small patches to Chromium (`patches/`) and the React Native macOS interface
+(`apps/browser/`, `packages/`). The build links the overlay into a Chromium
+checkout at the version pinned in [`UPSTREAM_PIN`](UPSTREAM_PIN), builds the
+engine and the interface separately, then assembles them into one app.
 
 **Requirements:** an Apple Silicon Mac, full Xcode, about 100 GB of free
-disk space and 16 GB of RAM. The first checkout and build take a few hours.
+disk space and 16 GB of RAM, Python 3, Rust, Node 22.13 or later, pnpm 10.28
+and CocoaPods. The first Chromium checkout and build take several hours.
 
 ```bash
 # Chromium's tools
@@ -308,77 +370,95 @@ cd merlin
 scripts/bootstrap_chromium.sh
 scripts/bootstrap_chromium.sh --fetch
 
-# Link Merlin into the checkout and apply patches
+# Link Merlin into the checkout, apply the patches, add the blocker's data
 scripts/apply_overlay.sh
 ~/chromium/src/third_party/cpython3/host/bin/python3 scripts/prepare_adblock_deps.py --src ~/chromium/src
 python3 scripts/prepare_adblock_resources.py
 
-# Build and run
-cd ~/chromium/src
-gn gen out/Modal
-autoninja -C out/Modal chrome
-open out/Modal/Merlin.app
+# Build the engine (optimized, PGO) and the interface
+scripts/build_release.sh
+scripts/build_react_shell.sh
+
+# Assemble them into one app
+python3 scripts/assemble_react_app.py \
+  --engine-app ~/chromium/src/out/Release/Merlin.app \
+  --shell-app apps/browser/build/native/Build/Products/Release/MerlinShell.app \
+  --output apps/browser/build/assembled/Merlin.app
+open apps/browser/build/assembled/Merlin.app
 ```
 
-Chromium is checked out to `~/chromium` by default. Set `CHROMIUM_DIR` to
-use another path (it can't contain spaces). Release builds and packaging
-are covered in [docs/RELEASE.md](docs/RELEASE.md).
+Chromium is checked out to `~/chromium` by default; set `CHROMIUM_DIR` for
+another path (without spaces). The engine on its own (`out/Release/Merlin.app`)
+opens Chromium's windows without Merlin's interface or keys, so always run
+the assembled app. Assembly refuses inputs older than their sources and an
+output that already exists. Packaging a release is covered in
+[docs/RELEASE.md](docs/RELEASE.md), and the interface's architecture and
+Metro development setup in [apps/browser/README.md](apps/browser/README.md).
 
 ### Development
 
 ```bash
+pnpm ui:check && pnpm ui:test  # interface types, state, protocol and design rules
 scripts/check.sh               # formatting, lints, Rust and C++ tests, patch checks
-scripts/run_browser_tests.sh   # headless ad-block browser tests inside Chromium
-scripts/run_e2e_tests.sh       # end-to-end tests against the real Merlin.app, in the background
-pnpm ui:check && pnpm ui:test  # React shell type and architecture checks
-scripts/check_upstream.py      # check for a newer Chromium security release
+scripts/run_browser_tests.sh   # ad-blocker tests inside Chromium (needs a build)
+scripts/run_e2e_tests.sh       # end-to-end tests against the assembled app
+scripts/check_upstream.py      # is there a newer Chromium security release?
 cargo run -p modalctl          # try the modal core in a terminal, no Chromium needed
 ```
 
-The Rust core (modes, keymaps, commands, config, hints, workspaces) builds
-and tests with plain `cargo`, without a Chromium checkout.
+The Rust core (modes, keymaps, commands, config, hints, workspaces) and the
+interface's checks build and test without a Chromium checkout.
 
 | Path | Contents |
 |---|---|
-| `overlay/components/modal_browser/` | Rust core and its C++ bridge |
+| `overlay/components/modal_browser/` | Rust modal core and its C++ bridge |
 | `overlay/chrome/browser/ui/modal_browser/` | Modal controller, the React window and its engine bridge, config, preferences |
-| `apps/browser/`, `packages/` | The React Native macOS shell: tabs, toolbar, address field, command menu, Settings, Library |
-| `overlay/components/merlin_adblock/` | Ad blocking engine bridge and offline filter data |
-| `overlay/chrome/browser/merlin_adblock/` | Ad blocking service, request interception and list updates |
-| `overlay/chrome/renderer/merlin_adblock/` | Scriptlets and cosmetic filtering in the page |
+| `overlay/components/merlin_adblock/`, `overlay/chrome/{browser,renderer}/merlin_adblock/` | Ad blocker: Brave's engine, request interception, list updates, cosmetic filtering and scriptlets |
+| `apps/browser/` | The React Native macOS interface and its host app |
+| `packages/` | Native modules: the engine bridge, AppKit views, WebKit pages |
 | `patches/` | Edits to Chromium's own files, one small patch each |
-| `tools/` | `browserctl`, `modalctl` and a fake-browser test harness |
-| `tests/e2e/` | End-to-end tests that drive an assembled Merlin.app ([how they work](tests/e2e/README.md)) |
-| `branding/` | Name, icons and colors |
+| `tools/` | `browserctl`, `modalctl` and a fake-browser test harness for the C++ router |
+| `tests/e2e/` | End-to-end tests that drive the assembled app ([how they work](tests/e2e/README.md)) |
 | `scripts/` | Setup, build, test and packaging |
 
 ## Documentation
 
 | | |
 |---|---|
-| [Architecture](docs/ARCHITECTURE.md) | How the layers fit together and where Merlin hooks into Chromium |
-| [Decisions](docs/DECISIONS.md) | What was chosen, why, and the trade-offs |
-| [Testing](docs/TESTING.md) | Test suites, results and the manual test plan |
+| [Interface](apps/browser/README.md) | How the React Native shell, the engine bridge and Chromium fit together |
+| [Design](apps/browser/DESIGN.md) | The interface's surfaces, type, colours, spacing and motion |
+| [End-to-end tests](tests/e2e/README.md) | How the app is tested from the outside |
 | [Release](docs/RELEASE.md) | Building, packaging and installing a release |
-| [Release notes](docs/RELEASE_NOTES.md) | Requirements and known issues for the current beta |
-| [Upstream](docs/UPSTREAM.md) | The pinned Chromium version, every patch, and how updates work |
-| [Performance](docs/PERFORMANCE.md) | Startup, memory and page load compared with Brave and Dia |
+| [Release notes](docs/RELEASE_NOTES.md) | What changed, and known issues |
 | [Privacy](docs/PRIVACY.md) | Every file, socket and piece of page data Merlin touches |
-| [Ad blocking](docs/ADBLOCK_IMPLEMENTATION.md) | How the native blocker works and how it was tested |
-| [Visual identity](docs/VISUAL_IDENTITY.md) | Merlin's UI changes, with screenshots and checks |
+| [Configuration example](docs/config.example.toml) | Every `config.toml` option, commented |
+| [Security policy](SECURITY.md) | Reporting problems and supported versions |
+| [Dependency patches](pnpm-patches/README.md) | Fixes carried for React Native macOS and Expo |
 
-## Contributing and issues
+## Contributing
 
-Bug reports are welcome. Please include the version from
-`chrome://version`, steps to reproduce, and whether stock Chromium at the
-same version does the same thing. Report security problems privately as
-described in [SECURITY.md](SECURITY.md), not in a public issue.
+Bug reports and pull requests are welcome. Please include the version from
+`chrome://version`, your macOS version, steps to reproduce, and whether stock
+Chromium at the same version does the same.
+
+## Security
+
+Please don't report security problems in a public issue. Use **Report a
+vulnerability** on this repository's
+[Security tab](https://github.com/kylianmarceau/merlin/security), which opens
+a private advisory ([SECURITY.md](SECURITY.md) has the details). Problems in Chromium itself belong in
+[Chromium's tracker](https://www.chromium.org/Home/chromium-security/reporting-security-bugs/);
+Merlin picks up the fix with its next Chromium update. Only the newest
+release gets fixes.
 
 ## License
 
 Merlin's code is released under the [BSD 3-Clause License](LICENSE).
-Chromium and other bundled software keep their own licenses, listed in the
-third-party notices shipped with each release.
+Chromium and the other bundled software keep their own licences, listed in
+the credits shipped with each release.
 
-Merlin is built on [Chromium](https://www.chromium.org/), and its keyboard
-model borrows heavily from Vim, Neovim, Vimium, qutebrowser and Tridactyl.
+Merlin is built on [Chromium](https://www.chromium.org/). Its keyboard model
+borrows heavily from Vim, Neovim, Vimium, qutebrowser and Tridactyl, its ad
+blocking uses [Brave's adblock-rust](https://github.com/brave/adblock-rust),
+and parts of its macOS interface are adapted from
+[Ardia](https://github.com/mantrakp04/ardia) (Apache 2.0; see [NOTICE](NOTICE)).

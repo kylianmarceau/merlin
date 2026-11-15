@@ -87,7 +87,7 @@ The stored accent names predate Tide and stay as the browser saves them:
 Every raised surface is a `Panel`: one fill, a hairline edge and a native layer
 shadow. React Native's shadow props do nothing on macOS views. **(tested)**
 Glass panels follow Settings › Appearance › Interface style
-([decision 60](../../docs/DECISIONS.md#60-ardias-interface-style-general-and-appearance-settings)):
+(decision 60 in the decisions log):
 with **Glass** (macOS 26 and later) they are macOS Liquid Glass
 (`PopoverSurface`, drawn by the native `PopoverBubble`), with no extra edge
 or shadow. Liquid Glass has only a regular and a clear look, and tint barely
@@ -135,9 +135,12 @@ a file in Finder (`FileDragArea`), to the desktop, Mail or a page.
   sidebar, or out of the window) follows the pointer as a small card. Over
   the page, the half it would take lights up (`accentSoft` with a
   `splitFocus` edge) and slides as the pointer crosses the middle: let go
-  and it shows beside the current tab in a split view. Outside the window
-  it opens in a window of its own, under the pointer; dragging the current
-  tab onto the page does the same. Sidebar rows also reorder by dragging up
+  and it shows beside the current tab in a split view. A strip tab comes
+  forward when pressed, so "current" means the tab that was current before
+  the press: once the dragged tab leaves the strip the page goes back to
+  that tab, and the drop goes beside it (`splitPartner`). Outside the window
+  it opens in a window of its own, under the pointer; dragging the tab that
+  was already current onto the page does the same. Sidebar rows also reorder by dragging up
   or down. The tab menu has Open in Split View and Move to New Window.
 Buttons are pills: `primary` is dark ink, `secondary` a soft wash.
 

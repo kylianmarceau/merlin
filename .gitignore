@@ -25,8 +25,11 @@ claude_code_chromium_browser_prompt.md
 # Packaged releases (scripts/package_mac.sh)
 /dist/
 
-# Private project documentation (kept locally)
-/docs/
-/SECURITY.md
+# Private project documentation (kept locally), except what is published
+/docs/*
+!/docs/RELEASE.md
+!/docs/RELEASE_NOTES.md
+!/docs/PRIVACY.md
+!/docs/config.example.toml
 /branding/README.md
 /branding/
