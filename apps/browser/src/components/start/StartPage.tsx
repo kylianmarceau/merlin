@@ -9,7 +9,7 @@ import { suggestionDetail, suggestionIcons, useSearch } from '../omnibox/useSear
 import { PaintMark } from './PaintMark';
 
 /**
- * What a new tab shows: a mound of paint in the workspace colour, one search card and, under it, the
+ * What a new tab shows: the logo in paint, rising from behind one search card and, under it, the
  * window's other pages. Quiet on purpose; the address is the point.
  */
 export function StartPage({ tab }: { tab: Tab }) {
@@ -30,7 +30,8 @@ export function StartPage({ tab }: { tab: Tab }) {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: geometry.newTabTop,
       paddingBottom: space.huge, paddingHorizontal: space.huge }}>
       <PaintMark />
-      <View style={{ width: geometry.palette, maxWidth: '100%', marginTop: space.xl }}>
+      {/* The card overlaps the mark's bottom edge, so its paint rises from behind the card. */}
+      <View style={{ width: geometry.palette, maxWidth: '100%', marginTop: -space.hair }}>
         <Panel fill="contentBackground" radius="popover" border="borderSubtle" elevation="card">
           <View style={{ paddingTop: space.sm, paddingHorizontal: space.sm + space.hair, paddingBottom: space.sm + space.hair }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, height: geometry.newTabInput, paddingHorizontal: space.sm }}>
