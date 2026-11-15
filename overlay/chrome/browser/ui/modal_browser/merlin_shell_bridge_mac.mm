@@ -51,6 +51,9 @@
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_services.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
+#include "chrome/browser/ui/modal_browser/merlin_auto_pip.h"
+#include "chrome/browser/ui/modal_browser/merlin_peek.h"
+#include "chrome/browser/ui/modal_browser/merlin_tab_groups.h"
 #include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_switcher.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
@@ -113,6 +116,8 @@ bool ShellWindowType(BrowserWindowInterface* b) {
 }
 // Tab IDs are numeric; this one names the window's open extension popup.
 constexpr std::string_view kExtensionPopupView = "extension-popup";
+// And this one the window's peek (merlin_peek.h).
+constexpr std::string_view kPeekView = "peek";
 // Changes whenever the page's icon does. Hashed: a data: icon URL can be long.
 std::string FaviconKey(content::WebContents* contents) {
   auto* entry = contents->GetController().GetLastCommittedEntry();
@@ -215,6 +220,9 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
                               const TabStripSelectionChange&) override;
   void OnTabChangedAt(tabs::TabInterface*, TabChangeType) override { Changed(); }
+  void OnTabGroupChanged(const TabGroupChange&) override { Changed(); }
+  void TabGroupedStateChanged(TabStripModel*, std::optional<tab_groups::TabGroupId>,
+                              std::optional<tab_groups::TabGroupId>, tabs::TabInterface*, int) override { Changed(); }
   void DidStartLoading() override { Changed(); }
   void DidStopLoading() override { Changed(); SampleEdgeSoon(); }
   void DocumentOnLoadCompletedInPrimaryMainFrame() override { SampleEdgeSoon(); }
@@ -366,12 +374,20 @@ void WindowState::StopHoldingStartPage() {
   Changed();
 }
 void WindowState::OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
-                                        const TabStripSelectionChange&) {
+                                        const TabStripSelectionChange& selection) {
   Observe(browser_->GetTabStripModel()->GetActiveWebContents());
   // The hold belongs to the tab it started in.
   if (painting_ && painting_.get() != web_contents()) StopHoldingStartPage();
   if (!web_contents()) navigation_from_start_ = 0;
   if (switcher) switcher->TabsChanged();
+  // A collapsed group never hides the page on screen. Not while the strip is
+  // still notifying its observers.
+  if (selection.active_tab_changed()) modal_browser::MerlinAutoPipActiveTabChanged(selection.old_contents, selection.new_contents);
+  if (selection.active_tab_changed())
+    content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+        [](base::WeakPtr<WindowState> state) {
+          if (state) modal_browser::ExpandActiveGroup(state->browser()->GetTabStripModel());
+        }, weak_factory_.GetWeakPtr()));
   SyncSplitVisibility();
   SampleEdgeSoon();
   Changed();
@@ -409,6 +425,7 @@ Dict WindowState::Snapshot() {
       .Set("canGoBack", contents->GetController().CanGoBack())
       .Set("canGoForward", contents->GetController().CanGoForward())
       .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
+    if (const auto group = strip->GetTabGroupForTab(i)) entry.Set("group", modal_browser::GroupKey(*group));
     if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
     if (const auto edge = modal_browser::PageEdgeColor::Get(contents)) entry.Set("surface", HexColor(*edge));
     tabs.Append(std::move(entry));
@@ -436,7 +453,8 @@ Dict WindowState::Snapshot() {
     .Set("revision", revision_).Set("private", browser_->GetProfile()->IsOffTheRecord())
     .Set("kind", browser_->GetType() == BrowserWindowInterface::TYPE_POPUP ? "popup" : "normal")
     .Set("extensionPopup", modal_browser::ShellExtensionPopupState(browser_))
-    .Set("tabs", std::move(tabs))
+    .Set("tabs", std::move(tabs)).Set("groups", modal_browser::GroupsSnapshot(strip))
+    .Set("peek", modal_browser::MerlinPeekState(browser_))
     .Set("activeTabId", strip->active_index() >= 0 ? base::Value(TabId(strip->GetTabAtIndex(strip->active_index()))) : base::Value())
     .Set("downloads", std::move(downloads)).Set("prompt", prompts.empty() ? base::Value() : base::Value(prompts.front().description.Clone()))
     .Set("appearance", std::move(appearance)).Set("find", find.Clone()).Set("split", std::move(split))
@@ -614,6 +632,30 @@ char* Call(const char* window, const char* method, const char* json) {
     modal_browser::ShowShellSiteInfo(browser);
     return Ok();
   }
+  if (name == "peek.close" || name == "peek.promote") {
+    if (name == "peek.close") modal_browser::CloseMerlinPeek(browser);
+    else modal_browser::PromoteMerlinPeek(browser);
+    return Ok();
+  }
+  if (base::StartsWith(name, "groups.")) {
+    const auto* key = args->FindString("groupId");
+    const auto group = key ? modal_browser::FindGroup(strip, *key) : std::nullopt;
+    if (!group) return Error("That group has closed");
+    if (name == "groups.ungroup") modal_browser::UngroupAll(strip, *group);
+    else if (name == "groups.close") modal_browser::CloseGroup(strip, *group);
+    else if (name == "groups.update") {
+      std::optional<std::string> title;
+      if (const auto* value = args->FindString("title")) title = *value;
+      std::optional<tab_groups::TabGroupColorId> color;
+      if (const auto* value = args->FindString("color")) {
+        color = modal_browser::ParseGroupColor(*value);
+        if (!color) return Error("Unknown group colour");
+      }
+      const std::string error = modal_browser::UpdateGroup(strip, *group, title, color, args->FindBool("collapsed"));
+      if (!error.empty()) return Error(error.c_str());
+    } else return Error("Unsupported engine method");
+    return Ok();
+  }
   if (name == "extensions.closePopup") {
     modal_browser::CloseShellExtensionPopup(browser);
     return Ok();
@@ -770,6 +812,21 @@ char* Call(const char* window, const char* method, const char* json) {
     auto pinned = args->FindBool("pinned");
     if (!pinned) return Error("Missing pinned state");
     strip->SetTabPinned(index, *pinned);
+  } else if (name == "tabs.group") {
+    // {groupId: string} joins that group; {groupId: null, title?} starts one.
+    const auto* key = args->Find("groupId");
+    if (!key || (!key->is_none() && !key->is_string())) return Error("Invalid group");
+    std::optional<tab_groups::TabGroupId> group;
+    if (key->is_string()) {
+      group = modal_browser::FindGroup(strip, key->GetString());
+      if (!group) return Error("That group has closed");
+    }
+    const auto* title = args->FindString("title");
+    const std::string error = modal_browser::GroupTab(strip, index, group, title ? *title : std::string());
+    if (!error.empty()) return Error(error.c_str());
+  } else if (name == "tabs.ungroup") {
+    const std::string error = modal_browser::UngroupTab(strip, index);
+    if (!error.empty()) return Error(error.c_str());
   } else if (name == "tabs.move") {
     const auto* before = args->Find("beforeId");
     if (!before || (!before->is_none() && !before->is_string())) return Error("Invalid tab destination");
@@ -904,6 +961,26 @@ void* AttachPage(const char* window, const char* tab, void* parent) {
     contents->Focus();
     return (__bridge void*)popup;
   }
+  if (tab == kPeekView) {
+    auto* contents = modal_browser::MerlinPeekContents(state->browser());
+    NSView* peek = contents ? contents->GetNativeView().GetNativeNSView() : nil;
+    if (!peek || (peek.window && peek.window != container.window)) return nullptr;
+    if (peek.superview != container) [container addSubview:peek];
+    DisableImplicitAnimations(peek);
+    peek.frame = container.bounds;
+    peek.hidden = NO;  // As in PlacePage.
+    // The shell insets the page inside its card (PeekOverlay.tsx): rounded to
+    // the card's radius less the inset (radius.dialog - space.sm), so the
+    // corners are concentric. PromoteMerlinPeek squares them again.
+    peek.wantsLayer = YES;
+    peek.layer.cornerRadius = 10;
+    peek.layer.cornerCurve = kCACornerCurveContinuous;
+    peek.layer.masksToBounds = YES;
+    contents->WasShown();
+    NSResponder* responder = container.window.firstResponder;
+    if (![responder isKindOfClass:NSText.class] && ![responder isKindOfClass:NSTextField.class]) contents->Focus();
+    return (__bridge void*)peek;
+  }
   auto* strip = state->browser()->GetTabStripModel();
   const std::string id(tab);
   const int index = FindTab(strip, &id);
@@ -925,6 +1002,12 @@ void DetachPage(const char* window, const char* tab, void* parent) {
     auto* contents = modal_browser::ShellExtensionPopupContents(state->browser());
     NSView* popup = contents ? contents->GetNativeView().GetNativeNSView() : nil;
     if (popup.superview == (__bridge NSView*)parent) [popup removeFromSuperview];
+    return;
+  }
+  if (tab == kPeekView) {
+    auto* contents = modal_browser::MerlinPeekContents(state->browser());
+    NSView* peek = contents ? contents->GetNativeView().GetNativeNSView() : nil;
+    if (peek.superview == (__bridge NSView*)parent) [peek removeFromSuperview];
     return;
   }
   const std::string id(tab);

@@ -20,6 +20,62 @@ fn err(line: &str) -> CommandError {
 }
 
 #[test]
+fn peek_opens_a_floating_preview() {
+    let [
+        Action::Open {
+            target,
+            disposition,
+        },
+    ] = &actions("peek docs.rs")[..]
+    else {
+        panic!("{:?}", actions("peek docs.rs"));
+    };
+    assert_eq!(*disposition, Disposition::Peek);
+    assert!(
+        matches!(target, OpenTarget::Url(url) if url == "https://docs.rs"),
+        "{target:?}"
+    );
+    assert!(matches!(
+        &actions("peek rust lifetimes")[..],
+        [Action::Open { target: OpenTarget::Search(q), disposition: Disposition::Peek }] if q == "rust lifetimes"
+    ));
+    assert!(matches!(err("peek"), CommandError::MissingArgument { .. }));
+    assert!(matches!(
+        err("peek javascript:alert(1)"),
+        CommandError::Target { .. }
+    ));
+}
+
+#[test]
+fn group_commands_use_the_browser_action_path() {
+    assert_eq!(
+        actions("group Research  notes "),
+        vec![Action::BrowserCommand {
+            name: "group".into(),
+            arg: "Research notes".into()
+        }]
+    );
+    assert_eq!(
+        actions("group"),
+        vec![Action::BrowserCommand {
+            name: "group".into(),
+            arg: String::new()
+        }]
+    );
+    assert_eq!(
+        actions("ungroup"),
+        vec![Action::BrowserCommand {
+            name: "ungroup".into(),
+            arg: String::new()
+        }]
+    );
+    reg()
+        .execute(&format!("group {}", "x".repeat(101)), None)
+        .unwrap_err();
+    reg().execute("ungroup now", None).unwrap_err();
+}
+
+#[test]
 fn adblock_commands_use_the_browser_action_path() {
     for operation in ["on", "off", "site toggle", "status", "update"] {
         assert_eq!(

@@ -254,6 +254,8 @@ mod ffi {
         NewForegroundTab,
         NewBackgroundTab,
         NewWindow,
+        /// A floating preview over the current tab.
+        Peek,
     }
 
     #[derive(Debug)]
@@ -286,6 +288,7 @@ mod ffi {
         EditInput,
         YankCode,
         Select,
+        Peek,
     }
 
     #[derive(Debug)]
@@ -506,6 +509,8 @@ mod ffi {
         url: String,
         active: bool,
         pinned: bool,
+        /// The tab group's title; empty when ungrouped.
+        group: String,
     }
 
     #[derive(Debug)]
@@ -1257,6 +1262,7 @@ fn core_disposition(disposition: OpenDisposition) -> CoreDisposition {
         OpenDisposition::NewForegroundTab => CoreDisposition::NewForegroundTab,
         OpenDisposition::NewBackgroundTab => CoreDisposition::NewBackgroundTab,
         OpenDisposition::NewWindow => CoreDisposition::NewWindow,
+        OpenDisposition::Peek => CoreDisposition::Peek,
         _ => CoreDisposition::CurrentTab,
     }
 }
@@ -1403,6 +1409,7 @@ fn summary(t: IpcTab) -> ipc::TabSummary {
         url: t.url,
         active: t.active,
         pinned: t.pinned,
+        group: t.group,
     }
 }
 
@@ -1502,6 +1509,7 @@ impl From<CoreDisposition> for OpenDisposition {
             CoreDisposition::NewForegroundTab => OpenDisposition::NewForegroundTab,
             CoreDisposition::NewBackgroundTab => OpenDisposition::NewBackgroundTab,
             CoreDisposition::NewWindow => OpenDisposition::NewWindow,
+            CoreDisposition::Peek => OpenDisposition::Peek,
         }
     }
 }
@@ -1542,6 +1550,7 @@ impl From<CoreHintAction> for HintAction {
             CoreHintAction::EditInput => HintAction::EditInput,
             CoreHintAction::YankCode => HintAction::YankCode,
             CoreHintAction::Select => HintAction::Select,
+            CoreHintAction::Peek => HintAction::Peek,
         }
     }
 }

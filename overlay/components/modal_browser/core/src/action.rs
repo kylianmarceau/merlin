@@ -19,6 +19,9 @@ pub enum Disposition {
     NewForegroundTab,
     NewBackgroundTab,
     NewWindow,
+    /// A floating preview over the current tab (Peek), which can become a
+    /// tab of its own.
+    Peek,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

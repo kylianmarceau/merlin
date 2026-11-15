@@ -10,6 +10,7 @@ Chromium checkout or `browser_tests` build.
 scripts/run_e2e_tests.sh                    # everything, about 45 seconds
 scripts/run_e2e_tests.sh test_hints         # one module
 MERLIN_APP=/path/to/Merlin.app scripts/run_e2e_tests.sh
+MERLIN_E2E_PIP=1 scripts/run_e2e_tests.sh test_auto_pip   # shows a floating window
 ```
 
 The app defaults to `apps/browser/build/assembled/Merlin.app`, then
@@ -66,6 +67,9 @@ fixture page (`MerlinTestCase.reset`).
 | `test_workspaces` | browserctl `ping`, `open`, `tabs`, `focus`, `current`, `selection`, `command`, refusals, socket permissions; workspace save and restore with pins and splits, `list`, `here` |
 | `test_editor` | `:edit` writes back with an ordinary input event, the editor receives the field's text, password fields never leave the browser |
 | `test_adblock` | Ad requests blocked before the network, generic cosmetic filters, per-site toggle |
+| `test_groups` | `:group` starts a named group and joins one by name, `:ungroup`, pinned tabs stay out (browserctl `tabs` reports each tab's group) |
+| `test_peek` | `:peek` and `gf` open a floating page without a tab; Esc closes it, Cmd-Return keeps it as the next tab, a tab switch closes it |
+| `test_auto_pip` | Opt-in (`MERLIN_E2E_PIP=1`). A video playing with sound floats when its tab is left and returns with it; a paused one stays |
 | `test_identity` | Chromium's own pages (passwords, settings, extensions, certificates, version) and error pages never say Chrome; error-page restyling (an expected failure, see below) |
 
 ### Known failure

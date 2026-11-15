@@ -86,6 +86,45 @@ PAGE_HTML = """<!doctype html>
   });
 </script>"""
 
+# A video with sound and no file to fetch: a drawn canvas and a quiet tone,
+# recorded for a second and played back as an ordinary <video>, as a site's
+# video plays (a live MediaStream isn't a media session player, so it never
+# floats). start() is the test's, with autoplay allowed by the test's flags.
+VIDEO_HTML = """<!doctype html>
+<title>video</title>
+<video id="v" width="320" height="180" loop></video>
+<script>
+  window.start = async () => {
+    const canvas = Object.assign(document.createElement('canvas'), { width: 320, height: 180 });
+    const g = canvas.getContext('2d');
+    let n = 0;
+    const draw = setInterval(() => { g.fillStyle = `hsl(${n++ * 12 % 360} 60% 50%)`; g.fillRect(0, 0, 320, 180); }, 33);
+    const audio = new AudioContext();
+    await audio.resume();
+    const tone = audio.createOscillator();
+    const gain = audio.createGain();
+    gain.gain.value = 0.05;
+    const out = audio.createMediaStreamDestination();
+    tone.connect(gain).connect(out);
+    tone.start();
+    const stream = new MediaStream([...canvas.captureStream(30).getVideoTracks(), ...out.stream.getAudioTracks()]);
+    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+    const chunks = [];
+    recorder.ondataavailable = e => chunks.push(e.data);
+    const stopped = new Promise(resolve => { recorder.onstop = resolve; });
+    recorder.start();
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    recorder.stop();
+    await stopped;
+    clearInterval(draw);
+    tone.stop();
+    await audio.close();
+    const v = document.getElementById('v');
+    v.src = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
+    await v.play();
+  };
+</script>"""
+
 # Four targets in document order, three links and a text field. Hint tests
 # use hint_chars = "sdfjkl" (A can't be sent, see key_event_specs), so their
 # labels are s, d, f, j.
@@ -215,6 +254,7 @@ class PageServer:
             "/hints": HINTS_HTML,
             "/inner": INNER_SCROLL_HTML,
             "/doc": DOC_HTML,
+            "/video": VIDEO_HTML,
             "/form": FORM_HTML,
             "/frame": CROSS_FRAME_HTML,
             "/frames": FRAMES_HTML.replace("CROSS", self.url("/frame", "b.test")),
@@ -331,9 +371,12 @@ class Cdp:
                     self.sessions = {t: s for t, s in self.sessions.items() if s != session}
                     raise TargetClosed(f"{method}: the page closed")
 
+    def targets(self) -> list[dict]:
+        """Every DevTools target, tabs or not (a peek's page is "other")."""
+        return self.call("Target.getTargets")["targetInfos"]
+
     def pages(self) -> list[dict]:
-        targets = self.call("Target.getTargets")["targetInfos"]
-        return [t for t in targets if t["type"] == "page"]
+        return [t for t in self.targets() if t["type"] == "page"]
 
     def session_for(self, target_id: str) -> str:
         if target_id not in self.sessions:
@@ -631,6 +674,13 @@ class Merlin:
             wait_until(lambda: len(self.tabs()) == 1, message="the other tabs to close")
         if self.tabs()[0]["pinned"]:
             self.command("pin")
+        if self.tabs()[0].get("group"):
+            self.command("ungroup")
+        # A peek left open by a test closes as a page would (CloseContents).
+        for target in self.cdp.targets():
+            if target["type"] == "other" and target["url"].startswith(self.server.url("/")):
+                with contextlib.suppress(CdpError):
+                    self.cdp.call("Target.closeTarget", {"targetId": target["targetId"]})
         # Leave Insert, Passthrough or a pending sequence before loading the
         # page: a bare Esc in Normal mode reaches the page.
         with contextlib.suppress(AssertionError, CdpError):

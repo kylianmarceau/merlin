@@ -349,6 +349,9 @@ pub struct TabSummary {
     pub url: String,
     pub active: bool,
     pub pinned: bool,
+    /// The title of the tab group it is in; empty when ungrouped (or when
+    /// the group has no title).
+    pub group: String,
 }
 
 impl TabSummary {
@@ -361,6 +364,7 @@ impl TabSummary {
             ("url", Value::string(&self.url)),
             ("active", Value::Bool(self.active)),
             ("pinned", Value::Bool(self.pinned)),
+            ("group", Value::string(&self.group)),
         ])
     }
 
@@ -373,6 +377,11 @@ impl TabSummary {
             url: v.get("url")?.as_str()?.to_string(),
             active: v.get("active")?.as_bool()?,
             pinned: v.get("pinned").and_then(Value::as_bool).unwrap_or(false),
+            group: v
+                .get("group")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
         })
     }
 }

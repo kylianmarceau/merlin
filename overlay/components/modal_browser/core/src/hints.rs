@@ -63,10 +63,12 @@ pub enum HintAction {
     YankCode,
     /// Select a block of text and enter Visual mode.
     Select,
+    /// Show the link in a floating preview over the page (Peek). Links only.
+    Peek,
 }
 
 impl HintAction {
-    pub const ALL: [(HintAction, &'static str); 7] = [
+    pub const ALL: [(HintAction, &'static str); 8] = [
         (HintAction::Follow, "follow"),
         (HintAction::OpenInNewTab, "tab"),
         (HintAction::YankLink, "yank"),
@@ -74,6 +76,7 @@ impl HintAction {
         (HintAction::EditInput, "edit"),
         (HintAction::YankCode, "code"),
         (HintAction::Select, "select"),
+        (HintAction::Peek, "peek"),
     ];
 
     pub fn from_name(name: &str) -> Option<HintAction> {
@@ -94,7 +97,9 @@ impl HintAction {
             HintAction::Follow => {
                 matches!(kind, HintKind::Link | HintKind::Editable | HintKind::Other)
             }
-            HintAction::OpenInNewTab | HintAction::YankLink => kind == HintKind::Link,
+            HintAction::OpenInNewTab | HintAction::YankLink | HintAction::Peek => {
+                kind == HintKind::Link
+            }
             HintAction::FocusInput | HintAction::EditInput => kind == HintKind::Editable,
             HintAction::YankCode => kind == HintKind::Code,
             HintAction::Select => matches!(kind, HintKind::Block | HintKind::Code),
@@ -124,6 +129,7 @@ impl HintAction {
         match self {
             HintAction::Follow => "follow",
             HintAction::OpenInNewTab => "open in new tab",
+            HintAction::Peek => "peek at link",
             HintAction::YankLink => "copy link",
             HintAction::FocusInput => "focus field",
             HintAction::EditInput => "edit field in editor",

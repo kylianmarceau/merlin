@@ -5,13 +5,15 @@ import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
 import { tabDropZone } from './tabDrag';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
-import type { Appearance, Calls, DownloadAction, EngineClient, Method, Request, Requests } from '../platform/protocol';
+import { groupColors, type Appearance, type Calls, type DownloadAction, type EngineClient, type GroupColor, type Method, type Request,
+  type Requests } from '../platform/protocol';
 import {
   dismissToast, pushToast, rememberFavicon, type AnchorName, type BrowserStore, type Panel, type PopoverName, type Rect,
   type SearchOwner,
 } from './store';
 
 let queryCounter = 0;
+const groupColorTitle = (color: GroupColor) => color[0].toUpperCase() + color.slice(1);
 /** How soon after an outside press closes a popover its own button is ignored. */
 const reopenGuardMs = 400;
 
@@ -62,6 +64,59 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     splitTab: (tabId: string, side: 'left' | 'right' = 'right') => run('tabs.split', { tabId, side }),
     /** Moves the tab into a window of its own, under the pointer. */
     detachTab: (tabId: string) => run('tabs.detach', { tabId }),
+
+    // Tab groups.
+    /** Adds the tab to `groupId`, or to a new group named `title` when `groupId` is null. */
+    groupTab: (tabId: string, groupId: string | null, title?: string) =>
+      run('tabs.group', title === undefined ? { tabId, groupId } : { tabId, groupId, title }),
+    ungroupTab: (tabId: string) => run('tabs.ungroup', { tabId }),
+    updateGroup: (groupId: string, change: { title?: string; color?: GroupColor; collapsed?: boolean }) =>
+      run('groups.update', { groupId, ...change }),
+    ungroupGroup: (groupId: string) => run('groups.ungroup', { groupId }),
+    closeGroup: (groupId: string) => run('groups.close', { groupId }),
+    /** Opens the field that names a new group for the tab, or renames a group. */
+    nameGroup: (dialog: { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string }) =>
+      store.setState({ groupDialog: dialog, panel: null, popover: null }),
+    closeGroupDialog: () => store.setState({ groupDialog: null }),
+    /** The group dialog's answer: names the new group, or renames the group. Empty names are allowed. */
+    async submitGroupDialog(title: string) {
+      const dialog = store.getState().groupDialog;
+      if (!dialog) return;
+      const name = title.trim();
+      const ok = dialog.kind === 'new' ? await actions.groupTab(dialog.tabId, null, name)
+        : await actions.updateGroup(dialog.groupId, { title: name });
+      if (ok) store.setState({ groupDialog: null });
+    },
+    async groupMenu(groupId: string) {
+      const snap = store.getState().snapshot;
+      const group = snap?.groups?.find(g => g.id === groupId);
+      if (!group) return;
+      const holdsEveryTab = !!snap && snap.tabs.every(t => t.group === groupId);
+      const items: MenuItem[] = [
+        { id: 'rename', title: 'Rename Group…' },
+        { title: 'Colour', children: groupColors.map(color => ({ id: `tint:${color}`, title: groupColorTitle(color),
+          checked: group.color === color })) },
+        { id: 'collapse', title: group.collapsed ? 'Expand Group' : 'Collapse Group', enabled: group.collapsed || !holdsEveryTab },
+        { separator: true },
+        { id: 'ungroup', title: 'Ungroup' },
+        { id: 'close', title: 'Close Group', destructive: true },
+      ];
+      let choice: string | null;
+      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      if (choice === 'rename') actions.nameGroup({ kind: 'rename', groupId });
+      else if (choice === 'collapse') await actions.updateGroup(groupId, { collapsed: !group.collapsed });
+      else if (choice === 'ungroup') await actions.ungroupGroup(groupId);
+      else if (choice === 'close') await actions.closeGroup(groupId);
+      else if (choice?.startsWith('tint:')) await actions.updateGroup(groupId, { color: choice.slice('tint:'.length) as GroupColor });
+    },
+    toggleGroup(groupId: string) {
+      const group = store.getState().snapshot?.groups?.find(g => g.id === groupId);
+      return group ? actions.updateGroup(groupId, { collapsed: !group.collapsed }) : Promise.resolve(false);
+    },
+
+    // Peek: a link in a floating card over the page.
+    closePeek: () => run('peek.close', {}),
+    promotePeek: () => run('peek.promote', {}),
     /**
      * A tab being dragged, the pointer at (x, y) in the window. `out` is set
      * once it has left the tabs (the strip or sidebar decides); outside the
@@ -154,6 +209,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const previous = tabs[index - 1];
       const next = tabs[index + 1];
       const others = tabs.filter(t => t.id !== tabId && !t.pinned);
+      const groups = (store.getState().snapshot?.groups ?? []).filter(g => g.id !== tab.group);
       // Plain words, like the rest of the menu bar; the tab's own title says which tab.
       const items: MenuItem[] = [
         { id: 'pin', title: tab.pinned ? 'Unpin Tab' : 'Pin Tab' },
@@ -166,6 +222,12 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         { id: 'split', title: 'Open in Split View', enabled: tab.id !== store.getState().snapshot?.activeTabId,
           symbol: 'rectangle.split.2x1' },
         { id: 'window', title: 'Move to New Window', enabled: tabs.length > 1, symbol: 'arrow.up.forward.app' },
+        { separator: true },
+        // Chromium keeps pinned tabs out of groups.
+        { id: 'group-new', title: 'Add to New Group…', enabled: !tab.pinned },
+        ...(groups.length ? [{ title: 'Add to Group', enabled: !tab.pinned,
+          children: groups.map(g => ({ id: `group:${g.id}`, title: g.title || 'Unnamed Group' })) }] : []),
+        ...(tab.group ? [{ id: 'ungroup', title: 'Remove from Group' }] : []),
         { separator: true },
         { id: 'up', title: 'Move Up', enabled: !!previous && previous.pinned === tab.pinned },
         { id: 'down', title: 'Move Down', enabled: !!next && next.pinned === tab.pinned },
@@ -184,11 +246,13 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
           break;
         case 'split': await actions.splitTab(tabId); break;
         case 'window': await actions.detachTab(tabId); break;
+        case 'group-new': actions.nameGroup({ kind: 'new', tabId }); break;
+        case 'ungroup': await actions.ungroupTab(tabId); break;
         case 'up': if (previous) await actions.moveTab(tabId, previous.id); break;
         case 'down': await actions.moveTab(tabId, tabs[index + 2]?.id ?? null); break;
         case 'close': await actions.closeTab(tabId); break;
         case 'others': for (const t of others) if (!(await actions.closeTab(t.id))) break; break;
-        default: break;
+        default: if (choice?.startsWith('group:')) await actions.groupTab(tabId, choice.slice('group:'.length)); break;
       }
     },
 

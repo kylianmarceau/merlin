@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, Pressable, View } from 'react-native';
 import { isStartUrl } from '../../lib/format';
-import type { Tab } from '../../state/types';
+import type { Tab, TabGroup } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import {
   ContextMenu, DragRegion, Fade, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
-  useInteraction, useSlide, useTheme, useTimeout, type Palette,
+  groupColorRoles, opacity, useInteraction, useSlide, useTheme, useTimeout, type Palette,
 } from '../ui';
+import { StripGroupChip, chipWidth } from './TabGroups';
 import { Favicon } from '../favicon/Favicon';
 import { useSiteChrome } from './siteChrome';
 import { DownloadsButton, LibraryButtons, ProfilesButton } from './WindowButtons';
@@ -17,6 +18,8 @@ const gap = geometry.hairline;
 const pinnedGap = space.sm;
 
 type Slot = { x: number; width: number };
+/** A group's chip at `x`, and where its shown tabs end. */
+type Chip = { group: TabGroup; x: number; width: number; end: number };
 type Drag = { id: string; dx: number; released: boolean };
 
 /**
@@ -40,7 +43,8 @@ export function TabStrip() {
   const activeId = snapshot.activeTabId;
   const pinned = snapshot.tabs.filter(t => t.pinned);
   const open = snapshot.tabs.filter(t => !t.pinned);
-  const layout = useMemo(() => layoutTabs(pinned, open, activeId, room), [snapshot.tabs, activeId, room]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const layout = useMemo(() => layoutTabs(pinned, open, snapshot.groups ?? [], activeId, room),
+    [snapshot.tabs, snapshot.groups, activeId, room]);  // eslint-disable-line react-hooks/exhaustive-deps
   const shownOpen = open.filter(t => layout.slots[t.id]);
 
   // A dropped tab keeps its new place until Chromium reports the new order.
@@ -97,6 +101,12 @@ export function TabStrip() {
       {room > 0 && <>
         {!!pinned.length && <View pointerEvents="none" style={{ position: 'absolute', left: -space.hair, width: layout.pinnedEnd + space.xs,
           top: tabTop + space.xs, height: geometry.joinedTab - space.sm, borderRadius: radius.field, backgroundColor: colors.fillShellGroup }} />}
+        {!drag && layout.chips.map(chip => chip.end > chip.x + chip.width &&
+          <View key={`wash:${chip.group.id}`} pointerEvents="none" style={{ position: 'absolute', left: chip.x - space.hair,
+            width: chip.end - chip.x + space.hair * 2, top: tabTop + space.xs, height: geometry.joinedTab - space.sm,
+            borderRadius: radius.field, backgroundColor: colors[groupColorRoles[chip.group.color]], opacity: opacity.groupWash }} />)}
+        {layout.chips.map(chip => <StripGroupChip key={`chip:${chip.group.id}`} group={chip.group} x={chip.x} width={chip.width}
+          top={tabTop} height={geometry.joinedTab} />)}
         <JoinedShape slot={activeSlot} color={chrome.bar} following={!!drag && !drag.released && drag.id === activeId} />
         {snapshot.tabs.map(tab => {
           const slot = slots[tab.id];
@@ -129,27 +139,52 @@ export function TabStrip() {
   </View>;
 }
 
-/** Where each tab sits in a lane `room` wide: pinned tabs as icons, then the rest sharing the width. */
-function layoutTabs(pinned: Tab[], open: Tab[], activeId: string | null, room: number) {
+/**
+ * Where each tab sits in a lane `room` wide: pinned tabs as icons, then the
+ * rest sharing the width, each group led by its chip. A collapsed group
+ * shows only its chip.
+ */
+function layoutTabs(pinned: Tab[], open: Tab[], groups: TabGroup[], activeId: string | null, room: number) {
   const slots: Record<string, Slot> = {};
+  const chips: Chip[] = [];
   const icon = geometry.stripTabIcon;
   pinned.forEach((t, i) => { slots[t.id] = { x: i * (icon + gap), width: icon }; });
   const pinnedEnd = pinned.length ? pinned.length * (icon + gap) - gap : 0;
   const start = pinned.length ? pinnedEnd + pinnedGap : 0;
-  const available = Math.max(0, room - start - geometry.control - space.xs);
-  let shown = open;
-  let width = open.length ? Math.floor((available - gap * (open.length - 1)) / open.length) : geometry.stripTab;
-  if (open.length > 1 && width < icon) {
+  const byId = new Map(groups.map(g => [g.id, g]));
+  const groupOf = (t: Tab) => (t.group && byId.get(t.group)) || null;
+  const visible = open.filter(t => !groupOf(t)?.collapsed || t.id === activeId);
+  const leading = [...new Set(open.map(groupOf).filter((g): g is TabGroup => !!g))];
+  const chipRoom = leading.reduce((sum, g) => sum + chipWidth(g) + gap, 0);
+  const available = Math.max(0, room - start - chipRoom - geometry.control - space.xs);
+  let shown = visible;
+  let width = visible.length ? Math.floor((available - gap * (visible.length - 1)) / visible.length) : geometry.stripTab;
+  if (visible.length > 1 && width < icon) {
     // Too many to show even as icons: keep as many as fit, always with the active one.
     const fit = Math.max(1, Math.floor((available - geometry.overflowButton + gap) / (icon + gap)));
-    const activeIndex = open.findIndex(t => t.id === activeId);
-    shown = activeIndex >= fit ? [...open.slice(0, fit - 1), open[activeIndex]] : open.slice(0, fit);
+    const activeIndex = visible.findIndex(t => t.id === activeId);
+    shown = activeIndex >= fit ? [...visible.slice(0, fit - 1), visible[activeIndex]] : visible.slice(0, fit);
     width = Math.floor((available - geometry.overflowButton - gap * (shown.length - 1)) / shown.length);
   }
   width = Math.max(Math.min(geometry.stripTab, width), Math.min(icon, available));
-  shown.forEach((t, i) => { slots[t.id] = { x: start + i * (width + gap), width }; });
-  const end = shown.length ? start + shown.length * (width + gap) - gap : start;
-  return { slots, compact: width < geometry.stripTabMin, hidden: open.filter(t => !shown.includes(t)).map(t => t.id), end, pinnedEnd };
+  const showing = new Set(shown.map(t => t.id));
+  let cursor = start;
+  let chip = null as Chip | null;
+  for (const t of open) {
+    const group = groupOf(t);
+    if (group && group !== chip?.group) {
+      chip = { group, x: cursor, width: chipWidth(group), end: cursor + chipWidth(group) };
+      chips.push(chip);
+      cursor += chip.width + gap;
+    } else if (!group) chip = null;
+    if (!showing.has(t.id)) continue;
+    slots[t.id] = { x: cursor, width };
+    cursor += width + gap;
+    if (chip) chip.end = cursor - gap;
+  }
+  const end = cursor > start ? cursor - gap : start;
+  return { slots, chips, compact: width < geometry.stripTabMin, hidden: visible.filter(t => !showing.has(t.id)).map(t => t.id), end,
+    pinnedEnd };
 }
 
 /** The place in its group a dragged tab would drop into. */

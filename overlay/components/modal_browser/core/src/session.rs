@@ -60,7 +60,7 @@ const MAX_HISTORY: usize = 100;
 /// Tab ids remembered for most-recently-used ordering.
 const MAX_MRU: usize = 100;
 /// Which-key entries reported after a prefix.
-const MAX_WHICH_KEY: usize = 16;
+const MAX_WHICH_KEY: usize = 24;
 /// Completions shown under the command line.
 const MAX_COMPLETIONS: usize = 50;
 
@@ -656,7 +656,7 @@ impl ModalSession {
                     HintAction::FocusInput | HintAction::EditInput => {
                         "No text fields on this page".into()
                     }
-                    HintAction::OpenInNewTab | HintAction::YankLink => {
+                    HintAction::OpenInNewTab | HintAction::YankLink | HintAction::Peek => {
                         "No links on this page".into()
                     }
                     HintAction::Follow => "Nothing to click on this page".into(),

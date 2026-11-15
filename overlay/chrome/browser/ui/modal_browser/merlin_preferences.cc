@@ -14,6 +14,7 @@
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/version_info/version_info.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/merlin_adblock/service.h"
 #include "chrome/browser/merlin_adblock/updater.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/modal_browser/merlin_auto_pip.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/common/pref_names.h"
@@ -262,6 +264,9 @@ base::DictValue MerlinPreferences(Profile* profile,
            local && local->GetInteger(tuning::kBatterySaverModeState) !=
                         static_cast<int>(
                             tuning::BatterySaverModeState::kDisabled));
+#if BUILDFLAG(IS_MAC)
+  data.Set("autoPip", prefs->GetBoolean(kAutoPipPref));
+#endif
   data.Set("savePasswords",
            prefs->GetBoolean(password_manager::prefs::kCredentialsEnableService));
   data.Set("extensions", MerlinExtensionList(profile));
@@ -334,6 +339,10 @@ std::string SetMerlinPreference(Profile* profile,
         static_cast<int>(*on
                              ? tuning::BatterySaverModeState::kEnabledBelowThreshold
                              : tuning::BatterySaverModeState::kDisabled));
+#if BUILDFLAG(IS_MAC)
+  } else if (key == "autoPip" && on) {
+    prefs->SetBoolean(kAutoPipPref, *on);
+#endif
   } else if (key == "savePasswords" && on) {
     prefs->SetBoolean(password_manager::prefs::kCredentialsEnableService, *on);
   } else if (key == "adblock" && on) {
