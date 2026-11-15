@@ -203,6 +203,15 @@ test('tab groups are validated, and grouped tabs must name one of them', () => {
   // Older engines send no groups at all.
   assert.doesNotThrow(() => validateSnapshot({ ...snapshot(), tabs: [tab('a')], activeTabId: 'a' }, 'window-one'));
 });
+test('every split names its tabs, which sit together in twos or more', () => {
+  const tab = (id: string, split?: string) => ({ id, title: id, url: 'https://example.com/', loading: false, pinned: false, audible: false,
+    canGoBack: false, canGoForward: false, ...(split ? { split } : {}) });
+  const s = { ...snapshot(), tabs: [tab('a'), tab('b', 's1'), tab('c', 's1'), tab('d')], activeTabId: 'a' };
+  assert.equal(validateSnapshot(s, s.windowId).tabs[1].split, 's1');
+  assert.throws(() => validateSnapshot({ ...s, tabs: [tab('a', 's1'), tab('b')] }, s.windowId), /split/);
+  assert.throws(() => validateSnapshot({ ...s, tabs: [tab('a', 's1'), tab('b'), tab('c', 's1')] }, s.windowId), /split/);
+  assert.throws(() => validateSnapshot({ ...s, tabs: [{ ...tab('a'), split: '' }, { ...tab('b'), split: '' }] }, s.windowId));
+});
 test('a peek is described exactly', () => {
   const peek = { url: 'https://docs.rs/', title: 'Docs.rs', loading: true, canGoBack: false };
   assert.deepEqual(validateSnapshot({ ...snapshot(), peek }, 'window-one').peek, peek);

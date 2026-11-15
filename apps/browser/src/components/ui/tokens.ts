@@ -46,8 +46,10 @@ export const geometry = {
   peekHeader: 44,
   /** The downloads button's progress ring, the page-loading bar under the address, and the icon that flies to the button. */
   ringStroke: 2, loadingBar: 2, flyingIcon: 40,
-  /** A dragged tab leaves the tabs for the page once it is this far outside them; the page's split zones are this share of its width. */
+  /** A dragged tab leaves the tabs for the page once it is this far outside them. */
   tearOff: 24,
+  /** A drop zone's dashed edge: how far inside the card it is drawn, and how thick, at rest and under the tab; the card's own edge. */
+  dropZoneInset: 9.5, dropZoneDash: 2, dropZoneDashActive: 2.33, dropZoneEdge: 0.5,
   sheetWidth: 840, sheetHeight: 640, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
   suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, paintWidth: 400, paintHeight: 172, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
 } as const;
@@ -257,6 +259,16 @@ function roles(mode: Mode, accentName: AccentName) {
     hintBorder: pick('rgba(0, 0, 0, 0.18)', 'rgba(0, 0, 0, 0.30)'),
     splitFocus: a.base,
     splitDim: pick('rgba(255, 255, 255, 0.35)', 'rgba(0, 0, 0, 0.35)'),
+    // A split view's tabs across the top sit on one soft pill.
+    splitChip: pick('rgba(255, 255, 255, 0.42)', 'rgba(255, 255, 255, 0.07)'),
+    // Drop zones over the page for a dragged tab, as in Ardia: a frosted card
+    // with a dashed edge; the one under the tab takes the accent.
+    dropZoneFill: pick('rgba(255, 255, 255, 0.45)', 'rgba(255, 255, 255, 0.04)'),
+    dropZoneBorder: pick('rgba(0, 0, 0, 0.08)', 'rgba(255, 255, 255, 0.08)'),
+    dropZoneDash: pick('rgba(0, 0, 0, 0.1)', 'rgba(255, 255, 255, 0.1)'),
+    dropZoneText: pick('rgba(0, 0, 0, 0.55)', 'rgba(255, 255, 255, 0.6)'),
+    dropZoneActive: withAlpha(a.base, light ? 0.12 : 0.16),
+    dropZoneActiveText: a.base,
 
     // Progress and keycaps.
     progressTrack: pick('rgba(30, 45, 36, 0.11)', ink[800]),

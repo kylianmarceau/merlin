@@ -6,7 +6,7 @@
 import { createStore } from 'zustand/vanilla';
 import { shellPrefs } from './shellPrefs';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
-import type { TabDrag } from './tabDrag';
+import { rememberActive, type TabDrag } from './tabDrag';
 
 /** `location` is ⌘L's centred field for the current tab (Settings › Appearance › ⌘L opens the command bar: In the centre). */
 export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | 'location' | null;
@@ -48,6 +48,10 @@ export type BrowserState = {
   downloadLandings: number;
   /** A tab being dragged, and where it would go if let go now. */
   tabDrag: TabDrag | null;
+  /** Where each page on screen is, in the window, by tab: both sides of a split view, else the active tab's. */
+  panes: Record<string, Rect>;
+  /** Tabs most recently active first, for the tab a dragged tab splits with when it is the only one on screen. */
+  recentTabs: string[];
   groupDialog: GroupDialog | null;
 };
 
@@ -55,7 +59,7 @@ export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [],
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, groupDialog: null,
+    downloadLandings: 0, tabDrag: null, panes: {}, recentTabs: [], groupDialog: null,
   };
 }
 
@@ -74,7 +78,8 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
   const current = store.getState().engineSnapshot;
   if (current && current.session === next.session && current.revision >= next.revision) return;
   const engineSnapshot = current ? shareUnchanged(current, next) : next;
-  store.setState({ engineSnapshot, snapshot: store.overlay(engineSnapshot), connectionError: null });
+  const recentTabs = rememberActive(store.getState().recentTabs, next.activeTabId, next.tabs.map(t => t.id));
+  store.setState({ engineSnapshot, snapshot: store.overlay(engineSnapshot), connectionError: null, recentTabs });
 }
 
 /** Shows the snapshot again after the overlay's own state changed. */

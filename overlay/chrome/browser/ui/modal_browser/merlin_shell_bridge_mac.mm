@@ -426,6 +426,8 @@ Dict WindowState::Snapshot() {
       .Set("canGoForward", contents->GetController().CanGoForward())
       .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
     if (const auto group = strip->GetTabGroupForTab(i)) entry.Set("group", modal_browser::GroupKey(*group));
+    // Every split, not only the one on screen, so the tabs can show each as one piece.
+    if (const auto split = strip->GetSplitForTab(i)) entry.Set("split", split->ToString());
     if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
     if (const auto edge = modal_browser::PageEdgeColor::Get(contents)) entry.Set("surface", HexColor(*edge));
     tabs.Append(std::move(entry));
@@ -516,6 +518,48 @@ int FindTab(TabStripModel* strip, const std::string* id) {
   if (id) for (int i = 0; i < strip->count(); ++i)
     if (TabId(strip->GetTabAtIndex(i)) == *id) return i;
   return -1;
+}
+// Moves a split view's tabs together, so it stays a split, to just before
+// the tab at `before` (-1: the end). A place inside another split becomes
+// that split's start: Chromium never lets a move break a split apart. The
+// split joins a group when it lands between two of the group's tabs, and
+// stays in its own when it lands beside one of them.
+void MoveSplit(TabStripModel* strip, split_tabs::SplitTabId split, int before) {
+  std::vector<tabs::TabInterface*> others;
+  int first = -1;
+  for (int i = 0; i < strip->count(); ++i) {
+    auto* tab = strip->GetTabAtIndex(i);
+    if (tab->GetSplit() == split) {
+      if (first < 0) first = i;
+    } else {
+      others.push_back(tab);
+    }
+  }
+  if (first < 0) return;
+  tabs::TabInterface* target = before >= 0 ? strip->GetTabAtIndex(before) : nullptr;
+  if (target && target->GetSplit() == split) return;
+  if (target) {
+    if (const auto other = target->GetSplit()) {
+      for (int i = 0; i < strip->count(); ++i) {
+        if (strip->GetTabAtIndex(i)->GetSplit() == other) { target = strip->GetTabAtIndex(i); break; }
+      }
+    }
+  }
+  // The index among the tabs that stay put, which is what MoveSplitTo counts.
+  int to = static_cast<int>(others.size());
+  for (size_t i = 0; target && i < others.size(); ++i) {
+    if (others[i] == target) { to = static_cast<int>(i); break; }
+  }
+  const auto group_of = [](tabs::TabInterface* tab) {
+    return tab ? tab->GetGroup() : std::optional<tab_groups::TabGroupId>();
+  };
+  const auto left = group_of(to > 0 ? others[to - 1] : nullptr);
+  const auto right = group_of(to < static_cast<int>(others.size()) ? others[to] : nullptr);
+  const auto own = strip->GetTabAtIndex(first)->GetGroup();
+  std::optional<tab_groups::TabGroupId> group;
+  if (left && left == right) group = left;
+  else if (own && (left == own || right == own)) group = own;
+  strip->MoveSplitTo(split, to, strip->IsTabPinned(first), group);
 }
 GURL ResolveAddress(Profile* profile, const std::string& text) {
   if (text.empty()) return GURL();
@@ -832,6 +876,11 @@ char* Call(const char* window, const char* method, const char* json) {
     if (!before || (!before->is_none() && !before->is_string())) return Error("Invalid tab destination");
     int target = before->is_none() ? strip->count() - 1 : FindTab(strip, &before->GetString());
     if (target < 0) return Error("Destination tab has closed");
+    // A tab in a split view moves with the other side, as the tabs show them as one.
+    if (const auto split = strip->GetSplitForTab(index)) {
+      MoveSplit(strip, *split, before->is_none() ? -1 : target);
+      return Ok();
+    }
     if (!before->is_none() && target > index) --target;
     strip->MoveWebContentsAt(index, target, false);
   } else if (name == "navigation.back") {
@@ -847,12 +896,20 @@ char* Call(const char* window, const char* method, const char* json) {
     if (!url.is_valid()) return Error("This address cannot be opened");
     contents->GetController().LoadURL(url, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
   } else if (name == "tabs.split") {
-    // A tab dropped on the page: it shows beside the active tab, on the side
-    // it was dropped on, and takes the focus.
+    // A tab dropped on the page: it shows beside the tab it was dropped on
+    // (`beside`, else the active tab), on the side it was dropped on, and
+    // takes the focus. One command, so the page never shows the other tab
+    // alone on the way.
     const auto* side = args->FindString("side");
     if (!side || (*side != "left" && *side != "right" && *side != "top" && *side != "bottom"))
       return Error("Invalid split side");
     if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL) return Error("This window can't show a split view");
+    if (const auto* beside = args->FindString("beside")) {
+      const int at = FindTab(strip, beside);
+      if (at < 0) return Error("That tab has closed");
+      if (at == index) return Error("Choose another tab to show beside this one");
+      if (at != strip->active_index()) strip->ActivateTabAt(at);
+    }
     const int active = strip->active_index();
     if (active < 0 || index == active) return Error("Choose another tab to show beside this one");
     tabs::TabInterface* dropped = strip->GetTabAtIndex(index);
@@ -867,6 +924,11 @@ char* Call(const char* window, const char* method, const char* json) {
     const bool first = *side == "left" || *side == "top";
     if (!members.empty() && (members.front() == dropped) != first) strip->ReverseTabsInSplit(id);
     strip->ActivateTabAt(strip->GetIndexOfTab(dropped));
+  } else if (name == "tabs.unsplit") {
+    // Both tabs stay open, side by side in the tabs, and the page shows this one alone.
+    const auto split = strip->GetSplitForTab(index);
+    if (!split) return Error("This tab isn't in a split view");
+    strip->RemoveSplit(*split);
   } else if (name == "tabs.detach") {
     // A tab dragged out of the window becomes a window of its own, the size
     // of this one, with its tabs under the pointer.

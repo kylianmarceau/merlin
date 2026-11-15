@@ -3,7 +3,8 @@
 import { copyText, showMenu, type MenuItem } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
-import { tabDropZone } from './tabDrag';
+import { dropOutcome, type DropTarget, type SplitSide } from './tabDrag';
+import { tabUnits } from './splits';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
 import { groupColors, type Appearance, type Calls, type DownloadAction, type EngineClient, type GroupColor, type Method, type Request,
   type Requests } from '../platform/protocol';
@@ -60,8 +61,11 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     pinTab: (tabId: string, pinned: boolean) => run('tabs.pin', { tabId, pinned }),
     moveTab: (tabId: string, beforeId: string | null) => run('tabs.move', { tabId, beforeId }),
     bookmarkTab: (tabId: string) => run('tabs.bookmark', { tabId }),
-    /** Shows the tab beside the current one in a split view. */
-    splitTab: (tabId: string, side: 'left' | 'right' = 'right') => run('tabs.split', { tabId, side }),
+    /** Shows the tab in a split view beside `beside`, or the current tab, and focuses it. */
+    splitTab: (tabId: string, side: SplitSide = 'right', beside?: string) =>
+      run('tabs.split', beside ? { tabId, side, beside } : { tabId, side }),
+    /** Ends the tab's split view; both tabs stay open. */
+    unsplitTab: (tabId: string) => run('tabs.unsplit', { tabId }),
     /** Moves the tab into a window of its own, under the pointer. */
     detachTab: (tabId: string) => run('tabs.detach', { tabId }),
 
@@ -120,39 +124,54 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     /**
      * A tab being dragged, the pointer at (x, y) in the window. `out` is set
      * once it has left the tabs (the strip or sidebar decides); outside the
-     * window always counts. Out of the tabs it has a drop zone on the page.
-     * Returns whether it is out of the tabs.
+     * window always counts. Out of the tabs the page shows drop zones, and
+     * the one under the pointer is kept (`setTabDropTarget`). Returns
+     * whether it is out of the tabs.
      */
     tabDragMove(tabId: string, x: number, y: number, out: boolean) {
       const s = store.getState();
-      const snap = s.snapshot;
       const { width, height } = s.windowSize;
       const outside = out || x < 0 || y < 0 || x > width || y > height;
-      if (!snap) return outside;
-      const popup = snap.kind === 'popup';
-      const zone = outside ? tabDropZone({ x, y, window: s.windowSize, page: s.anchors.page,
-        canSplit: !popup && !!snap.activeTabId && tabId !== snap.activeTabId, canDetach: !popup && snap.tabs.length > 1 }) : null;
       const old = s.tabDrag;
-      if (!(old && old.tabId === tabId && old.x === x && old.y === y && old.out === outside && old.zone === zone))
-        store.setState({ tabDrag: { tabId, x, y, out: outside, zone } });
+      const target = old?.tabId === tabId && outside ? old.target : null;
+      if (!(old && old.tabId === tabId && old.x === x && old.y === y && old.out === outside && old.target === target))
+        store.setState({ tabDrag: { tabId, x, y, out: outside, target } });
       return outside;
+    },
+    /** The drop zone under the dragged tab, as the page's zones work it out. */
+    setTabDropTarget(target: DropTarget | null) {
+      const drag = store.getState().tabDrag;
+      if (!drag || (drag.target?.tabId === target?.tabId && drag.target?.side === target?.side)) return;
+      store.setState({ tabDrag: { ...drag, target: drag.out ? target : null } });
     },
     /** A tab drag that ended without being let go (the gesture was taken away). */
     tabDragCancel() {
       if (store.getState().tabDrag) store.setState({ tabDrag: null });
     },
     /**
-     * The dragged tab was let go. Out of the tabs it goes to its drop zone
-     * (beside the current tab, or a new window) and true is returned, so the
-     * tabs don't also reorder; inside them, false.
+     * The dragged tab was let go. Among the tabs it is theirs to reorder
+     * ('reorder'). Out of them it goes beside a pane in a split view or to a
+     * window of its own ('moved'), or stays where it was ('stayed').
      */
-    tabDragEnd() {
-      const drag = store.getState().tabDrag;
+    tabDragEnd(): 'reorder' | 'moved' | 'stayed' {
+      const s = store.getState();
+      const drag = s.tabDrag;
       if (drag) store.setState({ tabDrag: null });
-      if (!drag?.out) return false;
-      if (drag.zone === 'window') void actions.detachTab(drag.tabId);
-      else if (drag.zone) void actions.splitTab(drag.tabId, drag.zone);
-      return true;
+      if (!drag?.out) return 'reorder';
+      const snap = s.snapshot;
+      const outcome = snap && dropOutcome({ x: drag.x, y: drag.y, window: s.windowSize, page: s.anchors.page, target: drag.target,
+        canDetach: snap.kind !== 'popup' && snap.tabs.length > 1 });
+      if (outcome?.kind === 'split') void actions.splitTab(drag.tabId, outcome.target.side, outcome.target.tabId);
+      else if (outcome?.kind === 'window') void actions.detachTab(drag.tabId);
+      return outcome ? 'moved' : 'stayed';
+    },
+    /** Where each page on screen is, for the drop zones. */
+    setPanes(panes: Record<string, Rect>) {
+      const old = store.getState().panes;
+      const same = (a: Rect | undefined, b: Rect) => !!a && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+      const ids = Object.keys(panes);
+      if (ids.length === Object.keys(old).length && ids.every(id => same(old[id], panes[id]))) return;
+      store.setState({ panes });
     },
     /** The bookmarks bar's contents: the first of Chromium's permanent folders. */
     async bookmarksBar() {
@@ -202,12 +221,16 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       try { await copyText(url); pushToast(store, 'Address copied', 'info'); } catch (e) { fail(e); }
     },
     async tabMenu(tabId: string) {
-      const tabs = store.getState().snapshot?.tabs ?? [];
-      const index = tabs.findIndex(t => t.id === tabId);
-      const tab = tabs[index];
+      const snap = store.getState().snapshot;
+      const tabs = snap?.tabs ?? [];
+      const tab = tabs.find(t => t.id === tabId);
       if (!tab) return;
-      const previous = tabs[index - 1];
-      const next = tabs[index + 1];
+      // A split view's tabs move as one, so Move Up and Down step over whole splits.
+      const units = tabUnits(tabs);
+      const unit = units.findIndex(u => u.some(t => t.id === tabId));
+      const previous = units[unit - 1]?.[0];
+      const next = units[unit + 1]?.[0];
+      const shownTogether = !!tab.split && tabs.some(t => t.id === snap?.activeTabId && t.split === tab.split);
       const others = tabs.filter(t => t.id !== tabId && !t.pinned);
       const groups = (store.getState().snapshot?.groups ?? []).filter(g => g.id !== tab.group);
       // Plain words, like the rest of the menu bar; the tab's own title says which tab.
@@ -219,8 +242,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         ...(canUseWebKit(tab.url) ? [tab.engine === 'webkit'
           ? { id: 'chromium', title: 'Open Site in Chromium' } : { id: 'webkit', title: 'Open Site in WebKit' }] : []),
         { separator: true },
-        { id: 'split', title: 'Open in Split View', enabled: tab.id !== store.getState().snapshot?.activeTabId,
-          symbol: 'rectangle.split.2x1' },
+        tab.split ? { id: 'unsplit', title: 'Separate Split View', symbol: 'rectangle.portrait.and.arrow.right' }
+          : { id: 'split', title: 'Open in Split View', enabled: tab.id !== snap?.activeTabId && !shownTogether, symbol: 'rectangle.split.2x1' },
         { id: 'window', title: 'Move to New Window', enabled: tabs.length > 1, symbol: 'arrow.up.forward.app' },
         { separator: true },
         // Chromium keeps pinned tabs out of groups.
@@ -245,11 +268,12 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
           try { await moveSite(engine, tabId, tab.url, choice); } catch (e) { fail(e); }
           break;
         case 'split': await actions.splitTab(tabId); break;
+        case 'unsplit': await actions.unsplitTab(tabId); break;
         case 'window': await actions.detachTab(tabId); break;
         case 'group-new': actions.nameGroup({ kind: 'new', tabId }); break;
         case 'ungroup': await actions.ungroupTab(tabId); break;
         case 'up': if (previous) await actions.moveTab(tabId, previous.id); break;
-        case 'down': await actions.moveTab(tabId, tabs[index + 2]?.id ?? null); break;
+        case 'down': await actions.moveTab(tabId, units[unit + 2]?.[0].id ?? null); break;
         case 'close': await actions.closeTab(tabId); break;
         case 'others': for (const t of others) if (!(await actions.closeTab(t.id))) break; break;
         default: if (choice?.startsWith('group:')) await actions.groupTab(tabId, choice.slice('group:'.length)); break;
