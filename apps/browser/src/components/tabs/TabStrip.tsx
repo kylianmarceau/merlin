@@ -4,7 +4,7 @@ import { isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import {
-  ContextMenu, DragRegion, Fade, Icon, IconButton, PaletteScope, Spinner, Text, duration, geometry, radius, space, useColorFade,
+  ContextMenu, DragRegion, Fade, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
   useInteraction, useSlide, useTheme, useTimeout, type Palette,
 } from '../ui';
 import { Favicon } from '../favicon/Favicon';
@@ -25,7 +25,9 @@ type Drag = { id: string; dx: number; released: boolean };
  * in the colour of the site; it slides to whichever tab becomes active.
  * Pinned tabs are icons in a soft group; the others share the width, drop
  * their titles when crowded, and past that collect behind a "+N" menu.
- * Drag a tab to reorder it. Empty space moves the window.
+ * Drag a tab to reorder it, onto the page to split it beside the current
+ * tab, or out of the window to give it a window of its own. Empty space
+ * moves the window.
  */
 export function TabStrip() {
   const snapshot = useSnapshot();
@@ -52,6 +54,18 @@ export function TabStrip() {
   // The joined shape follows the active tab while it is dragged, then settles into its new place.
   const held = drag && !drag.released && drag.id === activeId && layout.slots[drag.id];
   const activeSlot = held ? { ...held, x: held.x + drag.dx } : activeId ? slots[activeId] ?? null : null;
+
+  // Pulled down past the strip (or out of the window) a tab leaves the strip
+  // for the page: it splits or becomes a window. Its slot waits in place.
+  const dragTo = (id: string, dx: number, x: number, y: number) => {
+    const out = actions.tabDragMove(id, x, y, y > geometry.strip + geometry.tearOff);
+    setDrag({ id, dx: out ? 0 : dx, released: false });
+  };
+  const release = (id: string, dx: number, cancelled: boolean) => {
+    if (cancelled) actions.tabDragCancel();
+    else if (actions.tabDragEnd()) { setDrag(null); return; }
+    drop(id, dx);
+  };
 
   const drop = (id: string, dx: number) => {
     const current = { id, dx, released: true };
@@ -97,7 +111,7 @@ export function TabStrip() {
             active={active} icon={tab.pinned || layout.compact} roles={active ? chrome.roles : null}
             divider={!tab.pinned && !drag && quiet(previous) && quiet(tab)} dragging={dragging}
             onHover={on => setHoveredId(current => (on ? tab.id : current === tab.id ? null : current))}
-            onDrag={dx => setDrag({ id: tab.id, dx, released: false })} onDrop={dx => drop(tab.id, dx)} />;
+            onDrag={(dx, x, y) => dragTo(tab.id, dx, x, y)} onDrop={(dx, cancelled) => release(tab.id, dx, cancelled)} />;
         })}
         {!!layout.hidden.length && <OverflowButton x={layout.end + space.xs} count={layout.hidden.length}
           onPress={() => void actions.hiddenTabsMenu(layout.hidden)} />}
@@ -192,7 +206,10 @@ type StripTabProps = {
   tab: Tab; slot: Slot; active: boolean; icon: boolean; divider: boolean; dragging: boolean;
   /** The site's colours, for the active tab, which sits on the joined shape. */
   roles: Partial<Palette> | null;
-  onHover(on: boolean): void; onDrag(dx: number): void; onDrop(dx: number): void;
+  onHover(on: boolean): void;
+  /** The pointer moved `dx` along the strip, and is at (x, y) in the window. */
+  onDrag(dx: number, x: number, y: number): void;
+  onDrop(dx: number, cancelled: boolean): void;
 };
 
 const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider, dragging, roles, onHover, onDrag, onDrop }: StripTabProps) {
@@ -207,10 +224,10 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider
   const latest = useRef({ onDrag, onDrop });
   latest.current = { onDrag, onDrop };
   const pan = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > space.xs && Math.abs(g.dx) > Math.abs(g.dy),
-    onPanResponderMove: (_, g) => latest.current.onDrag(g.dx),
-    onPanResponderRelease: (_, g) => latest.current.onDrop(g.dx),
-    onPanResponderTerminate: (_, g) => latest.current.onDrop(g.dx),
+    onMoveShouldSetPanResponderCapture: (_, g) => Math.hypot(g.dx, g.dy) > space.xs,
+    onPanResponderMove: (_, g) => latest.current.onDrag(g.dx, g.moveX, g.moveY),
+    onPanResponderRelease: (_, g) => latest.current.onDrop(g.dx, false),
+    onPanResponderTerminate: (_, g) => latest.current.onDrop(g.dx, true),
     onPanResponderTerminationRequest: () => false,
   }), []);
   const label = `${tab.pinned ? 'Pinned: ' : ''}${title}${tab.loading ? ', loading' : ''}${tab.audible ? ', playing audio' : ''}`;
@@ -232,7 +249,7 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider
         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.sm, justifyContent: icon ? 'center' : 'flex-start',
           paddingLeft: icon ? 0 : space.md, paddingRight: icon ? 0 : geometry.control }}>
         <View style={{ width: geometry.favicon, height: geometry.favicon, alignItems: 'center', justifyContent: 'center' }}>
-          {tab.loading ? <Spinner /> : <Favicon tab={tab} />}
+          <Favicon tab={tab} busy={tab.loading && !active} />
         </View>
         {!icon && <Fade style={{ flex: 1 }}>
           <Text lines={1} ellipsizeMode="clip" tone={active ? 'tabTextActive' : 'tabText'} weight={active ? 'medium' : undefined}>{title}</Text>

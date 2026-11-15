@@ -3,6 +3,7 @@
 import { copyText, showMenu, type MenuItem } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
+import { tabDropZone } from './tabDrag';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
 import type { Appearance, Calls, DownloadAction, EngineClient, Method, Request, Requests } from '../platform/protocol';
 import {
@@ -57,6 +58,47 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     pinTab: (tabId: string, pinned: boolean) => run('tabs.pin', { tabId, pinned }),
     moveTab: (tabId: string, beforeId: string | null) => run('tabs.move', { tabId, beforeId }),
     bookmarkTab: (tabId: string) => run('tabs.bookmark', { tabId }),
+    /** Shows the tab beside the current one in a split view. */
+    splitTab: (tabId: string, side: 'left' | 'right' = 'right') => run('tabs.split', { tabId, side }),
+    /** Moves the tab into a window of its own, under the pointer. */
+    detachTab: (tabId: string) => run('tabs.detach', { tabId }),
+    /**
+     * A tab being dragged, the pointer at (x, y) in the window. `out` is set
+     * once it has left the tabs (the strip or sidebar decides); outside the
+     * window always counts. Out of the tabs it has a drop zone on the page.
+     * Returns whether it is out of the tabs.
+     */
+    tabDragMove(tabId: string, x: number, y: number, out: boolean) {
+      const s = store.getState();
+      const snap = s.snapshot;
+      const { width, height } = s.windowSize;
+      const outside = out || x < 0 || y < 0 || x > width || y > height;
+      if (!snap) return outside;
+      const popup = snap.kind === 'popup';
+      const zone = outside ? tabDropZone({ x, y, window: s.windowSize, page: s.anchors.page,
+        canSplit: !popup && !!snap.activeTabId && tabId !== snap.activeTabId, canDetach: !popup && snap.tabs.length > 1 }) : null;
+      const old = s.tabDrag;
+      if (!(old && old.tabId === tabId && old.x === x && old.y === y && old.out === outside && old.zone === zone))
+        store.setState({ tabDrag: { tabId, x, y, out: outside, zone } });
+      return outside;
+    },
+    /** A tab drag that ended without being let go (the gesture was taken away). */
+    tabDragCancel() {
+      if (store.getState().tabDrag) store.setState({ tabDrag: null });
+    },
+    /**
+     * The dragged tab was let go. Out of the tabs it goes to its drop zone
+     * (beside the current tab, or a new window) and true is returned, so the
+     * tabs don't also reorder; inside them, false.
+     */
+    tabDragEnd() {
+      const drag = store.getState().tabDrag;
+      if (drag) store.setState({ tabDrag: null });
+      if (!drag?.out) return false;
+      if (drag.zone === 'window') void actions.detachTab(drag.tabId);
+      else if (drag.zone) void actions.splitTab(drag.tabId, drag.zone);
+      return true;
+    },
     /** The bookmarks bar's contents: the first of Chromium's permanent folders. */
     async bookmarksBar() {
       const root = await engine.request('bookmarks.folder', {});
@@ -121,6 +163,10 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         ...(canUseWebKit(tab.url) ? [tab.engine === 'webkit'
           ? { id: 'chromium', title: 'Open Site in Chromium' } : { id: 'webkit', title: 'Open Site in WebKit' }] : []),
         { separator: true },
+        { id: 'split', title: 'Open in Split View', enabled: tab.id !== store.getState().snapshot?.activeTabId,
+          symbol: 'rectangle.split.2x1' },
+        { id: 'window', title: 'Move to New Window', enabled: tabs.length > 1, symbol: 'arrow.up.forward.app' },
+        { separator: true },
         { id: 'up', title: 'Move Up', enabled: !!previous && previous.pinned === tab.pinned },
         { id: 'down', title: 'Move Down', enabled: !!next && next.pinned === tab.pinned },
         { separator: true },
@@ -136,6 +182,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         case 'webkit': case 'chromium':
           try { await moveSite(engine, tabId, tab.url, choice); } catch (e) { fail(e); }
           break;
+        case 'split': await actions.splitTab(tabId); break;
+        case 'window': await actions.detachTab(tabId); break;
         case 'up': if (previous) await actions.moveTab(tabId, previous.id); break;
         case 'down': await actions.moveTab(tabId, tabs[index + 2]?.id ?? null); break;
         case 'close': await actions.closeTab(tabId); break;
@@ -302,6 +350,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     // Downloads.
     downloadAction: (downloadId: string, action: DownloadAction) => run('downloads.act', { downloadId, action }),
     openDownloadsFolder: () => run('downloads.openFolder', {}),
+    /** A new download's icon reached the downloads button. */
+    downloadLanded: () => store.setState(s => ({ downloadLandings: s.downloadLandings + 1 })),
     /** The downloads panel's Clear: forgets every download that is no longer arriving. */
     clearDownloads() {
       const done = (store.getState().snapshot?.downloads ?? []).filter(d => d.state !== 'progress');

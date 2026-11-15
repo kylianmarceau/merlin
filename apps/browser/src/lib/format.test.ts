@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { displayAddress, displayHost, downloadLine, fileExtension, formatBytes, formatDay, isStartUrl, percent } from './format';
+import { displayAddress, displayHost, downloadLine, fileExtension, formatBytes, formatDay, isStartUrl, overallProgress, percent } from './format';
 
 test('hosts and addresses read the way a person would say them', () => {
   assert.equal(displayHost('https://www.example.com:8443/a?b'), 'example.com');
@@ -17,6 +17,10 @@ test('days are relative when recent', () => {
   assert.equal(formatDay(new Date(2026, 10, 10, 9).getTime(), now), 'Yesterday');
   assert.equal(percent(5, 10), 50);
   assert.equal(percent(5, 0), null);
+  assert.equal(overallProgress([]), null);
+  assert.equal(overallProgress([{ received: 25, total: 100 }, { received: 75, total: 100 }]), 0.5);
+  assert.equal(overallProgress([{ received: 25, total: 100 }, { received: 3, total: 0 }]), null);
+  assert.equal(overallProgress([{ received: 120, total: 100 }]), 1);
 });
 
 test('download sizes and lines read as in the downloads panel', () => {

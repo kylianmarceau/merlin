@@ -26,6 +26,8 @@ export type Download = {
   state: 'progress' | 'complete' | 'cancelled' | 'interrupted';
   /** Merlin's finer state: progress, paused, done, failed, cancelled, removed or dangerous. */
   status?: string; detail?: string; url?: string;
+  /** The finished file on disk, for dragging it out of the shell. Absent until done, or once it is gone. */
+  path?: string;
 };
 export type Split = { tabs: string[]; layout: 'sideBySide' | 'stacked'; ratio: number };
 export type Prompt = {
@@ -82,6 +84,13 @@ export type Calls = {
   'tabs.pin': { args: { tabId: string; pinned: boolean }; result: null };
   'tabs.bookmark': { args: { tabId: string }; result: null };
   'tabs.move': { args: { tabId: string; beforeId: string | null }; result: null };
+  /**
+   * Shows `tabId` beside the active tab in a split view, on the given side;
+   * a split the active tab was already in is replaced.
+   */
+  'tabs.split': { args: { tabId: string; side: 'left' | 'right' | 'top' | 'bottom' }; result: null };
+  /** Moves the tab into a new window of its own, under the pointer. */
+  'tabs.detach': { args: { tabId: string }; result: null };
   'navigation.open': { args: { tabId: string; text: string }; result: null };
   'navigation.back': { args: { tabId: string }; result: null };
   'navigation.forward': { args: { tabId: string }; result: null };
@@ -333,7 +342,7 @@ function isDownload(value: unknown): value is Download {
   return !!d && typeof d.id === 'string' && typeof d.name === 'string' &&
     Number.isFinite(d.received) && d.received >= 0 && Number.isFinite(d.total) && d.total >= 0 &&
     ['progress', 'complete', 'cancelled', 'interrupted'].includes(d.state) &&
-    [d.status, d.detail, d.url].every(x => x === undefined || typeof x === 'string');
+    [d.status, d.detail, d.url, d.path].every(x => x === undefined || typeof x === 'string');
 }
 const isString = (x: unknown): x is string => typeof x === 'string';
 const isBool = (x: unknown): x is boolean => typeof x === 'boolean';

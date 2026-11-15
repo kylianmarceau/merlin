@@ -3,6 +3,7 @@ import { useActions, useBrowser, useOverlays, useSnapshot } from '../../state/wi
 import { Layer, Popover, ToastStack, autoPlacement, geometry, usePresence, useTheme, type Frame } from '../ui';
 import { ExtensionPopupView } from '../extensions/ExtensionPopupView';
 import { ExtensionsPopover } from '../extensions/ExtensionsPopover';
+import { DownloadFlights } from '../library/DownloadFlights';
 import { DownloadsPopover } from '../library/DownloadsPopover';
 import { Library } from '../library/Library';
 import { Suggestions } from '../omnibox/Suggestions';
@@ -12,6 +13,7 @@ import { ProfilesPopover } from '../profiles/ProfilesPopover';
 import { Settings } from '../settings/Settings';
 import { PromptOverlay } from '../site/PromptOverlay';
 import { NewTabPopup } from '../start/NewTabPopup';
+import { TabDropOverlay } from '../tabs/TabDropOverlay';
 import { TabSwitcher } from '../tabs/TabSwitcher';
 
 /**
@@ -45,6 +47,7 @@ export function Overlays() {
       <TabSwitcher />
     </Layer>
     <Layer level="popover">
+      <TabDropOverlay />
       <PromptOverlay shown={shown.prompt} />
       <Suggestions />
       <Popover open={shown.popover === 'extensions'} anchor={anchors.extensions} bounds={bounds} placement={place(anchors.extensions)}
@@ -65,6 +68,7 @@ export function Overlays() {
       </Popover>
     </Layer>
     <Layer level="toast">
+      <DownloadFlights />
       <ToastStack toasts={toasts} onDismiss={actions.dismissToast} />
     </Layer>
   </>;

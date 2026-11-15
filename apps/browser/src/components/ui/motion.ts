@@ -22,6 +22,19 @@ export const duration = {
   search: 180,
   /** Native prompts ignore answers for their first half second. */
   promptArm: 550,
+  /** The loading bar: its first quick reach, the slow creep after it, the finish and the fade once loaded. */
+  loadStart: 320,
+  loadCreep: 9000,
+  loadFinish: 200,
+  loadFade: 260,
+  /** A background tab's icon breathing while its page loads. */
+  breathe: 700,
+  /** A new download's icon: rising off the page, then flying to the downloads button; the button's nudge as it lands. */
+  flyRise: 260,
+  flyTravel: 620,
+  flyLand: 360,
+  /** The downloads button's ring stays full this long after the last file arrives. */
+  ringHold: 900,
 } as const;
 
 export const curve = {
@@ -154,4 +167,123 @@ export function useSlide(to: { x: number; width: number } | null, reduce: boolea
     return () => run.stop();
   }, [to?.x, to?.width, follow, reduce, x, width]);  // eslint-disable-line react-hooks/exhaustive-deps
   return { x, width };
+}
+
+/** How far the loading bar gets before the page finishes: quickly to a quarter, then creeping, never to the end. */
+const loadReach = { start: 0.28, creep: 0.9 } as const;
+
+/**
+ * A page-loading bar's fill (0 → 1) and opacity. While `loading` it runs
+ * quickly to a quarter, then creeps towards the end without reaching it, as
+ * Arc's and Safari's do; when the page finishes it completes and fades.
+ */
+export function useLoadingBar(loading: boolean, reduce: boolean) {
+  const fill = useRef(new Animated.Value(loading ? 0.1 : 0)).current;
+  const opacity = useRef(new Animated.Value(loading ? 1 : 0)).current;
+  const was = useRef(loading);
+  useEffect(() => {
+    const started = loading && !was.current;
+    const finished = !loading && was.current;
+    was.current = loading;
+    if (loading) {
+      if (started) fill.setValue(0);
+      opacity.setValue(1);
+      const run = Animated.sequence([
+        Animated.timing(fill, { toValue: loadReach.start, duration: reduce ? duration.instant : duration.loadStart, easing: curve.enter, useNativeDriver: false }),
+        Animated.timing(fill, { toValue: loadReach.creep, duration: duration.loadCreep, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+      ]);
+      run.start();
+      return () => run.stop();
+    }
+    if (!finished) return;
+    const run = Animated.sequence([
+      Animated.timing(fill, { toValue: 1, duration: reduce ? duration.instant : duration.loadFinish, easing: curve.move, useNativeDriver: false }),
+      Animated.timing(opacity, { toValue: 0, duration: reduce ? duration.instant : duration.loadFade, easing: curve.exit, useNativeDriver: false }),
+    ]);
+    run.start(({ finished: done }) => { if (done) fill.setValue(0); });
+    return () => run.stop();
+  }, [loading, reduce, fill, opacity]);
+  return { fill, opacity };
+}
+
+/** An opacity that breathes gently while `on`, for something quietly busy; steady at 1 otherwise. */
+export function useBreathe(on: boolean, reduce: boolean) {
+  const value = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!on || reduce) { value.setValue(1); return; }
+    const half = { duration: duration.breathe, easing: Easing.inOut(Easing.sin), useNativeDriver: true };
+    const run = Animated.loop(Animated.sequence([
+      Animated.timing(value, { ...half, toValue: 0.4 }),
+      Animated.timing(value, { ...half, toValue: 1 }),
+    ]));
+    run.start();
+    return () => { run.stop(); value.setValue(1); };
+  }, [on, reduce, value]);
+  return value;
+}
+
+/** A new download's flight: how high it lifts off the page, and how large it is as it lifts and as it lands. */
+const flight = { lift: 28, startScale: 0.5, landScale: 0.32 } as const;
+export type FlightValues = { x: Animated.Value; y: Animated.Value; scale: Animated.Value; opacity: Animated.Value };
+type Point = { x: number; y: number };
+
+/** Values for one flight, placed at `from` and hidden. */
+export function useFlightValues(from: Point): FlightValues {
+  return useRef({
+    x: new Animated.Value(from.x), y: new Animated.Value(from.y),
+    scale: new Animated.Value(flight.startScale), opacity: new Animated.Value(0),
+  }).current;
+}
+
+/**
+ * A downloaded file's icon leaving the page for the downloads button, as in
+ * Safari: it lifts off where it starts, then arcs to the button (across
+ * first, then up), shrinking as it goes, and vanishes into it. `from` and
+ * `to` are the icon's centre. With reduced motion it only fades in place.
+ */
+export function flyTo(v: FlightValues, from: Point, to: Point, reduce: boolean) {
+  v.x.setValue(from.x); v.y.setValue(from.y); v.scale.setValue(flight.startScale); v.opacity.setValue(0);
+  const native = { useNativeDriver: true };
+  if (reduce) {
+    return Animated.sequence([
+      Animated.timing(v.opacity, { ...native, toValue: 1, duration: duration.base, easing: curve.enter }),
+      Animated.timing(v.opacity, { ...native, toValue: 0, duration: duration.slow, easing: curve.exit }),
+    ]);
+  }
+  const travel = { ...native, duration: duration.flyTravel };
+  return Animated.sequence([
+    Animated.parallel([
+      Animated.timing(v.opacity, { ...native, toValue: 1, duration: duration.flyRise, easing: curve.enter }),
+      Animated.timing(v.scale, { ...native, toValue: 1, duration: duration.flyRise, easing: Easing.out(Easing.back(2)) }),
+      Animated.timing(v.y, { ...native, toValue: from.y - flight.lift, duration: duration.flyRise, easing: curve.enter }),
+    ]),
+    Animated.parallel([
+      Animated.timing(v.x, { ...travel, toValue: to.x, easing: Easing.out(Easing.cubic) }),
+      Animated.timing(v.y, { ...travel, toValue: to.y, easing: Easing.in(Easing.cubic) }),
+      Animated.timing(v.scale, { ...travel, toValue: flight.landScale, easing: Easing.in(Easing.quad) }),
+      Animated.sequence([
+        Animated.delay(duration.flyTravel - duration.fast),
+        Animated.timing(v.opacity, { ...native, toValue: 0, duration: duration.fast, easing: curve.exit }),
+      ]),
+    ]),
+  ]);
+}
+
+/** A control's scale, nudged up and back each time `count` grows: a file landing in the downloads button. */
+export function useNudge(count: number, reduce: boolean) {
+  const value = useRef(new Animated.Value(1)).current;
+  const last = useRef(count);
+  useEffect(() => {
+    if (count <= last.current) { last.current = count; return; }
+    last.current = count;
+    if (reduce) return;
+    const half = duration.flyLand / 2;
+    const run = Animated.sequence([
+      Animated.timing(value, { toValue: 1.22, duration: half, easing: curve.enter, useNativeDriver: true }),
+      Animated.spring(value, { toValue: 1, ...spring.gentle, useNativeDriver: true }),
+    ]);
+    run.start();
+    return () => { run.stop(); value.setValue(1); };
+  }, [count, reduce, value]);
+  return value;
 }

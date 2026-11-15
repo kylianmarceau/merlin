@@ -108,7 +108,7 @@ base::ListValue MerlinDownloadsList(Profile* profile, size_t limit) {
         : d->GetState() == download::DownloadItem::INTERRUPTED
             ? "interrupted"
             : "progress";
-    list.Append(
+    base::DictValue entry =
         base::DictValue()
             .Set("id", base::NumberToString(d->GetId()))
             .Set("name", d->GetFileNameToReportUser().AsUTF8Unsafe())
@@ -118,7 +118,14 @@ base::ListValue MerlinDownloadsList(Profile* profile, size_t limit) {
             .Set("state", state)
             .Set("status", MerlinDownloadState(d))
             .Set("detail", MerlinDownloadShortDetail(d))
-            .Set("url", d->GetURL().spec()));
+            .Set("url", d->GetURL().spec());
+    // A finished file's place on disk, so the shell can drag it out to
+    // Finder, Mail or a page's upload field.
+    if (d->GetState() == download::DownloadItem::COMPLETE &&
+        !d->GetFileExternallyRemoved() && !d->GetTargetFilePath().empty()) {
+      entry.Set("path", d->GetTargetFilePath().AsUTF8Unsafe());
+    }
+    list.Append(std::move(entry));
   }
   return list;
 }

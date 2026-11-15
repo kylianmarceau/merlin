@@ -58,6 +58,15 @@ export const OutsidePress = view<ViewProps & { onOutsidePress(event: OutsidePres
 
 export const ContextMenuArea = view<ViewProps & { onContextMenu(): void }>('ContextMenuArea');
 
+/** Lets the file at `filePath` be dragged out, as from Finder; clicks inside still reach its children. */
+export const FileDrag = view<ViewProps & { filePath: string; onDragEnd?(event: NativeSyntheticEvent<{ dropped: boolean }>): void }>('FileDrag');
+
+/** A ring filling clockwise from the top; a negative `ringProgress` circles while the total is unknown. */
+export type ProgressRingProps = ViewProps & {
+  ringProgress: number; ringColor: string; ringTrackColor: string; ringWidth: number; ringReduceMotion?: boolean;
+};
+export const ProgressRing = view<ProgressRingProps>('ProgressRing');
+
 /** "orb": four stops, highlight to deep, then horizon glow and shadow. "glow": one colour fading out. */
 /** Fades its content out over the last `fadeLength` points, instead of an ellipsis. */
 export const Fade = view<ViewProps & { fadeLength: number }>('Fade');
