@@ -518,6 +518,10 @@ class Merlin:
             "--no-first-run", "--no-default-browser-check",
             # Never touch the login keychain of whoever runs the tests.
             "--use-mock-keychain", "--password-store=basic",
+            # NSArgumentDomain overrides only this process, without changing
+            # the person's saved preferences. These tests observe real tabs;
+            # the React new-tab pop-up is covered by the shell's unit tests.
+            "-MerlinShell.newTabPopup", "off",
             f"--host-resolver-rules=MAP *.test 127.0.0.1, MAP pagead2.googlesyndication.com 127.0.0.1",
             "--window-size=1280,900",
             # A hidden window is occluded; keep its pages running at full speed.

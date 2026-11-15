@@ -27,7 +27,9 @@ fixture page (`MerlinTestCase.reset`).
   DevTools port; `--use-mock-keychain`. Your own Merlin keeps running and its
   profile, config, sign-ins and clipboard are not touched. No test reads or
   writes the clipboard. Shell preferences live in the app's macOS defaults,
-  which tests only read.
+  which tests only read. A process-only defaults argument disables the new-tab
+  pop-up, so tab tests do not depend on your saved choice; the shell's unit
+  tests cover the pop-up.
 - **Never in front.** The app is launched with `open -g -j -n` and
   `background_app.m`, injected with `DYLD_INSERT_LIBRARIES`, makes the
   browser process a background app whose activation is prohibited, as the

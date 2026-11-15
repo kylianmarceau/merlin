@@ -7,8 +7,8 @@
 <p>A Chromium-based browser for macOS that you drive with Vim keys.</p>
 
 <p>
-  <a href="https://github.com/kylianmarceau/merlin/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/kylianmarceau/merlin?include_prereleases&label=release&color=c2410c"></a>
-  <img alt="Platform" src="https://img.shields.io/badge/macOS_13+-Apple_Silicon-292524">
+  <a href="https://github.com/kylianmarceau/merlin/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/kylianmarceau/merlin?label=release&color=c2410c"></a>
+  <img alt="Platform" src="https://img.shields.io/badge/macOS_14+-Apple_Silicon-292524">
   <img alt="Chromium" src="https://img.shields.io/badge/Chromium-157-292524">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-BSD--3--Clause-292524"></a>
 </p>
@@ -40,21 +40,46 @@ away: Cmd-K opens Merlin's menu, and dragging a tab onto the edge of the
 page splits the window.
 
 > [!NOTE]
-> Merlin is in beta. It runs on Apple Silicon Macs only and doesn't update
-> itself yet. See [Limitations](#limitations).
+> Merlin requires an Apple Silicon Mac and macOS 14 Sonoma or later.
+> Updates are available through Homebrew or by downloading a new release.
 
 ## Install
 
+With [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask kylianmarceau/tap/merlin
+```
+
+After the first launch attempt, go to **System Settings › Privacy & Security**,
+click **Open Anyway** next to Merlin, then **Open**. The app is ad-hoc signed
+and isn't notarized by Apple.
+
+Quit Merlin before updating:
+
+```bash
+brew update
+brew upgrade --cask kylianmarceau/tap/merlin
+```
+
+Homebrew keeps your profile and configuration. The
+[Merlin tap](https://github.com/kylianmarceau/homebrew-tap) tracks stable
+releases and checks for new versions hourly; scheduled checks can be delayed.
+If you already installed Merlin manually, see the tap's instructions for
+letting Homebrew manage it.
+
+You can also install the DMG directly:
+
 1. Download the latest `Merlin-<version>-arm64.dmg` from
-   [Releases](https://github.com/kylianmarceau/merlin/releases).
+   [Releases](https://github.com/kylianmarceau/merlin/releases/latest).
 2. Open the disk image and drag **Merlin** into **Applications**.
 3. Open Merlin. macOS will block it the first time because the app isn't
    notarized by Apple.
 4. Go to **System Settings › Privacy & Security**, click **Open Anyway**
    next to the message about Merlin, then **Open**.
 
-To update, quit Merlin and replace the app. Your profile and config are
-kept. Use **Watch › Custom › Releases** on this repository to get notified
+To update a manual installation, quit Merlin and replace the app. Your
+profile and config are kept. Use **Watch › Custom › Releases** on this repository to get notified
 of new versions. More detail in [docs/RELEASE.md](docs/RELEASE.md).
 
 ## Features
@@ -243,8 +268,9 @@ Merlin is Chromium underneath, so rendering, the sandbox, site isolation,
 passwords, autofill, PDFs, DevTools and extensions behave as they do in
 Chrome. Some things are missing:
 
-- **No automatic updates.** Watch the repository for releases, which
-  include Chromium security fixes.
+- **No background app updates.** Run `brew update` and
+  `brew upgrade --cask kylianmarceau/tap/merlin`, or download a new release.
+  Releases include Chromium security fixes.
 - **Netflix and other DRM sites open in WebKit.** Merlin's Chromium has no
   Widevine, so Netflix, Disney+, Prime Video, Spotify's web player and
   similar services open in WebKit (Safari's engine) inside the same tab,

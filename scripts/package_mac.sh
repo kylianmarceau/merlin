@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packages out/Release/Merlin.app for GitHub Releases.
 #
-#   MERLIN_VERSION=0.1.0-beta.1 scripts/package_mac.sh
+#   MERLIN_VERSION=0.2.0 scripts/package_mac.sh
 #
 # Writes to dist/<version>/:
 #   Merlin-<version>-arm64.dmg          the download: app, Applications link,
@@ -36,7 +36,7 @@ DEV="${MERLIN_PACKAGE_DEV:-0}"
 die() { echo "package_mac: $*" >&2; exit 1; }
 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] ||
-  die "set MERLIN_VERSION to a version such as 0.1.0-beta.1"
+  die "set MERLIN_VERSION to a version such as 0.2.0 or 0.3.0-beta.1"
 [[ -d "$APP" ]] || die "no app at $APP; run scripts/build_release.sh"
 [[ -f "$BUILD/credits.html" ]] ||
   die "no $BUILD/credits.html; run OUT=$OUT scripts/licenses.sh"
@@ -202,13 +202,21 @@ if [[ -n "$suffix" ]]; then
   echo
   echo "This is a development package. Do not publish it."
 else
+  release_kind="release"
+  release_flags="--draft"
+  if [[ "$VERSION" == *-* ]]; then
+    release_kind="pre-release"
+    release_flags="$release_flags --prerelease"
+  fi
   cat <<EOF
 
 Next:
-  1. Upload to a draft pre-release:
-     gh release create v$VERSION --draft --prerelease --title "Merlin $VERSION" \\
+  1. Upload to a draft $release_kind:
+     gh release create v$VERSION $release_flags --title "Merlin $VERSION" \\
        --notes-file docs/RELEASE_NOTES.md "$dmg" "$dmg.sha256"
   2. Download it in a browser on another Mac and run the install test in
      docs/RELEASE.md before publishing the draft.
+  3. For a stable release, publish as Latest, then update the Homebrew tap:
+     gh workflow run update-merlin.yml --repo kylianmarceau/homebrew-tap
 EOF
 fi
