@@ -13,6 +13,8 @@ export type SymbolName = 'arrow.left' | 'arrow.right' | 'arrow.up' | 'arrow.down
   'lock' | 'lock.open' | 'exclamationmark.triangle' | 'exclamationmark.octagon' | 'bell.badge' | 'square.on.square' |
   'rectangle.portrait.and.arrow.right' | 'sparkles' | 'eye.slash' | 'link' | 'character.bubble' | 'key' | 'creditcard' |
   'mappin.and.ellipse' | 'arrow.up.forward.app' | 'moon' | 'sun.max' | 'rectangle.topthird.inset.filled' |
+  // A dragged tab's drop zones over the page.
+  'rectangle.lefthalf.filled' | 'rectangle.righthalf.filled' |
   // Tide's set: chevrons for navigation, and Merlin's own picks for Settings and the toolbar.
   'chevron.left' | 'chevron.up' | 'switch.2' | 'arrow.down.to.line' | 'nosign' | 'speedometer' | 'shippingbox' |
   'curlybraces' | 'm.square' | 'minus' | 'arrow.up.right' | 'person.crop.circle.badge.plus' | 'clock.arrow.circlepath' |

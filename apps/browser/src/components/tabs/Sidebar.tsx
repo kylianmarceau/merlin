@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useShellPrefs } from '../../state/shellPrefs';
+import { tabUnits } from '../../state/splits';
 import { reorderTarget } from '../../state/tabDrag';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import { DragRegion, Icon, IconButton, Text, useInteraction, useTheme, geometry, radius, space } from '../ui';
@@ -61,7 +62,10 @@ export function Sidebar() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: geometry.hairline, paddingBottom: space.md }}>
         <NewTabRow pending={pending} onPress={actions.openNewTab} />
         {tabBlocks(open, snapshot.groups).map(block => {
-          const rows = block.tabs.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} onReorder={reorder} />);
+          const rows = tabUnits(block.tabs).map(unit => {
+            const unitRows = unit.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} onReorder={reorder} />);
+            return unit.length > 1 ? <SidebarSplit key={`split:${unit[0].split}`}>{unitRows}</SidebarSplit> : unitRows[0];
+          });
           return block.group
             ? <SidebarGroup key={`group:${block.group.id}`} group={block.group} count={block.tabs.length}
               active={block.tabs.some(t => t.id === snapshot.activeTabId)}>{rows}</SidebarGroup>
@@ -70,6 +74,14 @@ export function Sidebar() {
       </ScrollView>
     </View>
     <SidebarFooter />
+  </View>;
+}
+
+/** A split view's tabs, together on one soft pill, as across the top. */
+function SidebarSplit({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
+  return <View accessibilityLabel="Split view" style={{ gap: geometry.hairline, borderRadius: radius.row, backgroundColor: colors.splitChip }}>
+    {children}
   </View>;
 }
 

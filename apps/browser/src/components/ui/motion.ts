@@ -35,6 +35,8 @@ export const duration = {
   flyLand: 360,
   /** The downloads button's ring stays full this long after the last file arrives. */
   ringHold: 900,
+  /** A dragged tab's drop zones sliding in from the page's edges, and growing once they have. */
+  dropZone: 110,
 } as const;
 
 export const curve = {
@@ -62,6 +64,7 @@ export const presence = {
   sheet: { enter: duration.slow, exit: duration.base, scaleFrom: 0.985, shiftFrom: 12 },
   toast: { enter: duration.slow, exit: duration.base, scaleFrom: 1, shiftFrom: 12 },
   fade: { enter: duration.base, exit: duration.fast, scaleFrom: 1, shiftFrom: 0 },
+  dropZone: { enter: duration.dropZone, exit: duration.dropZone, scaleFrom: 1, shiftFrom: 0 },
 } as const;
 export type PresenceKind = keyof typeof presence;
 
@@ -167,6 +170,23 @@ export function useSlide(to: { x: number; width: number } | null, reduce: boolea
     return () => run.stop();
   }, [to?.x, to?.width, follow, reduce, x, width]);  // eslint-disable-line react-hooks/exhaustive-deps
   return { x, width };
+}
+
+/**
+ * Springs to `to` (a rectangle), as a drop zone moves between its sizes and
+ * leans towards the pointer. The first position is immediate.
+ */
+export function useSpringRect(to: { x: number; y: number; width: number; height: number }, reduce: boolean) {
+  const values = useRef({ x: new Animated.Value(to.x), y: new Animated.Value(to.y), width: new Animated.Value(to.width),
+    height: new Animated.Value(to.height) }).current;
+  useEffect(() => {
+    const keys = ['x', 'y', 'width', 'height'] as const;
+    if (reduce) { keys.forEach(k => values[k].setValue(to[k])); return; }
+    const run = Animated.parallel(keys.map(k => Animated.spring(values[k], { toValue: to[k], ...spring.snappy, useNativeDriver: false })));
+    run.start();
+    return () => run.stop();
+  }, [to.x, to.y, to.width, to.height, reduce, values]);  // eslint-disable-line react-hooks/exhaustive-deps
+  return values;
 }
 
 /** How far the loading bar gets before the page finishes: quickly to a quarter, then creeping, never to the end. */

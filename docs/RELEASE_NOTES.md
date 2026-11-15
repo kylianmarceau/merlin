@@ -1,13 +1,26 @@
-Merlin 0.2.0, a keyboard-driven browser for macOS built on
+Merlin 0.3.0, a keyboard-driven browser for macOS built on
 Chromium 157.0.8103.26.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
 
-## Since 0.2.0 (not yet released)
+## What's new since 0.2.0
 
-Rename this section "What's new since 0.2.0" when the next version ships.
-
+* **Fixed: dragging a tab onto the page opened a new window.** Dragging a
+  tab from the top of the window onto the page always gave it a window of
+  its own, instead of a split view. Now, as in Ardia, the page shows two
+  drop zones, **Add left split** and **Add right split**, by its edges;
+  they light up as the tab reaches them, and letting go there shows the
+  tab on that side. Dragging the tab you are looking at splits it with the
+  tab you used before it. Let go anywhere else on the page, or outside the
+  window, for a new window; the card under the pointer shows which will
+  happen.
+* **Split views stay together in the tabs.** A split view's two tabs now
+  show as one piece along the top (a split symbol, both titles and a line
+  between them, on a soft background) and side by side on one background
+  in the sidebar, so it's easy to see which tabs are split together. Drag
+  the piece to move the split as a whole; pull one side down onto the page
+  to take it out. A split tab's right-click menu has **Separate Split View**.
 * **Turn modal keys on or off in Settings.** **Settings > Keys > Modal
   browsing** switches the keyboard layer off, so every key goes to the page
   as in any other browser. ⌘K, the menus and the mouse still reach
@@ -17,12 +30,6 @@ Rename this section "What's new since 0.2.0" when the next version ships.
   button could create more, but the rest of Merlin (workspaces, browserctl,
   the config file) only knows the one. Use workspaces and private windows to
   keep browsing apart.
-
-## Stable release
-
-Merlin 0.2.0 is the first stable release. It uses the same compiled browser
-as 0.2.0-beta.19, repackaged with the stable version and a fresh ad-hoc
-signature. Existing browser profiles and settings are kept.
 
 ## Install
 

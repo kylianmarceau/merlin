@@ -6,4 +6,4 @@ export type {
 } from '../platform/protocol';
 export type { AnchorName, BrowserState, GroupDialog, Omnibox, Panel, PopoverName, Rect, SearchOwner, Toast } from './store';
 export type { Overlays } from './surfaces';
-export type { TabDrag, TabDropZone } from './tabDrag';
+export type { DropOutcome, DropTarget, SplitSide, TabDrag, ZoneStage } from './tabDrag';

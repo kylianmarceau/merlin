@@ -18,6 +18,11 @@ export type Tab = {
   /** The ID of the tab group it is in (one of the snapshot's `groups`). Absent when ungrouped. */
   group?: string;
   /**
+   * The ID of the split view it is in, shared with the tab beside it (which
+   * is next to it in `tabs`). Absent when it isn't in one, and from older engines.
+   */
+  split?: string;
+  /**
    * Never sent by Chromium: the shell sets it on tabs it shows in WebKit,
    * whose title, address and state then come from WebKit's page.
    */
@@ -96,6 +101,7 @@ export type Calls = {
   'tabs.close': { args: { tabId: string }; result: null };
   'tabs.pin': { args: { tabId: string; pinned: boolean }; result: null };
   'tabs.bookmark': { args: { tabId: string }; result: null };
+  /** Moves the tab before `beforeId` (null: the end). A tab in a split view moves with the tab beside it. */
   'tabs.move': { args: { tabId: string; beforeId: string | null }; result: null };
   /** Adds the tab to a group, or to a new one (titled `title`) when `groupId` is null. Pinned tabs aren't grouped. */
   'tabs.group': { args: { tabId: string; groupId: string | null; title?: string }; result: null };
@@ -110,10 +116,13 @@ export type Calls = {
   /** Moves the peeked page into a new tab beside the active one. */
   'peek.promote': { args: {}; result: null };
   /**
-   * Shows `tabId` beside the active tab in a split view, on the given side;
-   * a split the active tab was already in is replaced.
+   * Shows `tabId` beside `beside` (the active tab when absent) in a split
+   * view, on the given side, and focuses it; a split either tab was already
+   * in is replaced.
    */
-  'tabs.split': { args: { tabId: string; side: 'left' | 'right' | 'top' | 'bottom' }; result: null };
+  'tabs.split': { args: { tabId: string; side: 'left' | 'right' | 'top' | 'bottom'; beside?: string }; result: null };
+  /** Ends the split view the tab is in; both tabs stay open. */
+  'tabs.unsplit': { args: { tabId: string }; result: null };
   /** Moves the tab into a new window of its own, under the pointer. */
   'tabs.detach': { args: { tabId: string }; result: null };
   'navigation.open': { args: { tabId: string; text: string }; result: null };
@@ -332,12 +341,18 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.start !== undefined && typeof tab.start !== 'boolean') ||
         (tab.color !== undefined && (typeof tab.color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.color))) ||
         (tab.surface !== undefined && (typeof tab.surface !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.surface))) ||
-        (tab.group !== undefined && typeof tab.group !== 'string')) {
+        (tab.group !== undefined && typeof tab.group !== 'string') ||
+        (tab.split !== undefined && (typeof tab.split !== 'string' || !tab.split))) {
       throw new Error('Invalid tab snapshot');
     }
     ids.add(tab.id);
   }
   if (s.activeTabId !== null && !ids.has(s.activeTabId)) throw new Error('Active tab is missing');
+  // A split's tabs sit together, and there are at least two of them.
+  const splitAt = new Map<string, number[]>();
+  s.tabs.forEach((t, i) => { if (t.split !== undefined) splitAt.set(t.split, [...(splitAt.get(t.split) ?? []), i]); });
+  for (const at of splitAt.values())
+    if (at.length < 2 || at.some((i, n) => n > 0 && i !== at[n - 1] + 1)) throw new Error('Invalid split view');
   if (s.groups !== undefined) {
     if (!Array.isArray(s.groups) || s.groups.some(g => !fields(g, {
         id: v => isString(v) && !!v, title: isString, color: v => groupColors.includes(v as GroupColor), collapsed: isBool })) ||

@@ -43,8 +43,15 @@ The stored accent names predate Tide and stay as the browser saves them:
   (the active tab always stays in the strip). Pinned tabs are icons in a
   soft group. A background tab that is loading breathes its icon
   (`useBreathe`); the active tab's loading is the bar under the address.
-  Dragging a tab reorders it within its group, the joined shape following
-  it; pulled down past the strip it leaves the tabs (see Tab drops).
+  A split view's two tabs are one piece, as in Ardia (`StripSplit`): the
+  split symbol, each side's icon and title with a hairline between them,
+  two cells wide, on a soft `splitChip` pill; when either side is active the
+  joined shape runs under both and the focused side's title is the
+  stronger. The sidebar puts a split's rows on the same pill.
+  Dragging a tab, or a split as a whole, reorders it within its group a
+  cell at a time and never into a split, the joined shape following it
+  (`stripLayout.ts`); pulled down past the strip it leaves the tabs, fading
+  while the others close up (see Tab drops).
   The command menu, Library, Settings, profiles and, last, Downloads sit at
   the right, so the downloads panel hangs at the window's right edge.
   The card gets one 46 pt toolbar (32 pt when compact): hide tabs, back, forward, reload,
@@ -131,17 +138,22 @@ a file in Finder (`FileDragArea`), to the desktop, Mail or a page.
   icon (40 pt) lifts off the middle of the window, arcs to the button
   (across first, then up) shrinking to a third, and the button nudges as it
   lands (`flyTo`, `useNudge`). Reduced motion only fades the icon in place.
-- **Tab drops**: a tab dragged out of the tabs (24 pt past the strip or the
-  sidebar, or out of the window) follows the pointer as a small card. Over
-  the page, the half it would take lights up (`accentSoft` with a
-  `splitFocus` edge) and slides as the pointer crosses the middle: let go
-  and it shows beside the current tab in a split view. A strip tab comes
-  forward when pressed, so "current" means the tab that was current before
-  the press: once the dragged tab leaves the strip the page goes back to
-  that tab, and the drop goes beside it (`splitPartner`). Outside the window
-  it opens in a window of its own, under the pointer; dragging the tab that
-  was already current onto the page does the same. Sidebar rows also reorder by dragging up
-  or down. The tab menu has Open in Split View and Move to New Window.
+- **Tab drops**, as in Ardia: a tab dragged out of the tabs (24 pt past the
+  strip or the sidebar, or out of the window) follows the pointer as a
+  small card whose trailing symbol says what letting go does. Each pane on
+  screen other than the tab's own slides in a drop zone from each edge
+  (`dropZone*` roles: a frosted card with a dashed edge, a half symbol and
+  "Add left/right split"); 110 ms later they grow, and the one the tab's
+  footprint reaches takes the accent and leans towards the pointer
+  (`zoneRect`, `zoneHit`). Let go there and the tab shows on that side of
+  the pane, in one native command (`tabs.split` with `beside`). A strip tab
+  comes forward when pressed, so when the dragged tab is the only page on
+  screen its own pane offers a split with the tab used most recently
+  before it (`splitPartner`, from the store's `recentTabs`). Elsewhere on
+  the page, or outside the window, it opens in a window of its own under
+  the pointer; over the toolbar or sidebar nothing happens. Sidebar rows
+  also reorder by dragging up or down. The tab menu has Open in Split View
+  (or Separate Split View for a tab in one) and Move to New Window.
 Buttons are pills: `primary` is dark ink, `secondary` a soft wash.
 
 Settings shows its sections as icon tabs across the top; the Library as a

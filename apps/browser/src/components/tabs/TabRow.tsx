@@ -38,7 +38,7 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder }: {
     },
     onPanResponderRelease: (_, g) => {
       setDy(null);
-      if (!actions.tabDragEnd()) latest.current.onReorder?.(latest.current.id, Math.round(g.dy / rowStep));
+      if (actions.tabDragEnd() === 'reorder') latest.current.onReorder?.(latest.current.id, Math.round(g.dy / rowStep));
     },
     onPanResponderTerminate: () => { setDy(null); actions.tabDragCancel(); },
     onPanResponderTerminationRequest: () => false,

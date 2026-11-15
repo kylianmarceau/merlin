@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Pressable, View } from 'react-native';
 import { isStartUrl } from '../../lib/format';
+import { paneRects } from '../../state/tabDrag';
 import type { Tab } from '../../state/types';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
 import { Box, Button, EmptyState, Text, geometry, radius, space, useTheme } from '../ui';
@@ -21,6 +22,10 @@ export function PageArea() {
   const measure = () => frame.current?.measureInWindow((x, y, width, height) => actions.setAnchor('page', { x, y, width, height }));
   useEffect(measure, [windowSize, snapshot.modal.sidebarHidden, snapshot.modal.tabLayout]);  // eslint-disable-line react-hooks/exhaustive-deps
   const split = !snapshot.fullscreen && snapshot.split && active && snapshot.split.tabs.includes(active.id) ? snapshot.split : null;
+  // Each page on screen, for the drop zones a dragged tab shows on it.
+  const page = useBrowser(s => s.anchors.page);
+  useEffect(() => { actions.setPanes(page ? paneRects(page, split, active?.id ?? null, geometry.splitGap) : {}); },
+    [page, split, active?.id, actions]);
   if (!active) return <Box flex={1} center>
     <EmptyState icon="square.dashed" title="No tabs open" detail="Open a tab, or use the command menu."
       action={<Button label="New Tab" variant="primary" icon="plus" onPress={() => void actions.openNewTab()} />} />
