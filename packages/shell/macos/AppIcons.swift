@@ -1,6 +1,6 @@
 import AppKit
 
-// Merlin's app icons: the painted 'Wrapped' falcon-and-globe in ten colour
+// Merlin's app icons: the painted 'Wrapped' falcon-and-globe in nine colour
 // themes. Daylight ("default") is the bundle's own icon; the others are PNGs
 // in the app's Resources (MerlinAppIcon-<id>.png, from packages/shell/macos/
 // AppIcons). As in Ardia, the chosen icon is a preference: the Dock shows it
@@ -23,7 +23,6 @@ enum AppIcons {
   static let variants: [Variant] = [
     Variant(id: "default", name: "Daylight"),
     Variant(id: "midnight", name: "Midnight"),
-    Variant(id: "original", name: "Original"),
     Variant(id: "cobalt", name: "Cobalt"),
     Variant(id: "ember", name: "Ember"),
     Variant(id: "ocean", name: "Ocean"),
@@ -33,24 +32,34 @@ enum AppIcons {
     Variant(id: "blush", name: "Blush"),
   ]
 
+  /// Ids that were renamed: "original" is Midnight since every theme uses its drawing.
+  private static let renamed = ["original": "midnight"]
+
   /// A known id, or "default" for nil and ids from older versions.
   static func validated(_ id: String?) -> String {
-    guard let id, variants.contains(where: { $0.id == id }) else { return "default" }
-    return id
+    guard let id else { return "default" }
+    let known = renamed[id] ?? id
+    return variants.contains(where: { $0.id == known }) ? known : "default"
   }
 
   static var current: String { validated(UserDefaults.standard.string(forKey: defaultsKey)) }
 
-  /// What the Dock should show: macOS's Tinted and Clear icon styles restyle
-  /// only the bundle's own icon, so a custom choice steps aside for them.
-  static var shown: String { IconStyle.shown(saved: current, theme: IconStyle.systemTheme) }
+  /// What the Dock should show for a choice, or nil for the bundle's own icon.
+  /// macOS's Tinted and Clear icon styles restyle only the bundle's icon, so
+  /// every choice steps aside for them. Otherwise even Daylight, which is the
+  /// bundle's icon, is drawn from its picture: given nil, AppKit and the Dock
+  /// show the icon macOS cached for the bundle, and that can be an older
+  /// Merlin's (the bundle version is Chromium's, the same across releases).
+  static func dockImage(for id: String) -> NSImage? {
+    IconStyle.restylesIcons(theme: IconStyle.systemTheme) ? nil : image(id)
+  }
 
   private static var styleWatcher: IconStyleWatcher?
 
   /// At launch: show the saved choice and follow icon style changes.
   static func restore() {
     if styleWatcher == nil { styleWatcher = IconStyleWatcher { apply() } }
-    if shown != "default" { apply() }
+    apply()
   }
 
   static func set(_ id: String) {
@@ -66,8 +75,7 @@ enum AppIcons {
   }
 
   private static func apply() {
-    let id = shown
-    NSApp.applicationIconImage = id == "default" ? nil : image(id)
+    NSApp.applicationIconImage = dockImage(for: current)
   }
 
   // MARK: Artwork
@@ -121,10 +129,6 @@ enum IconStyle {
   static func restylesIcons(theme: String?) -> Bool {
     guard let theme else { return false }
     return theme.hasPrefix("Tinted") || theme.hasPrefix("Clear")
-  }
-
-  static func shown(saved: String, theme: String?) -> String {
-    restylesIcons(theme: theme) ? "default" : saved
   }
 
   static var systemTheme: String? { UserDefaults.standard.string(forKey: defaultsKey) }

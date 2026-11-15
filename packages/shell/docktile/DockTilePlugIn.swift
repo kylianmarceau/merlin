@@ -51,14 +51,14 @@ final class MerlinDockTilePlugIn: NSObject, NSDockTilePlugIn {
 
   private func show() {
     guard let dockTile else { return }
-    let id = IconStyle.shown(saved: saved, theme: IconStyle.systemTheme)
-    if id == "default" {
-      dockTile.contentView = nil
-    } else if let image = AppIcons.image(id) {
+    // Daylight too, so the Dock doesn't fall back to an older cached icon.
+    if let image = AppIcons.dockImage(for: saved) {
       let view = NSImageView(frame: NSRect(origin: .zero, size: dockTile.size))
       view.image = image
       view.imageScaling = .scaleProportionallyUpOrDown
       dockTile.contentView = view
+    } else {
+      dockTile.contentView = nil
     }
     dockTile.display()
   }
