@@ -598,6 +598,16 @@ fn hint_actions_filter_target_kinds() {
         panic!()
     };
     assert_eq!(*action, HintAction::YankLink);
+
+    // gf peeks at links only.
+    let mut s = ModalSession::new();
+    let o = show_hints(&mut s, "gf", &kinds);
+    let [Action::ShowHints { hints, action }] = &o.actions[..] else {
+        panic!("{:?}", o.actions);
+    };
+    assert_eq!(*action, HintAction::Peek);
+    let targets: Vec<u32> = hints.iter().map(|h| h.target).collect();
+    assert_eq!(targets, vec![1, 3], "links only");
 }
 
 #[test]
@@ -851,7 +861,8 @@ fn which_key_lists_continuations_after_a_prefix() {
     assert_eq!(
         keys,
         [
-            "$", "0", "B", "b", "e", "g", "h", "i", "l", "O", "p", "s", "T", "t", "U", "u"
+            "$", "0", "B", "b", "e", "f", "g", "h", "i", "l", "O", "p", "s", "T", "t", "U", "u",
+            "w"
         ]
     );
     let top = o.which_key.iter().find(|h| h.keys == "g").unwrap();

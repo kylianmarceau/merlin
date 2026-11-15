@@ -67,7 +67,9 @@ nothing covers the page in Normal mode.
 
 **Link hints.** `f` labels every link on the page and you type the label to
 follow it. `F` opens in a new tab, `yf` copies the link, `gi` jumps to a
-text field. Hints work inside iframes and web components.
+text field, and `gf` peeks at the link in a floating card over the page
+(`⌘↩` keeps it as a tab; `Esc` closes it). `:peek <url>` does the same for
+an address. Hints work inside iframes and web components.
 
 **One palette.** `:` takes commands, URLs and searches. `b` switches tabs.
 `?` searches every command and shows its key. Everything is fuzzy-matched,
@@ -80,6 +82,12 @@ Markdown and `yc` copies a code block.
 
 **Tabs and splits.** Tabs in a sidebar or along the top, or hidden entirely
 with `⌘S`. Split the window with `<C-w>v` or `<C-w>s`. Pin tabs with `gp`.
+Group tabs from a tab's menu or with `:group research` (`:ungroup` takes a
+tab out); a group can be renamed, recoloured and collapsed from its header.
+
+**Picture in picture.** A video playing with sound floats in a rounded
+window when you switch tabs, and goes back when you return. Turn it off in
+**Settings › General**.
 
 **Workspaces.** Save a window with `:workspace save research` and reopen
 it later with `gw`: its tabs, pins, splits, tab groups and the window's
@@ -133,6 +141,7 @@ Normal mode (`Shift+Esc` in Passthrough).
 | `p` / `P` | Open URL from clipboard / in new tab | `gp` | Pin tab |
 | `]]` / `[[` | Next / previous heading | `]c` / `[c` | Next / previous code block |
 | `]t` / `[t` | Next / previous table | `<C-w>w` / `<C-w>x` | Next split / swap splits |
+| `gf` | Peek at a link | `:group` / `:ungroup` | Group tab / take it out |
 | `gh` / `gb` | Search history / bookmarks | `v` | Visual mode |
 | `ma` / `'a` | Set / go to mark | `qa` … `q`, `@a` | Record / play macro |
 | `i` | Insert mode | `<C-v>` | Passthrough mode |

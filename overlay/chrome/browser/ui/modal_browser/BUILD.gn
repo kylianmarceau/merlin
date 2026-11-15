@@ -114,6 +114,8 @@ source_set("modal_browser") {
     "merlin_preferences.h",
     "merlin_suggestions.cc",
     "merlin_suggestions.h",
+    "merlin_tab_groups.cc",
+    "merlin_tab_groups.h",
     "merlin_urls.cc",
     "merlin_urls.h",
     "modal_browser_controller.cc",
@@ -149,6 +151,10 @@ source_set("modal_browser") {
       "merlin_tab_switcher_mac.mm",
       "merlin_page_color.cc",
       "merlin_page_color.h",
+      "merlin_peek.h",
+      "merlin_peek_mac.mm",
+      "merlin_auto_pip.cc",
+      "merlin_auto_pip.h",
     ]
     frameworks = [ "AppKit.framework" ]
   }
@@ -163,6 +169,7 @@ source_set("modal_browser") {
     "//ui/views",
   ]
   deps = [
+    "//base:i18n",
     "//base/version_info",
     "//components/viz/common",
     "//cc/paint",
@@ -258,6 +265,7 @@ source_set("modal_browser") {
   ]
   if (is_mac) {
     deps += [
+      "//chrome/browser/picture_in_picture",
       "//chrome/browser/ui:browser_command_controller",
       "//chrome/browser/ui:browser_window_state",
       "//chrome/browser/ui:unload_controller",

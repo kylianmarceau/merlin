@@ -189,3 +189,21 @@ test('crashed tabs and the full download list are validated', async () => {
   assert.equal((await answer([{ id: '1', name: 'a.zip', received: 2, total: 2, state: 'complete' }])).length, 1);
   await assert.rejects(answer([{ id: '1', name: 'a.zip', received: -1, total: 2, state: 'complete' }]));
 });
+test('tab groups are validated, and grouped tabs must name one of them', () => {
+  const tab = (id: string, group?: string) => ({ id, title: id, url: 'https://example.com/', loading: false, pinned: false, audible: false,
+    canGoBack: false, canGoForward: false, ...(group ? { group } : {}) });
+  const group = { id: 'g1', title: 'Research', color: 'blue', collapsed: false } as const;
+  const s = { ...snapshot(), tabs: [tab('a', 'g1'), tab('b')], activeTabId: 'a', groups: [group] };
+  assert.deepEqual(validateSnapshot(s, s.windowId).groups, [group]);
+  assert.throws(() => validateSnapshot({ ...s, tabs: [tab('a', 'gone')] }, s.windowId));
+  assert.throws(() => validateSnapshot({ ...s, groups: [{ ...group, color: 'mauve' }] } as unknown as Snapshot, s.windowId));
+  assert.throws(() => validateSnapshot({ ...s, groups: [group, group] }, s.windowId));
+  // Older engines send no groups at all.
+  assert.doesNotThrow(() => validateSnapshot({ ...snapshot(), tabs: [tab('a')], activeTabId: 'a' }, 'window-one'));
+});
+test('a peek is described exactly', () => {
+  const peek = { url: 'https://docs.rs/', title: 'Docs.rs', loading: true, canGoBack: false };
+  assert.deepEqual(validateSnapshot({ ...snapshot(), peek }, 'window-one').peek, peek);
+  assert.equal(validateSnapshot({ ...snapshot(), peek: null }, 'window-one').peek, null);
+  assert.throws(() => validateSnapshot({ ...snapshot(), peek: { ...peek, loading: 'yes' } } as unknown as Snapshot, 'window-one'));
+});

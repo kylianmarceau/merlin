@@ -924,6 +924,9 @@ const EXTENSIONS_USAGE: &str = ":extensions";
 const SITE_USAGE: &str = ":site";
 const DEVTOOLS_USAGE: &str = ":devtools";
 const BROWSER_USAGE: &str = ":browser <action> [download id]";
+const PEEK_USAGE: &str = ":peek <url | search terms>";
+const GROUP_USAGE: &str = ":group [name]";
+const UNGROUP_USAGE: &str = ":ungroup";
 const ADBLOCK_USAGE: &str = ":adblock [on|off|site toggle|status|update]";
 
 /// What `:browser` runs: the window actions Chromium's ⋮ menu offered that
@@ -1391,6 +1394,44 @@ fn cmd_window(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
 fn cmd_private(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
     no_args(inv, PRIVATE_USAGE)?;
     Ok(Effects::action(Action::NewWindow { private: true }))
+}
+
+fn cmd_peek(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
+    if inv.args.is_empty() {
+        return Err(CommandError::MissingArgument {
+            name: inv.name,
+            usage: PEEK_USAGE,
+        });
+    }
+    Ok(Effects::action(Action::Open {
+        target: open_target(inv)?,
+        disposition: Disposition::Peek,
+    }))
+}
+
+/// Adds the tab to the group with that name (any case), or to a new group
+/// with that name; with no name, to a new unnamed group.
+fn cmd_group(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
+    let name = inv.joined_args();
+    if name.chars().count() > 100 {
+        return Err(invalid(
+            inv,
+            &name,
+            "a group name is at most 100 characters",
+        ));
+    }
+    Ok(Effects::action(Action::BrowserCommand {
+        name: "group".into(),
+        arg: name.trim().to_string(),
+    }))
+}
+
+fn cmd_ungroup(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
+    no_args(inv, UNGROUP_USAGE)?;
+    Ok(Effects::action(Action::BrowserCommand {
+        name: "ungroup".into(),
+        arg: String::new(),
+    }))
 }
 
 fn cmd_adblock(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
@@ -1983,6 +2024,27 @@ fn builtin_specs() -> Vec<CommandSpec> {
             CONFIG_RELOAD_USAGE,
             "reload the configuration file",
             cmd_config_reload,
+        ),
+        available(
+            "peek",
+            &[],
+            PEEK_USAGE,
+            "show a page in a floating preview over this tab",
+            cmd_peek,
+        ),
+        available(
+            "group",
+            &[],
+            GROUP_USAGE,
+            "add this tab to a tab group, by name, or to a new one",
+            cmd_group,
+        ),
+        available(
+            "ungroup",
+            &[],
+            UNGROUP_USAGE,
+            "take this tab out of its group",
+            cmd_ungroup,
         ),
         available(
             "adblock",

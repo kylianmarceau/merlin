@@ -109,6 +109,7 @@ fn replies() {
         url: "https://docs.rs".into(),
         active: true,
         pinned: false,
+        group: "Research".into(),
     };
     let line = reply_ok(Some(1), Value::Array(vec![tab.to_value()]));
     let result = parse_reply(&line).unwrap().result.unwrap();

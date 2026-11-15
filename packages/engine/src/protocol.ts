@@ -15,6 +15,8 @@ export type Tab = {
   color?: string;
   /** The colour most of the page's top edge has, as drawn, as "#RRGGBB". Absent until sampled, or when it has none. */
   surface?: string;
+  /** The ID of the tab group it is in (one of the snapshot's `groups`). Absent when ungrouped. */
+  group?: string;
   /**
    * Never sent by Chromium: the shell sets it on tabs it shows in WebKit,
    * whose title, address and state then come from WebKit's page.
@@ -29,6 +31,12 @@ export type Download = {
   /** The finished file on disk, for dragging it out of the shell. Absent until done, or once it is gone. */
   path?: string;
 };
+export type GroupColor = 'grey' | 'blue' | 'red' | 'yellow' | 'green' | 'pink' | 'purple' | 'cyan' | 'orange';
+export const groupColors: readonly GroupColor[] = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+/** A tab group: its tabs are next to each other in the strip, and say so with `group`. */
+export type TabGroup = { id: string; title: string; color: GroupColor; collapsed: boolean };
+/** A link opened in a floating card over the page. Its page is shown with tab ID "peek". */
+export type Peek = { url: string; title: string; loading: boolean; canGoBack: boolean };
 export type Split = { tabs: string[]; layout: 'sideBySide' | 'stacked'; ratio: number };
 export type Prompt = {
   id: string; origin: string; title: string; message: string; quiet?: boolean; canSuppress?: boolean; input?: { label: string; defaultValue: string };
@@ -62,6 +70,9 @@ export type Snapshot = {
   kind?: 'normal' | 'popup';
   extensionPopup?: ExtensionPopup | null;
   tabs: Tab[]; activeTabId: string | null;
+  /** The window's tab groups in strip order. Absent from older engines. */
+  groups?: TabGroup[];
+  peek?: Peek | null;
   /** Running downloads and the most recent others; `downloads.list` has them all. */
   downloads: Download[];
   prompt: Prompt | null; appearance: Appearance; find?: FindState; split?: Split | null;
@@ -84,6 +95,18 @@ export type Calls = {
   'tabs.pin': { args: { tabId: string; pinned: boolean }; result: null };
   'tabs.bookmark': { args: { tabId: string }; result: null };
   'tabs.move': { args: { tabId: string; beforeId: string | null }; result: null };
+  /** Adds the tab to a group, or to a new one (titled `title`) when `groupId` is null. Pinned tabs aren't grouped. */
+  'tabs.group': { args: { tabId: string; groupId: string | null; title?: string }; result: null };
+  'tabs.ungroup': { args: { tabId: string }; result: null };
+  /** Collapsing the group holding the active tab first moves to the nearest tab outside it. */
+  'groups.update': { args: { groupId: string; title?: string; color?: GroupColor; collapsed?: boolean }; result: null };
+  /** Takes every tab out of the group. */
+  'groups.ungroup': { args: { groupId: string }; result: null };
+  /** Closes every tab in the group. */
+  'groups.close': { args: { groupId: string }; result: null };
+  'peek.close': { args: {}; result: null };
+  /** Moves the peeked page into a new tab beside the active one. */
+  'peek.promote': { args: {}; result: null };
   /**
    * Shows `tabId` beside the active tab in a split view, on the given side;
    * a split the active tab was already in is replaced.
@@ -135,6 +158,8 @@ export type Preferences = {
   engines: { id: string; name: string }[]; engine: string; engineManaged: boolean;
   startup: 'last' | 'start'; zoom: number; zoomChoices: number[];
   downloadDir: string; askWhere: boolean; memorySaver: boolean; energySaver: boolean; savePasswords: boolean;
+  /** Video playing with sound floats when its tab is left. Absent from older engines. */
+  autoPip?: boolean;
   extensions: ExtensionInfo[]; adblock: Adblock; about: { version: string; os: string };
 };
 export type ConfigFile = { found: boolean; text: string; error: string; path: string };
@@ -145,7 +170,7 @@ export type BookmarkItem = { id: string; title: string; folder: boolean; editabl
 export type BookmarkView = { path: { id: string; title: string }[]; items: BookmarkItem[]; folderId: string };
 export type ProfileInfo = { id: string; name: string; active: boolean };
 export type PreferenceKey = 'theme' | 'tabs' | 'ctrlTab' | 'engine' | 'startup' | 'zoom' | 'askWhere' | 'memorySaver' | 'energySaver' |
-  'savePasswords' | 'adblock' | 'adblockUpdates' | 'adblockLists' | 'adblockRefresh' | 'adblockException' | 'extension';
+  'autoPip' | 'savePasswords' | 'adblock' | 'adblockUpdates' | 'adblockLists' | 'adblockRefresh' | 'adblockException' | 'extension';
 export type Requests = {
   'settings.get': { args: {}; result: Preferences };
   'settings.set': { args: { key: PreferenceKey; value: unknown }; result: Preferences };
@@ -305,12 +330,22 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.crashed !== undefined && typeof tab.crashed !== 'boolean') ||
         (tab.start !== undefined && typeof tab.start !== 'boolean') ||
         (tab.color !== undefined && (typeof tab.color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.color))) ||
-        (tab.surface !== undefined && (typeof tab.surface !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.surface)))) {
+        (tab.surface !== undefined && (typeof tab.surface !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.surface))) ||
+        (tab.group !== undefined && typeof tab.group !== 'string')) {
       throw new Error('Invalid tab snapshot');
     }
     ids.add(tab.id);
   }
   if (s.activeTabId !== null && !ids.has(s.activeTabId)) throw new Error('Active tab is missing');
+  if (s.groups !== undefined) {
+    if (!Array.isArray(s.groups) || s.groups.some(g => !fields(g, {
+        id: v => isString(v) && !!v, title: isString, color: v => groupColors.includes(v as GroupColor), collapsed: isBool })) ||
+        new Set(s.groups.map(g => g.id)).size !== s.groups.length) throw new Error('Invalid tab groups');
+    const groupIds = new Set(s.groups.map(g => g.id));
+    if (s.tabs.some(t => t.group !== undefined && !groupIds.has(t.group))) throw new Error('Tab is in a missing group');
+  }
+  if (s.peek !== undefined && s.peek !== null && !fields(s.peek, {
+      url: isString, title: isString, loading: isBool, canGoBack: isBool })) throw new Error('Invalid peek');
   if (!s.downloads.every(isDownload)) throw new Error('Invalid download snapshot');
   if (s.split !== undefined && s.split !== null && (typeof s.split !== 'object' || !Array.isArray(s.split.tabs) ||
       s.split.tabs.length < 2 || s.split.tabs.some(id => !ids.has(id)) || !['sideBySide', 'stacked'].includes(s.split.layout) ||
@@ -373,7 +408,7 @@ export function validateResult<R extends Request>(method: R, value: unknown): Re
         engines: listOf(e => fields(e, { id: isString, name: isString })), engine: isString, engineManaged: isBool,
         startup: v => v === 'last' || v === 'start', zoom: isNumber, zoomChoices: listOf(isNumber),
         downloadDir: isString, askWhere: isBool, memorySaver: isBool, energySaver: isBool, savePasswords: isBool,
-        extensions: listOf(extension), about: a => fields(a, { version: isString, os: isString }),
+        autoPip: optional(isBool), extensions: listOf(extension), about: a => fields(a, { version: isString, os: isString }),
         adblock: a => fields(a, { available: isBool, enabled: isBool, automatic: isBool, private: isBool, status: isString,
           updateStatus: isString, lastUpdate: isNumber, groups: listOf(isString), exceptions: listOf(isString) }),
       }), 'settings'); break;

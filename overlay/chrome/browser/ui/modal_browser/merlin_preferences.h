@@ -18,7 +18,7 @@ class ModalBrowserController;
 
 // {theme, tabs, ctrlTab, bindings, hintChars, engines, engine, engineManaged,
 //  startup, zoom, zoomChoices, downloadDir, askWhere, memorySaver,
-//  energySaver, savePasswords, extensions, adblock, about}
+//  energySaver, autoPip, savePasswords, extensions, adblock, about}
 base::DictValue MerlinPreferences(Profile* profile,
                                   ModalBrowserController* controller);
 

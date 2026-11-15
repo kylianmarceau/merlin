@@ -40,6 +40,10 @@ export const geometry = {
   panelRow: 32, panelHeader: 24, panelSeparatorGap: 5, downloadRow: 40, fileIcon: 24, rowButton: 22, rowGlyph: 13, chevron: 9,
   slider: 160, sliderTrack: 4, sliderThumb: 16, pictureChoice: 128, pictureChoiceHeight: 80, appIcon: 56, popUpMin: 160, bookmarksBar: 28,
   bookmarksBarLarge: 34, toolbarCompact: 32, controlCompact: 24,
+  /** Tab groups across the top: a chip with no title is its dot; titles are measured at about this much a character. */
+  groupChip: 22, groupChipMax: 132, groupChipChar: 7, groupLine: 2,
+  /** Peek's card over the page: its header. */
+  peekHeader: 44,
   /** The downloads button's progress ring, the page-loading bar under the address, and the icon that flies to the button. */
   ringStroke: 2, loadingBar: 2, flyingIcon: 40,
   /** A dragged tab leaves the tabs for the page once it is this far outside them; the page's split zones are this share of its width. */
@@ -261,12 +265,30 @@ function roles(mode: Mode, accentName: AccentName) {
     keycapBorder: pick('transparent', 'transparent'),
     keycapText: pick('#565C58', ink[300]),
 
+    // Tab groups: Chromium's nine group colours, softened to sit on the shell.
+    groupGrey: pick('#7A817C', '#A3AAA5'),
+    groupBlue: pick('#3D7BD9', '#8DB5F2'),
+    groupRed: pick('#D2483D', '#F0928A'),
+    groupYellow: pick('#D9A21B', '#F2D06B'),
+    groupGreen: pick('#3E9258', '#8CCB9C'),
+    groupPink: pick('#CC4A93', '#F19BCB'),
+    groupPurple: pick('#8A55D6', '#C7A9F5'),
+    groupCyan: pick('#1F8F99', '#7DD3DE'),
+    groupOrange: pick('#E07A35', '#F5B07A'),
+
     // Shadows (colour only; geometry is in `shadow`).
     shadowColor: pick('#14281E', '#000000'),
   } as const;
 }
 export type ColorRole = keyof ReturnType<typeof roles>;
 export type Palette = Record<ColorRole, string>;
+
+/** A tab group's colour, by the names Chromium and workspace files use. */
+export type GroupColorName = 'grey' | 'blue' | 'red' | 'yellow' | 'green' | 'pink' | 'purple' | 'cyan' | 'orange';
+export const groupColorRoles: Record<GroupColorName, ColorRole> = {
+  grey: 'groupGrey', blue: 'groupBlue', red: 'groupRed', yellow: 'groupYellow', green: 'groupGreen', pink: 'groupPink',
+  purple: 'groupPurple', cyan: 'groupCyan', orange: 'groupOrange',
+};
 
 export function palette(mode: Mode, accent: AccentName): Palette {
   return roles(mode, accent);
@@ -287,7 +309,7 @@ export const shadow = {
 export type ShadowName = keyof typeof shadow;
 
 /** Opacity for disabled and pressed controls. */
-export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, paintDark: 0.82 } as const;
+export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, paintDark: 0.82, groupWash: 0.16 } as const;
 
 // Site colours. In the tabs-on-top layout the active tab joins the toolbar,
 // and both take a colour from the site. Four treatments, chosen in Settings:

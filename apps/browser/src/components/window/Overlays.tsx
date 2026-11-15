@@ -9,10 +9,12 @@ import { Library } from '../library/Library';
 import { Suggestions } from '../omnibox/Suggestions';
 import { CommandDialog } from '../palette/CommandDialog';
 import { CommandMenu } from '../palette/CommandMenu';
+import { PeekOverlay } from '../page/PeekOverlay';
 import { ProfilesPopover } from '../profiles/ProfilesPopover';
 import { Settings } from '../settings/Settings';
 import { PromptOverlay } from '../site/PromptOverlay';
 import { NewTabPopup } from '../start/NewTabPopup';
+import { GroupNameDialog } from '../tabs/GroupNameDialog';
 import { TabDropOverlay } from '../tabs/TabDropOverlay';
 import { TabSwitcher } from '../tabs/TabSwitcher';
 
@@ -40,11 +42,13 @@ export function Overlays() {
       {library.mounted && <Library open={libraryOpen} />}
     </Layer>
     <Layer level="dialog">
+      <PeekOverlay />
       <CommandDialog open={shown.panel === 'command'} />
       <CommandMenu open={shown.palette} palette={snapshot.modal.palette ?? null} />
       <NewTabPopup open={shown.panel === 'newTab' && !shown.palette} />
       <NewTabPopup location open={shown.panel === 'location' && !shown.palette} />
       <TabSwitcher />
+      <GroupNameDialog />
     </Layer>
     <Layer level="popover">
       <TabDropOverlay />

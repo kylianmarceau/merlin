@@ -238,11 +238,17 @@ fn print_human(request: &Request, result: &Value) {
     match (request, result) {
         (Request::Tabs, Value::Array(tabs)) => {
             for tab in tabs.iter().filter_map(TabSummary::from_value) {
+                let group = if tab.group.is_empty() {
+                    String::new()
+                } else {
+                    format!("[{}] ", tab.group)
+                };
                 println!(
-                    "{}:{:<3} {} {}  {}",
+                    "{}:{:<3} {} {}{}  {}",
                     tab.window,
                     tab.index,
                     if tab.active { "*" } else { " " },
+                    group,
                     tab.title,
                     tab.url
                 );

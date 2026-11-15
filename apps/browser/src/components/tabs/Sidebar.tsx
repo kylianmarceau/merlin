@@ -7,6 +7,7 @@ import { DragRegion, Icon, IconButton, Text, useInteraction, useTheme, geometry,
 import { AddressField } from '../omnibox/AddressField';
 import { NavigationButtons } from '../window/Toolbar';
 import { FavouriteTile, TabRow } from './TabRow';
+import { SidebarGroup, tabBlocks } from './TabGroups';
 import { SidebarFooter } from './WindowButtons';
 
 const columns = 4;
@@ -27,7 +28,9 @@ export function Sidebar() {
   const tile = Math.floor((inner - tileGap * (columns - 1)) / columns);
   // A row dragged up or down moves among the open tabs; read when it drops, so rows keep their memo.
   const openIds = useRef<string[]>([]);
-  openIds.current = open.map(t => t.id);
+  // Rows in a collapsed group aren't on screen, so they don't count as places.
+  const collapsed = new Set((snapshot.groups ?? []).filter(g => g.collapsed).map(g => g.id));
+  openIds.current = open.filter(t => !t.group || !collapsed.has(t.group) || t.id === snapshot.activeTabId).map(t => t.id);
   const reorder = useCallback((id: string, steps: number) => {
     const target = reorderTarget(openIds.current, id, steps);
     if (target) void actions.moveTab(id, target.beforeId);
@@ -57,7 +60,13 @@ export function Sidebar() {
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: geometry.hairline, paddingBottom: space.md }}>
         <NewTabRow pending={pending} onPress={actions.openNewTab} />
-        {open.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} onReorder={reorder} />)}
+        {tabBlocks(open, snapshot.groups).map(block => {
+          const rows = block.tabs.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} onReorder={reorder} />);
+          return block.group
+            ? <SidebarGroup key={`group:${block.group.id}`} group={block.group} count={block.tabs.length}
+              active={block.tabs.some(t => t.id === snapshot.activeTabId)}>{rows}</SidebarGroup>
+            : rows;
+        })}
       </ScrollView>
     </View>
     <SidebarFooter />

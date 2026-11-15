@@ -41,6 +41,10 @@ export function GeneralPane({ p, set, openPage, onChooseDownloadDir }: {
         <Segmented label="Control-Tab order" value={p.ctrlTab} onChange={v => set('ctrlTab', v)}
           options={[{ value: 'recent', label: 'Recent first' }, { value: 'order', label: 'In order' }]} />
       </FormRow>
+      {p.autoPip !== undefined && <FormRow title="Float videos when you switch tabs"
+        detail="A video playing with sound moves to a picture-in-picture window, and back when you return.">
+        <Toggle label="Float videos when you switch tabs" value={p.autoPip} onChange={on => set('autoPip', on)} />
+      </FormRow>}
     </FormGroup>
 
     <FormGroup title="When quitting Merlin:">

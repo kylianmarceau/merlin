@@ -47,6 +47,10 @@
 #include "chrome/browser/ui/modal_browser/browserctl_server.h"
 #include "chrome/browser/ui/modal_browser/external_editor.h"
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/ui/modal_browser/merlin_peek.h"
+#endif
+#include "chrome/browser/ui/modal_browser/merlin_tab_groups.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
@@ -134,6 +138,9 @@ WindowOpenDisposition ToWindowOpenDisposition(ffi::OpenDisposition d) {
       return WindowOpenDisposition::NEW_BACKGROUND_TAB;
     case ffi::OpenDisposition::NewWindow:
       return WindowOpenDisposition::NEW_WINDOW;
+    case ffi::OpenDisposition::Peek:
+      // Where Peek isn't available, the link opens as a new tab.
+      return WindowOpenDisposition::NEW_FOREGROUND_TAB;
   }
   return WindowOpenDisposition::CURRENT_TAB;
 }
@@ -244,38 +251,6 @@ split_tabs::SplitTabLayout ToLayout(ffi::SplitLayout layout) {
 
 int64_t NowSeconds() {
   return base::Time::Now().ToTimeT();
-}
-
-// Chromium's tab group colors by the names workspace files use.
-constexpr std::pair<std::string_view, tab_groups::TabGroupColorId>
-    kGroupColors[] = {
-        {"grey", tab_groups::TabGroupColorId::kGrey},
-        {"blue", tab_groups::TabGroupColorId::kBlue},
-        {"red", tab_groups::TabGroupColorId::kRed},
-        {"yellow", tab_groups::TabGroupColorId::kYellow},
-        {"green", tab_groups::TabGroupColorId::kGreen},
-        {"pink", tab_groups::TabGroupColorId::kPink},
-        {"purple", tab_groups::TabGroupColorId::kPurple},
-        {"cyan", tab_groups::TabGroupColorId::kCyan},
-        {"orange", tab_groups::TabGroupColorId::kOrange},
-};
-
-std::string_view GroupColorName(tab_groups::TabGroupColorId color) {
-  for (const auto& [name, id] : kGroupColors) {
-    if (id == color) {
-      return name;
-    }
-  }
-  return "grey";
-}
-
-tab_groups::TabGroupColorId GroupColorFromName(std::string_view name) {
-  for (const auto& [n, id] : kGroupColors) {
-    if (n == name) {
-      return id;
-    }
-  }
-  return tab_groups::TabGroupColorId::kGrey;
 }
 
 // Saved window bounds moved fully onto the display they mostly cover, or
@@ -478,6 +453,12 @@ std::string ModalBrowserController::HintChars() const {
 
 void ModalBrowserController::Navigate(const GURL& url,
                                       ffi::OpenDisposition disposition) {
+#if BUILDFLAG(IS_MAC)
+  if (disposition == ffi::OpenDisposition::Peek &&
+      OpenMerlinPeek(browser_, url)) {
+    return;
+  }
+#endif
   browser_->OpenGURL(url, ToWindowOpenDisposition(disposition));
 }
 
@@ -999,6 +980,13 @@ void ModalBrowserController::OnActivationInfo(
       } else {
         ShowMessage(ffi::MessageLevel::Error,
                     "Only web links open in a new tab");
+      }
+      break;
+    case ffi::HintAction::Peek:
+      if (IsAllowedLinkUrl(link, frame->GetLastCommittedURL())) {
+        Navigate(link, ffi::OpenDisposition::Peek);
+      } else {
+        ShowMessage(ffi::MessageLevel::Error, "Only web links can be peeked");
       }
       break;
     case ffi::HintAction::YankLink:
@@ -1932,6 +1920,24 @@ void ModalBrowserController::RunBrowserCommand(std::string_view name,
     }
     return;
   }
+  if (name == "group" || name == "ungroup") {
+    TabStripModel* strip = browser_->GetTabStripModel();
+    const int index = strip->active_index();
+    std::string error;
+    if (name == "ungroup") {
+      error = UngroupTab(strip, index);
+    } else {
+      // A named group the window already has gains the tab; otherwise a
+      // new group starts, titled with the name.
+      const std::optional<tab_groups::TabGroupId> existing =
+          FindGroupByTitle(strip, arg);
+      error = GroupTab(strip, index, existing, arg);
+    }
+    if (!error.empty()) {
+      ShowMessage(ffi::MessageLevel::Error, error);
+    }
+    return;
+  }
   if (base::StartsWith(name, "download-")) {
     uint32_t id = 0;
     if (!base::StringToUint(arg, &id)) {
@@ -2462,7 +2468,8 @@ ffi::IpcTab TabSummary(BrowserWindowInterface* browser,
           Bounded(base::UTF16ToUTF8(contents->GetTitle()), kMaxTabTextBytes)),
       ::rust::String::lossy(Bounded(contents->GetVisibleURL().spec(), 8 * 1024)),
       index == strip->active_index(),
-      strip->IsTabPinned(index)};
+      strip->IsTabPinned(index),
+      ::rust::String::lossy(Bounded(GroupTitle(strip, index), kMaxTabTextBytes))};
 }
 
 }  // namespace

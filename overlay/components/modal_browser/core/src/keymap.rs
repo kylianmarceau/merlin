@@ -279,6 +279,7 @@ pub const DEFAULT_NORMAL: &[(&str, &str, &str)] = &[
     ("f", "hint", "Follow a link"),
     ("F", "hint tab", "Open a link in a new tab"),
     ("gi", "hint input", "Focus a text field"),
+    ("gf", "hint peek", "Peek at a link in a floating preview"),
     ("/", "find", "Find in page"),
     ("n", "find next", "Next match"),
     ("N", "find previous", "Previous match"),
