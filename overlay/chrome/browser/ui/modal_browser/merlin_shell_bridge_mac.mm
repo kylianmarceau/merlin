@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <utility>
 #include <memory>
 #include <string>
 #include "base/command_line.h"
@@ -293,12 +294,31 @@ class Registry : public BrowserCollectionObserver {
   }
   void OnBrowserClosed(BrowserWindowInterface* b) override { windows.erase(WindowId(b)); }
   void Emit(Dict event) {
+    if (!reply_waiters.empty()) TakeReplyWaiter(event);
     const auto json = base::WriteJson(event);
     if (!json) return;
     // Callbacks can unsubscribe while delivering an event.
     const auto copy = listeners;
     for (const auto& [id, listener] : copy)
       if (listeners.contains(id)) listener.callback(json->c_str(), listener.context);
+  }
+  // browserctl shell-call (tests/e2e only): a request waiting for its
+  // "reply" event, by window and request ID.
+  using ReplyKey = std::pair<std::string, std::string>;
+  std::map<ReplyKey, base::OnceCallback<void(const Dict&)>> reply_waiters;
+  void TakeReplyWaiter(const Dict& event) {
+    const auto* type = event.FindString("type");
+    const auto* window = event.FindString("windowId");
+    const auto* request = event.FindString("requestId");
+    if (!type || *type != "reply" || !window || !request) return;
+    FinishReplyWaiter({*window, *request}, event);
+  }
+  void FinishReplyWaiter(const ReplyKey& key, const Dict& reply) {
+    const auto it = reply_waiters.find(key);
+    if (it == reply_waiters.end()) return;
+    auto waiter = std::move(it->second);
+    reply_waiters.erase(it);
+    std::move(waiter).Run(reply);
   }
   std::map<std::string, std::unique_ptr<WindowState>> windows;
   std::map<uint64_t, Listener> listeners;
@@ -1112,7 +1132,63 @@ extern "C" __attribute__((visibility("default"))) const MerlinEngineAPI* MerlinE
   return version == 1 ? &kAPI : nullptr;
 }
 
+namespace {
+// A bridge reply ({"ok", "value"} or {"ok": false, "error"}), as a shell call's answer.
+void AnswerShellCall(modal_browser::ShellCallDone done, const Dict& reply) {
+  if (reply.FindBool("ok").value_or(false)) {
+    const base::Value* value = reply.Find("value");
+    std::move(done).Run(true, value ? base::WriteJson(*value).value_or("null") : "null");
+    return;
+  }
+  const auto* error = reply.FindString("error");
+  std::move(done).Run(false, error && !error->empty() ? *error : "The engine call failed");
+}
+}  // namespace
+
 namespace modal_browser {
+void RunShellCallForTesting(BrowserWindowInterface* browser, const std::string& method,
+                            const std::string& args_json, ShellCallDone done) {
+  if (!Enabled() || !browser || !FindWindow(WindowId(browser).c_str())) {
+    std::move(done).Run(false, "This window has no React shell");
+    return;
+  }
+  auto args = base::JSONReader::ReadDict(args_json, base::JSON_PARSE_RFC);
+  if (!args) {
+    std::move(done).Run(false, "Expected an argument object");
+    return;
+  }
+  const std::string window = WindowId(browser);
+  const auto& requests = shell::method::kRequests;
+  const bool request = std::find(requests.begin(), requests.end(), method) != requests.end();
+  auto& registry = GetRegistry();
+  Registry::ReplyKey key;
+  if (request) {
+    // As EngineClient.request does: a fresh ID, answered by a "reply" event.
+    if (args->Find("requestId")) {
+      std::move(done).Run(false, "shell-call adds the request ID itself");
+      return;
+    }
+    static uint64_t next_request = 0;
+    key = {window, "browserctl-" + base::NumberToString(++next_request)};
+    args->Set("requestId", key.second);
+    registry.reply_waiters.emplace(key, base::BindOnce(&AnswerShellCall, std::move(done)));
+    // A request that never answers (a folder picker nobody dismisses) fails.
+    content::GetUIThreadTaskRunner({})->PostDelayedTask(FROM_HERE, base::BindOnce([](Registry::ReplyKey key) {
+      GetRegistry().FinishReplyWaiter(key, Dict().Set("ok", false).Set("error", "The request did not answer within 30 seconds"));
+    }, key), base::Seconds(30));
+  }
+  // The same entry point, argument checks and replies as React's calls.
+  char* raw = Call(window.c_str(), method.c_str(), base::WriteJson(*args).value_or("{}").c_str());
+  auto reply = base::JSONReader::ReadDict(raw ? raw : "", base::JSON_PARSE_RFC);
+  ReleaseString(raw);
+  if (!reply) reply = Dict().Set("ok", false).Set("error", "The engine's reply was not JSON");
+  if (!request) {
+    AnswerShellCall(std::move(done), *reply);
+  } else if (!reply->FindBool("ok").value_or(false)) {
+    // Refused before it started: no reply event will follow.
+    registry.FinishReplyWaiter(key, *reply);
+  }
+}
 bool ReactShellEnabled() { return Enabled(); }
 bool IsShellStartUrl(const GURL& url) {
   if (url.is_empty() || url == GURL(url::kAboutBlankURL)) return true;

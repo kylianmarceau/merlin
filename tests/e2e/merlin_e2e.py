@@ -568,19 +568,28 @@ def background_library(directory: Path) -> Path:
 class Merlin:
     """One Merlin instance with isolated state."""
 
-    def __init__(self, server: PageServer, extra_args: Optional[list[str]] = None) -> None:
+    def __init__(self, server: PageServer, extra_args: Optional[list[str]] = None,
+                 shell_api: bool = True) -> None:
         self.server = server
         self.app = app_path()
         self.dir = Path(tempfile.mkdtemp(prefix="merlin-e2e-"))
         self.profile = self.dir / "profile"
         self.config_home = self.dir / "config"
         self.data_home = self.dir / "data"
+        self.downloads = self.dir / "downloads"
         # Unix socket paths are limited to 104 bytes; keep this one short.
         self.socket_dir = Path(tempfile.mkdtemp(prefix="me2e-", dir="/tmp"))
         self.socket = self.socket_dir / "s.sock"
-        for path in (self.profile, self.config_dir, self.data_home):
+        for path in (self.profile / "Default", self.config_dir, self.data_home, self.downloads):
             path.mkdir(parents=True)
         self.config_file.write_text("")
+        # Downloads land in the throwaway folder, never in ~/Downloads, and
+        # never ask where to go.
+        (self.profile / "Default/Preferences").write_text(json.dumps({
+            "download": {"default_directory": str(self.downloads), "prompt_for_download": False,
+                         "directory_upgrade": True},
+            "savefile": {"default_directory": str(self.downloads)},
+        }))
         args = [
             f"--user-data-dir={self.profile}",
             "--remote-debugging-port=0",
@@ -597,6 +606,8 @@ class Merlin:
             # A hidden window is occluded; keep its pages running at full speed.
             "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
             "--disable-background-timer-throttling",
+            # browserctl shell-call: the React shell's own API (shell_call).
+            *(["--merlin-test-shell-api"] if shell_api else []),
             *(extra_args or []),
             "about:blank",
         ]
@@ -658,6 +669,17 @@ class Merlin:
         if not reply.get("ok"):
             raise AssertionError(f":{line} failed: {reply}")
         return reply
+
+    def shell_call(self, method: str, args: Optional[dict] = None) -> dict:
+        """Runs a React shell bridge method in the front window, as the shell does.
+
+        The call goes through the dispatcher EngineClient uses
+        (merlin_shell_bridge_mac.mm), not the modal command path. Requests
+        (settings.*, bookmarks.*, downloads.list...) answer once their reply
+        arrives. Returns the browserctl reply: {"ok": true, "result": ...} or
+        {"ok": false, "error": ...}.
+        """
+        return self.browserctl("shell-call", method=method, args=args or {})
 
     def tabs(self) -> list[dict]:
         reply = self.browserctl("tabs")
@@ -785,12 +807,13 @@ class MerlinTestCase(unittest.TestCase):
     browser: Merlin
     server: PageServer
     extra_args: list[str] = []
+    shell_api = True
 
     @classmethod
     def setUpClass(cls) -> None:
         cls.server = PageServer()
         try:
-            cls.browser = Merlin(cls.server, cls.extra_args)
+            cls.browser = Merlin(cls.server, cls.extra_args, cls.shell_api)
         except BaseException:
             cls.server.close()
             raise

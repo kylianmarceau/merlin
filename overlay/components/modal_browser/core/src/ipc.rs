@@ -18,6 +18,11 @@
 //! are refused, private windows are never listed or read, and `command`
 //! goes through the same registry as the `:` line, which refuses script
 //! URLs and runs nothing outside the browser.
+//!
+//! `shell-call` is for end-to-end tests: it runs one React shell bridge
+//! method in the front window, through the same dispatcher the shell uses,
+//! and answers with its result. The browser refuses it unless it was started
+//! with `--merlin-test-shell-api` and a `--user-data-dir`.
 
 use std::fmt;
 
@@ -94,6 +99,12 @@ pub enum Request {
     Command {
         line: String,
     },
+    /// Test builds only: one shell bridge method in the front window.
+    /// `args` is the argument object as compact JSON.
+    ShellCall {
+        method: String,
+        args: String,
+    },
 }
 
 impl Request {
@@ -107,6 +118,7 @@ impl Request {
             Request::Selection => "selection",
             Request::Workspace(_) => "workspace",
             Request::Command { .. } => "command",
+            Request::ShellCall { .. } => "shell-call",
         }
     }
 }
@@ -140,7 +152,26 @@ const COMMANDS: &[&str] = &[
     "selection",
     "workspace",
     "command",
+    "shell-call",
 ];
+
+/// Longest shell method name, in bytes.
+const MAX_METHOD_LEN: usize = 64;
+
+/// A bridge method name as the shell vocabulary writes them: "tabs.create".
+fn valid_method(name: &str) -> bool {
+    let mut parts = name.split('.');
+    let first = parts.next().unwrap_or("");
+    let rest: Vec<&str> = parts.collect();
+    name.len() <= MAX_METHOD_LEN
+        && !first.is_empty()
+        && first.bytes().all(|b| b.is_ascii_lowercase())
+        && !rest.is_empty()
+        && rest.iter().all(|p| {
+            p.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
+                && p.bytes().all(|b| b.is_ascii_alphabetic())
+        })
+}
 
 /// Parses one request line.
 pub fn parse_request(line: &str) -> Result<Envelope, RequestError> {
@@ -181,6 +212,7 @@ pub fn parse_request(line: &str) -> Result<Envelope, RequestError> {
         "focus" => &["tab"],
         "workspace" => &["action", "name", "dir"],
         "command" => &["line"],
+        "shell-call" => &["method", "args"],
         c if COMMANDS.contains(&c) => &[],
         other => return Err(fail(id, format!("unknown command '{other}'"))),
     };
@@ -275,6 +307,26 @@ pub fn parse_request(line: &str) -> Result<Envelope, RequestError> {
         "command" => Request::Command {
             line: string("line")?,
         },
+        "shell-call" => {
+            let method = string("method")?;
+            if !valid_method(&method) {
+                return Err(fail(
+                    id,
+                    format!("'{method}' is not a shell method name like 'tabs.create'"),
+                ));
+            }
+            let args = match root.get("args") {
+                None => "{}".to_string(),
+                Some(v @ Value::Object(_)) => v.to_json(),
+                Some(v) => {
+                    return Err(fail(
+                        id,
+                        format!("'args' must be an object, not {}", v.type_name()),
+                    ));
+                }
+            };
+            Request::ShellCall { method, args }
+        }
         _ => unreachable!("checked against COMMANDS above"),
     };
     Ok(Envelope { id, request })
@@ -311,6 +363,16 @@ pub fn encode_request(id: u64, request: &Request) -> String {
             }
         }
         Request::Command { line } => fields.push(("line", Value::string(line))),
+        Request::ShellCall { method, args } => {
+            fields.push(("method", Value::string(method)));
+            // Requests come from parse_request or a caller that checked args;
+            // anything else is sent as no arguments.
+            let args = match json::parse(args) {
+                Ok(v @ Value::Object(_)) => v,
+                _ => Value::Object(Vec::new()),
+            };
+            fields.push(("args", args));
+        }
         Request::Ping | Request::Tabs | Request::Current | Request::Selection => {}
     }
     Value::object(fields).to_json()

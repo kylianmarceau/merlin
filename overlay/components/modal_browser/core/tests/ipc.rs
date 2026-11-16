@@ -33,6 +33,10 @@ fn every_request_round_trips() {
         Request::Command {
             line: "vsplit \"https://a.b/c d\"".into(),
         },
+        Request::ShellCall {
+            method: "downloads.act".into(),
+            args: r#"{"downloadId":"3","action":"pause"}"#.into(),
+        },
     ];
     for (i, r) in requests.into_iter().enumerate() {
         let line = encode_request(i as u64, &r);
@@ -115,4 +119,45 @@ fn replies() {
     let result = parse_reply(&line).unwrap().result.unwrap();
     let back = TabSummary::from_value(&result.as_array().unwrap()[0]).unwrap();
     assert_eq!(back, tab);
+}
+
+#[test]
+fn shell_calls_take_a_method_and_an_argument_object() {
+    assert_eq!(
+        parse(r#"{"cmd":"shell-call","method":"window.snapshot"}"#),
+        Request::ShellCall {
+            method: "window.snapshot".into(),
+            args: "{}".into()
+        }
+    );
+    assert_eq!(
+        parse(r#"{"cmd":"shell-call","method":"bookmarks.export","args":{"path":"/tmp/b.html"}}"#),
+        Request::ShellCall {
+            method: "bookmarks.export".into(),
+            args: r#"{"path":"/tmp/b.html"}"#.into()
+        }
+    );
+    assert!(error(r#"{"cmd":"shell-call"}"#).contains("needs 'method'"));
+    for bad in [
+        "tabs",
+        "tabs.",
+        ".create",
+        "Tabs.create",
+        "tabs.Create",
+        "tabs.cre-ate",
+        "a.b c",
+    ] {
+        let line = format!(r#"{{"cmd":"shell-call","method":"{bad}"}}"#);
+        assert!(error(&line).contains("not a shell method name"), "{bad}");
+    }
+    let long = format!(r#"{{"cmd":"shell-call","method":"a.{}"}}"#, "b".repeat(64));
+    assert!(error(&long).contains("not a shell method name"));
+    assert!(
+        error(r#"{"cmd":"shell-call","method":"tabs.create","args":[]}"#)
+            .contains("must be an object")
+    );
+    assert!(
+        error(r#"{"cmd":"shell-call","method":"tabs.create","url":"x"}"#)
+            .contains("does not take 'url'")
+    );
 }

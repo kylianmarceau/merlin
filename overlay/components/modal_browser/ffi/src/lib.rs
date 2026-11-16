@@ -482,6 +482,9 @@ mod ffi {
         /// `text` = the directory to find a workspace for.
         WorkspaceHere,
         Command,
+        /// Test builds only: `text` = a shell bridge method, `args` = its
+        /// argument object as JSON. Reply with ipc_reply_json.
+        ShellCall,
     }
 
     /// A parsed `browserctl` request. `kind` is Invalid when `error` says
@@ -491,8 +494,11 @@ mod ffi {
         kind: IpcKind,
         /// Correlation id, or -1.
         id: i64,
-        /// URL or search (open), name (workspace), line (command).
+        /// URL or search (open), name (workspace), line (command), method
+        /// (shell call).
         text: String,
+        /// The argument object as JSON (shell call); empty otherwise.
+        args: String,
         /// Tab number (focus).
         number: u32,
         disposition: OpenDisposition,
@@ -766,6 +772,9 @@ mod ffi {
         fn ipc_reply_tabs(id: i64, tabs: Vec<IpcTab>) -> String;
         fn ipc_reply_tab(id: i64, tab: IpcTab) -> String;
         fn ipc_reply_names(id: i64, names: Vec<String>) -> String;
+        /// A reply whose result is `json`, a JSON value (a shell call's
+        /// result); an error reply if it doesn't parse.
+        fn ipc_reply_json(id: i64, json: &str) -> String;
 
         /// Translate only a Merlin internal-page alias; empty for other input.
         fn merlin_internal_url(text: &str) -> String;
@@ -1328,6 +1337,7 @@ pub fn ipc_parse(line: &str) -> IpcRequest {
         kind: IpcKind::Invalid,
         id: -1,
         text: String::new(),
+        args: String::new(),
         number: 0,
         disposition: OpenDisposition::NewForegroundTab,
         error: String::new(),
@@ -1377,6 +1387,11 @@ pub fn ipc_parse(line: &str) -> IpcRequest {
         IpcCoreRequest::Command { line } => {
             out.kind = IpcKind::Command;
             out.text = line;
+        }
+        IpcCoreRequest::ShellCall { method, args } => {
+            out.kind = IpcKind::ShellCall;
+            out.text = method;
+            out.args = args;
         }
     }
     out
@@ -1429,6 +1444,13 @@ pub fn ipc_reply_names(id: i64, names: Vec<String>) -> String {
         ipc_id(id),
         JsonValue::Array(names.into_iter().map(JsonValue::String).collect()),
     )
+}
+
+pub fn ipc_reply_json(id: i64, json: &str) -> String {
+    match core_api::json::parse(json) {
+        Ok(value) => ipc::reply_ok(ipc_id(id), value),
+        Err(e) => ipc::reply_error(ipc_id(id), &format!("the shell's answer was not JSON: {e}")),
+    }
 }
 
 pub fn workspace_for_dir(names: &[String], texts: &[String], dir: &str) -> String {

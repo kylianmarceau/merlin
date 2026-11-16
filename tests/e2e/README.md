@@ -46,8 +46,9 @@ Each test class starts one Merlin and each test starts from one tab on a
 fixture page (`MerlinTestCase.reset`).
 
 - **Isolation.** A throwaway `--user-data-dir`, `XDG_CONFIG_HOME` (so
-  `config.toml`), `XDG_DATA_HOME` (so workspaces), browserctl socket and
-  DevTools port; `--use-mock-keychain`. Your own Merlin keeps running and its
+  `config.toml`), `XDG_DATA_HOME` (so workspaces), download folder (seeded
+  into the profile's preferences, so nothing lands in `~/Downloads`),
+  browserctl socket and DevTools port; `--use-mock-keychain`. Your own Merlin keeps running and its
   profile, config, sign-ins and clipboard are not touched. No test reads or
   writes the clipboard. Shell preferences live in the app's macOS defaults,
   which tests only read. A process-only defaults argument disables the new-tab
@@ -68,6 +69,18 @@ fixture page (`MerlinTestCase.reset`).
   position, focus, a log of the keys the page received, visibility), from
   browserctl (tabs, pins, windows) and from the local server (which requests
   arrived). Every `*.test` host resolves to the local server.
+- **The shell's own API.** browserctl's other requests take the modal
+  command path. The shell's buttons and panels call the bridge instead
+  (`EngineClient` → `merlin_shell_bridge_mac.mm` → services).
+  `browser.shell_call(method, args)` sends `{"cmd": "shell-call", "method",
+  "args"}`, which runs that method for the front window through the same
+  dispatcher and returns its result; a request (`settings.*`, `bookmarks.*`,
+  `downloads.list`...) answers once its reply event arrives, or fails after
+  30 seconds. Method names are those in
+  `packages/engine/include/merlin_shell_vocabulary.json`. Merlin accepts it
+  only when started with `--merlin-test-shell-api` and a `--user-data-dir`,
+  which the harness passes (a class sets `shell_api = False` to leave it
+  out); a person's browser refuses it.
 
 ## Limits
 
@@ -77,6 +90,8 @@ fixture page (`MerlinTestCase.reset`).
 - **React's own surfaces aren't visible to the tests**: the command palette,
   hint labels, the status pill, Settings. Commands are run through browserctl
   instead of typed into the `:` line, and hints are chosen by label order.
+  What those surfaces send can be: `shell_call` makes the same bridge calls,
+  and `window.snapshot` returns what they are drawn from.
 - **Labels typed within a couple of milliseconds of `f`** arrive before the
   page's hints are collected and are dropped, so hint tests pause 150 ms after
   `f`. 20 ms was always enough when measured, well below how fast people type.
@@ -95,6 +110,7 @@ fixture page (`MerlinTestCase.reset`).
 | `test_groups` | `:group` starts a named group and joins one by name, `:ungroup`, pinned tabs stay out (browserctl `tabs` reports each tab's group) |
 | `test_peek` | `:peek` and `gf` open a floating page without a tab; Esc closes it, Cmd-Return keeps it as the next tab, a tab switch closes it |
 | `test_auto_pip` | Opt-in (`MERLIN_E2E_PIP=1`). A video playing with sound floats when its tab is left and returns with it; a paused one stays |
+| `test_shell_api` | The shell's bridge through `shell-call`: calls and their errors, requests answered by their reply (bookmark folder and export, an export that fails), downloads listed; refused without the test switch. Download actions are an expected failure until plan item 1.1 fixes M02 |
 | `test_identity` | Chromium's own pages (passwords, settings, extensions, certificates, version) and error pages never say Chrome; error-page restyling (an expected failure, see below) |
 
 ### Known failure

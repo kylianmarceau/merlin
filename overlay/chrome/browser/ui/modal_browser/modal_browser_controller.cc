@@ -58,6 +58,7 @@
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 // Part of //chrome/browser/ui/views/toolbar, which depends on this target.
@@ -2472,6 +2473,17 @@ ffi::IpcTab TabSummary(BrowserWindowInterface* browser,
       ::rust::String::lossy(Bounded(GroupTitle(strip, index), kMaxTabTextBytes))};
 }
 
+#if BUILDFLAG(IS_MAC)
+// browserctl shell-call drives the React shell's own API for end-to-end
+// tests (tests/e2e). Only an instance started for testing, with a throwaway
+// profile, accepts it; a person's browser never does.
+bool ShellCallsAllowed() {
+  const base::CommandLine& line = *base::CommandLine::ForCurrentProcess();
+  return line.HasSwitch("merlin-test-shell-api") &&
+         line.HasSwitch(switches::kUserDataDir);
+}
+#endif
+
 }  // namespace
 
 // static
@@ -2632,6 +2644,30 @@ void ModalBrowserController::HandleBrowserctlRequest(
     case ffi::IpcKind::Command: {
       const std::string error = front->RunCommandLine(text);
       std::move(reply).Run(error.empty() ? ok("") : fail(error));
+      return;
+    }
+    case ffi::IpcKind::ShellCall: {
+#if BUILDFLAG(IS_MAC)
+      if (!ShellCallsAllowed()) {
+        std::move(reply).Run(
+            fail("shell-call is for tests: start Merlin with "
+                 "--merlin-test-shell-api and a throwaway --user-data-dir"));
+        return;
+      }
+      RunShellCallForTesting(
+          front->browser_, text, ToStd(request.args),
+          base::BindOnce(
+              [](int64_t id, base::OnceCallback<void(std::string)> reply,
+                 bool succeeded, std::string answer) {
+                const ::rust::Str text(answer.data(), answer.size());
+                std::move(reply).Run(
+                    ToStd(succeeded ? ffi::ipc_reply_json(id, text)
+                                    : ffi::ipc_reply_error(id, text)));
+              },
+              id, std::move(reply)));
+#else
+      std::move(reply).Run(fail("shell-call needs the React shell"));
+#endif
       return;
     }
     default:

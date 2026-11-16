@@ -102,6 +102,11 @@ def cpp(data):
     for group in METHOD_GROUPS:
         out.append(f'// {group}')
         out += [f'inline constexpr char {constant(m)}[] = "{m}";' for m in data['methods'][group]]
+    for group in METHOD_GROUPS:
+        methods = data['methods'][group]
+        out.append(f'inline constexpr std::array<std::string_view, {len(methods)}> {constant(group)} = {{')
+        out += [f'    {constant(m)},' for m in methods]
+        out.append('};')
     out += ['}  // namespace method', '']
     for enum, values in data['enums'].items():
         out.append(f'namespace {snake(enum)} {{')
@@ -116,7 +121,7 @@ def cpp(data):
 def native_problems(data):
     """Method names spelled out in native shell code, and constants it uses that don't exist."""
     methods = {m for group in data['methods'].values() for m in group}
-    defined = {'method': {constant(m) for m in methods}}
+    defined = {'method': {constant(m) for m in methods} | {constant(group) for group in METHOD_GROUPS}}
     defined.update({snake(enum): {constant(v) for v in values} | {'kAll'} for enum, values in data['enums'].items()})
     problems = []
     for path in sorted(OVERLAY.glob('*')):
