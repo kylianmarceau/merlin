@@ -97,7 +97,7 @@ def describe_and_verify(app: Path, allow_other: bool) -> list[str]:
         "checkout:  " + current["sourceCommit"] +
         (f" + uncommitted changes {current['sourceChanges'][:12]}" if current["sourceChanges"] else ""),
     ]
-    problem = mismatch(manifest, current)
+    problem = mismatch(manifest, current, ROOT)
     if problem:
         if not allow_other:
             raise OtherBuild(f"Refusing to test {app}: {problem}. Reassemble it from this checkout "

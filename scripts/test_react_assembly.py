@@ -186,6 +186,20 @@ class SourceStateTest(unittest.TestCase):
         (self.repo / 'overlay/new.cc').write_text('untracked')
         self.assertIn('differ', mismatch(edited, source_state(self.repo)))
 
+    def test_a_commit_that_changes_only_tests_needs_no_new_build(self):
+        built = source_state(self.repo)
+        commit = lambda message: self.git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid',
+                                          'commit', '-qam', message)
+        (self.repo / 'tests/test_x.py').write_text('a new test')
+        commit('test only')
+        self.assertIsNone(mismatch(built, source_state(self.repo), self.repo))
+        (self.repo / 'overlay/engine.cc').write_text('two')
+        commit('engine change')
+        self.assertIn('product sources differ', mismatch(built, source_state(self.repo), self.repo))
+        # Without the repository to compare, any other commit is refused.
+        self.assertIn('assembled from commit', mismatch(
+            built, dict(source_state(self.repo), sourceCommit='f' * 40)))
+
     def test_other_commit_and_missing_records_are_refused(self):
         state = source_state(self.repo)
         self.assertIn('no assembly manifest', mismatch(None, state))

@@ -29,9 +29,11 @@ the checkout's commit. Quote that header when reporting a result.
 digest of uncommitted changes to the product sources: `overlay`, `patches`,
 `apps/browser`, `packages`, `tools` and the lockfiles) in the app's
 `Contents/Resources/merlin-shell-build.json`. The runner refuses an app whose
-record differs from the checkout, including one assembled before the record
-existed and installed releases, so a pass always describes the code in front
-of you. Changing tests, docs or scripts needs no new build. To test another
+product sources differ from the checkout's (an app from a commit that changed
+only tests, docs or scripts still matches), and one assembled before the
+record existed, such as an installed release, so a pass always describes the
+code in front of you. Changing or committing tests, docs or scripts needs no
+new build. To test another
 build on purpose, such as an installed release, pass `--allow-other-build` (or
 set `MERLIN_E2E_ALLOW_OTHER_BUILD=1` when running `unittest` directly); the
 header then says why it differs. `python3 tests/e2e/merlin_e2e.py
