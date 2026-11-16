@@ -11,6 +11,7 @@ scripts/run_e2e_tests.sh                    # everything, about 45 seconds
 scripts/run_e2e_tests.sh test_hints         # one module
 MERLIN_APP=/path/to/Merlin.app scripts/run_e2e_tests.sh
 MERLIN_E2E_PIP=1 scripts/run_e2e_tests.sh test_auto_pip   # shows a floating window
+MERLIN_E2E_DESKTOP=1 scripts/run_e2e_tests.sh test_downloads  # opens a file and Finder
 scripts/run_e2e_tests.sh --allow-other-build                # test a build of other sources
 ```
 
@@ -28,9 +29,11 @@ the checkout's commit. Quote that header when reporting a result.
 digest of uncommitted changes to the product sources: `overlay`, `patches`,
 `apps/browser`, `packages`, `tools` and the lockfiles) in the app's
 `Contents/Resources/merlin-shell-build.json`. The runner refuses an app whose
-record differs from the checkout, including one assembled before the record
-existed and installed releases, so a pass always describes the code in front
-of you. Changing tests, docs or scripts needs no new build. To test another
+product sources differ from the checkout's (an app from a commit that changed
+only tests, docs or scripts still matches), and one assembled before the
+record existed, such as an installed release, so a pass always describes the
+code in front of you. Changing or committing tests, docs or scripts needs no
+new build. To test another
 build on purpose, such as an installed release, pass `--allow-other-build` (or
 set `MERLIN_E2E_ALLOW_OTHER_BUILD=1` when running `unittest` directly); the
 header then says why it differs. `python3 tests/e2e/merlin_e2e.py
@@ -110,7 +113,8 @@ fixture page (`MerlinTestCase.reset`).
 | `test_groups` | `:group` starts a named group and joins one by name, `:ungroup`, pinned tabs stay out (browserctl `tabs` reports each tab's group) |
 | `test_peek` | `:peek` and `gf` open a floating page without a tab; Esc closes it, Cmd-Return keeps it as the next tab, a tab switch closes it |
 | `test_auto_pip` | Opt-in (`MERLIN_E2E_PIP=1`). A video playing with sound floats when its tab is left and returns with it; a paused one stays |
-| `test_shell_api` | The shell's bridge through `shell-call`: calls and their errors, requests answered by their reply (bookmark folder and export, an export that fails), downloads listed; refused without the test switch. Download actions are an expected failure until plan item 1.1 fixes M02 |
+| `test_shell_api` | The shell's bridge through `shell-call`: calls and their errors, requests answered by their reply (bookmark folder and export, an export that fails), downloads listed; refused without the test switch |
+| `test_downloads` | Every download action the shell sends, on downloads the fixture server holds in each state: pause and resume (also by `:browser download-pause`), cancel, retry after the connection drops, forget, and the refusals of each. Opening and showing a file put windows in front, so they run only with `MERLIN_E2E_DESKTOP=1` |
 | `test_identity` | Chromium's own pages (passwords, settings, extensions, certificates, version) and error pages never say Chrome; error-page restyling (an expected failure, see below) |
 
 ### Known failure

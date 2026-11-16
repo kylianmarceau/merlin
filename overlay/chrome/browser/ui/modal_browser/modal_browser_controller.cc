@@ -50,6 +50,7 @@
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/modal_browser/merlin_peek.h"
 #endif
+#include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_groups.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
@@ -1940,13 +1941,30 @@ void ModalBrowserController::RunBrowserCommand(std::string_view name,
     return;
   }
   if (base::StartsWith(name, "download-")) {
+    // The `:browser download-*` commands (command.rs) run the shell's
+    // download actions; discard and forget are the shell's alone.
+    static constexpr std::pair<std::string_view, std::string_view>
+        kDownloadCommands[] = {
+            {"download-open", shell::download_action::kOpen},
+            {"download-show", shell::download_action::kShow},
+            {"download-cancel", shell::download_action::kCancel},
+            {"download-pause", shell::download_action::kPause},
+            {"download-retry", shell::download_action::kRetry},
+        };
+    const auto* command = std::ranges::find(
+        kDownloadCommands, std::string_view(name),
+        &std::pair<std::string_view, std::string_view>::first);
+    if (command == std::end(kDownloadCommands)) {
+      ShowMessage(ffi::MessageLevel::Error, "Unknown download command");
+      return;
+    }
     uint32_t id = 0;
     if (!base::StringToUint(arg, &id)) {
       ShowMessage(ffi::MessageLevel::Error, "Expected a download id");
       return;
     }
     const std::string error =
-        RunMerlinDownloadAction(browser_->GetProfile(), name, id);
+        RunMerlinDownloadAction(browser_->GetProfile(), command->second, id);
     if (!error.empty()) {
       ShowMessage(ffi::MessageLevel::Error, error);
     }

@@ -77,17 +77,6 @@ class ShellApiTest(MerlinTestCase):
         row = self.download_report()
         self.assertEqual(row["received"], 20000)
 
-    @unittest.expectedFailure
-    def test_download_actions_through_the_shell(self):
-        # M02: the bridge passes bare actions ("forget") to
-        # RunMerlinDownloadAction, which accepts only "download-forget", so
-        # every download button in the shell fails with "Unknown download
-        # action". Plan item 1.1 fixes it and removes this marker.
-        row = self.download_report()
-        self.ok("downloads.act", {"downloadId": row["id"], "action": "forget"})
-        self.wait(lambda: all(d["id"] != row["id"] for d in self.ok("downloads.list")),
-                  "the download to be forgotten")
-
 
 class ShellApiRefusedTest(MerlinTestCase):
     """Without the test switch, shell-call is refused."""

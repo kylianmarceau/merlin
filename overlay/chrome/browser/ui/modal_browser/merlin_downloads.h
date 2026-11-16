@@ -48,9 +48,10 @@ base::DictValue DescribeMerlinDownload(const download::DownloadItem* item);
 // list; the Library asks for all of them.
 base::ListValue MerlinDownloadsList(Profile* profile, size_t limit);
 
-// Runs a `:browser download-*` action (open, show, cancel, pause (toggles),
-// retry) or a page-only one (discard, forget). Returns an error to show,
-// empty on success.
+// Runs a download action by its shell name (shell::download_action: open,
+// show, cancel, pause (toggles), retry, discard, forget). The shell sends
+// these names; `:browser download-*` commands map onto them. Returns an
+// error to show, empty on success.
 std::string RunMerlinDownloadAction(Profile* profile,
                                      std::string_view action,
                                      uint32_t id);
