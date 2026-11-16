@@ -2,6 +2,7 @@
 
 #include "chrome/browser/ui/modal_browser/merlin_tab_groups.h"
 
+#include <iterator>
 #include <set>
 #include <utility>
 #include <vector>
@@ -9,6 +10,7 @@
 #include "base/i18n/case_conversion.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/token.h"
+#include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -21,19 +23,21 @@ namespace modal_browser {
 
 namespace {
 
-// Chromium's tab group colours by the names workspace files use.
+// Chromium's tab group colours by the names the shell and workspace files use.
 constexpr std::pair<std::string_view, tab_groups::TabGroupColorId>
     kGroupColors[] = {
-        {"grey", tab_groups::TabGroupColorId::kGrey},
-        {"blue", tab_groups::TabGroupColorId::kBlue},
-        {"red", tab_groups::TabGroupColorId::kRed},
-        {"yellow", tab_groups::TabGroupColorId::kYellow},
-        {"green", tab_groups::TabGroupColorId::kGreen},
-        {"pink", tab_groups::TabGroupColorId::kPink},
-        {"purple", tab_groups::TabGroupColorId::kPurple},
-        {"cyan", tab_groups::TabGroupColorId::kCyan},
-        {"orange", tab_groups::TabGroupColorId::kOrange},
+        {shell::group_color::kGrey, tab_groups::TabGroupColorId::kGrey},
+        {shell::group_color::kBlue, tab_groups::TabGroupColorId::kBlue},
+        {shell::group_color::kRed, tab_groups::TabGroupColorId::kRed},
+        {shell::group_color::kYellow, tab_groups::TabGroupColorId::kYellow},
+        {shell::group_color::kGreen, tab_groups::TabGroupColorId::kGreen},
+        {shell::group_color::kPink, tab_groups::TabGroupColorId::kPink},
+        {shell::group_color::kPurple, tab_groups::TabGroupColorId::kPurple},
+        {shell::group_color::kCyan, tab_groups::TabGroupColorId::kCyan},
+        {shell::group_color::kOrange, tab_groups::TabGroupColorId::kOrange},
 };
+static_assert(std::size(kGroupColors) == shell::group_color::kAll.size(),
+              "every colour the shell may send needs a Chromium colour");
 
 // Group titles, like tab titles, are kept short in the shell (UTF-16 units).
 constexpr size_t kMaxTitle = 100;
@@ -51,7 +55,7 @@ std::string_view GroupColorName(tab_groups::TabGroupColorId color) {
       return name;
     }
   }
-  return "grey";
+  return shell::group_color::kGrey;
 }
 
 tab_groups::TabGroupColorId GroupColorFromName(std::string_view name) {

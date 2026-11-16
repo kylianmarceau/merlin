@@ -24,6 +24,7 @@
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/modal_browser/merlin_auto_pip.h"
+#include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/common/pref_names.h"
@@ -288,26 +289,26 @@ std::string SetMerlinPreference(Profile* profile,
   const std::optional<bool> on =
       value.is_bool() ? std::optional<bool>(value.GetBool()) : std::nullopt;
 
-  if (key == "theme") {
+  if (key == shell::preference_key::kTheme) {
     ThemeService* theme = ThemeServiceFactory::GetForProfile(profile);
     if (!theme || !value.is_int() || value.GetInt() < 0 || value.GetInt() > 2) {
       return "Invalid color scheme";
     }
     theme->SetBrowserColorScheme(
         static_cast<ThemeService::BrowserColorScheme>(value.GetInt()));
-  } else if (key == "tabs") {
+  } else if (key == shell::preference_key::kTabs) {
     if (!text || !controller || (*text != "side" && *text != "top")) {
       return "Invalid tab layout";
     }
     return controller->RunCommandLine("set tabs=" + *text);
-  } else if (key == "ctrlTab") {
+  } else if (key == shell::preference_key::kCtrlTab) {
     if (!text || (*text != "recent" && *text != "order")) {
       return "Invalid tab switching order";
     }
     prefs->SetBoolean(prefs::kCtrlTabMru, *text == "recent");
-  } else if (key == "engine") {
+  } else if (key == shell::preference_key::kEngine) {
     return text ? SetEngine(profile, *text) : "Unknown search engine";
-  } else if (key == "startup") {
+  } else if (key == shell::preference_key::kStartup) {
     if (!text || (*text != "last" && *text != "start")) {
       return "Invalid startup choice";
     }
@@ -315,7 +316,7 @@ std::string SetMerlinPreference(Profile* profile,
     pref.type = *text == "last" ? SessionStartupPref::LAST
                                 : SessionStartupPref::DEFAULT;
     SessionStartupPref::SetStartupPref(profile, pref);
-  } else if (key == "zoom") {
+  } else if (key == shell::preference_key::kZoom) {
     if (!value.is_int() ||
         std::find(kZoomChoices.begin(), kZoomChoices.end(), value.GetInt()) ==
             kZoomChoices.end()) {
@@ -325,14 +326,14 @@ std::string SetMerlinPreference(Profile* profile,
       zoom->SetDefaultZoomLevelPref(
           blink::ZoomFactorToZoomLevel(value.GetInt() / 100.0));
     }
-  } else if (key == "askWhere" && on) {
+  } else if (key == shell::preference_key::kAskWhere && on) {
     prefs->SetBoolean(prefs::kPromptForDownload, *on);
-  } else if (key == "memorySaver" && on && local) {
+  } else if (key == shell::preference_key::kMemorySaver && on && local) {
     local->SetInteger(
         tuning::kMemorySaverModeState,
         static_cast<int>(*on ? tuning::MemorySaverModeState::kEnabled
                              : tuning::MemorySaverModeState::kDisabled));
-  } else if (key == "energySaver" && on && local) {
+  } else if (key == shell::preference_key::kEnergySaver && on && local) {
     // On means Chromium's default: when the battery is low.
     local->SetInteger(
         tuning::kBatterySaverModeState,
@@ -340,19 +341,19 @@ std::string SetMerlinPreference(Profile* profile,
                              ? tuning::BatterySaverModeState::kEnabledBelowThreshold
                              : tuning::BatterySaverModeState::kDisabled));
 #if BUILDFLAG(IS_MAC)
-  } else if (key == "autoPip" && on) {
+  } else if (key == shell::preference_key::kAutoPip && on) {
     prefs->SetBoolean(kAutoPipPref, *on);
 #endif
-  } else if (key == "savePasswords" && on) {
+  } else if (key == shell::preference_key::kSavePasswords && on) {
     prefs->SetBoolean(password_manager::prefs::kCredentialsEnableService, *on);
-  } else if (key == "adblock" && on) {
+  } else if (key == shell::preference_key::kAdblock && on) {
     adblock->SetEnabled(*on);
-  } else if (key == "adblockUpdates" && on) {
+  } else if (key == shell::preference_key::kAdblockUpdates && on) {
     if (profile->IsOffTheRecord()) {
       return "Filter updates are managed by your main profile";
     }
     prefs->SetBoolean(merlin_adblock::kUpdatesPref, *on);
-  } else if (key == "adblockLists" && value.is_list()) {
+  } else if (key == shell::preference_key::kAdblockLists && value.is_list()) {
     std::vector<std::string> groups;
     for (const auto& group : value.GetList()) {
       if (!group.is_string()) {
@@ -361,11 +362,11 @@ std::string SetMerlinPreference(Profile* profile,
       groups.push_back(group.GetString());
     }
     adblock->SetGroups(std::move(groups));
-  } else if (key == "adblockRefresh") {
+  } else if (key == shell::preference_key::kAdblockRefresh) {
     adblock->Refresh();
-  } else if (key == "adblockException" && text) {
+  } else if (key == shell::preference_key::kAdblockException && text) {
     adblock->SetException(*text, false);
-  } else if (key == "extension" && value.is_dict()) {
+  } else if (key == shell::preference_key::kExtension && value.is_dict()) {
     return SetExtensionEnabled(profile, value.GetDict());
   } else {
     return "Unknown setting";

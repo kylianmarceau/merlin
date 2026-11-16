@@ -1,0 +1,169 @@
+{
+  "$comment": [
+    "The names React and native code exchange over the shell bridge, defined once.",
+    "scripts/sync_shell_headers.py generates packages/engine/src/vocabulary.ts and",
+    "overlay/chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h from this file;",
+    "pnpm ui:check fails when either is stale, when protocol.ts's Calls or Requests",
+    "disagree with the method lists, or when native code spells a method name or uses",
+    "a constant this file doesn't define. Prompt action IDs aren't listed: native code",
+    "defines them per prompt, sends them in the snapshot and accepts only those."
+  ],
+  "methods": {
+    "calls": [
+      "window.snapshot",
+      "find.query",
+      "find.close",
+      "find.focus",
+      "tabs.create",
+      "tabs.activate",
+      "tabs.close",
+      "tabs.pin",
+      "tabs.bookmark",
+      "tabs.move",
+      "tabs.group",
+      "tabs.ungroup",
+      "groups.update",
+      "groups.ungroup",
+      "groups.close",
+      "peek.close",
+      "peek.promote",
+      "tabs.split",
+      "tabs.unsplit",
+      "tabs.detach",
+      "navigation.open",
+      "navigation.back",
+      "navigation.forward",
+      "navigation.reload",
+      "navigation.stop",
+      "downloads.open",
+      "downloads.cancel",
+      "downloads.act",
+      "downloads.openFolder",
+      "permissions.answer",
+      "prompts.update",
+      "appearance.set",
+      "modal.command",
+      "modal.palette.text",
+      "modal.palette.key",
+      "modal.palette.select",
+      "favicons.get",
+      "tabs.thumbnail",
+      "switcher.choose",
+      "switcher.cancel",
+      "omnibox.query",
+      "omnibox.stop",
+      "omnibox.open",
+      "omnibox.enter",
+      "extensions.closePopup",
+      "site.info"
+    ],
+    "requests": [
+      "settings.get",
+      "settings.set",
+      "settings.chooseDownloadDir",
+      "settings.config",
+      "settings.saveConfig",
+      "settings.setOption",
+      "settings.workspaces",
+      "settings.deleteWorkspace",
+      "settings.openPage",
+      "history.search",
+      "history.remove",
+      "bookmarks.folder",
+      "bookmarks.search",
+      "bookmarks.edit",
+      "bookmarks.remove",
+      "bookmarks.export",
+      "bookmarks.createFolder",
+      "bookmarks.move",
+      "extensions.list",
+      "extensions.setEnabled",
+      "extensions.run",
+      "extensions.manage",
+      "downloads.list"
+    ],
+    "nativeOnly": [
+      "application.windows",
+      "page.focus"
+    ]
+  },
+  "enums": {
+    "downloadAction": [
+      "open",
+      "show",
+      "cancel",
+      "pause",
+      "retry",
+      "discard",
+      "forget"
+    ],
+    "splitSide": [
+      "left",
+      "right",
+      "top",
+      "bottom"
+    ],
+    "paletteKey": [
+      "accept",
+      "cancel",
+      "next",
+      "previous"
+    ],
+    "groupColor": [
+      "grey",
+      "blue",
+      "red",
+      "yellow",
+      "green",
+      "pink",
+      "purple",
+      "cyan",
+      "orange"
+    ],
+    "appearanceMode": [
+      "system",
+      "light",
+      "dark"
+    ],
+    "appearanceAccent": [
+      "ocean",
+      "iris",
+      "fern"
+    ],
+    "booleanOption": [
+      "modal_browsing",
+      "auto_insert",
+      "smooth_scroll"
+    ],
+    "stringOption": [
+      "hint_chars"
+    ],
+    "preferenceKey": [
+      "theme",
+      "tabs",
+      "ctrlTab",
+      "engine",
+      "startup",
+      "zoom",
+      "askWhere",
+      "memorySaver",
+      "energySaver",
+      "autoPip",
+      "savePasswords",
+      "adblock",
+      "adblockUpdates",
+      "adblockLists",
+      "adblockRefresh",
+      "adblockException",
+      "extension"
+    ],
+    "panel": [
+      "settings",
+      "history",
+      "bookmarks",
+      "downloads",
+      "extensions",
+      "newTab"
+    ]
+  }
+}
