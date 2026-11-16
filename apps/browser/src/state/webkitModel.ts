@@ -85,6 +85,8 @@ export function overlayTab(tab: Tab, wk: WebKitTab): Tab {
     canGoBack: wk.canGoBack || backLeavesWebKit(wk), canGoForward: wk.canGoForward,
     // Chromium's tab behind is on another page, or the start page; none of its state shows.
     audible: false, start: false, color: wk.color, surface: wk.surface, favicon: wk.faviconKey ?? '', engine: 'webkit',
+    // Nor its address formatting or security, which describe that other page.
+    displayUrl: undefined, displayHost: undefined, security: undefined,
   };
 }
 

@@ -58,8 +58,13 @@ test('Back leaves WebKit only for a page of Chromium’s, never for the start pa
 });
 
 test('a WebKit tab shows WebKit’s page, none of Chromium’s', () => {
-  const shown = overlayTab(tab('https://www.google.com/', { audible: true, color: '#FFFFFF', start: true, favicon: 'chromium-key' }),
+  const shown = overlayTab(tab('https://www.google.com/', { audible: true, color: '#FFFFFF', start: true, favicon: 'chromium-key',
+    displayUrl: 'google.com', displayHost: 'google.com', security: 'secure' }),
     wk({ title: '', color: undefined, faviconKey: 'webkit:x' }));
+  // Chromium's formatting and lock describe its own page, not WebKit's.
+  assert.equal(shown.displayUrl, undefined);
+  assert.equal(shown.displayHost, undefined);
+  assert.equal(shown.security, undefined);
   assert.equal(shown.url, 'https://www.netflix.com/');
   assert.equal(shown.title, 'netflix.com');
   assert.equal(shown.engine, 'webkit');

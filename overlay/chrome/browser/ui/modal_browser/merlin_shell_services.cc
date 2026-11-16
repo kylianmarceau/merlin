@@ -35,8 +35,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
-#include "components/omnibox/browser/location_bar_model.h"
-#include "components/security_state/core/security_state.h"
+#include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "url/origin.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
@@ -700,35 +699,31 @@ bool RunShellService(BrowserWindowInterface* browser,
 void ShowShellSiteInfo(BrowserWindowInterface* browser) {
   content::WebContents* contents =
       browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
-  const LocationBarModel* model = browser ? LocationBarModel::From(browser) : nullptr;
-  if (!contents || !model) {
+  if (!contents) {
     return;
   }
   const GURL url = contents->GetLastCommittedURL();
   const bool web = url.SchemeIsHTTPOrHTTPS();
+  // The same state the address field and tabs show (merlin_urls.h).
+  const std::string security = ShellSecurityState(contents);
   std::string message;
-  const char* security = "insecure";
-  switch (model->GetSecurityLevel()) {
-    case security_state::SECURE:
-      security = "secure";
-      message = "Your connection to this site is private. What you send is "
-                "encrypted on its way to the site.";
-      break;
-    case security_state::DANGEROUS:
-      security = "dangerous";
-      message = "This site is flagged as dangerous. Do not enter passwords, "
-                "payment details or other private information.";
-      break;
-    default:
-      if (!web) {
-        security = "internal";
-      }
-      message = web ? "Your connection to this site is not private. Do not "
-                      "enter passwords or payment details."
-                : url.SchemeIs(content::kChromeUIScheme)
-                    ? "This page is part of Merlin."
-                    : "This page does not come from a website.";
-      break;
+  if (security == shell::security::kSecure) {
+    message = "Your connection to this site is private. What you send is "
+              "encrypted on its way to the site.";
+  } else if (security == shell::security::kDangerous) {
+    message = "This site is flagged as dangerous, or its certificate is not "
+              "valid. Do not enter passwords, payment details or other "
+              "private information.";
+  } else if (security == shell::security::kPending) {
+    message = "This page is still opening. Merlin can say whether the "
+              "connection is private once it has loaded.";
+  } else if (web) {
+    message = "Your connection to this site is not private. Do not enter "
+              "passwords or payment details.";
+  } else {
+    message = url.SchemeIs(content::kChromeUIScheme)
+                  ? "This page is part of Merlin."
+                  : "This page does not come from a website.";
   }
   auto* adblock = merlin_adblock::Service::Get(browser->GetProfile());
   List actions;
@@ -755,7 +750,7 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
           .Set("kind", "alert")
           .Set("anchor", "site")
           .Set("security", security)
-          .Set("origin", web ? Host(url) : std::string("Merlin"))
+          .Set("origin", web ? FormatShellDisplayUrl(url).host : std::string("Merlin"))
           .Set("title", web ? "About this site" : "About this page")
           .Set("message", message)
           .Set("actions", std::move(actions)),

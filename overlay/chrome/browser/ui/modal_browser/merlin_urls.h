@@ -9,8 +9,31 @@
 #include <string_view>
 
 class GURL;
+namespace content {
+class WebContents;
+}
 
 namespace modal_browser {
+
+// A URL as the address field shows it while not editing, formatted as
+// Chromium's omnibox formats it (LocationBarModelImpl::GetURLForDisplay): no
+// user name or password, no http:// or https://, no "www.", ports kept, and
+// an internationalized host in Unicode only when it passes Chromium's spoof
+// checks (else punycode). chrome:// pages read merlin://. `host` is the
+// leading part of `url` that names the site, which the field emphasizes.
+struct ShellDisplayUrl {
+  std::string url;
+  std::string host;
+};
+ShellDisplayUrl FormatShellDisplayUrl(const GURL& url);
+
+// The page's security as the shell shows it, from Chromium's security state
+// (the same source as its own lock icon), never from the URL's scheme:
+// "secure", "insecure" (http, or https with a weaker connection),
+// "dangerous" (a certificate error, even one the person chose to proceed
+// past, or a flagged site), "internal" (Merlin's pages, files, about:) or
+// "pending" (an address being opened whose security isn't known yet).
+std::string ShellSecurityState(content::WebContents* contents);
 
 // What Merlin shows for a URL: chrome://x reads merlin://x, and the start
 // page (chrome://merlin-start, chrome://newtab) reads merlin://start. Any

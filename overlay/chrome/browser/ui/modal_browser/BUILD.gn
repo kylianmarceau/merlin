@@ -234,6 +234,7 @@ source_set("modal_browser") {
     "//components/performance_manager",
     "//components/prefs",
     "//components/search_engines",
+    "//chrome/browser/ssl",
     "//components/security_state/content",
     "//components/security_state/core",
     "//components/sessions",

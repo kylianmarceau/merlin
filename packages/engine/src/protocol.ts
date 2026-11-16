@@ -1,7 +1,7 @@
 import {
-  appearanceAccents, appearanceModes, groupColors, panels,
+  appearanceAccents, appearanceModes, groupColors, panels, securities,
   type AppearanceAccent, type AppearanceMode, type BooleanOption, type CallMethod, type DownloadAction, type GroupColor,
-  type PaletteKey, type Panel, type PreferenceKey, type RequestMethod, type SplitSide, type StringOption,
+  type PaletteKey, type Panel, type PreferenceKey, type RequestMethod, type Security, type SplitSide, type StringOption,
 } from './vocabulary';
 // Method names and argument values come from merlin_shell_vocabulary.json, shared with native code.
 export * from './vocabulary';
@@ -9,6 +9,17 @@ export * from './vocabulary';
 /** Browser-owned state. IDs are opaque and scoped to a native session. */
 export type Tab = {
   id: string; title: string; url: string; loading: boolean; pinned: boolean;
+  /**
+   * The address as the field shows it while not editing, formatted by
+   * Chromium as its own omnibox does: no user name or password, no scheme,
+   * spoofable hosts left in punycode. Show this, never a reading of `url`.
+   * Absent from older engines and on WebKit tabs.
+   */
+  displayUrl?: string;
+  /** The leading part of `displayUrl` that names the site; empty when it has none. */
+  displayHost?: string;
+  /** The page's security from Chromium's security state, not the scheme. Absent from older engines and on WebKit tabs. */
+  security?: Security;
   audible: boolean; canGoBack: boolean; canGoForward: boolean;
   /** Changes when the page's icon does; empty when it has none. Fetch with favicons.get. */
   favicon?: string;
@@ -55,7 +66,7 @@ export type Prompt = {
   /** Where it appears: beside the address ("site"), over the page ("page") or in the window centre. */
   anchor?: PromptAnchor;
   /** Site information only: the connection's security. */
-  security?: 'secure' | 'insecure' | 'dangerous' | 'internal';
+  security?: Security;
   actions: { id: string; label: string; emphasis: 'normal' | 'primary' | 'danger' }[];
 };
 export type PromptAnchor = 'site' | 'page' | 'window';
@@ -345,6 +356,9 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         typeof tab.title !== 'string' || typeof tab.url !== 'string' ||
         ![tab.loading, tab.pinned, tab.audible, tab.canGoBack, tab.canGoForward].every(x => typeof x === 'boolean') ||
         (tab.favicon !== undefined && typeof tab.favicon !== 'string') ||
+        (tab.displayUrl !== undefined && typeof tab.displayUrl !== 'string') ||
+        (tab.displayHost !== undefined && typeof tab.displayHost !== 'string') ||
+        (tab.security !== undefined && !securities.includes(tab.security)) ||
         (tab.crashed !== undefined && typeof tab.crashed !== 'boolean') ||
         (tab.start !== undefined && typeof tab.start !== 'boolean') ||
         (tab.color !== undefined && (typeof tab.color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.color))) ||
@@ -388,7 +402,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
       (s.prompt.input !== undefined && (!s.prompt.input || typeof s.prompt.input.label !== 'string' || typeof s.prompt.input.defaultValue !== 'string')) ||
       !['permission', 'confirm', 'alert', 'beforeUnload'].includes(s.prompt.kind) ||
       (s.prompt.anchor !== undefined && !['site', 'page', 'window'].includes(s.prompt.anchor)) ||
-      (s.prompt.security !== undefined && !['secure', 'insecure', 'dangerous', 'internal'].includes(s.prompt.security)) ||
+      (s.prompt.security !== undefined && !securities.includes(s.prompt.security)) ||
       !Array.isArray(s.prompt.actions) || s.prompt.actions.length === 0 ||
       s.prompt.actions.some(a => !a || typeof a.id !== 'string' || !a.id || typeof a.label !== 'string' ||
         !['normal', 'primary', 'danger'].includes(a.emphasis)) ||

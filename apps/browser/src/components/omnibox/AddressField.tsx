@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { promptChipLabel, promptIcon } from '../../lib/prompts';
-import { displayAddress, displayHost, isStartUrl } from '../../lib/format';
+import { addressParts, displayHost, isStartUrl, leftToRight } from '../../lib/format';
+import { securityBadge } from '../../lib/security';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
 import { Icon, IconButton, LoadingBar, Text, duration, useEscape, useTheme, font, geometry, radius, space } from '../ui';
 
@@ -82,13 +83,13 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
     else void actions.submitAddress(text + completion, newTab);
     input.current?.blur();
   };
-  const security = start ? 'start' : url.startsWith('https:') ? 'secure' : url.startsWith('http:') ? 'insecure' : 'internal';
+  // Chromium's security state, never the scheme: an https page whose
+  // certificate error was clicked through is dangerous, not secure.
+  const badge = securityBadge(tab?.security);
   const measure = () => frame.current?.measureInWindow((x, y, width, height) => actions.setAnchor('address', { x, y, width, height }));
-  // While not editing, the site reads first and the rest of the address stays quiet.
-  const host = displayHost(url);
-  const shown = displayAddress(url);
-  const rest = shown.startsWith(host) ? shown.slice(host.length) : '';
-  const label = shown.startsWith(host) ? host : shown;
+  // While not editing, the site reads first and the rest of the address
+  // stays quiet, as Chromium formats it: no user name, spoofed hosts in punycode.
+  const { host: label, rest } = addressParts(tab ?? { url });
 
   // The field looks the same with Glass as with Classic.
   const fill = shell
@@ -128,8 +129,8 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
         style={{ color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.body }} />
       {!editing && !start && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
         flexDirection: 'row', alignItems: 'center' }}>
-        <Text weight="medium" lines={1} style={{ flexShrink: 0, maxWidth: '100%' }}>{label}</Text>
-        {!shell && !!rest && <Text tone="textSecondary" lines={1} style={{ flexShrink: 1 }}>{rest}</Text>}
+        <Text weight="medium" lines={1} style={{ flexShrink: 0, maxWidth: '100%' }}>{leftToRight(label)}</Text>
+        {!shell && !!rest && <Text tone="textSecondary" lines={1} style={{ flexShrink: 1 }}>{leftToRight(rest)}</Text>}
       </View>}
     </View>
     {!!completion && top && <Text variant="caption" tone="omniboxCompletion" lines={1}>{`→ ${displayHost(top.url) || top.title}`}</Text>}
@@ -143,9 +144,8 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
     </Pressable>}
     {!editing && !start && tab?.engine === 'webkit' && <IconButton label="Shown in WebKit. Show engine options" icon="safari"
       tone="siteSecure" size="small" onFrame={f => actions.setAnchor('site', f)} onPress={() => void actions.engineMenu()} />}
-    {!editing && !start && tab?.engine !== 'webkit' && <IconButton label={security === 'secure' ? 'Connection is secure. Show site controls' : 'Show site controls'}
-      icon={security === 'secure' ? 'lock' : security === 'insecure' ? 'exclamationmark.triangle' : 'info.circle'}
-      tone={security === 'insecure' ? 'siteInsecure' : 'siteSecure'} size="small"
+    {!editing && !start && tab?.engine !== 'webkit' && <IconButton label={`${badge.label}. Show site controls`}
+      icon={badge.icon} tone={badge.tone} size="small"
       onFrame={f => actions.setAnchor('site', f)} onPress={() => void actions.siteInfo()} />}
   </View>;
 }

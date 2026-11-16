@@ -50,6 +50,11 @@ def pascal(name):
     return ''.join(w[0].upper() + w[1:] for w in words(name))
 
 
+def plural(name):
+    """The TypeScript list's name: downloadActions, securities."""
+    return name[:-1] + 'ies' if name.endswith('y') and name[-2:-1] not in 'aeiou' else name + 's'
+
+
 def load():
     data = json.loads(VOCABULARY.read_text())
     problems = []
@@ -87,8 +92,8 @@ def typescript(data):
         out += array(f'{kind}Methods', data['methods'][group])
         out.append(f'export type {pascal(kind)}Method = typeof {kind}Methods[number];')
     for enum, values in data['enums'].items():
-        out += array(f'{enum}s', values)
-        out.append(f'export type {pascal(enum)} = typeof {enum}s[number];')
+        out += array(plural(enum), values)
+        out.append(f'export type {pascal(enum)} = typeof {plural(enum)}[number];')
     return '\n'.join(out) + '\n'
 
 

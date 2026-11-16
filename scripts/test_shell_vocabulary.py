@@ -24,6 +24,9 @@ class ShellVocabularyTest(unittest.TestCase):
         self.assertEqual(sync.constant('hint_chars'), 'kHintChars')
         self.assertEqual(sync.constant('newTab'), 'kNewTab')
         self.assertEqual(sync.snake('downloadAction'), 'download_action')
+        self.assertEqual(sync.plural('downloadAction'), 'downloadActions')
+        self.assertEqual(sync.plural('security'), 'securities')
+        self.assertEqual(sync.plural('paletteKey'), 'paletteKeys')
 
     def test_renaming_a_method_the_engine_handles_is_caught_in_native_code(self):
         renamed = copy.deepcopy(self.data)
