@@ -2,7 +2,7 @@
 export type {
   Appearance, BookmarkItem, BookmarkView, CommandPalette, ConfigFile, Download, DownloadAction, ExtensionInfo,
   ExtensionPopup, FindState, GroupColor, Peek, TabGroup, HistoryItem, HistoryPage, Preferences, PreferenceKey, Prompt, Request,
-  Requests, Snapshot, Split, Suggestion, Tab, TabSwitcher, Workspace,
+  Requests, Security, Snapshot, Split, Suggestion, Tab, TabSwitcher, Workspace,
 } from '../platform/protocol';
 export type { AnchorName, BrowserState, GroupDialog, Omnibox, Panel, PopoverName, Rect, SearchOwner, Toast } from './store';
 export type { Overlays } from './surfaces';

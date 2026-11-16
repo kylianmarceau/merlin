@@ -263,6 +263,15 @@ inline constexpr char kNewTab[] = "newTab";
 inline constexpr std::array<std::string_view, 6> kAll = {kSettings, kHistory, kBookmarks, kDownloads, kExtensions, kNewTab};
 }  // namespace panel
 
+namespace security {
+inline constexpr char kSecure[] = "secure";
+inline constexpr char kInsecure[] = "insecure";
+inline constexpr char kDangerous[] = "dangerous";
+inline constexpr char kInternal[] = "internal";
+inline constexpr char kPending[] = "pending";
+inline constexpr std::array<std::string_view, 5> kAll = {kSecure, kInsecure, kDangerous, kInternal, kPending};
+}  // namespace security
+
 }  // namespace modal_browser::shell
 
 #endif  // CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_SHELL_VOCABULARY_H_

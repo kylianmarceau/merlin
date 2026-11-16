@@ -13,17 +13,43 @@ export function formatDay(ms: number, now = new Date()) {
   return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-/** The host a person recognises: "example.com" for "https://www.example.com/a". */
+/**
+ * The host a person recognises: "example.com" for "https://www.example.com/a".
+ * For lists and labels that say nothing about security (history, suggestions,
+ * a tab without a title). The address field and site badges use the tab's
+ * displayUrl, displayHost and security, which Chromium computes.
+ */
 export function displayHost(url: string) {
   const match = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)/i.exec(url);
   if (!match) return url;
-  return match[1].replace(/^www\./, '').replace(/:\d+$/, '');
+  // A user name and password, up to the authority's last "@", are never
+  // shown: they let "https://accounts.example@evil.test" pass for accounts.example.
+  return match[1].replace(/^.*@/, '').replace(/^www\./, '').replace(/:\d+$/, '');
 }
 
-/** The address as the field shows it while not editing. */
+/** The address as the field shows it while not editing, when the engine sent no displayUrl. */
 export function displayAddress(url: string) {
   if (!url || url === 'about:blank') return '';
-  return url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+  return url.replace(/^(https?:\/\/)[^/?#]*@/, '$1').replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '');
+}
+
+/**
+ * The address field's resting text: the site, then the rest of the address.
+ * Chromium's formatting (`displayUrl`, `displayHost`) when the engine sent it.
+ */
+export function addressParts(tab: { url: string; displayUrl?: string; displayHost?: string }) {
+  const shown = tab.displayUrl ?? displayAddress(tab.url);
+  const host = tab.displayUrl !== undefined ? tab.displayHost ?? '' : displayHost(tab.url);
+  return host && shown.startsWith(host) ? { host, rest: shown.slice(host.length) } : { host: shown, rest: '' };
+}
+
+/**
+ * Text that must read left to right, as an address does: a host in Hebrew or
+ * Arabic would otherwise turn the whole line right to left and reorder its
+ * parts. A left-to-right mark first sets the line's direction.
+ */
+export function leftToRight(text: string) {
+  return text ? `\u200E${text}` : text;
 }
 
 export function percent(received: number, total: number) {

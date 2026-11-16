@@ -115,3 +115,5 @@ export const preferenceKeys = [
 export type PreferenceKey = typeof preferenceKeys[number];
 export const panels = ['settings', 'history', 'bookmarks', 'downloads', 'extensions', 'newTab'] as const;
 export type Panel = typeof panels[number];
+export const securities = ['secure', 'insecure', 'dangerous', 'internal', 'pending'] as const;
+export type Security = typeof securities[number];

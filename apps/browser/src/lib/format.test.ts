@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { displayAddress, displayHost, downloadLine, fileExtension, formatBytes, formatDay, isStartUrl, overallProgress, percent } from './format';
+import { addressParts, displayAddress, displayHost, downloadLine, fileExtension, formatBytes, formatDay, isStartUrl, leftToRight, overallProgress, percent } from './format';
 
 test('hosts and addresses read the way a person would say them', () => {
   assert.equal(displayHost('https://www.example.com:8443/a?b'), 'example.com');
@@ -33,4 +33,30 @@ test('download sizes and lines read as in the downloads panel', () => {
   assert.equal(downloadLine({ status: 'cancelled', state: 'cancelled', received: 1, total: 2, detail: 'Cancelled · x.com' }), 'Cancelled');
   assert.equal(downloadLine({ status: 'progress', state: 'progress', received: 1, total: 2, detail: '1 of 2 MB · 3 min left' }),
     '1 of 2 MB · 3 min left');
+});
+
+test('a user name before @ never passes for the host', () => {
+  assert.equal(displayHost('https://accounts.google.com@evil.test/'), 'evil.test');
+  assert.equal(displayHost('https://user:pa@ss@evil.test:8443/x'), 'evil.test');
+  assert.equal(displayAddress('https://accounts.google.com@evil.test/login'), 'evil.test/login');
+  assert.equal(displayAddress('http://a:b@www.evil.test/'), 'evil.test');
+  assert.equal(displayAddress('https://u:p@ss@evil.test/a@b'), 'evil.test/a@b');
+});
+
+test('the address field prefers Chromium\'s formatting', () => {
+  assert.deepEqual(addressParts({ url: 'https://accounts.google.com@evil.test:8443/a',
+    displayUrl: 'evil.test:8443/a', displayHost: 'evil.test:8443' }), { host: 'evil.test:8443', rest: '/a' });
+  // A spoofed host stays in punycode, as Chromium sent it.
+  assert.deepEqual(addressParts({ url: 'https://xn--80ak6aa92e.test/', displayUrl: 'xn--80ak6aa92e.test',
+    displayHost: 'xn--80ak6aa92e.test' }), { host: 'xn--80ak6aa92e.test', rest: '' });
+  // A page without a site part (merlin://version) is all host.
+  assert.deepEqual(addressParts({ url: 'chrome://version', displayUrl: 'merlin://version', displayHost: '' }),
+    { host: 'merlin://version', rest: '' });
+  // An older engine: the shell's own fallback, without the user name.
+  assert.deepEqual(addressParts({ url: 'https://me@www.example.com/a' }), { host: 'example.com', rest: '/a' });
+});
+
+test('addresses read left to right', () => {
+  assert.equal(leftToRight('\u05E9\u05DC\u05D5\u05DD.test/a'), '\u200E\u05E9\u05DC\u05D5\u05DD.test/a');
+  assert.equal(leftToRight(''), '');
 });

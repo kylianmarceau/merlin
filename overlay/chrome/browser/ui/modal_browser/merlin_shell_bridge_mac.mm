@@ -236,6 +236,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   bool ShowsStartPage(content::WebContents* contents) const;
   // The joined tab and toolbar take the site's colour.
   void DidChangeThemeColor() override { Changed(); }
+  // Mixed content, a certificate warning proceeded past: the lock follows.
+  void DidChangeVisibleSecurityState() override { Changed(); }
   // The shell shows a crashed page's own view (no sad tab: BrowserView draws it).
   void PrimaryMainFrameRenderProcessGone(base::TerminationStatus) override { Changed(); }
   void OnDownloadCreated(content::DownloadManager*, download::DownloadItem*) override { Changed(); }
@@ -440,9 +442,15 @@ Dict WindowState::Snapshot() {
   for (int i = 0; i < strip->count(); ++i) {
     auto* tab = strip->GetTabAtIndex(i);
     auto* contents = tab->GetContents();
+    // The shell shows these, never its own reading of `url`: Chromium's
+    // formatting hides user names and spoofed hosts, and its security state
+    // knows about certificate errors the scheme can't show.
+    const auto shown = modal_browser::FormatShellDisplayUrl(contents->GetVisibleURL());
     Dict entry = Dict().Set("id", TabId(tab))
       .Set("title", base::UTF16ToUTF8(contents->GetTitle()))
-      .Set("url", contents->GetVisibleURL().spec()).Set("loading", contents->IsLoading()).Set("crashed", contents->IsCrashed())
+      .Set("url", contents->GetVisibleURL().spec()).Set("displayUrl", shown.url).Set("displayHost", shown.host)
+      .Set("security", modal_browser::ShellSecurityState(contents))
+      .Set("loading", contents->IsLoading()).Set("crashed", contents->IsCrashed())
       .Set("pinned", strip->IsTabPinned(i)).Set("audible", contents->IsCurrentlyAudible())
       .Set("canGoBack", contents->GetController().CanGoBack())
       .Set("canGoForward", contents->GetController().CanGoForward())

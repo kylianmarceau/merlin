@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, Pressable, View } from 'react-native';
-import { isStartUrl } from '../../lib/format';
+import { displayAddress, isStartUrl, leftToRight } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions } from '../../state/window';
@@ -44,7 +44,8 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder }: {
     onPanResponderTerminationRequest: () => false,
   }), [actions]);
   const glow = useShellPrefs(p => p.selectedTabGlow);
-  const title = isStartUrl(tab.url) ? 'New Tab' : tab.title || tab.url || 'New Tab';
+  // Without a title, the address as Chromium formats it, never the raw URL (which can carry a user name).
+  const title = isStartUrl(tab.url) ? 'New Tab' : tab.title || leftToRight(tab.displayUrl ?? displayAddress(tab.url)) || 'New Tab';
   const row = <ContextMenu onOpen={() => void actions.tabMenu(tab.id)}>
     <Animated.View {...pan.panHandlers} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{ flexDirection: 'row', alignItems: 'center', minHeight: geometry.tabRow, borderRadius: radius.row,
@@ -76,7 +77,7 @@ export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, wi
   const glow = useShellPrefs(p => p.selectedTabGlow);
   const actions = useActions();
   const { hovered, handlers } = useInteraction();
-  const title = tab.title || tab.url || 'Pinned tab';
+  const title = tab.title || leftToRight(tab.displayUrl ?? displayAddress(tab.url)) || 'Pinned tab';
   const tile = <Pressable accessibilityRole="button" accessibilityLabel={`Pinned: ${title}`} accessibilityState={{ selected: active }}
     onPress={() => void actions.activateTab(tab.id)} {...handlers}
     style={{ width, height: geometry.favourite, borderRadius: radius.tile, alignItems: 'center', justifyContent: 'center',

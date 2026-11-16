@@ -17,6 +17,16 @@ test('a page in fullscreen is a flag, nothing else', () => {
   assert.equal(validateSnapshot({ ...snapshot(), fullscreen: true }, 'window-one').fullscreen, true);
   assert.throws(() => validateSnapshot({ ...snapshot(), fullscreen: 'yes' as unknown as boolean }, 'window-one'));
 });
+test('a tab\'s security is one of the shared states and its display text is a string', () => {
+  const tab = { id: 't', title: '', url: 'https://evil.test/', loading: false, pinned: false, audible: false,
+    canGoBack: false, canGoForward: false };
+  const valid = (extra: object) => validateSnapshot({ ...snapshot(), tabs: [{ ...tab, ...extra }] }, 'window-one');
+  assert.equal(valid({ security: 'dangerous', displayUrl: 'evil.test', displayHost: 'evil.test' }).tabs[0].security, 'dangerous');
+  assert.equal(valid({}).tabs[0].security, undefined);
+  assert.throws(() => valid({ security: 'locked' }));
+  assert.throws(() => valid({ displayUrl: 7 }));
+  assert.throws(() => valid({ displayHost: null }));
+});
 test('rejects malformed prompts rather than rendering unsafe actions', () => {
   assert.throws(() => validateSnapshot({ ...snapshot(), prompt: { id: 'p', actions: [] } }, 'window-one'));
 });

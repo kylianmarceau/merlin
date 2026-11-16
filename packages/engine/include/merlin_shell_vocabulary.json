@@ -1,6 +1,6 @@
 {
   "$comment": [
-    "The names React and native code exchange over the shell bridge, defined once.",
+    "The names React and native code exchange over the shell bridge, defined once: method names, argument values and snapshot values.",
     "scripts/sync_shell_headers.py generates packages/engine/src/vocabulary.ts and",
     "overlay/chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h from this file;",
     "pnpm ui:check fails when either is stale, when protocol.ts's Calls or Requests",
@@ -164,6 +164,13 @@
       "downloads",
       "extensions",
       "newTab"
+    ],
+    "security": [
+      "secure",
+      "insecure",
+      "dangerous",
+      "internal",
+      "pending"
     ]
   }
 }

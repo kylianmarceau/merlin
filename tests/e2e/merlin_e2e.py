@@ -32,6 +32,7 @@ import os
 import shutil
 import plistlib
 import socket
+import ssl
 import struct
 import subprocess
 import sys
@@ -382,6 +383,19 @@ class PageServer:
         self.port = self.httpd.server_address[1]
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         self.thread.start()
+        # The same pages over TLS, with a certificate for expired.test that
+        # expired in 2024 (fixtures/): every certificate check fails on it.
+        fixtures = Path(__file__).with_name("fixtures")
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(fixtures / "expired.test.pem", fixtures / "expired.test.key")
+        self.httpsd = Server(("127.0.0.1", 0), Handler)
+        self.httpsd.socket = context.wrap_socket(self.httpsd.socket, server_side=True)
+        self.https_port = self.httpsd.server_address[1]
+        threading.Thread(target=self.httpsd.serve_forever, daemon=True).start()
+
+    def https_url(self, path: str, host: str = "expired.test") -> str:
+        """A fixture page over TLS whose certificate expired (see __init__)."""
+        return f"https://{host}:{self.https_port}{path}"
 
     def paced_download(self, name: str, first: int = 64 * 1024) -> tuple[PacedDownload, str]:
         """A new paced download and its URL (see PacedDownload)."""
@@ -423,8 +437,9 @@ class PageServer:
         return 200, html, pages.get(path.split("?")[0], PAGE_HTML).encode(), {}
 
     def close(self) -> None:
-        self.httpd.shutdown()
-        self.httpd.server_close()
+        for httpd in (self.httpd, self.httpsd):
+            httpd.shutdown()
+            httpd.server_close()
 
 
 # ---------------------------------------------------------------------------
