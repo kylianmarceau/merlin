@@ -16,7 +16,10 @@ Pages come from a local server (fixtures below). Every host ending in .test
 resolves to it, so cross-site frames need no network.
 
 The app under test is $MERLIN_APP, defaulting to the assembled build, then
-/Applications/Merlin.app.
+/Applications/Merlin.app. Its Mach-O UUIDs and source commit are printed
+before the first test, and an app assembled from other sources than this
+checkout is refused unless MERLIN_E2E_ALLOW_OTHER_BUILD=1 (run_e2e_tests.sh
+--allow-other-build). `python3 merlin_e2e.py --check-build` does only that.
 """
 
 from __future__ import annotations
@@ -27,9 +30,11 @@ import http.server
 import json
 import os
 import shutil
+import plistlib
 import socket
 import struct
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -44,13 +49,78 @@ DEFAULT_APPS = [
 ]
 
 
-def app_path() -> Path:
+sys.path.insert(0, str(ROOT / "scripts/lib"))
+from source_state import mismatch, source_state  # noqa: E402
+
+
+def find_app() -> Path:
     if os.environ.get("MERLIN_APP"):
-        return Path(os.environ["MERLIN_APP"])
+        return Path(os.environ["MERLIN_APP"]).expanduser().resolve()
     for candidate in DEFAULT_APPS:
         if candidate.exists():
             return candidate
     raise unittest.SkipTest("no Merlin.app: set MERLIN_APP to an assembled build")
+
+
+def macho_uuids(binary: Path) -> str:
+    """The binary's LC_UUIDs, as dwarfdump prints them ("UUID (arm64)")."""
+    result = subprocess.run(["xcrun", "dwarfdump", "--uuid", str(binary)], capture_output=True, text=True)
+    found = [" ".join(line.split()[1:3]) for line in result.stdout.splitlines() if line.startswith("UUID:")]
+    return ", ".join(found) or f"unknown ({(result.stderr or 'no UUID').strip()})"
+
+
+class OtherBuild(Exception):
+    """The app under test wasn't assembled from this checkout."""
+
+
+def describe_and_verify(app: Path, allow_other: bool) -> list[str]:
+    """Lines naming the build under test; raises OtherBuild unless it matches HEAD."""
+    contents = app / "Contents"
+    info: dict = {}
+    with contextlib.suppress(OSError, plistlib.InvalidFileException):
+        info = plistlib.loads((contents / "Info.plist").read_bytes())
+    host = contents / "MacOS" / info.get("CFBundleExecutable", "Merlin")
+    framework = contents / "Frameworks/Merlin Framework.framework/Merlin Framework"
+    manifest_path = contents / "Resources/merlin-shell-build.json"
+    manifest = None
+    with contextlib.suppress(OSError, ValueError):
+        manifest = json.loads(manifest_path.read_text())
+    current = source_state(ROOT)
+    recorded = (manifest or {}).get("sourceCommit")
+    changes = (manifest or {}).get("sourceChanges")
+    lines = [
+        f"app:       {app} (Chromium {info.get('CFBundleShortVersionString', '?')})",
+        f"host:      {macho_uuids(host)}",
+        f"framework: {macho_uuids(framework)}",
+        "assembled: " + (f"{recorded}" + (f" + uncommitted changes {changes[:12]}" if changes else "")
+                         if recorded else "no source commit recorded"),
+        "checkout:  " + current["sourceCommit"] +
+        (f" + uncommitted changes {current['sourceChanges'][:12]}" if current["sourceChanges"] else ""),
+    ]
+    problem = mismatch(manifest, current)
+    if problem:
+        if not allow_other:
+            raise OtherBuild(f"Refusing to test {app}: {problem}. Reassemble it from this checkout "
+                             "(scripts/assemble_react_app.py), or pass --allow-other-build "
+                             "(MERLIN_E2E_ALLOW_OTHER_BUILD=1) to test it anyway.")
+        lines.append(f"WARNING:   testing another build: {problem}")
+    return lines
+
+
+_verified: dict[Path, bool] = {}
+
+
+def app_path() -> Path:
+    """The app under test, described and checked against the checkout once per run."""
+    app = find_app()
+    if app not in _verified:
+        allow = os.environ.get("MERLIN_E2E_ALLOW_OTHER_BUILD") == "1"
+        lines = describe_and_verify(app, allow)  # raises OtherBuild for every class until fixed
+        # run_e2e_tests.sh has already printed these at the top of the log.
+        if os.environ.get("MERLIN_E2E_BUILD_CHECKED") != str(app):
+            print("\n".join(["Merlin under test:", *("  " + line for line in lines)]), file=sys.stderr)
+        _verified[app] = True
+    return app
 
 
 def wait_until(check: Callable[[], Any], timeout: float = 10.0, interval: float = 0.05,
@@ -740,3 +810,22 @@ class MerlinTestCase(unittest.TestCase):
 
     def wait(self, check: Callable[[], Any], message: str = "condition", timeout: float = 10) -> Any:
         return wait_until(check, timeout=timeout, message=message)
+
+
+if __name__ == "__main__":
+    # run_e2e_tests.sh calls this first, so a stale app stops the run before
+    # any test starts and the log opens with the build's identity.
+    import argparse
+    parser = argparse.ArgumentParser(description="Describe the Merlin.app under test and check its sources.")
+    parser.add_argument("--check-build", action="store_true", required=True)
+    parser.add_argument("--allow-other-build", action="store_true")
+    options = parser.parse_args()
+    try:
+        app = find_app()
+        lines = describe_and_verify(app, options.allow_other_build)
+    except unittest.SkipTest as error:
+        sys.exit(f"merlin_e2e: {error}")
+    except OtherBuild as error:
+        sys.exit(f"merlin_e2e: {error}")
+    print("\n".join(["Merlin under test:", *("  " + line for line in lines)]))
+    print(app)
