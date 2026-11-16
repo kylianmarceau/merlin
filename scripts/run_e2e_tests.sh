@@ -18,6 +18,11 @@
 # clipboard are left alone. Needs Xcode's command line tools (to build
 # tests/e2e/background_app.m) and the system Python 3.
 set -euo pipefail
+# A relative MERLIN_APP means one relative to where the script was run.
+if [[ -n "${MERLIN_APP:-}" && "$MERLIN_APP" != /* ]]; then
+  MERLIN_APP="$PWD/$MERLIN_APP"
+  export MERLIN_APP
+fi
 cd "$(dirname "$0")/../tests/e2e"
 tests=()
 check=(--check-build)
