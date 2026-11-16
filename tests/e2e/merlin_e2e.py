@@ -272,10 +272,11 @@ ADS_HTML = """<!doctype html>
 class PacedDownload:
     """A download the test paces: /paced/<name> sends `allowed` bytes, then waits.
 
-    The download stays in progress until the test calls allow(); drop() ends
-    every connection serving it early, as a lost network would, until
-    allow() is called again. Range requests resume it, so a retry after a
-    drop continues where it stopped.
+    The download stays in progress until the test calls allow(); drop() resets
+    every connection serving it, as a lost network does (a clean close after a
+    short body would read as the server refusing), until allow() is called
+    again. Range requests are answered, though Chromium 157 restarts an
+    interrupted download from the start.
     """
 
     SIZE = 256 * 1024
@@ -334,7 +335,10 @@ class PacedDownload:
                 except OSError:
                     return  # the browser paused, cancelled or went away
                 sent = end
-        # A short body on a closed connection: the browser sees the network fail.
+        if dropping:
+            # Reset rather than close, so the browser sees the network fail.
+            with contextlib.suppress(OSError):
+                handler.connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
 
 
 class PageServer:

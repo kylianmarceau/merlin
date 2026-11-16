@@ -89,13 +89,13 @@ class DownloadsTest(MerlinTestCase):
             time.sleep(1)
             return len(download.requests) == before and self.row("retried.bin")["status"] == "failed"
         self.wait(settled, "Chromium to stop retrying by itself", timeout=30)
+        self.assertFalse(self.file("retried.bin").exists())
+        asked = len(download.requests)
         download.allow()
         self.ok(row, "retry")
         self.status("retried.bin", "done")
+        self.assertGreater(len(download.requests), asked, "retry should fetch the file again")
         self.assertEqual(self.file("retried.bin").read_bytes(), download.body)
-        # It continued where it stopped rather than starting again.
-        self.assertTrue(any(r and r.startswith("bytes=") and r != "bytes=0-" for r in download.requests),
-                        download.requests)
 
     def test_forget_a_finished_download(self):
         download, row = self.start("forgotten.bin")
