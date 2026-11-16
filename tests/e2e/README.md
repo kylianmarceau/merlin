@@ -11,6 +11,7 @@ scripts/run_e2e_tests.sh                    # everything, about 45 seconds
 scripts/run_e2e_tests.sh test_hints         # one module
 MERLIN_APP=/path/to/Merlin.app scripts/run_e2e_tests.sh
 MERLIN_E2E_PIP=1 scripts/run_e2e_tests.sh test_auto_pip   # shows a floating window
+MERLIN_E2E_DESKTOP=1 scripts/run_e2e_tests.sh test_downloads  # opens a file and Finder
 scripts/run_e2e_tests.sh --allow-other-build                # test a build of other sources
 ```
 
@@ -110,7 +111,8 @@ fixture page (`MerlinTestCase.reset`).
 | `test_groups` | `:group` starts a named group and joins one by name, `:ungroup`, pinned tabs stay out (browserctl `tabs` reports each tab's group) |
 | `test_peek` | `:peek` and `gf` open a floating page without a tab; Esc closes it, Cmd-Return keeps it as the next tab, a tab switch closes it |
 | `test_auto_pip` | Opt-in (`MERLIN_E2E_PIP=1`). A video playing with sound floats when its tab is left and returns with it; a paused one stays |
-| `test_shell_api` | The shell's bridge through `shell-call`: calls and their errors, requests answered by their reply (bookmark folder and export, an export that fails), downloads listed; refused without the test switch. Download actions are an expected failure until plan item 1.1 fixes M02 |
+| `test_shell_api` | The shell's bridge through `shell-call`: calls and their errors, requests answered by their reply (bookmark folder and export, an export that fails), downloads listed; refused without the test switch |
+| `test_downloads` | Every download action the shell sends, on downloads the fixture server holds in each state: pause and resume (also by `:browser download-pause`), cancel, retry after the connection drops (continuing with a range request), forget, and the refusals of each. Opening and showing a file put windows in front, so they run only with `MERLIN_E2E_DESKTOP=1` |
 | `test_identity` | Chromium's own pages (passwords, settings, extensions, certificates, version) and error pages never say Chrome; error-page restyling (an expected failure, see below) |
 
 ### Known failure

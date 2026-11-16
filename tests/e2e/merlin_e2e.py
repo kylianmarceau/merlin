@@ -269,6 +269,74 @@ ADS_HTML = """<!doctype html>
 </script>"""
 
 
+class PacedDownload:
+    """A download the test paces: /paced/<name> sends `allowed` bytes, then waits.
+
+    The download stays in progress until the test calls allow(); drop() ends
+    every connection serving it early, as a lost network would, until
+    allow() is called again. Range requests resume it, so a retry after a
+    drop continues where it stopped.
+    """
+
+    SIZE = 256 * 1024
+    ETAG = '"paced-v1"'
+
+    def __init__(self, name: str, first: int = 64 * 1024) -> None:
+        self.name = name
+        self.body = bytes(i % 251 for i in range(self.SIZE))
+        self.allowed = first
+        self.dropping = False
+        self.requests: list[Optional[str]] = []  # each request's Range header
+        self.changed = threading.Condition()
+
+    def allow(self, total: Optional[int] = None) -> None:
+        with self.changed:
+            self.allowed = self.SIZE if total is None else total
+            self.dropping = False
+            self.changed.notify_all()
+
+    def drop(self) -> None:
+        with self.changed:
+            self.dropping = True
+            self.changed.notify_all()
+
+    def serve(self, handler: http.server.BaseHTTPRequestHandler) -> None:
+        wanted = handler.headers.get("Range")
+        with self.changed:
+            self.requests.append(wanted)
+            dropping = self.dropping
+        start = 0
+        if wanted and wanted.startswith("bytes=") and wanted.endswith("-"):
+            start = min(int(wanted[6:-1] or 0), self.SIZE)
+        handler.send_response(206 if start else 200)
+        handler.send_header("Content-Type", "application/octet-stream")
+        handler.send_header("Content-Disposition", f'attachment; filename="{self.name}"')
+        handler.send_header("Content-Length", str(self.SIZE - start))
+        handler.send_header("Accept-Ranges", "bytes")
+        handler.send_header("ETag", self.ETAG)
+        handler.send_header("Last-Modified", "Mon, 02 Nov 2026 09:00:00 GMT")
+        if start:
+            handler.send_header("Content-Range", f"bytes {start}-{self.SIZE - 1}/{self.SIZE}")
+        handler.end_headers()
+        handler.close_connection = True
+        sent = start
+        deadline = time.monotonic() + 60
+        while sent < self.SIZE and not dropping:
+            with self.changed:
+                self.changed.wait_for(lambda: self.dropping or self.allowed > sent,
+                                      timeout=max(0, deadline - time.monotonic()))
+                dropping = self.dropping or time.monotonic() > deadline
+                end = min(self.allowed, self.SIZE)
+            if not dropping and end > sent:
+                try:
+                    handler.wfile.write(self.body[sent:end])
+                    handler.wfile.flush()
+                except OSError:
+                    return  # the browser paused, cancelled or went away
+                sent = end
+        # A short body on a closed connection: the browser sees the network fail.
+
+
 class PageServer:
     """Serves the fixtures on 127.0.0.1 and records every path requested."""
 
@@ -283,6 +351,10 @@ class PageServer:
                 host = (self.headers.get("Host") or "").split(":")[0]
                 with server.lock:
                     server.requests.append((host, self.path))
+                    paced = server.paced.get(self.path.split("?")[0])
+                if paced:
+                    paced.serve(self)
+                    return
                 status, kind, body, headers = server.respond(host, self.path)
                 self.send_response(status)
                 self.send_header("Content-Type", kind)
@@ -294,6 +366,7 @@ class PageServer:
 
         self.lock = threading.Lock()
         self.requests: list[tuple[str, str]] = []
+        self.paced: dict[str, PacedDownload] = {}
         class Server(http.server.ThreadingHTTPServer):
             daemon_threads = True
 
@@ -305,6 +378,13 @@ class PageServer:
         self.port = self.httpd.server_address[1]
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         self.thread.start()
+
+    def paced_download(self, name: str, first: int = 64 * 1024) -> tuple[PacedDownload, str]:
+        """A new paced download and its URL (see PacedDownload)."""
+        download = PacedDownload(name, first)
+        with self.lock:
+            self.paced[f"/paced/{name}"] = download
+        return download, self.url(f"/paced/{name}")
 
     def clear(self) -> None:
         with self.lock:

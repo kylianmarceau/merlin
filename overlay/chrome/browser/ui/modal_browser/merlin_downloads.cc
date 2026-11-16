@@ -14,6 +14,7 @@
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
 #include "components/download/public/common/download_interrupt_reasons.h"
 #include "components/download/public/common/download_item.h"
 #include "content/public/browser/download_manager.h"
@@ -268,22 +269,22 @@ std::string RunMerlinDownloadAction(Profile* profile,
     return "No download " + base::NumberToString(id);
   }
   const std::string state = MerlinDownloadState(item);
-  if (action == "download-open") {
+  if (action == shell::download_action::kOpen) {
     if (state != "done") {
       return "The file is not ready to open";
     }
     item->OpenDownload();
-  } else if (action == "download-show") {
+  } else if (action == shell::download_action::kShow) {
     if (state == "removed" || state == "cancelled") {
       return "The file is no longer on disk";
     }
     item->ShowDownloadInShell();
-  } else if (action == "download-cancel") {
+  } else if (action == shell::download_action::kCancel) {
     if (state != "progress" && state != "paused") {
       return "The download is not running";
     }
     item->Cancel(/*user_cancel=*/true);
-  } else if (action == "download-pause") {
+  } else if (action == shell::download_action::kPause) {
     if (state == "progress") {
       item->Pause();
     } else if (state == "paused" || (state == "failed" && item->CanResume())) {
@@ -291,18 +292,18 @@ std::string RunMerlinDownloadAction(Profile* profile,
     } else {
       return "The download is not running";
     }
-  } else if (action == "download-retry") {
+  } else if (action == shell::download_action::kRetry) {
     if (!item->CanResume()) {
       return "This download cannot be resumed";
     }
     item->Resume(/*user_resume=*/true);
-  } else if (action == "download-discard") {
+  } else if (action == shell::download_action::kDiscard) {
     // Discarding a held-back file deletes it, as Chromium's own page does.
     if (state != "dangerous") {
       return "Only held-back files are discarded";
     }
     item->Remove();
-  } else if (action == "download-forget") {
+  } else if (action == shell::download_action::kForget) {
     if (state == "progress" || state == "paused" || state == "dangerous") {
       return "Cancel the download first";
     }
