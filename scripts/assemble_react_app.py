@@ -10,8 +10,12 @@ import json
 import plistlib
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / 'lib'))
+from source_state import source_state  # noqa: E402
 
 
 def plist(path):
@@ -139,9 +143,12 @@ def assemble(engine_app, shell_app, destination, check_only=False, allow_stale=F
         with (stage / 'Contents/Info.plist').open('wb') as stream:
             plistlib.dump(engine_info, stream)
         shutil.rmtree(stage / 'Contents/_CodeSignature', ignore_errors=True)
+        # The e2e runner compares sourceCommit and sourceChanges with its
+        # checkout and refuses to test an app built from other sources.
         (stage / 'Contents/Resources/merlin-shell-build.json').write_text(json.dumps({
             'architecture': 'react-native-macos', 'abi': 1,
             'engineApp': str(engine_app), 'shellApp': str(shell_app),
+            **source_state(REPO),
         }, indent=2) + '\n')
         stage.rename(destination)
     print(f'Assembled {destination}; ad-hoc sign with scripts/package_mac.sh before installation.')

@@ -11,11 +11,34 @@ scripts/run_e2e_tests.sh                    # everything, about 45 seconds
 scripts/run_e2e_tests.sh test_hints         # one module
 MERLIN_APP=/path/to/Merlin.app scripts/run_e2e_tests.sh
 MERLIN_E2E_PIP=1 scripts/run_e2e_tests.sh test_auto_pip   # shows a floating window
+scripts/run_e2e_tests.sh --allow-other-build                # test a build of other sources
 ```
 
 The app defaults to `apps/browser/build/assembled/Merlin.app`, then
 `/Applications/Merlin.app`. Requirements: the system `python3` (3.9 or later,
 no packages) and Xcode's command line tools.
+
+## Which build was tested
+
+Every run starts by naming the app it tests: its path, the Mach-O UUIDs of the
+host executable and `Merlin Framework`, the commit it was assembled from and
+the checkout's commit. Quote that header when reporting a result.
+
+`scripts/assemble_react_app.py` records `sourceCommit` and `sourceChanges` (a
+digest of uncommitted changes to the product sources: `overlay`, `patches`,
+`apps/browser`, `packages`, `tools` and the lockfiles) in the app's
+`Contents/Resources/merlin-shell-build.json`. The runner refuses an app whose
+record differs from the checkout, including one assembled before the record
+existed and installed releases, so a pass always describes the code in front
+of you. Changing tests, docs or scripts needs no new build. To test another
+build on purpose, such as an installed release, pass `--allow-other-build` (or
+set `MERLIN_E2E_ALLOW_OTHER_BUILD=1` when running `unittest` directly); the
+header then says why it differs. `python3 tests/e2e/merlin_e2e.py
+--check-build` prints the header and checks without running anything.
+
+The record says which sources the products were assembled with. That the
+products themselves were rebuilt from those sources is the assembler's
+modification-time check (`--allow-stale` skips it).
 
 ## How it works
 
