@@ -48,6 +48,14 @@ std::string ShowShellPrompt(BrowserWindowInterface* browser,
                             base::DictValue prompt,
                             base::OnceCallback<void(ShellPromptReply)> reply);
 std::string ShellPromptInput(BrowserWindowInterface* browser, const std::string& id);
+// browserctl shell-call, for end-to-end tests only (the caller checks the
+// test switch). Runs a bridge method for `browser` through the entry point
+// React's calls use and answers `done` with true and the result as JSON, or
+// false and an error. A request, answered by a "reply" event, answers when its
+// reply arrives, or fails after 30 seconds.
+using ShellCallDone = base::OnceCallback<void(bool ok, std::string json_or_error)>;
+void RunShellCallForTesting(BrowserWindowInterface* browser, const std::string& method,
+                            const std::string& args, ShellCallDone done);
 void CancelShellPrompt(BrowserWindowInterface* browser, const std::string& id);
 }  // namespace modal_browser
 #endif

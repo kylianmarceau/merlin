@@ -14,6 +14,7 @@
 //! browserctl workspace project [dir]         # tie the front window's workspace to a folder
 //! browserctl command 'vsplit https://docs.rs'
 //! browserctl ping
+//! browserctl shell-call window.snapshot '{}'  # test builds only (tests/e2e)
 //! ```
 //!
 //! It talks to the browser over a Unix-domain socket that only the same user
@@ -47,6 +48,8 @@ commands:
   workspace project [DIR]       tie the front window's workspace to DIR (default: here)
   command <line>                any ':' command, e.g. 'vsplit docs.rs'
   ping                          is a browser listening?
+  shell-call METHOD [JSON]      tests only: one shell bridge method in the front
+                                window (needs --merlin-test-shell-api)
 
 The socket is $MODAL_BROWSER_SOCKET, else $TMPDIR/modal_browser/browserctl.sock.";
 
@@ -164,6 +167,27 @@ fn parse_args(args: &[String]) -> Result<Invocation, String> {
             }
             Request::Command {
                 line: args.join(" "),
+            }
+        }
+        "shell-call" => {
+            let (method, args) = match args {
+                [method] => (*method, "{}"),
+                [method, args] => (*method, *args),
+                _ => return Err("usage: browserctl shell-call METHOD [JSON object]".into()),
+            };
+            match modal_browser_core::json::parse(args) {
+                Ok(Value::Object(_)) => {}
+                Ok(other) => {
+                    return Err(format!(
+                        "the arguments must be a JSON object, not {}",
+                        other.type_name()
+                    ));
+                }
+                Err(e) => return Err(format!("the arguments are not JSON: {e}")),
+            }
+            Request::ShellCall {
+                method: method.to_string(),
+                args: args.to_string(),
             }
         }
         other => return Err(format!("unknown command '{other}'")),
@@ -358,6 +382,26 @@ mod tests {
                 line: "vsplit".into()
             }
         );
+        assert_eq!(
+            parse(&[
+                "shell-call",
+                "downloads.act",
+                r#"{"downloadId":"1","action":"show"}"#
+            ])
+            .unwrap()
+            .request,
+            Request::ShellCall {
+                method: "downloads.act".into(),
+                args: r#"{"downloadId":"1","action":"show"}"#.into()
+            }
+        );
+        assert_eq!(
+            parse(&["shell-call", "window.snapshot"]).unwrap().request,
+            Request::ShellCall {
+                method: "window.snapshot".into(),
+                args: "{}".into()
+            }
+        );
         let s = parse(&["--socket", "/tmp/x.sock", "ping"]).unwrap();
         assert_eq!(s.socket, PathBuf::from("/tmp/x.sock"));
     }
@@ -378,6 +422,9 @@ mod tests {
             matches!(project, Request::Command { line } if line.starts_with("workspace project \"/"))
         );
         assert!(parse(&["tabs", "extra"]).is_err());
+        assert!(parse(&["shell-call"]).is_err());
+        assert!(parse(&["shell-call", "tabs.create", "[1]"]).is_err());
+        assert!(parse(&["shell-call", "tabs.create", "{oops"]).is_err());
         assert!(parse(&["frobnicate"]).is_err());
     }
 
