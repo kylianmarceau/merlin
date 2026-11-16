@@ -90,6 +90,25 @@ The ABI headers under `packages/engine/include/` are canonical. Run
 `python3 scripts/sync_shell_headers.py` after editing them. `ui:check` verifies
 the overlay copies match before TypeScript checking.
 
+The bridge's vocabulary is defined once, in
+`packages/engine/include/merlin_shell_vocabulary.json`: every method name
+(`calls`, answered at once; `requests`, answered by a `reply` event; and the
+`nativeOnly` ones React doesn't call) and the values arguments such as a
+download action, split side or preference key may take. The same script
+generates `packages/engine/src/vocabulary.ts` and the overlay's
+`merlin_shell_vocabulary.h` from it. To add or rename a method or value,
+edit the JSON, run the script, then follow the type errors and the script's
+complaints. `ui:check` fails when:
+
+- either generated file differs from the table,
+- `protocol.ts`'s `Calls` or `Requests` list other methods than the table,
+- native shell code spells a method name as a string literal (compare against
+  `shell::method::k…`), or uses a `shell::…::k…` constant the table doesn't
+  define.
+
+Prompt action IDs aren't in the table: native code defines them per prompt,
+sends them in the snapshot and accepts only those.
+
 ## Build when ready
 
 These commands are for the maintainer to run. Source checks do not build or

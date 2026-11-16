@@ -1,3 +1,11 @@
+import {
+  appearanceAccents, appearanceModes, groupColors, panels,
+  type AppearanceAccent, type AppearanceMode, type BooleanOption, type CallMethod, type DownloadAction, type GroupColor,
+  type PaletteKey, type Panel, type PreferenceKey, type RequestMethod, type SplitSide, type StringOption,
+} from './vocabulary';
+// Method names and argument values come from merlin_shell_vocabulary.json, shared with native code.
+export * from './vocabulary';
+
 /** Browser-owned state. IDs are opaque and scoped to a native session. */
 export type Tab = {
   id: string; title: string; url: string; loading: boolean; pinned: boolean;
@@ -36,8 +44,6 @@ export type Download = {
   /** The finished file on disk, for dragging it out of the shell. Absent until done, or once it is gone. */
   path?: string;
 };
-export type GroupColor = 'grey' | 'blue' | 'red' | 'yellow' | 'green' | 'pink' | 'purple' | 'cyan' | 'orange';
-export const groupColors: readonly GroupColor[] = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
 /** A tab group: its tabs are next to each other in the strip, and say so with `group`. */
 export type TabGroup = { id: string; title: string; color: GroupColor; collapsed: boolean };
 /** A link opened in a floating card over the page. Its page is shown with tab ID "peek". */
@@ -57,7 +63,7 @@ export type PromptAnchor = 'site' | 'page' | 'window';
 export type ExtensionPopup = { extensionId: string; name: string; width: number; height: number; ready: boolean };
 export type Suggestion = { kind: 'search' | 'url' | 'tab'; title: string; detail: string; url: string; completion: string; default: boolean };
 export type Favicon = { key: string; url: string };
-export type Appearance = { mode: 'system' | 'light' | 'dark'; accent: 'ocean' | 'iris' | 'fern'; reduceMotion: boolean };
+export type Appearance = { mode: AppearanceMode; accent: AppearanceAccent; reduceMotion: boolean };
 export type CommandPalette = {
   visible: boolean; prompt: string; placeholder: string; text: string; selected: number;
   error: string; status: string;
@@ -120,7 +126,7 @@ export type Calls = {
    * view, on the given side, and focuses it; a split either tab was already
    * in is replaced.
    */
-  'tabs.split': { args: { tabId: string; side: 'left' | 'right' | 'top' | 'bottom'; beside?: string }; result: null };
+  'tabs.split': { args: { tabId: string; side: SplitSide; beside?: string }; result: null };
   /** Ends the split view the tab is in; both tabs stay open. */
   'tabs.unsplit': { args: { tabId: string }; result: null };
   /** Moves the tab into a new window of its own, under the pointer. */
@@ -139,7 +145,7 @@ export type Calls = {
   'appearance.set': { args: Appearance; result: null };
   'modal.command': { args: { text: string }; result: null };
   'modal.palette.text': { args: { text: string }; result: null };
-  'modal.palette.key': { args: { key: 'accept' | 'cancel' | 'next' | 'previous' }; result: null };
+  'modal.palette.key': { args: { key: PaletteKey }; result: null };
   'modal.palette.select': { args: { index: number; revision: number }; result: null };
   'favicons.get': { args: { tabId: string }; result: Favicon | null };
   /** The tab's last thumbnail as a JPEG data URL, or null before it has one. */
@@ -154,7 +160,6 @@ export type Calls = {
   'site.info': { args: {}; result: null };
 };
 export type Method = keyof Calls;
-export type DownloadAction = 'open' | 'show' | 'cancel' | 'pause' | 'retry' | 'discard' | 'forget';
 
 /** Data Chromium produces on demand; answered by a `reply` event. */
 export type ExtensionInfo = { id: string; name: string; version: string; enabled: boolean; canToggle: boolean; hasAction?: boolean; actionTitle?: string };
@@ -179,8 +184,6 @@ export type HistoryItem = { url: string; title: string; domain: string; time: nu
 export type HistoryPage = { items: HistoryItem[]; done: boolean };
 export type BookmarkItem = { id: string; title: string; folder: boolean; editable: boolean; count?: number; url?: string; domain?: string; where?: string };
 export type BookmarkView = { path: { id: string; title: string }[]; items: BookmarkItem[]; folderId: string };
-export type PreferenceKey = 'theme' | 'tabs' | 'ctrlTab' | 'engine' | 'startup' | 'zoom' | 'askWhere' | 'memorySaver' | 'energySaver' |
-  'autoPip' | 'savePasswords' | 'adblock' | 'adblockUpdates' | 'adblockLists' | 'adblockRefresh' | 'adblockException' | 'extension';
 export type Requests = {
   'settings.get': { args: {}; result: Preferences };
   'settings.set': { args: { key: PreferenceKey; value: unknown }; result: Preferences };
@@ -188,7 +191,7 @@ export type Requests = {
   'settings.config': { args: {}; result: ConfigFile };
   'settings.saveConfig': { args: { text: string }; result: string };
   /** Writes one [options] value into the config file; the reply is an error, empty when it saved. */
-  'settings.setOption': { args: { name: 'modal_browsing' | 'auto_insert' | 'smooth_scroll'; value: boolean } | { name: 'hint_chars'; value: string }; result: string };
+  'settings.setOption': { args: { name: BooleanOption; value: boolean } | { name: StringOption; value: string }; result: string };
   'settings.workspaces': { args: {}; result: Workspace[] };
   'settings.deleteWorkspace': { args: { name: string }; result: Workspace[] };
   'settings.openPage': { args: { key: string }; result: null };
@@ -209,8 +212,13 @@ export type Requests = {
   'downloads.list': { args: {}; result: Download[] };
 };
 export type Request = keyof Requests;
-export const panels = ['settings', 'history', 'bookmarks', 'downloads', 'extensions', 'newTab'] as const;
-export type PanelName = typeof panels[number];
+export type PanelName = Panel;
+
+// Fails to compile when Calls or Requests and merlin_shell_vocabulary.json list different methods.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type Assert<T extends true> = T;
+export type CallsMatchVocabulary = Assert<Same<Method, CallMethod>>;
+export type RequestsMatchVocabulary = Assert<Same<Request, RequestMethod>>;
 
 export type EngineEvent = { type: 'snapshot'; snapshot: Snapshot } | { type: 'address.focus' | 'address.revert' | 'command.open'; windowId: string }
   | { type: 'engine.error'; windowId: string; message: string }
@@ -308,8 +316,8 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
   if (typeof s.session !== 'string' || !s.session || s.windowId !== windowId ||
       !Number.isSafeInteger(s.revision) || s.revision < 0 || typeof s.private !== 'boolean' ||
       !Array.isArray(s.tabs) || !Array.isArray(s.downloads) ||
-      !s.appearance || !['system', 'light', 'dark'].includes(s.appearance.mode) ||
-      !['ocean', 'iris', 'fern'].includes(s.appearance.accent) || typeof s.appearance.reduceMotion !== 'boolean' ||
+      !s.appearance || !appearanceModes.includes(s.appearance.mode) ||
+      !appearanceAccents.includes(s.appearance.accent) || typeof s.appearance.reduceMotion !== 'boolean' ||
       !s.modal || ![s.modal.mode, s.modal.pending, s.modal.message].every(x => typeof x === 'string')) {
     throw new Error('Invalid browser snapshot');
   }

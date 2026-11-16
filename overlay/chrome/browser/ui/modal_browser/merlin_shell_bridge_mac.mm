@@ -50,6 +50,7 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_services.h"
+#include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
 #include "chrome/browser/ui/modal_browser/merlin_auto_pip.h"
 #include "chrome/browser/ui/modal_browser/merlin_peek.h"
@@ -94,6 +95,7 @@
 namespace {
 using Dict = base::DictValue;
 using List = base::ListValue;
+namespace shell = modal_browser::shell;
 std::string WindowId(BrowserWindowInterface* b) {
   return base::NumberToString(b->GetSessionID().id());
 }
@@ -433,7 +435,7 @@ Dict WindowState::Snapshot() {
     tabs.Append(std::move(entry));
   }
   // Running downloads and the most recent others; the Library asks for all
-  // of them with "downloads.list". The history can hold thousands.
+  // of them with downloads.list. The history can hold thousands.
   List downloads = modal_browser::MerlinDownloadsList(browser_->GetProfile(), 10);
   Dict appearance = browser_->GetProfile()->GetPrefs()->GetDict("merlin.shell.appearance").Clone();
   if (!appearance.FindString("mode")) appearance.Set("mode", "system");
@@ -578,7 +580,7 @@ char* Call(const char* window, const char* method, const char* json) {
   const auto args = base::JSONReader::ReadDict(json, base::JSON_PARSE_RFC);
   if (!args) return Error("Expected an argument object");
   const std::string name(method);
-  if (name == "application.windows") {
+  if (name == shell::method::kApplicationWindows) {
     List ids;
     for (const auto& [id, _] : GetRegistry().windows) ids.Append(id);
     return Ok(base::Value(std::move(ids)));
@@ -587,7 +589,7 @@ char* Call(const char* window, const char* method, const char* json) {
   if (!state) return Error("Browser window has closed");
   auto* browser = state->browser();
   auto* strip = browser->GetTabStripModel();
-  if (name == "window.snapshot") return Ok(base::Value(state->Snapshot()));
+  if (name == shell::method::kWindowSnapshot) return Ok(base::Value(state->Snapshot()));
   if (const auto* request = args->FindString("requestId")) {
     // Requests answer with a "reply" event after this call returns, so a
     // synchronous answer never re-enters the shell during its own call.
@@ -609,27 +611,27 @@ char* Call(const char* window, const char* method, const char* json) {
       return Error("Unsupported engine request");
     return Ok();
   }
-  if (name == "tabs.thumbnail") {
+  if (name == shell::method::kTabsThumbnail) {
     const int at = FindTab(strip, args->FindString("tabId"));
     if (at < 0) return Error("Tab has closed or belongs to another window");
     return Ok(modal_browser::TabSwitcher::Thumbnail(strip->GetTabAtIndex(at)));
   }
-  if (name == "switcher.choose") {
+  if (name == shell::method::kSwitcherChoose) {
     const auto index = args->FindInt("index");
     if (!index) return Error("Invalid tab choice");
     state->switcher->CommitIndex(*index);
     return Ok();
   }
-  if (name == "switcher.cancel") {
+  if (name == shell::method::kSwitcherCancel) {
     state->switcher->Cancel();
     return Ok();
   }
-  if (name == "favicons.get") {
+  if (name == shell::method::kFaviconsGet) {
     const int at = FindTab(strip, args->FindString("tabId"));
     if (at < 0) return Error("Tab has closed or belongs to another window");
     return Ok(FaviconData(strip->GetWebContentsAt(at)));
   }
-  if (name == "omnibox.query") {
+  if (name == shell::method::kOmniboxQuery) {
     const auto* query = args->FindString("queryId");
     const auto* text = args->FindString("text");
     const auto prevent = args->FindBool("preventInline");
@@ -637,11 +639,11 @@ char* Call(const char* window, const char* method, const char* json) {
     state->Suggest(*query, *text, *prevent);
     return Ok();
   }
-  if (name == "omnibox.stop") {
+  if (name == shell::method::kOmniboxStop) {
     if (state->suggestions) state->suggestions->Stop();
     return Ok();
   }
-  if (name == "omnibox.open") {
+  if (name == shell::method::kOmniboxOpen) {
     const auto* query = args->FindString("queryId");
     const auto index = args->FindInt("index");
     const auto new_tab = args->FindBool("newTab");
@@ -649,7 +651,7 @@ char* Call(const char* window, const char* method, const char* json) {
     return state->OpenSuggestion(*query, static_cast<size_t>(*index), *new_tab) ? Ok()
         : Error("The suggestions changed; choose one again");
   }
-  if (name == "omnibox.enter") {
+  if (name == shell::method::kOmniboxEnter) {
     // Enter opens the top suggestion when the field still shows it, as in
     // Chromium's address bar, so a page readied for it is used.
     const auto* query = args->FindString("queryId");
@@ -671,13 +673,13 @@ char* Call(const char* window, const char* method, const char* json) {
     else contents->GetController().LoadURL(url, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
     return Ok();
   }
-  if (name == "site.info") {
+  if (name == shell::method::kSiteInfo) {
     // The active page's security and blocking, as a popover by the address.
     modal_browser::ShowShellSiteInfo(browser);
     return Ok();
   }
-  if (name == "peek.close" || name == "peek.promote") {
-    if (name == "peek.close") modal_browser::CloseMerlinPeek(browser);
+  if (name == shell::method::kPeekClose || name == shell::method::kPeekPromote) {
+    if (name == shell::method::kPeekClose) modal_browser::CloseMerlinPeek(browser);
     else modal_browser::PromoteMerlinPeek(browser);
     return Ok();
   }
@@ -685,9 +687,9 @@ char* Call(const char* window, const char* method, const char* json) {
     const auto* key = args->FindString("groupId");
     const auto group = key ? modal_browser::FindGroup(strip, *key) : std::nullopt;
     if (!group) return Error("That group has closed");
-    if (name == "groups.ungroup") modal_browser::UngroupAll(strip, *group);
-    else if (name == "groups.close") modal_browser::CloseGroup(strip, *group);
-    else if (name == "groups.update") {
+    if (name == shell::method::kGroupsUngroup) modal_browser::UngroupAll(strip, *group);
+    else if (name == shell::method::kGroupsClose) modal_browser::CloseGroup(strip, *group);
+    else if (name == shell::method::kGroupsUpdate) {
       std::optional<std::string> title;
       if (const auto* value = args->FindString("title")) title = *value;
       std::optional<tab_groups::TabGroupColorId> color;
@@ -700,15 +702,15 @@ char* Call(const char* window, const char* method, const char* json) {
     } else return Error("Unsupported engine method");
     return Ok();
   }
-  if (name == "extensions.closePopup") {
+  if (name == shell::method::kExtensionsClosePopup) {
     modal_browser::CloseShellExtensionPopup(browser);
     return Ok();
   }
-  if (name == "find.close") {
+  if (name == shell::method::kFindClose) {
     FindBarController::From(browser)->EndFindSession(find_in_page::SelectionAction::kKeep, find_in_page::ResultAction::kKeep);
     return Ok();
   }
-  if (name == "tabs.create") {
+  if (name == shell::method::kTabsCreate) {
     const auto* url = args->FindString("url");
     GURL destination("about:blank");
     if (url && !url->empty()) destination = ResolveAddress(browser->GetProfile(), *url);
@@ -716,12 +718,12 @@ char* Call(const char* window, const char* method, const char* json) {
     chrome::AddTabAt(browser, destination, -1, true);
     return Ok();
   }
-  if (name == "page.focus") {
+  if (name == shell::method::kPageFocus) {
     // Keys go back to the page after a panel, popover or the address field.
     if (auto* contents = strip->GetActiveWebContents(); contents && !contents->IsCrashed()) contents->Focus();
     return Ok();
   }
-  if (name == "modal.command") {
+  if (name == shell::method::kModalCommand) {
     const auto* text = args->FindString("text");
     auto* c = modal_browser::ModalBrowserController::From(browser);
     if (!text || !c) return Error("Invalid modal command");
@@ -734,11 +736,11 @@ char* Call(const char* window, const char* method, const char* json) {
     const auto modal = controller->ShellModalState();
     const auto* palette = modal.FindDict("palette");
     if (!palette || !palette->FindBool("visible").value_or(false)) return Error("The command menu has closed");
-    if (name == "modal.palette.text") {
+    if (name == shell::method::kModalPaletteText) {
       const auto* text = args->FindString("text");
       if (!text) return Error("Missing command menu text");
       controller->OnPaletteTextChanged(base::UTF8ToUTF16(*text));
-    } else if (name == "modal.palette.select") {
+    } else if (name == shell::method::kModalPaletteSelect) {
       const auto index = args->FindInt("index");
       const auto revision = args->FindInt("revision");
       const auto* rows = palette->FindList("rows");
@@ -746,58 +748,60 @@ char* Call(const char* window, const char* method, const char* json) {
           !revision || state->Snapshot().FindInt("revision") != revision)
         return Error("The command results changed; choose the item again");
       controller->OnPaletteRowClicked(*index);
-    } else if (name == "modal.palette.key") {
+    } else if (name == shell::method::kModalPaletteKey) {
       const auto* key = args->FindString("key");
       if (!key) return Error("Missing command menu key");
       using Key = modal_browser::ffi::PaletteKey;
-      if (*key == "accept") controller->OnPaletteKey(Key::Accept);
-      else if (*key == "cancel") controller->OnPaletteKey(Key::Cancel);
-      else if (*key == "next") controller->OnPaletteKey(Key::Next);
-      else if (*key == "previous") controller->OnPaletteKey(Key::Previous);
+      if (*key == shell::palette_key::kAccept) controller->OnPaletteKey(Key::Accept);
+      else if (*key == shell::palette_key::kCancel) controller->OnPaletteKey(Key::Cancel);
+      else if (*key == shell::palette_key::kNext) controller->OnPaletteKey(Key::Next);
+      else if (*key == shell::palette_key::kPrevious) controller->OnPaletteKey(Key::Previous);
       else return Error("Invalid command menu key");
     } else return Error("Unknown command menu action");
     return Ok();
   }
-  if (name == "downloads.openFolder") {
+  if (name == shell::method::kDownloadsOpenFolder) {
     modal_browser::OpenMerlinDownloadsFolder(browser->GetProfile());
     return Ok();
   }
-  if (name == "downloads.open" || name == "downloads.cancel" || name == "downloads.act") {
+  if (name == shell::method::kDownloadsOpen || name == shell::method::kDownloadsCancel || name == shell::method::kDownloadsAct) {
     uint32_t id;
     const auto* value = args->FindString("downloadId");
     if (!value || !base::StringToUint(*value, &id)) return Error("Invalid download ID");
-    std::string action = name == "downloads.open" ? "open" : "cancel";
-    if (name == "downloads.act") {
+    std::string action = name == shell::method::kDownloadsOpen ? shell::download_action::kOpen
+                                                                : shell::download_action::kCancel;
+    if (name == shell::method::kDownloadsAct) {
       const auto* requested = args->FindString("action");
-      static constexpr std::array<std::string_view, 7> kActions = {
-          "open", "show", "cancel", "pause", "retry", "discard", "forget"};
-      if (!requested || std::find(kActions.begin(), kActions.end(), *requested) == kActions.end())
+      const auto& actions = shell::download_action::kAll;
+      if (!requested || std::find(actions.begin(), actions.end(), *requested) == actions.end())
         return Error("Invalid download action");
       action = *requested;
     }
     const auto error = modal_browser::RunMerlinDownloadAction(browser->GetProfile(), action, id);
     return error.empty() ? Ok() : Error(error);
   }
-  if (name == "appearance.set") {
+  if (name == shell::method::kAppearanceSet) {
     const auto* mode = args->FindString("mode");
     const auto* accent = args->FindString("accent");
     const auto reduced = args->FindBool("reduceMotion");
-    if (!mode || (*mode != "system" && *mode != "light" && *mode != "dark") ||
-        !accent || (*accent != "ocean" && *accent != "iris" && *accent != "fern") || !reduced)
+    const auto& modes = shell::appearance_mode::kAll;
+    const auto& accents = shell::appearance_accent::kAll;
+    if (!mode || std::find(modes.begin(), modes.end(), *mode) == modes.end() ||
+        !accent || std::find(accents.begin(), accents.end(), *accent) == accents.end() || !reduced)
       return Error("Invalid appearance preference");
     browser->GetProfile()->GetPrefs()->SetDict("merlin.shell.appearance",
         Dict().Set("mode", *mode).Set("accent", *accent).Set("reduceMotion", *reduced));
     // Pages and native dialogs follow the same scheme as the shell.
     if (auto* theme = ThemeServiceFactory::GetForProfile(browser->GetProfile()))
-      theme->SetBrowserColorScheme(*mode == "light" ? ThemeService::BrowserColorScheme::kLight
-          : *mode == "dark" ? ThemeService::BrowserColorScheme::kDark
+      theme->SetBrowserColorScheme(*mode == shell::appearance_mode::kLight ? ThemeService::BrowserColorScheme::kLight
+          : *mode == shell::appearance_mode::kDark ? ThemeService::BrowserColorScheme::kDark
           : ThemeService::BrowserColorScheme::kSystem);
     return Ok();
   }
-  if (name == "permissions.answer" || name == "prompts.update") {
+  if (name == shell::method::kPermissionsAnswer || name == shell::method::kPromptsUpdate) {
     const auto* id = args->FindString("promptId");
     const auto* action = args->FindString("actionId");
-    if (!id || (name == "permissions.answer" && !action) || state->prompts.empty() ||
+    if (!id || (name == shell::method::kPermissionsAnswer && !action) || state->prompts.empty() ||
         *state->prompts.front().description.FindString("id") != *id)
       return Error("This prompt is no longer active");
     auto& pending = state->prompts.front();
@@ -809,7 +813,7 @@ char* Call(const char* window, const char* method, const char* json) {
       if (*suppress && !pending.description.FindBool("canSuppress").value_or(false)) return Error("Invalid prompt option");
       pending.draft.suppress = *suppress;
     }
-    if (name == "prompts.update") return Ok();
+    if (name == shell::method::kPromptsUpdate) return Ok();
     const auto* actions = pending.description.FindList("actions");
     bool allowed = false;
     if (actions) for (const auto& candidate : *actions) {
@@ -832,13 +836,13 @@ char* Call(const char* window, const char* method, const char* json) {
   const int index = FindTab(strip, args->FindString("tabId"));
   if (index < 0) return Error("Tab has closed or belongs to another window");
   auto* contents = strip->GetWebContentsAt(index);
-  if (name == "find.focus") {
+  if (name == shell::method::kFindFocus) {
     const auto focused = args->FindBool("focused");
     if (!focused) return Error("Missing find focus state");
     const auto id = *args->FindString("tabId");
     if (*focused && index == strip->active_index()) state->find_focused_tab = id;
     else if (state->find_focused_tab == id) state->find_focused_tab.clear();
-  } else if (name == "find.query") {
+  } else if (name == shell::method::kFindQuery) {
     const auto* text = args->FindString("text");
     const auto forward = args->FindBool("forward");
     if (!text || !forward || index != strip->active_index()) return Error("Find is only available in the current tab");
@@ -847,16 +851,16 @@ char* Call(const char* window, const char* method, const char* json) {
     controller->find_bar()->SetFindTextAndSelectedRange(value, gfx::Range(value.size()));
     controller->OnUserChangedFindText(value);
     find_in_page::FindTabHelper::FromWebContents(contents)->StartFinding(value, *forward, false, true);
-  } else if (name == "tabs.bookmark") {
+  } else if (name == shell::method::kTabsBookmark) {
     if (index != strip->active_index() || !chrome::CanBookmarkCurrentTab(browser)) return Error("This tab cannot be bookmarked");
     chrome::BookmarkCurrentTab(browser);
-  } else if (name == "tabs.activate") strip->ActivateTabAt(index);
-  else if (name == "tabs.close") strip->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE | TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
-  else if (name == "tabs.pin") {
+  } else if (name == shell::method::kTabsActivate) strip->ActivateTabAt(index);
+  else if (name == shell::method::kTabsClose) strip->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE | TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+  else if (name == shell::method::kTabsPin) {
     auto pinned = args->FindBool("pinned");
     if (!pinned) return Error("Missing pinned state");
     strip->SetTabPinned(index, *pinned);
-  } else if (name == "tabs.group") {
+  } else if (name == shell::method::kTabsGroup) {
     // {groupId: string} joins that group; {groupId: null, title?} starts one.
     const auto* key = args->Find("groupId");
     if (!key || (!key->is_none() && !key->is_string())) return Error("Invalid group");
@@ -868,10 +872,10 @@ char* Call(const char* window, const char* method, const char* json) {
     const auto* title = args->FindString("title");
     const std::string error = modal_browser::GroupTab(strip, index, group, title ? *title : std::string());
     if (!error.empty()) return Error(error.c_str());
-  } else if (name == "tabs.ungroup") {
+  } else if (name == shell::method::kTabsUngroup) {
     const std::string error = modal_browser::UngroupTab(strip, index);
     if (!error.empty()) return Error(error.c_str());
-  } else if (name == "tabs.move") {
+  } else if (name == shell::method::kTabsMove) {
     const auto* before = args->Find("beforeId");
     if (!before || (!before->is_none() && !before->is_string())) return Error("Invalid tab destination");
     int target = before->is_none() ? strip->count() - 1 : FindTab(strip, &before->GetString());
@@ -883,25 +887,26 @@ char* Call(const char* window, const char* method, const char* json) {
     }
     if (!before->is_none() && target > index) --target;
     strip->MoveWebContentsAt(index, target, false);
-  } else if (name == "navigation.back") {
+  } else if (name == shell::method::kNavigationBack) {
     if (contents->GetController().CanGoBack()) contents->GetController().GoBack();
-  } else if (name == "navigation.forward") {
+  } else if (name == shell::method::kNavigationForward) {
     if (contents->GetController().CanGoForward()) contents->GetController().GoForward();
-  } else if (name == "navigation.reload") contents->GetController().Reload(content::ReloadType::NORMAL, true);
-  else if (name == "navigation.stop") contents->Stop();
-  else if (name == "navigation.open") {
+  } else if (name == shell::method::kNavigationReload) contents->GetController().Reload(content::ReloadType::NORMAL, true);
+  else if (name == shell::method::kNavigationStop) contents->Stop();
+  else if (name == shell::method::kNavigationOpen) {
     auto* text = args->FindString("text");
     if (!text) return Error("Missing navigation text");
     GURL url = ResolveAddress(browser->GetProfile(), *text);
     if (!url.is_valid()) return Error("This address cannot be opened");
     contents->GetController().LoadURL(url, content::Referrer(), ui::PAGE_TRANSITION_TYPED, std::string());
-  } else if (name == "tabs.split") {
+  } else if (name == shell::method::kTabsSplit) {
     // A tab dropped on the page: it shows beside the tab it was dropped on
     // (`beside`, else the active tab), on the side it was dropped on, and
     // takes the focus. One command, so the page never shows the other tab
     // alone on the way.
     const auto* side = args->FindString("side");
-    if (!side || (*side != "left" && *side != "right" && *side != "top" && *side != "bottom"))
+    const auto& sides = shell::split_side::kAll;
+    if (!side || std::find(sides.begin(), sides.end(), *side) == sides.end())
       return Error("Invalid split side");
     if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL) return Error("This window can't show a split view");
     if (const auto* beside = args->FindString("beside")) {
@@ -916,20 +921,20 @@ char* Call(const char* window, const char* method, const char* json) {
     // Splits hold two tabs: the dropped one replaces the other side.
     if (const auto current = strip->GetSplitForTab(active)) strip->RemoveSplit(*current);
     if (const auto other = strip->GetSplitForTab(strip->GetIndexOfTab(dropped))) strip->RemoveSplit(*other);
-    const bool stacked = *side == "top" || *side == "bottom";
+    const bool stacked = *side == shell::split_side::kTop || *side == shell::split_side::kBottom;
     const auto id = strip->AddToNewSplit({strip->GetIndexOfTab(dropped)},
         split_tabs::SplitTabVisualData(stacked ? split_tabs::SplitTabLayout::kStacked : split_tabs::SplitTabLayout::kSideBySide),
         split_tabs::SplitTabCreatedSource::kDragAndDropTab);
     const auto members = strip->GetSplitData(id)->ListTabs();
-    const bool first = *side == "left" || *side == "top";
+    const bool first = *side == shell::split_side::kLeft || *side == shell::split_side::kTop;
     if (!members.empty() && (members.front() == dropped) != first) strip->ReverseTabsInSplit(id);
     strip->ActivateTabAt(strip->GetIndexOfTab(dropped));
-  } else if (name == "tabs.unsplit") {
+  } else if (name == shell::method::kTabsUnsplit) {
     // Both tabs stay open, side by side in the tabs, and the page shows this one alone.
     const auto split = strip->GetSplitForTab(index);
     if (!split) return Error("This tab isn't in a split view");
     strip->RemoveSplit(*split);
-  } else if (name == "tabs.detach") {
+  } else if (name == shell::method::kTabsDetach) {
     // A tab dragged out of the window becomes a window of its own, the size
     // of this one, with its tabs under the pointer.
     if (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL) return Error("This tab can't move to a new window");

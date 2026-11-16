@@ -34,6 +34,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_preferences.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
+#include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
 #include "components/omnibox/browser/location_bar_model.h"
 #include "components/security_state/core/security_state.h"
 #include "url/origin.h"
@@ -172,9 +173,9 @@ bool RunSettings(BrowserWindowInterface* browser,
                  const Dict& args,
                  ShellServiceReply& reply) {
   Profile* profile = browser->GetProfile();
-  if (method == "settings.get") {
+  if (method == shell::method::kSettingsGet) {
     Reply(std::move(reply), base::Value(Preferences(browser)));
-  } else if (method == "settings.set") {
+  } else if (method == shell::method::kSettingsSet) {
     const std::string* key = args.FindString("key");
     const base::Value* value = args.Find("value");
     if (!key || !value) {
@@ -188,7 +189,7 @@ bool RunSettings(BrowserWindowInterface* browser,
     } else {
       Reply(std::move(reply), base::Value(Preferences(browser)));
     }
-  } else if (method == "settings.chooseDownloadDir") {
+  } else if (method == shell::method::kSettingsChooseDownloadDir) {
     FolderPicker::Show(
         browser,
         base::BindOnce(
@@ -211,7 +212,7 @@ bool RunSettings(BrowserWindowInterface* browser,
                                     .AsUTF8Unsafe()));
             },
             profile->GetWeakPtr(), std::move(reply)));
-  } else if (method == "settings.config") {
+  } else if (method == shell::method::kSettingsConfig) {
     config_file::Read(base::BindOnce(
         [](ShellServiceReply reply, config_file::ReadResult result) {
           Reply(std::move(reply),
@@ -223,7 +224,7 @@ bool RunSettings(BrowserWindowInterface* browser,
                         .Set("path", config_file::ConfigPath().AsUTF8Unsafe())));
         },
         std::move(reply)));
-  } else if (method == "settings.saveConfig") {
+  } else if (method == shell::method::kSettingsSaveConfig) {
     const std::string* text = args.FindString("text");
     if (!text || text->size() > 512 * 1024) {
       Fail(std::move(reply), "The configuration is too large");
@@ -240,17 +241,18 @@ bool RunSettings(BrowserWindowInterface* browser,
                      Reply(std::move(reply), base::Value(error));
                    },
                    std::move(reply)));
-  } else if (method == "settings.setOption") {
+  } else if (method == shell::method::kSettingsSetOption) {
     // One [options] value from Settings, written into the config file so the
     // file stays the single source of these options.
     const std::string* name = args.FindString("name");
     const base::Value* value = args.Find("value");
     std::string literal;
+    const auto& booleans = shell::boolean_option::kAll;
     if (name && value && value->is_bool() &&
-        (*name == "modal_browsing" || *name == "auto_insert" ||
-         *name == "smooth_scroll")) {
+        std::ranges::find(booleans, *name) != booleans.end()) {
       literal = value->GetBool() ? "true" : "false";
-    } else if (name && value && value->is_string() && *name == "hint_chars" &&
+    } else if (name && value && value->is_string() &&
+               *name == shell::string_option::kHintChars &&
                value->GetString().size() >= 2 &&
                value->GetString().size() <= 32 &&
                std::ranges::all_of(value->GetString(), [](char c) {
@@ -281,9 +283,9 @@ bool RunSettings(BrowserWindowInterface* browser,
                   std::move(reply)));
         },
         std::move(reply), *name, std::move(literal)));
-  } else if (method == "settings.workspaces") {
+  } else if (method == shell::method::kSettingsWorkspaces) {
     ListWorkspaces(std::move(reply));
-  } else if (method == "settings.deleteWorkspace") {
+  } else if (method == shell::method::kSettingsDeleteWorkspace) {
     const std::string* name = args.FindString("name");
     if (!name || !ValidWorkspaceName(*name)) {
       Fail(std::move(reply), "Invalid workspace name");
@@ -295,7 +297,7 @@ bool RunSettings(BrowserWindowInterface* browser,
                      ListWorkspaces(std::move(reply));
                    },
                    std::move(reply)));
-  } else if (method == "settings.openPage") {
+  } else if (method == shell::method::kSettingsOpenPage) {
     const std::string* key = args.FindString("key");
     const std::string target = key ? MerlinPreferenceLink(*key) : std::string();
     if (target.empty()) {
@@ -330,7 +332,7 @@ bool RunHistory(BrowserWindowInterface* browser,
     Fail(std::move(reply), "History is not available in this window");
     return true;
   }
-  if (method == "history.search") {
+  if (method == shell::method::kHistorySearch) {
     const std::string* text = args.FindString("text");
     if (!text || text->size() > 512) {
       Fail(std::move(reply), "Invalid history search");
@@ -365,7 +367,7 @@ bool RunHistory(BrowserWindowInterface* browser,
             },
             std::move(reply)),
         &HistoryTracker());
-  } else if (method == "history.remove") {
+  } else if (method == shell::method::kHistoryRemove) {
     const List* urls = args.FindList("urls");
     std::vector<GURL> targets;
     if (urls) {
@@ -471,10 +473,10 @@ bool RunBookmarks(BrowserWindowInterface* browser,
     return true;
   }
   const auto edit = bookmarks::metrics::BookmarkEditSource::kUser;
-  if (method == "bookmarks.folder") {
+  if (method == shell::method::kBookmarksFolder) {
     Reply(std::move(reply),
           base::Value(BookmarkFolder(model, NodeArg(model, args, "folderId"))));
-  } else if (method == "bookmarks.search") {
+  } else if (method == shell::method::kBookmarksSearch) {
     const std::string* text = args.FindString("text");
     if (!text || text->empty() || text->size() > 512) {
       Fail(std::move(reply), "Invalid bookmark search");
@@ -498,7 +500,7 @@ bool RunBookmarks(BrowserWindowInterface* browser,
                           .Set("items", std::move(items))
                           .Set("folderId",
                                base::NumberToString(model->other_node()->id()))));
-  } else if (method == "bookmarks.edit") {
+  } else if (method == shell::method::kBookmarksEdit) {
     const BookmarkNode* node = NodeArg(model, args, "id");
     const std::string* title = args.FindString("title");
     const std::string* url = args.FindString("url");
@@ -519,7 +521,7 @@ bool RunBookmarks(BrowserWindowInterface* browser,
       model->SetURL(node, target, edit);
     }
     Reply(std::move(reply), base::Value());
-  } else if (method == "bookmarks.remove") {
+  } else if (method == shell::method::kBookmarksRemove) {
     const BookmarkNode* node = NodeArg(model, args, "id");
     if (!Editable(model, node)) {
       Fail(std::move(reply), "This bookmark cannot be removed");
@@ -527,7 +529,7 @@ bool RunBookmarks(BrowserWindowInterface* browser,
     }
     model->Remove(node, edit, FROM_HERE);
     Reply(std::move(reply), base::Value());
-  } else if (method == "bookmarks.export") {
+  } else if (method == shell::method::kBookmarksExport) {
     // Settings > General > Export bookmarks: the shell's save panel chose
     // the file; Chromium writes the bookmarks.html every browser imports.
     const std::string* path = args.FindString("path");
@@ -549,7 +551,7 @@ bool RunBookmarks(BrowserWindowInterface* browser,
                   }
                 },
                 std::move(reply))));
-  } else if (method == "bookmarks.createFolder") {
+  } else if (method == shell::method::kBookmarksCreateFolder) {
     const BookmarkNode* parent = NodeArg(model, args, "parentId");
     const std::string* title = args.FindString("title");
     if (!parent || !parent->is_folder() || parent == model->root_node() ||
@@ -560,7 +562,7 @@ bool RunBookmarks(BrowserWindowInterface* browser,
     model->AddFolder(parent, parent->children().size(),
                      base::UTF8ToUTF16(*title));
     Reply(std::move(reply), base::Value());
-  } else if (method == "bookmarks.move") {
+  } else if (method == shell::method::kBookmarksMove) {
     const BookmarkNode* node = NodeArg(model, args, "id");
     const BookmarkNode* parent = NodeArg(model, args, "parentId");
     const auto index = args.FindInt("index");
@@ -594,7 +596,7 @@ bool RunExtensions(BrowserWindowInterface* browser,
       contents ? extensions::ExtensionTabUtil::GetTabId(contents) : -1;
   auto* registry = extensions::ExtensionRegistry::Get(profile);
   auto* actions = extensions::ExtensionActionManager::Get(profile);
-  if (method == "extensions.list") {
+  if (method == shell::method::kExtensionsList) {
     List list = MerlinExtensionList(profile);
     for (auto& value : list) {
       Dict& item = value.GetDict();
@@ -607,7 +609,7 @@ bool RunExtensions(BrowserWindowInterface* browser,
                                                     : std::string());
     }
     Reply(std::move(reply), base::Value(std::move(list)));
-  } else if (method == "extensions.setEnabled") {
+  } else if (method == shell::method::kExtensionsSetEnabled) {
     const std::string* id = args.FindString("id");
     const auto enabled = args.FindBool("enabled");
     if (!id || !enabled) {
@@ -622,7 +624,7 @@ bool RunExtensions(BrowserWindowInterface* browser,
     } else {
       Fail(std::move(reply), error);
     }
-  } else if (method == "extensions.run") {
+  } else if (method == shell::method::kExtensionsRun) {
     const std::string* id = args.FindString("id");
     const auto* ext = id ? registry->enabled_extensions().GetByID(*id) : nullptr;
     auto* runner = contents
@@ -648,7 +650,7 @@ bool RunExtensions(BrowserWindowInterface* browser,
         break;
     }
     Reply(std::move(reply), base::Value());
-  } else if (method == "extensions.manage") {
+  } else if (method == shell::method::kExtensionsManage) {
     const std::string* id = args.FindString("id");
     GURL target(id && registry->GetInstalledExtension(*id)
                     ? "chrome://extensions/?id=" + *id
@@ -667,7 +669,7 @@ bool RunDownloads(BrowserWindowInterface* browser,
                   const std::string& method,
                   const Dict& args,
                   ShellServiceReply& reply) {
-  if (method != "downloads.list") {
+  if (method != shell::method::kDownloadsList) {
     return false;
   }
   // Every download the profile remembers, newest first. Window snapshots
