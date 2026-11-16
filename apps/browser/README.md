@@ -146,7 +146,10 @@ pnpm 10.28.2 and CocoaPods. The React shell requires macOS 14 or later.
    icons, URL handlers and permission descriptions, adds the React resources
    and Hermes, and replaces only the browser executable. It refuses to
    overwrite an existing output or silently replace colliding resources.
-   Neither input app is modified.
+   Neither input app is modified. `Contents/Resources/merlin-shell-build.json`
+   records the source commit and any uncommitted product changes; the e2e
+   runner refuses an app whose record differs from its checkout
+   ([tests/e2e/README.md](../../tests/e2e/README.md)).
 4. Package the assembled app through the existing ad-hoc signing workflow:
 
    ```sh

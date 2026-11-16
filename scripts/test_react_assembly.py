@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from assemble_react_app import assemble
+from source_state import mismatch, source_state
 
 
 class AssemblyTest(unittest.TestCase):
@@ -42,6 +43,17 @@ class AssemblyTest(unittest.TestCase):
         symbols = patch('assemble_react_app.require_symbols')
         symbols.start()
         self.addCleanup(symbols.stop)
+        state = patch('assemble_react_app.source_state',
+                      return_value={'sourceCommit': 'c' * 40, 'sourceChanges': None})
+        state.start()
+        self.addCleanup(state.stop)
+
+    def test_manifest_records_the_source_commit(self):
+        import json
+        assemble(self.engine, self.shell, self.output)
+        manifest = json.loads((self.output / 'Contents/Resources/merlin-shell-build.json').read_text())
+        self.assertEqual(manifest['sourceCommit'], 'c' * 40)
+        self.assertIsNone(manifest['sourceChanges'])
 
     def test_assembly_preserves_identity_helpers_and_sources(self):
         assemble(self.engine, self.shell, self.output)
@@ -132,6 +144,54 @@ class AssemblyTest(unittest.TestCase):
             self.assertFalse(self.output.exists())
             assemble(self.engine, self.shell, self.output, allow_stale=True)
             self.assertTrue(self.output.exists())
+
+
+class SourceStateTest(unittest.TestCase):
+    """The record e2e runs compare: commit plus a digest of uncommitted product changes."""
+
+    def setUp(self):
+        import subprocess
+        temp = tempfile.TemporaryDirectory(prefix='merlin-source-state-')
+        self.addCleanup(temp.cleanup)
+        self.repo = Path(temp.name)
+        self.git = lambda *args: subprocess.run(['git', '-C', str(self.repo), *args], check=True,
+                                                capture_output=True, text=True).stdout.strip()
+        self.git('init', '-q')
+        (self.repo / 'overlay').mkdir()
+        (self.repo / 'overlay/engine.cc').write_text('one')
+        (self.repo / 'tests').mkdir()
+        (self.repo / 'tests/test_x.py').write_text('test')
+        self.git('add', '.')
+        self.git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'start')
+
+    def test_clean_checkout_matches_itself(self):
+        state = source_state(self.repo)
+        self.assertEqual(state, {'sourceCommit': self.git('rev-parse', 'HEAD'), 'sourceChanges': None})
+        self.assertIsNone(mismatch(dict(state), state))
+
+    def test_changes_outside_product_sources_do_not_count(self):
+        clean = source_state(self.repo)
+        (self.repo / 'tests/test_x.py').write_text('edited test')
+        (self.repo / 'notes.md').write_text('untracked note')
+        self.assertEqual(source_state(self.repo), clean)
+
+    def test_uncommitted_product_changes_are_digested(self):
+        clean = source_state(self.repo)
+        (self.repo / 'overlay/engine.cc').write_text('two')
+        edited = source_state(self.repo)
+        self.assertIsNotNone(edited['sourceChanges'])
+        self.assertIn('assembled without', mismatch(clean, edited))
+        self.assertIn('no longer has', mismatch(edited, clean))
+        self.assertIsNone(mismatch(edited, source_state(self.repo)))
+        (self.repo / 'overlay/new.cc').write_text('untracked')
+        self.assertIn('differ', mismatch(edited, source_state(self.repo)))
+
+    def test_other_commit_and_missing_records_are_refused(self):
+        state = source_state(self.repo)
+        self.assertIn('no assembly manifest', mismatch(None, state))
+        self.assertIn('records no source commit', mismatch({'abi': 1}, state))
+        self.assertIn('assembled from commit 0000000000', mismatch(
+            {'sourceCommit': '0' * 40, 'sourceChanges': None}, state))
 
 
 if __name__ == '__main__':

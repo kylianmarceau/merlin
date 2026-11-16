@@ -391,7 +391,9 @@ Chromium is checked out to `~/chromium` by default; set `CHROMIUM_DIR` for
 another path (without spaces). The engine on its own (`out/Release/Merlin.app`)
 opens Chromium's windows without Merlin's interface or keys, so always run
 the assembled app. Assembly refuses inputs older than their sources and an
-output that already exists. Packaging a release is covered in
+output that already exists, and records the commit it was assembled from,
+which the end-to-end tests (`scripts/run_e2e_tests.sh`) check before testing
+it. Packaging a release is covered in
 [docs/RELEASE.md](docs/RELEASE.md), and the interface's architecture and
 Metro development setup in [apps/browser/README.md](apps/browser/README.md).
 
