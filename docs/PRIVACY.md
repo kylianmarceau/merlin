@@ -147,4 +147,5 @@ Written only by explicit yank commands; read only by `p`/`P`.
 
 Replies to same-user processes with tab titles and URLs of normal windows,
 the active tab, the selection in it (`browserctl selection`), and command
-results. Off with `browserctl = false`.
+results. Off with Settings › General › Allow browserctl, which writes
+`browserctl = false` to the config file; the socket closes at once.

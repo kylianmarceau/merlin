@@ -135,7 +135,8 @@
     "booleanOption": [
       "modal_browsing",
       "auto_insert",
-      "smooth_scroll"
+      "smooth_scroll",
+      "browserctl"
     ],
     "stringOption": [
       "hint_chars"

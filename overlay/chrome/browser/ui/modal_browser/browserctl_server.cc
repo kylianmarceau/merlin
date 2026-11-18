@@ -55,7 +55,8 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
         }
         policy {
           cookies_allowed: NO
-          setting: "Set browserctl = false in config.toml."
+          setting: "Settings > General > Allow browserctl, or "
+                   "browserctl = false in config.toml."
           policy_exception_justification: "Local socket, not network traffic."
         })");
 

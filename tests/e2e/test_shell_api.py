@@ -149,5 +149,32 @@ class ShellApiRefusedTest(MerlinTestCase):
         self.assertTrue(self.browser.browserctl("ping").get("ok"))
 
 
+class BrowserctlSwitchTest(MerlinTestCase):
+    """Settings › General › Allow browserctl (7.8): it writes `browserctl` with settings.setOption."""
+
+    def test_the_switch_closes_the_socket_and_the_config_reopens_it(self):
+        snapshot = self.browser.shell_call("window.snapshot")["result"]
+        self.assertIs(snapshot["modal"]["browserctl"], True)
+        # The switch's call, as GeneralPane sends it.
+        reply = self.browser.shell_call("settings.setOption", {"name": "browserctl", "value": False})
+        self.assertEqual((reply.get("ok"), reply.get("result")), (True, ""), reply)
+        self.assertIn("browserctl = false", self.browser.config_file.read_text())
+
+        def refused() -> bool:
+            try:
+                self.browser.browserctl("ping")
+            except OSError:
+                return True
+            return False
+
+        self.wait(refused, "the browserctl socket to close")
+        # Only Settings turns it on again from here: browserctl can't reach
+        # the shell any more, so set the file and start Merlin again.
+        text = self.browser.config_file.read_text()
+        self.browser.config_file.write_text(text.replace("browserctl = false", "browserctl = true"))
+        self.browser.restart()
+        self.assertIs(self.browser.shell_call("window.snapshot")["result"]["modal"]["browserctl"], True)
+
+
 if __name__ == "__main__":
     unittest.main()

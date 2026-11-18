@@ -2589,6 +2589,8 @@ base::DictValue ModalBrowserController::ShellModalState() const {
   }
   return base::DictValue()
       .Set("modalBrowsing", router_.modal_browsing())
+      // Config `browserctl`, for its switch in Settings › General.
+      .Set("browserctl", router_.browserctl_enabled())
       .Set("mode", mode < std::size(kModes) ? kModes[mode] : "Normal")
       .Set("pending", base::UTF16ToUTF8(status_.pending))
       .Set("message", base::UTF16ToUTF8(status_.message))

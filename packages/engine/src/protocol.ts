@@ -118,6 +118,8 @@ export type Snapshot = {
   modal: {
     /** Config `modal_browsing`; off, every key goes to the page. */
     modalBrowsing?: boolean;
+    /** Config `browserctl`: local programs may drive non-private windows over its socket. */
+    browserctl?: boolean;
     mode: string; pending: string; message: string; messageIsError?: boolean; sidebarHidden?: boolean;
     tabLayout?: 'sidebar' | 'top'; whichKey?: WhichKey[]; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string;
   };
@@ -378,6 +380,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
   if (s.fullscreen !== undefined && typeof s.fullscreen !== 'boolean') throw new Error('Invalid fullscreen state');
   if (s.modal.sidebarHidden !== undefined && typeof s.modal.sidebarHidden !== 'boolean') throw new Error('Invalid sidebar state');
   if (s.modal.modalBrowsing !== undefined && typeof s.modal.modalBrowsing !== 'boolean') throw new Error('Invalid modal browsing state');
+  if (s.modal.browserctl !== undefined && typeof s.modal.browserctl !== 'boolean') throw new Error('Invalid browserctl state');
   if (s.modal.messageIsError !== undefined && typeof s.modal.messageIsError !== 'boolean') throw new Error('Invalid message state');
   if (s.modal.tabLayout !== undefined && s.modal.tabLayout !== 'sidebar' && s.modal.tabLayout !== 'top') throw new Error('Invalid tab layout');
   if (s.modal.whichKey !== undefined && (!Array.isArray(s.modal.whichKey) || s.modal.whichKey.some(k =>

@@ -228,7 +228,8 @@ namespace boolean_option {
 inline constexpr char kModalBrowsing[] = "modal_browsing";
 inline constexpr char kAutoInsert[] = "auto_insert";
 inline constexpr char kSmoothScroll[] = "smooth_scroll";
-inline constexpr std::array<std::string_view, 3> kAll = {kModalBrowsing, kAutoInsert, kSmoothScroll};
+inline constexpr char kBrowserctl[] = "browserctl";
+inline constexpr std::array<std::string_view, 4> kAll = {kModalBrowsing, kAutoInsert, kSmoothScroll, kBrowserctl};
 }  // namespace boolean_option
 
 namespace string_option {

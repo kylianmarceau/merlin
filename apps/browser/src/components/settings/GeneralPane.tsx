@@ -7,7 +7,7 @@ import { exportStatus } from '../../state/bookmarkExport';
 import { exportBookmarks, useDefaultBrowser, useLoginItem, type ExportOutcome } from '../../state/system';
 import type { Preferences, PreferenceKey } from '../../state/types';
 import { checkForUpdates, useUpdates } from '../../state/updates';
-import { useAction, useActions } from '../../state/window';
+import { useAction, useActions, useSnapshot } from '../../state/window';
 import { Button, FormGroup, FormRow, Icon, ListRow, Notice, PopUp, Segmented, Spinner, Text, Toggle, space } from '../ui';
 
 type Set = (key: PreferenceKey, value: unknown) => void;
@@ -84,6 +84,8 @@ export function GeneralPane({ p, set, openPage, onChooseDownloadDir }: {
     <ImportExport openPage={openPage} />
 
     <ProtectedVideo />
+
+    <Browserctl />
 
     <FormGroup title="More">
       {([['languages', 'Languages'], ['fonts', 'Fonts'], ['accessibility', 'Accessibility'], ['system', 'System'],
@@ -167,5 +169,27 @@ function ProtectedVideo() {
       <Toggle label="Open protected video sites in WebKit" value={on} onChange={v => void setProtectedVideoInWebKit(v)} /></FormRow>
     <FormRow title="Sites you moved" detail={moved ? `${moved} site${moved === 1 ? '' : 's'} open in the engine you chose from the tab menu.` : 'Right-click a tab to open its site in the other engine.'}>
       <Button label="Forget" disabled={!moved} onPress={() => void forgetSiteEngines()} /></FormRow>
+  </FormGroup>;
+}
+
+/**
+ * The browserctl socket on or off. Like modal browsing, the value lives in
+ * the config file (`browserctl`), so Settings writes it there; every window
+ * rereads it, and the socket opens or closes at once.
+ */
+function Browserctl() {
+  const on = useSnapshot().modal.browserctl ?? true;
+  const action = useAction();
+  const [error, setError] = useState('');
+  return <FormGroup title="Command line">
+    <FormRow title="Allow browserctl"
+      detail="Programs on this Mac running as you can list your tabs, read the selected text and run commands in Merlin. Private windows are never visible to them.">
+      <Toggle label="Allow browserctl" value={on} disabled={action.busy} onChange={async value => {
+        setError('');
+        const result = await action.run('settings.setOption', { name: 'browserctl', value });
+        if (result.ok && result.value) setError(result.value);
+      }} />
+    </FormRow>
+    {(error || action.error) && <Notice tone="error">{error || action.error}</Notice>}
   </FormGroup>;
 }
