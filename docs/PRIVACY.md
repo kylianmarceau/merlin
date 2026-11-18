@@ -130,9 +130,11 @@ The modal layer's scripts run in Chrome's isolated world and return:
 
 * for the toolbar's colour: a 20-point band across the top of the visible
   page, read from the compositor and scaled down to 64 by 8 pixels, reduced
-  to one colour (or none, for an image or a busy header) in memory and kept
-  for that page. Navigation invalidates it. No page script runs and nothing
-  is written or sent.
+  to one colour (or none, for an image or a busy header) in memory. It is
+  read again when a page finishes loading and every 1.2 seconds while the
+  tab is visible, so the toolbar follows pages that change colour as they
+  scroll or switch theme; navigation clears it. No page script runs and
+  nothing is written or sent.
 
 * for recording/sharing controls: Chromium's current camera, microphone and
   capture state and the capturing tabs' top-level origins, used for the current

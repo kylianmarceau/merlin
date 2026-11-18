@@ -162,7 +162,8 @@ records a macro and `@a` replays it. Counts work too, as in `5j`.
 Neovim or a script. See [browserctl](#browserctl).
 
 **Looks.** **Settings › Appearance** has a workspace colour, Glass (Liquid
-Glass on macOS 26) or Classic surfaces, the address bar in the sidebar or the
+Glass, on macOS 26) or Classic surfaces (macOS 14 and 15 always draw
+Classic panels, over a translucent window), the address bar in the sidebar or the
 toolbar, toolbars that take the site's colour, a bookmarks bar, a frame
 around the page and nine painted app icons. Merlin follows macOS's light and
 dark mode and Reduce Motion.
