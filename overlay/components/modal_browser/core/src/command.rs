@@ -933,7 +933,7 @@ const ADBLOCK_USAGE: &str = ":adblock [on|off|site toggle|status|update]";
 /// have no command of their own. Merlin's menu (`:palette menu`) lists
 /// them; the `download-*` ones take a download id and back the downloads
 /// palette.
-pub const BROWSER_COMMANDS: [(&str, &str); 17] = [
+pub const BROWSER_COMMANDS: [(&str, &str); 18] = [
     ("print", "print the page"),
     ("save-page", "save the page as a file"),
     ("zoom-in", "make the page larger"),
@@ -945,6 +945,7 @@ pub const BROWSER_COMMANDS: [(&str, &str); 17] = [
     ("passwords", "open saved passwords"),
     ("cast", "cast this tab to a screen"),
     ("view-source", "show the page's source"),
+    ("close-window", "close this window"),
     ("quit", "quit Merlin"),
     ("download-open", "open a downloaded file"),
     ("download-show", "show a download in Finder"),

@@ -1378,8 +1378,8 @@ void ModalBrowserController::NewWindow(bool private_window) {
                                                   : IDC_NEW_WINDOW);
 }
 
-void ModalBrowserController::SnapshotWorkspace(std::string_view name,
-                                               bool quiet) {
+ModalBrowserController::WorkspaceCapture
+ModalBrowserController::CaptureWorkspace() {
   TabStripModel* strip = browser_->GetTabStripModel();
   ::rust::Vec<ffi::WindowTab> tabs;
   std::map<split_tabs::SplitTabId, int32_t> split_numbers;
@@ -1440,8 +1440,14 @@ void ModalBrowserController::SnapshotWorkspace(std::string_view name,
     window = ffi::WindowState{bounds.x(), bounds.y(), bounds.width(),
                               bounds.height(), base_window->IsMaximized()};
   }
-  router_.OnWorkspaceSnapshot(name, quiet, std::move(tabs), window,
-                              NowSeconds(), *this);
+  return WorkspaceCapture{std::move(tabs), window};
+}
+
+void ModalBrowserController::SnapshotWorkspace(std::string_view name,
+                                               bool quiet) {
+  WorkspaceCapture capture = CaptureWorkspace();
+  router_.OnWorkspaceSnapshot(name, quiet, std::move(capture.tabs),
+                              capture.window, NowSeconds(), *this);
 }
 
 void ModalBrowserController::WriteWorkspace(std::string_view name,
@@ -1496,6 +1502,7 @@ void ModalBrowserController::ReleaseWorkspaceInOtherWindows() {
   }
   while (ModalBrowserController* other = WindowWithWorkspace(name)) {
     other->autosave_timer_.Stop();
+    other->autosave_capture_.reset();
     other->router_.SetWorkspace("", "");
   }
 }
@@ -1982,6 +1989,7 @@ void ModalBrowserController::RunBrowserCommand(std::string_view name,
       {"passwords", IDC_SHOW_PASSWORD_MANAGER},
       {"cast", IDC_ROUTE_MEDIA},
       {"view-source", IDC_VIEW_SOURCE},
+      {"close-window", IDC_CLOSE_WINDOW},
       {"quit", IDC_EXIT},
   };
   for (const auto& [command, id] : kCommands) {
@@ -2732,27 +2740,78 @@ void ModalBrowserController::OnTabChangedAt(tabs::TabInterface* tab,
   }
 }
 
+void ModalBrowserController::TabGroupedStateChanged(
+    TabStripModel* tab_strip_model,
+    std::optional<tab_groups::TabGroupId> old_group,
+    std::optional<tab_groups::TabGroupId> new_group,
+    tabs::TabInterface* tab,
+    int index) {
+  ScheduleAutosave();
+}
+
+void ModalBrowserController::OnTabGroupChanged(const TabGroupChange& change) {
+  ScheduleAutosave();  // created, renamed, recoloured, collapsed or closed
+}
+
+void ModalBrowserController::OnTabPinnedStateChanged(tabs::TabInterface* tab,
+                                                     int index) {
+  ScheduleAutosave();
+}
+
+void ModalBrowserController::OnSplitTabChanged(const SplitTabChange& change) {
+  ScheduleAutosave();  // made, undone, re-laid out or resized
+}
+
+void ModalBrowserController::OnWindowBoundsChanged() {
+  ScheduleAutosave();
+}
+
+void ModalBrowserController::WillCloseAllTabs(TabStripModel* tab_strip_model) {
+  // The window is going: a change made within the autosave delay is still
+  // written, from before its tabs began closing.
+  FlushAutosave();
+}
+
 void ModalBrowserController::ScheduleAutosave() {
   if (router_.autosave_workspace().empty()) {
     return;
   }
   // A closing window closes its tabs one by one: those are not changes to
-  // keep. Save what the window held before.
+  // keep. Save what the window held before, if a save was still due.
   if (WindowClosing()) {
-    autosave_timer_.Stop();
+    FlushAutosave();
     return;
   }
+  autosave_capture_ = CaptureWorkspace();
   // Restarting the timer batches a burst of changes into one write.
   autosave_timer_.Start(
       FROM_HERE, kAutosaveDelay,
       base::BindOnce(
           [](ModalBrowserController* self) {
+            self->autosave_capture_.reset();
             const std::string name = self->router_.autosave_workspace();
             if (!name.empty() && !self->WindowClosing()) {
               self->SnapshotWorkspace(name, /*quiet=*/true);
             }
           },
           base::Unretained(this)));
+}
+
+void ModalBrowserController::FlushAutosave() {
+  if (!autosave_timer_.IsRunning()) {
+    return;
+  }
+  autosave_timer_.Stop();
+  std::optional<WorkspaceCapture> capture = std::move(autosave_capture_);
+  autosave_capture_.reset();
+  const std::string name = router_.autosave_workspace();
+  if (!capture || name.empty() || capture->tabs.empty()) {
+    return;
+  }
+  // The write runs on the workspace store's BLOCK_SHUTDOWN sequence, so it
+  // finishes even when the app is quitting.
+  router_.OnWorkspaceSnapshot(name, /*quiet=*/true, std::move(capture->tabs),
+                              capture->window, NowSeconds(), *this);
 }
 
 void ModalBrowserController::OnActiveTabChanged() {
