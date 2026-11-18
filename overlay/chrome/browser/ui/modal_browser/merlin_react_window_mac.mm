@@ -648,7 +648,10 @@ class ReactBrowserWindow final : public BrowserWindow,
   void NotifyPositionRequiresUpdate() override { modal_observers_.Notify(&web_modal::ModalDialogHostObserver::OnPositionRequiresUpdate); }
   void AddObserver(web_modal::ModalDialogHostObserver* observer) override { modal_observers_.AddObserver(observer); }
   void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override { modal_observers_.RemoveObserver(observer); }
-  void OnWidgetBoundsChanged(views::Widget*, const gfx::Rect&) override { NotifyPositionRequiresUpdate(); }
+  void OnWidgetBoundsChanged(views::Widget*, const gfx::Rect&) override {
+    NotifyPositionRequiresUpdate();
+    if (auto* controller = ModalBrowserController::From(browser_)) controller->OnWindowBoundsChanged();
+  }
   void OnWidgetActivationChanged(views::Widget*, bool active) override {
     auto* manager = BrowserActiveStateManager::From(browser_);
     if (active) manager->DidBecomeActive(); else manager->DidBecomeInactive();

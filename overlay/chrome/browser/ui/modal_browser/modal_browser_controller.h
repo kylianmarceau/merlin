@@ -199,12 +199,26 @@ class ModalBrowserController : public BrowserOps,
   void OnPaletteKey(ffi::PaletteKey key);
   void OnPaletteRowClicked(int index);
 
+  // The window moved or changed size; its workspace keeps where it is.
+  void OnWindowBoundsChanged();
+
   // TabStripModelObserver:
   void OnTabStripModelChanged(TabStripModel* tab_strip_model,
                               const TabStripModelChange& change,
                               const TabStripSelectionChange& selection) override;
   void OnTabChangedAt(tabs::TabInterface* tab,
                       TabChangeType change_type) override;
+  // Changes a workspace keeps that move no tab: groups made, renamed,
+  // recoloured or collapsed, pins and splits.
+  void TabGroupedStateChanged(TabStripModel* tab_strip_model,
+                              std::optional<tab_groups::TabGroupId> old_group,
+                              std::optional<tab_groups::TabGroupId> new_group,
+                              tabs::TabInterface* tab,
+                              int index) override;
+  void OnTabGroupChanged(const TabGroupChange& change) override;
+  void OnTabPinnedStateChanged(tabs::TabInterface* tab, int index) override;
+  void OnSplitTabChanged(const SplitTabChange& change) override;
+  void WillCloseAllTabs(TabStripModel* tab_strip_model) override;
 
   // content::WebContentsObserver:
   void OnFocusChangedInPage(const content::FocusedNodeDetails& details) override;
@@ -266,6 +280,15 @@ class ModalBrowserController : public BrowserOps,
   void OnFieldEditDone(uint64_t generation, std::string error);
   void CancelFieldEdit();
   void ScheduleAutosave();
+  // What a workspace save of this window would record now.
+  struct WorkspaceCapture {
+    ::rust::Vec<ffi::WindowTab> tabs;
+    ffi::WindowState window{0, 0, 0, 0, false};
+  };
+  WorkspaceCapture CaptureWorkspace();
+  // Writes a pending autosave now, from the last capture taken before the
+  // window began closing its tabs.
+  void FlushAutosave();
   void ApplyConfigToBrowser();
   void FocusTabNumber(uint32_t number, std::string* error);
   void ReadSelection(base::OnceCallback<void(std::string)> reply);
@@ -341,6 +364,9 @@ class ModalBrowserController : public BrowserOps,
   std::map<int, std::unique_ptr<ExternalEditor>> exports_;
   int next_export_ = 0;
   base::OneShotTimer autosave_timer_;
+  // The window as the pending autosave will save it, taken at each change
+  // while the window is open. Closing tabs one by one never updates it.
+  std::optional<WorkspaceCapture> autosave_capture_;
   base::CancelableTaskTracker history_tracker_;
   // Registers this object on the window so From() can find it. Declared
   // after everything it may call into, so it unregisters first.

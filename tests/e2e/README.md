@@ -107,7 +107,7 @@ fixture page (`MerlinTestCase.reset`).
 | `test_hints` | `f` follows, `F` opens in the background, a field hint enters Insert, `gi`, Esc cancels, hints in same-site and cross-site frames |
 | `test_tabs` | `t`, `d`/`u`, `J`/`K`, `gp`, `:vsplit` with both halves visible, `<C-w>w`, `<C-w>o`, background tabs hidden |
 | `test_config` | Bindings, `[unmap]`, `scroll_step`, a bad line keeps the rest, aliases, `passthrough_sites`, `modal_browsing = false` |
-| `test_workspaces` | browserctl `ping`, `open`, `tabs`, `focus`, `current`, `selection`, `command`, refusals, socket permissions; workspace save and restore with pins and splits, `list`, `here` |
+| `test_workspaces` | browserctl `ping`, `open`, `tabs`, `focus`, `current`, `selection`, `command`, refusals, socket permissions; workspace save and restore with pins and splits, `list`, `here`; autosave after a group is made, renamed, recoloured, collapsed or ungrouped, a pin or unpin, a split undone, and a window closed (`:browser close-window`) 0.5 s after a change, then reopened |
 | `test_editor` | `:edit` writes back with an ordinary input event, the editor receives the field's text, password fields never leave the browser |
 | `test_adblock` | Ad requests blocked before the network, generic cosmetic filters, per-site toggle |
 | `test_groups` | `:group` starts a named group and joins one by name, `:ungroup`, pinned tabs stay out (browserctl `tabs` reports each tab's group) |
