@@ -743,7 +743,7 @@ class Merlin:
     """One Merlin instance with isolated state."""
 
     def __init__(self, server: PageServer, extra_args: Optional[list[str]] = None,
-                 shell_api: bool = True) -> None:
+                 shell_api: bool = True, local_state: Optional[dict] = None) -> None:
         self.server = server
         self.app = app_path()
         self.dir = Path(tempfile.mkdtemp(prefix="merlin-e2e-"))
@@ -765,6 +765,9 @@ class Merlin:
                          "directory_upgrade": True},
             "savefile": {"default_directory": str(self.downloads)},
         }))
+        # Browser-wide preferences a test class starts with (MerlinTestCase.local_state).
+        if local_state:
+            (self.profile / "Local State").write_text(json.dumps(local_state))
         args = [
             f"--user-data-dir={self.profile}",
             "--remote-debugging-port=0",
@@ -1054,12 +1057,13 @@ class MerlinTestCase(unittest.TestCase):
     server: PageServer
     extra_args: list[str] = []
     shell_api = True
+    local_state: dict = {}
 
     @classmethod
     def setUpClass(cls) -> None:
         cls.server = PageServer()
         try:
-            cls.browser = Merlin(cls.server, cls.extra_args, cls.shell_api)
+            cls.browser = Merlin(cls.server, cls.extra_args, cls.shell_api, cls.local_state)
         except BaseException:
             cls.server.close()
             raise
