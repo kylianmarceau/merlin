@@ -175,16 +175,21 @@ function ConfigEditor({ onSaved }: { onSaved(): void }) {
   const action = useAction();
   const [text, setText] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
-  useEffect(() => { if (file.data && text === null) setText(file.data.text); }, [file.data, text]);
+  useEffect(() => { if (file.data && !file.loading && text === null) setText(file.data.text); }, [file.data, file.loading, text]);
   const dirty = text !== null && file.data !== null && text !== file.data.text;
   return <>
     <SectionHeader title="Config File" detail={file.data ? file.data.path : 'Merlin reads keys, commands and options from this file.'}>
-      <Button label="Revert" disabled={!dirty || action.busy} onPress={() => { setText(file.data?.text ?? ''); setResult(null); }} />
-      <Button label="Save and Reload" variant="primary" disabled={!dirty || action.busy} onPress={async () => {
-        const saved = await action.run('settings.saveConfig', { text: text ?? '' });
+      {/* Reads the file again: it may have changed since it was opened here. */}
+      <Button label="Revert" disabled={!dirty || action.busy} onPress={() => { setText(null); setResult(null); file.reload(); }} />
+      <Button label="Save and Reload" variant="primary" disabled={!dirty || action.busy || file.loading} onPress={async () => {
+        // The save names the version it was edited from, and is refused if the file changed since.
+        const saved = await action.run('settings.saveConfig', { text: text ?? '', revision: file.data?.revision ?? '' });
         if (!saved.ok) return;  // shown as action.error
-        setResult(saved.value);
-        if (!saved.value) { file.set({ ...file.data!, text: text ?? '', found: true, error: '' }); onSaved(); }
+        setResult(saved.value.error);
+        if (!saved.value.error) {
+          file.set({ ...file.data!, text: text ?? '', found: true, error: '', revision: saved.value.revision });
+          onSaved();
+        }
       }} />
     </SectionHeader>
     <Box gap="md">

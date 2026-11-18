@@ -89,6 +89,13 @@ fixture page (`MerlinTestCase.reset`).
   which the harness passes (a class sets `shell_api = False` to leave it
   out); a person's browser refuses it. Such an instance also leaves the
   system clipboard alone: yanks and copies say what they would copy.
+- **Late answers.** Merlin asks pages things asynchronously (where a hint's
+  target is, the scroll position for a mark) and must drop an answer that
+  arrives after the page it describes stopped being the one shown.
+  `browser.keep_page_busy(seconds)` blocks the active page's renderer, so
+  Merlin's script there answers only afterwards, and `later(seconds, action)`
+  does something else meanwhile (switch tabs through browserctl) on another
+  thread, while the key press waits on the busy page.
 
 ## Limits
 
@@ -108,8 +115,8 @@ fixture page (`MerlinTestCase.reset`).
 
 | Module | Covers |
 |---|---|
-| `test_keys` | Typing in fields and rich editors is never a command; Esc; counts and sequences; unbound keys reach the page; Insert and Passthrough; inner scroll panels; `H`/`L`; `gu`; `]]`/`[[`; marks; macros |
-| `test_hints` | `f` follows, `F` opens in the background, a field hint enters Insert, `gi`, Esc cancels, hints in same-site and cross-site frames |
+| `test_keys` | Typing in fields and rich editors is never a command; Esc; counts and sequences; unbound keys reach the page; Insert and Passthrough; inner scroll panels; `H`/`L`; `gu`; `]]`/`[[`; marks, and a mark whose page answers after a tab switch keeps that page's address; macros |
+| `test_hints` | `f` follows, `F` opens in the background, a field hint enters Insert, `gi`, Esc cancels, hints in same-site and cross-site frames; an `F` answered after a tab switch opens nothing |
 | `test_tabs` | `t`, `d`/`u`, `J`/`K`, `gp`, `:vsplit` with both halves visible, `<C-w>w`, `<C-w>o`, background tabs hidden |
 | `test_config` | Bindings, `[unmap]`, `scroll_step`, a bad line keeps the rest, aliases, `passthrough_sites`, `modal_browsing = false` |
 | `test_workspaces` | browserctl `ping`, `open`, `tabs`, `focus`, `current`, `selection`, `command`, refusals, socket permissions; workspace save and restore with pins and splits, `list`, `here`; autosave after a group is made, renamed, recoloured, collapsed or ungrouped, a pin or unpin, a split undone, and a window closed (`:browser close-window`) 0.5 s after a change, then reopened |
@@ -118,7 +125,7 @@ fixture page (`MerlinTestCase.reset`).
 | `test_groups` | `:group` starts a named group and joins one by name, `:ungroup`, pinned tabs stay out (browserctl `tabs` reports each tab's group) |
 | `test_peek` | `:peek` and `gf` open a floating page without a tab; Esc closes it, Cmd-Return keeps it as the next tab, a tab switch closes it |
 | `test_auto_pip` | Opt-in (`MERLIN_E2E_PIP=1`). A video playing with sound floats when its tab is left and returns with it; a paused one stays |
-| `test_shell_api` | The shell's bridge through `shell-call`: calls and their errors, requests answered by their reply (bookmark folder and export, an export that fails), downloads listed; refused without the test switch |
+| `test_shell_api` | The shell's bridge through `shell-call`: calls and their errors, requests answered by their reply (bookmark folder and export, an export that fails), downloads listed; a suggestion opens only while Chromium's list still has that row's address at its index, and only for the latest query; three options set at once all land in `config.toml`, and a whole-file save from an older revision is refused; refused without the test switch |
 | `test_address` | The address and security the snapshot gives the address field, from Chromium's formatter and security state: user names dropped (`accounts.google.com@evil.test`), ports kept, lookalike hosts left in punycode, international and right-to-left hosts, IPv6, long hosts; `insecure` for http, `internal` for Merlin's pages, and `dangerous` for an expired certificate before and after proceeding past its warning, in the site panel too (`fixtures/expired.test.*`, a throwaway certificate that expired in 2024) |
 | `test_site_panel` | The site panel's ad-blocking line and button from the blocker's real state: on, off everywhere (no site toggle, a way to Settings), off for the site, and still loading (`--merlin-test-adblock-hold`, test-only: rules never load and pages load unblocked); its answer toggles the site it was opened for and reloads only that tab, only while it shows the same page, after a tab switch or a navigation |
 | `test_downloads` | Every download action the shell sends, on downloads the fixture server holds in each state: pause and resume (also by `:browser download-pause`), cancel, retry after the connection drops, forget, and the refusals of each. Opening and showing a file put windows in front, so they run only with `MERLIN_E2E_DESKTOP=1` |

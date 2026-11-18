@@ -10,11 +10,14 @@
 #include "base/environment.h"
 #include "base/files/file_util.h"
 #include "base/files/important_file_writer.h"
+#include "base/hash/sha1.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 
 namespace modal_browser::config_file {
@@ -26,7 +29,64 @@ std::optional<base::FilePath>& TestPath() {
   return *path;
 }
 
+scoped_refptr<base::SequencedTaskRunner>& FileSequenceSlot() {
+  static base::NoDestructor<scoped_refptr<base::SequencedTaskRunner>> runner;
+  return *runner;
+}
+
+// The one sequence every read and write of the file runs on, in order.
+// Writes block shutdown so a saved change is never lost. Used from the UI
+// thread only.
+scoped_refptr<base::SequencedTaskRunner> FileSequence() {
+  scoped_refptr<base::SequencedTaskRunner>& runner = FileSequenceSlot();
+  if (!runner) {
+    runner = base::ThreadPool::CreateSequencedTaskRunner(
+        {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+         base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
+  }
+  return runner;
+}
+
+WriteResult Written(const base::FilePath& path, const std::string& text) {
+  WriteResult result;
+  result.error = WriteBlocking(path, text);
+  if (result.error.empty()) {
+    result.revision = Revision(true, text);
+  }
+  return result;
+}
+
+WriteResult WriteIfUnchangedBlocking(const base::FilePath& path,
+                                     const std::string& text,
+                                     const std::string& base_revision) {
+  ReadResult current = ReadBlocking(path);
+  if (!current.error.empty()) {
+    return WriteResult{current.error, std::string()};
+  }
+  if (current.revision != base_revision) {
+    return WriteResult{kChangedError, std::string()};
+  }
+  return Written(path, text);
+}
+
+WriteResult UpdateBlocking(
+    const base::FilePath& path,
+    base::OnceCallback<std::string(const std::string&)> change) {
+  ReadResult current = ReadBlocking(path);
+  if (!current.error.empty()) {
+    return WriteResult{current.error, std::string()};
+  }
+  return Written(path, std::move(change).Run(current.text));
+}
+
 }  // namespace
+
+std::string Revision(bool found, std::string_view text) {
+  if (!found) {
+    return "none";
+  }
+  return base::HexEncodeLower(base::SHA1Hash(base::as_byte_span(text)));
+}
 
 base::FilePath ConfigPath() {
   if (TestPath()) {
@@ -45,11 +105,15 @@ base::FilePath ConfigPath() {
 
 void SetConfigPathForTesting(const base::FilePath& path) {
   TestPath() = path;
+  // A test's thread pool is its own; the next read or write makes a
+  // sequence in it.
+  FileSequenceSlot() = nullptr;
 }
 
 ReadResult ReadBlocking(const base::FilePath& path) {
   ReadResult result;
   if (!base::PathExists(path)) {
+    result.revision = Revision(false, std::string_view());
     return result;
   }
   result.found = true;
@@ -63,16 +127,15 @@ ReadResult ReadBlocking(const base::FilePath& path) {
   if (!base::IsStringUTF8(result.text)) {
     result.text.clear();
     result.error = "the file is not valid UTF-8";
+    return result;
   }
+  result.revision = Revision(true, result.text);
   return result;
 }
 
 void Read(base::OnceCallback<void(ReadResult)> reply) {
-  base::ThreadPool::PostTaskAndReplyWithResult(
-      FROM_HERE,
-      {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-       base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::BindOnce(&ReadBlocking, ConfigPath()), std::move(reply));
+  FileSequence()->PostTaskAndReplyWithResult(
+      FROM_HERE, base::BindOnce(&ReadBlocking, ConfigPath()), std::move(reply));
 }
 
 std::string WriteBlocking(const base::FilePath& path, const std::string& text) {
@@ -91,12 +154,20 @@ std::string WriteBlocking(const base::FilePath& path, const std::string& text) {
   return std::string();
 }
 
-void Write(std::string text, base::OnceCallback<void(std::string)> reply) {
-  base::ThreadPool::PostTaskAndReplyWithResult(
+void WriteIfUnchanged(std::string text,
+                      std::string base_revision,
+                      base::OnceCallback<void(WriteResult)> reply) {
+  FileSequence()->PostTaskAndReplyWithResult(
       FROM_HERE,
-      {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
-       base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
-      base::BindOnce(&WriteBlocking, ConfigPath(), std::move(text)),
+      base::BindOnce(&WriteIfUnchangedBlocking, ConfigPath(), std::move(text),
+                     std::move(base_revision)),
+      std::move(reply));
+}
+
+void Update(base::OnceCallback<std::string(const std::string&)> change,
+            base::OnceCallback<void(WriteResult)> reply) {
+  FileSequence()->PostTaskAndReplyWithResult(
+      FROM_HERE, base::BindOnce(&UpdateBlocking, ConfigPath(), std::move(change)),
       std::move(reply));
 }
 

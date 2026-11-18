@@ -210,7 +210,10 @@ export type Preferences = {
   autoPip?: boolean;
   extensions: ExtensionInfo[]; adblock: Adblock; about: { version: string; os: string };
 };
-export type ConfigFile = { found: boolean; text: string; error: string; path: string };
+/** `revision` names this version of the file; saving the whole file sends it back. */
+export type ConfigFile = { found: boolean; text: string; error: string; path: string; revision: string };
+/** A save's outcome: an empty `error` and the file's new revision, or what went wrong. */
+export type ConfigSave = { error: string; revision: string };
 export type Workspace = { name: string; modified: number };
 export type HistoryItem = { url: string; title: string; domain: string; time: number };
 export type HistoryPage = { items: HistoryItem[]; done: boolean };
@@ -221,7 +224,8 @@ export type Requests = {
   'settings.set': { args: { key: PreferenceKey; value: unknown }; result: Preferences };
   'settings.chooseDownloadDir': { args: {}; result: string };
   'settings.config': { args: {}; result: ConfigFile };
-  'settings.saveConfig': { args: { text: string }; result: string };
+  /** Saves the whole file, only if it is still at `revision`; a change made since is never overwritten. */
+  'settings.saveConfig': { args: { text: string; revision: string }; result: ConfigSave };
   /** Writes one [options] value into the config file; the reply is an error, empty when it saved. */
   'settings.setOption': { args: { name: BooleanOption; value: boolean } | { name: StringOption; value: string }; result: string };
   'settings.workspaces': { args: {}; result: Workspace[] };
@@ -481,8 +485,9 @@ export function validateResult<R extends Request>(method: R, value: unknown): Re
         adblock: a => fields(a, { available: isBool, enabled: isBool, automatic: isBool, private: isBool, status: isString,
           updateStatus: isString, lastUpdate: isNumber, groups: listOf(isString), exceptions: listOf(isString) }),
       }), 'settings'); break;
-    case 'settings.chooseDownloadDir': case 'settings.saveConfig': case 'settings.setOption': check(isString(value), 'reply'); break;
-    case 'settings.config': check(fields(value, { found: isBool, text: isString, error: isString, path: isString }), 'configuration'); break;
+    case 'settings.chooseDownloadDir': case 'settings.setOption': check(isString(value), 'reply'); break;
+    case 'settings.saveConfig': check(fields(value, { error: isString, revision: isString }), 'save'); break;
+    case 'settings.config': check(fields(value, { found: isBool, text: isString, error: isString, path: isString, revision: isString }), 'configuration'); break;
     case 'settings.workspaces': case 'settings.deleteWorkspace': check(workspaces(value), 'workspaces'); break;
     case 'history.search': check(fields(value, { done: isBool,
       items: listOf(i => fields(i, { url: isString, title: isString, domain: isString, time: isNumber })) }), 'history'); break;

@@ -232,26 +232,37 @@ bool RunSettings(BrowserWindowInterface* browser,
                         .Set("found", result.found)
                         .Set("text", result.text)
                         .Set("error", result.error)
+                        .Set("revision", result.revision)
                         .Set("path", config_file::ConfigPath().AsUTF8Unsafe())));
         },
         std::move(reply)));
   } else if (method == shell::method::kSettingsSaveConfig) {
     const std::string* text = args.FindString("text");
+    // The revision the text was edited from: a save never overwrites a
+    // change made since (by setOption, another window or another app).
+    const std::string* revision = args.FindString("revision");
     if (!text || text->size() > 512 * 1024) {
       Fail(std::move(reply), "The configuration is too large");
       return true;
     }
-    config_file::Write(
-        *text, base::BindOnce(
-                   [](ShellServiceReply reply, std::string error) {
-                     if (error.empty()) {
-                       // Every window rereads it; Settings confirms the save.
-                       ModalBrowserController::ReloadConfigInAllWindows(
-                           nullptr);
-                     }
-                     Reply(std::move(reply), base::Value(error));
-                   },
-                   std::move(reply)));
+    if (!revision || revision->empty() || revision->size() > 64) {
+      Fail(std::move(reply), "Invalid configuration revision");
+      return true;
+    }
+    config_file::WriteIfUnchanged(
+        *text, *revision,
+        base::BindOnce(
+            [](ShellServiceReply reply, config_file::WriteResult result) {
+              if (result.error.empty()) {
+                // Every window rereads it; Settings confirms the save.
+                ModalBrowserController::ReloadConfigInAllWindows(nullptr);
+              }
+              Reply(std::move(reply),
+                    base::Value(Dict()
+                                    .Set("error", result.error)
+                                    .Set("revision", result.revision)));
+            },
+            std::move(reply)));
   } else if (method == shell::method::kSettingsSetOption) {
     // One [options] value from Settings, written into the config file so the
     // file stays the single source of these options.
@@ -274,26 +285,22 @@ bool RunSettings(BrowserWindowInterface* browser,
       Fail(std::move(reply), "Invalid setting");
       return true;
     }
-    config_file::Read(base::BindOnce(
-        [](ShellServiceReply reply, std::string name, std::string literal,
-           config_file::ReadResult file) {
-          if (!file.error.empty()) {
-            Fail(std::move(reply), file.error);
-            return;
-          }
-          config_file::Write(
-              config_file::SetOption(file.text, name, literal),
-              base::BindOnce(
-                  [](ShellServiceReply reply, std::string error) {
-                    if (error.empty()) {
-                      ModalBrowserController::ReloadConfigInAllWindows(
-                          nullptr);
-                    }
-                    Reply(std::move(reply), base::Value(error));
-                  },
-                  std::move(reply)));
-        },
-        std::move(reply), *name, std::move(literal)));
+    // Read, change and write in one step on the file's sequence, so two
+    // options set at once both land.
+    config_file::Update(
+        base::BindOnce(
+            [](std::string name, std::string literal, const std::string& text) {
+              return config_file::SetOption(text, name, literal);
+            },
+            *name, std::move(literal)),
+        base::BindOnce(
+            [](ShellServiceReply reply, config_file::WriteResult result) {
+              if (result.error.empty()) {
+                ModalBrowserController::ReloadConfigInAllWindows(nullptr);
+              }
+              Reply(std::move(reply), base::Value(result.error));
+            },
+            std::move(reply)));
   } else if (method == shell::method::kSettingsWorkspaces) {
     ListWorkspaces(std::move(reply));
   } else if (method == shell::method::kSettingsDeleteWorkspace) {

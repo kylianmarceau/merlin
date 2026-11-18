@@ -9,6 +9,7 @@ dispatcher, for the front window.
 
 from __future__ import annotations
 
+import threading
 import unittest
 
 from merlin_e2e import MerlinTestCase
@@ -102,6 +103,38 @@ class ShellApiTest(MerlinTestCase):
         self.ok("omnibox.query", {"queryId": "q2", "text": two, "preventInline": True})
         self.assertEqual(self.error("omnibox.open", {"queryId": "q1", "index": 0, "url": two, "newTab": False}),
                          "The suggestions changed; choose one again")
+
+    def test_config_changes_never_overwrite_each_other(self):
+        # M21: Settings' switches and its Config File editor change the same
+        # file. Options set at once from several places all land, and a
+        # whole-file save from an older copy is refused.
+        self.browser.write_config("# mine\n[options]\n")
+        opened = self.ok("settings.config")
+        replies = []
+        changes = [("auto_insert", False), ("smooth_scroll", False), ("hint_chars", "sdfjkl")]
+        threads = [threading.Thread(target=lambda n=name, v=value: replies.append(
+            self.browser.shell_call("settings.setOption", {"name": n, "value": v}))) for name, value in changes]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual([r.get("ok") and r.get("result") for r in replies], ["", "", ""], replies)
+        text = self.browser.config_file.read_text()
+        for line in ("# mine", "auto_insert = false", "smooth_scroll = false", 'hint_chars = "sdfjkl"'):
+            self.assertIn(line, text)
+
+        # The editor still holds the file as it was opened.
+        stale = self.ok("settings.saveConfig", {"text": opened["text"] + "# edited\n", "revision": opened["revision"]})
+        self.assertIn("changed since you opened it", stale["error"])
+        self.assertEqual(self.browser.config_file.read_text(), text)
+
+        current = self.ok("settings.config")
+        self.assertNotEqual(current["revision"], opened["revision"])
+        saved = self.ok("settings.saveConfig", {"text": current["text"] + "# edited\n", "revision": current["revision"]})
+        self.assertEqual(saved["error"], "")
+        self.assertEqual(self.browser.config_file.read_text(), text + "# edited\n")
+        self.assertEqual(self.ok("settings.config")["revision"], saved["revision"])
+        self.assertIn("Invalid configuration revision", self.error("settings.saveConfig", {"text": "x"}))
 
 
 class ShellApiRefusedTest(MerlinTestCase):
