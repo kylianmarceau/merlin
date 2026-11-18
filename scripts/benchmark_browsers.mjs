@@ -3,8 +3,7 @@
 // Speedometer 3.1. Merlin and Brave run in fresh, isolated test profiles,
 // driven over DevTools. Dia runs in your own profile, driven by AppleScript
 // in a test window that is closed afterwards (Dia needs onboarding and an
-// account for a new profile). See docs/PERFORMANCE.md for the method and the
-// baseline. Requires Node 22+ and a Mac left alone while it runs, or
+// account for a new profile). Requires Node 22+ and a Mac left alone while it runs, or
 // --background to keep working meanwhile: focus goes straight back to your app
 // whenever the browser takes it, and the browser isn't brought to the front.
 // Timings are noisier while the Mac is in use.

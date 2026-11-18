@@ -37,7 +37,7 @@ fi
 # Official builds need the PGO profile named in chrome/build/mac-arm.pgo.txt.
 pgo="$SRC/chrome/build/pgo_profiles/$(cat "$SRC/chrome/build/mac-arm.pgo.txt")"
 [[ -s "$pgo" ]] || die "no PGO profile at $pgo; set \"checkout_pgo_profiles\": True in
-  custom_vars in $CHROMIUM_DIR/.gclient, then run gclient runhooks (see docs/PERFORMANCE.md)"
+  custom_vars in $CHROMIUM_DIR/.gclient, then run gclient runhooks"
 # With PGO on, V8 also optimizes its builtins from its own profile, which the
 # same gclient hook downloads (v8/tools/builtins-pgo/download_profiles.py).
 [[ -s "$SRC/v8/tools/builtins-pgo/profiles/x64.profile" ]] ||

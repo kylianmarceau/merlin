@@ -129,7 +129,7 @@ void Shutdown() {
 void Prewarm() {
   // Off unless MERLIN_PREWARM=1. Measured on 2026-11-12, starting React
   // while Chromium loads the profile delayed the first page by about 25 ms
-  // and did not bring the window forward (docs/PERFORMANCE.md).
+  // and did not bring the window forward.
   const char* on = getenv("MERLIN_PREWARM");
   if (!on || strcmp(on, "1")) return;
   if (NSThread.isMainThread) [Runtime() prewarm];

@@ -32,6 +32,10 @@ claude_code_chromium_browser_prompt.md
 !/docs/install-qualification.md
 !/docs/PRIVACY.md
 !/docs/config.example.toml
+!/docs/ARCHITECTURE.md
+!/docs/CAPABILITIES.md
+!/docs/TESTING.md
+!/docs/UPSTREAM.md
 
 # Private artwork sources and renders. The small inputs the generators and
 # checks read (JSON, generated CSS and the falcon SVGs) are committed, so a

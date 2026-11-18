@@ -187,12 +187,13 @@ feature work:
    on it): `git switch -c security/<chromium version> <commit>`.
 2. Bump the pin: update `UPSTREAM_PIN` to the version and commit
    `scripts/check_upstream.py` reports, and sync the checkout by the rebase
-   procedure in `docs/UPSTREAM.md`.
+   procedure in [UPSTREAM.md](UPSTREAM.md#rebase-procedure).
 3. Refresh the patches: `scripts/apply_patches.py`, then
    `scripts/verify_patches.sh`. Fix only what no longer applies.
 4. Build: `scripts/build_release.sh`, `scripts/build_react_shell.sh` and
    assembly, as above.
-5. Test: `scripts/check.sh`, `pnpm ui:test` and `scripts/run_e2e_tests.sh`
+5. Test: `scripts/check.sh` (which includes `pnpm ui:check` and `ui:test`)
+   and `scripts/run_e2e_tests.sh`
    against the assembled app.
 6. Package without the override and follow **Every release** from step 5,
    with release notes that name the Chromium version and its security fixes.

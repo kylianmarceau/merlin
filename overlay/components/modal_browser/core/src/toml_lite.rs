@@ -1,7 +1,8 @@
 //! A strict parser for the subset of TOML the configuration file uses.
 //!
-//! No TOML crate is vendored in Chromium at our pinned version (see
-//! `docs/DECISIONS.md` #7), and the core has no third-party dependencies.
+//! No TOML crate is vendored in Chromium at our pinned version, and the core
+//! has no third-party dependencies (each `//third_party` import is more
+//! patch to carry on every rebase).
 //! This parser accepts a well-defined subset and rejects everything else
 //! with a line number, so any file it accepts means the same thing to a
 //! full TOML parser. Moving to the real `toml` crate later is therefore not

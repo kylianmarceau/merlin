@@ -113,7 +113,7 @@ test('panel events name only known panels', () => {
   assert.deepEqual(parseEngineEvent('{"type":"panel.open","windowId":"window-one","panel":"bookmarks"}'),
     { type: 'panel.open', windowId: 'window-one', panel: 'bookmarks' });
   assert.throws(() => parseEngineEvent('{"type":"panel.open","windowId":"window-one","panel":"chrome-settings"}'));
-  // Merlin has one profile (decision 44), so there is no profiles panel.
+  // Merlin has one profile, so there is no profiles panel.
   assert.throws(() => parseEngineEvent('{"type":"panel.open","windowId":"window-one","panel":"profiles"}'));
 });
 test('split views must name open tabs, including the active one', () => {

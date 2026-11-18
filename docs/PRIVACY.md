@@ -13,8 +13,7 @@ are opt-in: Settings › General › Updates asks GitHub Releases
 only when "Check Now" is pressed, or every eight hours once "Check for
 updates automatically" is turned on (off by default). The request names
 no person or machine (its User-Agent is "Merlin") and nothing is downloaded
-or installed; a newer version is announced with a link to its release page
-(decision 60).
+or installed; a newer version is announced with a link to its release page.
 Searches typed in the command line go to the user's default search engine through
 Chromium's own omnibox classifier, as if typed in the address bar.
 The address field asks Chromium's address-bar engine as Chromium's own
@@ -24,8 +23,7 @@ loads a hidden Google page in each tab when Google is the default search
 engine, is off (patch 0052).
 Google's test experiments, Gemini in Chrome, Lens, Help me write, Cast
 and the on-device AI model download are off too, and nothing downloads the
-live caption speech model until live captions are turned on
-(decision 57).
+live caption speech model until live captions are turned on.
 
 Merlin's Chromium has no Widevine, so nothing downloads a DRM module.
 Netflix and other sites that need DRM open in WebKit, macOS's own engine,
@@ -34,8 +32,7 @@ WebKit keeps its cookies and site data apart from Chromium's, in Merlin's
 WebKit store on this Mac, and makes no Safe Browsing lookups. Private windows
 share a WebKit session that is never written to disk and ends with the last
 private window, as Chromium's does: its pages close, its data is removed and
-the next private window starts a new one
-(decision 59). The icons of WebKit pages are fetched apart from both
+the next private window starts a new one. The icons of WebKit pages are fetched apart from both
 engines, with no cookies or credentials: normal pages' icons are cached in
 `~/Library/Caches/io.github.kylianmarceau.merlin/WebKitIcons`, private
 pages' only in memory for their session.

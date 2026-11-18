@@ -36,6 +36,9 @@ echo "==> shell vocabulary: generated copies and native code follow the table"
 python3 scripts/sync_shell_headers.py --check
 python3 -m unittest discover -s scripts -p 'test_shell_vocabulary.py'
 
+echo "==> every document a tracked file points to is tracked"
+python3 scripts/check_doc_links.py
+
 echo "==> shell scripts parse"
 for script in scripts/*.sh; do bash -n "$script"; done
 

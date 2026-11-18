@@ -560,7 +560,7 @@ class ReactBrowserWindow final : public BrowserWindow,
         }, weak_factory_.GetWeakPtr(), contents->GetWeakPtr(), source, target));
     return ShowTranslateBubbleResult::kSuccess;
   }
-  // Merlin has one profile and no avatar button (decision 44).
+  // Merlin has one profile and no avatar button.
   void ShowAvatarBubbleFromAvatarButton(bool) override {}
   void ShowHatsDialog(const std::string&, const std::optional<std::string>&, const std::optional<uint64_t>,
       base::OnceClosure, base::OnceClosure failure, const SurveyBitsData&, const SurveyStringData&) override {

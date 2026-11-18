@@ -2,8 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# UNVERIFIED in GN: written against //build/rust/rust_static_library.gni at
-# Chromium 156.0.8078.48. Verified with Cargo (see docs/TESTING.md).
+# Built by GN in the Chromium checkout and by Cargo here (docs/TESTING.md).
 
 import("//build/rust/rust_static_library.gni")
 

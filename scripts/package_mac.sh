@@ -164,7 +164,7 @@ ditto "$APP" "$stage/Merlin.app"
 xattr -cr "$stage/Merlin.app"
 
 echo "==> English only"
-# Merlin ships English (US and UK) only (decision 57): about 47 MB of
+# Merlin ships English (US and UK) only: about 47 MB of
 # Chromium's other translations go. Removed from the app's own Resources
 # too, so macOS picks English instead of a translation that isn't there.
 # Before signing, which seals what remains.

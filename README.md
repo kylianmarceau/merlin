@@ -324,7 +324,8 @@ path shown, only if writing it back fails).
 
 Merlin is Chromium underneath, so rendering, the sandbox, site isolation,
 passwords, autofill, PDFs, DevTools and extensions behave as in Chrome.
-These are the differences:
+These are the differences; [docs/CAPABILITIES.md](docs/CAPABILITIES.md) has
+them all in one table, with how each is tested:
 
 - **No Safe Browsing.** Chromium's phishing and malware lookups need Google
   API keys that Merlin doesn't have. Other security warnings, such as for
@@ -435,7 +436,11 @@ interface's checks build and test without a Chromium checkout.
 |---|---|
 | [Interface](apps/browser/README.md) | How the React Native shell, the engine bridge and Chromium fit together |
 | [Design](apps/browser/DESIGN.md) | The interface's surfaces, type, colours, spacing and motion |
+| [Architecture](docs/ARCHITECTURE.md) | The modal input core, its Rust and C++ split, and the Chromium hooks it uses |
+| [Capabilities](docs/CAPABILITIES.md) | What is supported, what falls back and what is unavailable, and how each is tested |
+| [Testing](docs/TESTING.md) | Every test suite, what it proves and what CI runs |
 | [End-to-end tests](tests/e2e/README.md) | How the app is tested from the outside |
+| [Upstream](docs/UPSTREAM.md) | The Chromium pin, every patch, and how to rebase onto a new Stable release |
 | [Release](docs/RELEASE.md) | Building, packaging and installing a release |
 | [Release notes](docs/RELEASE_NOTES.md) | What changed, and known issues |
 | [Privacy](docs/PRIVACY.md) | Every file, socket and piece of page data Merlin touches |

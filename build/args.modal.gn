@@ -14,7 +14,7 @@ is_chrome_branded = false
 # AAC and H.264, which many ordinary videos use, as Brave, Thorium and
 # ungoogled-chromium ship them. No Widevine: unsigned builds can't play
 # Netflix and similar DRM services with it, so the shell opens those sites
-# in WebKit instead, which plays them with FairPlay (decision 59).
+# in WebKit instead, which plays them with FairPlay.
 proprietary_codecs = true
 ffmpeg_branding = "Chrome"
 enable_widevine = false
@@ -24,7 +24,7 @@ branding_file_path = "//chrome/app/theme/merlin/BRANDING"
 # Product logos (About, version page, profile picker, menus) from
 # chrome/app/theme/merlin and its sibling folders, not chromium/.
 branding_path_component = "merlin"
-# Lighter build (decision 57). No Google test experiments: Chromium applies
+# Lighter build. No Google test experiments: Chromium applies
 # hundreds of unfinished ones to unbranded builds, among them Gemini, a
 # web-based toolbar and preemptive speech-model downloads (~450 MB per
 # profile). Brave and ungoogled-chromium turn them off too.
