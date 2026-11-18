@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Animated, View } from 'react-native';
 import { PAGE_FRAME, useShellPrefs } from '../../state/shellPrefs';
-import { useActions, useSnapshot } from '../../state/window';
+import { useActions, useCommitTrace, useSnapshot } from '../../state/window';
 import { DragRegion, FullScreenWatch, Glass, Panel, geometry, radius, shellTintFor, useColorFade, useTheme } from '../ui';
 import { BookmarksBar } from '../bookmarks/BookmarksBar';
 import { useSiteChrome } from '../tabs/siteChrome';
@@ -22,6 +22,7 @@ import { Toolbar } from './Toolbar';
  * status line, as in Chrome. Overlays sit above everything.
  */
 export function BrowserWindow() {
+  useCommitTrace();
   const snapshot = useSnapshot();
   const actions = useActions();
   const { colors } = useTheme();

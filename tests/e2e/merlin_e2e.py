@@ -753,7 +753,8 @@ class Merlin:
     """One Merlin instance with isolated state."""
 
     def __init__(self, server: PageServer, extra_args: Optional[list[str]] = None,
-                 shell_api: bool = True, local_state: Optional[dict] = None) -> None:
+                 shell_api: bool = True, local_state: Optional[dict] = None,
+                 extra_env: Optional[dict] = None) -> None:
         self.server = server
         self.app = app_path()
         self.dir = Path(tempfile.mkdtemp(prefix="merlin-e2e-"))
@@ -803,7 +804,9 @@ class Merlin:
                "DYLD_INSERT_LIBRARIES": str(background_library(self.dir)),
                # WebKit's cookies, site data and icon cache for normal pages
                # go in a folder of this run's own, never the person's.
-               "MERLIN_WEBKIT_TEST_FOLDER": str(self.webkit_folder)}
+               "MERLIN_WEBKIT_TEST_FOLDER": str(self.webkit_folder),
+               # A probe's own, such as MERLIN_STARTUP_TRACE (scripts/probe_large_libraries.py).
+               **(extra_env or {})}
         # -g: don't bring it forward; -j: launch it hidden, so its window never
         # takes the keyboard from whoever is using the Mac.
         command = ["open", "-g", "-j", "-n", "-a", str(self.app)]

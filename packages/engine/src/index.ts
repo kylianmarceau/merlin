@@ -9,7 +9,11 @@ type NativeEngine = {
   addListener(name: 'browserEvent', listener: (event: { json: string }) => void): { remove(): void };
 };
 
-export function connectEngine(windowId: string): EngineClient {
+/**
+ * `onParse`, for timing traces: how long each event took to parse and check,
+ * and its size. Every window's listener parses every event.
+ */
+export function connectEngine(windowId: string, onParse?: (ms: number, bytes: number) => void): EngineClient {
   // A missing engine is an integration error, never a reason to invent browser state.
   const native = requireNativeModule<NativeEngine>('MerlinEngine');
   const transport: Transport = {
@@ -17,8 +21,10 @@ export function connectEngine(windowId: string): EngineClient {
     subscribe: listener => {
       const subscription = native.addListener('browserEvent', event => {
         let parsed: EngineEvent;
+        const start = onParse ? performance.now() : 0;
         try { parsed = parseEngineEvent(event.json); }
         catch { parsed = { type: 'engine.error', windowId, message: 'The browser sent an invalid state update.' }; }
+        onParse?.(performance.now() - start, event.json.length);
         listener(parsed);
       });
       return () => subscription.remove();

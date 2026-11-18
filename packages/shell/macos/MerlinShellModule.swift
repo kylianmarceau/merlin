@@ -46,6 +46,10 @@ public final class MerlinShellModule: Module {
     AsyncFunction("setBookmarksMenuHidden") { (hidden: Bool) in BookmarksMenu.setHidden(hidden) }.runOnQueue(.main)
     AsyncFunction("appIcons") { (size: Double) in AppIcons.choices(size: size) }.runOnQueue(.main)
     AsyncFunction("appIcon") { AppIcons.current }
+    // MERLIN_STARTUP_TRACE=<file>: the shell's own timing lines join the
+    // host's startup trace, for benchmarks and probes. Off, they cost nothing.
+    Function("traceEnabled") { ShellTrace.file != nil }
+    Function("trace") { (line: String) in ShellTrace.write(line) }
     // Merlin's release version, stamped by scripts/package_mac.sh; nil for a local build.
     Function("releaseVersion") { Bundle.main.object(forInfoDictionaryKey: "MerlinVersion") as? String }
     // A save panel for a file Chromium then writes, such as exported bookmarks.
@@ -231,5 +235,23 @@ public final class MerlinShellProgressRingModule: Module {
       Prop("ringWidth") { (view, value: Double) in view.lineWidth = value }
       Prop("ringReduceMotion") { (view, value: Bool) in view.reduceMotion = value }
     }
+  }
+}
+
+/// Appends lines to $MERLIN_STARTUP_TRACE, as the host's startup trace does.
+private enum ShellTrace {
+  static let file: FileHandle? = {
+    guard let path = ProcessInfo.processInfo.environment["MERLIN_STARTUP_TRACE"], !path.isEmpty else { return nil }
+    if !FileManager.default.fileExists(atPath: path) { FileManager.default.createFile(atPath: path, contents: nil) }
+    guard let handle = FileHandle(forWritingAtPath: path) else { return nil }
+    handle.seekToEndOfFile()
+    return handle
+  }()
+  private static let lock = NSLock()
+  static func write(_ line: String) {
+    guard let file, let data = (line + "\n").data(using: .utf8) else { return }
+    lock.lock(); defer { lock.unlock() }
+    file.seekToEndOfFile()
+    file.write(data)
   }
 }

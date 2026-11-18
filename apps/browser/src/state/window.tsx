@@ -1,16 +1,19 @@
 // The window context: its store and actions. Components read state through
 // useBrowser and act through useActions; neither exposes the engine.
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { connectEngine } from '../platform/engine';
 import { copyText, releaseVersion } from '../platform/shell';
 import type { Request, Requests } from '../platform/protocol';
 import { settle, type ActionResult } from '../lib/result';
 import { createActions, type Actions } from './actions';
-import { attachEngine, createBrowserStore, pushToast, type BrowserState, type BrowserStore } from './store';
+import { attachEngine, createBrowserStore, pushToast, snapshotAccepted, timeSnapshots, type BrowserState, type BrowserStore } from './store';
+import { traceNow, traceTiming, tracing } from './trace';
 import { followUpdateSetting } from './updates';
 import { overlays } from './surfaces';
 import { attachWebKit } from './webkit';
+
+timeSnapshots(tracing);
 
 type Window = { store: BrowserStore; actions: Actions };
 const WindowContext = createContext<Window | null>(null);
@@ -59,7 +62,8 @@ export function useWindowConnection(windowId: string) {
   const [connection] = useState(() => {
     const store = createBrowserStore(windowId);
     try {
-      const engine = connectEngine(windowId);
+      const engine = connectEngine(windowId, tracing
+        ? (ms, bytes) => traceTiming('event-parse', ms, { bytes, window: windowId }) : undefined);
       return { store, actions: createActions(store, engine), engine };
     } catch (e) {
       store.setState({ connectionError: e instanceof Error ? e.message : String(e) });
@@ -89,6 +93,22 @@ function useWindow() {
   const window = useContext(WindowContext);
   if (!window) throw new Error('Window components need a WindowProvider');
   return window;
+}
+
+/**
+ * With tracing on, a "snapshot-commit" line for each snapshot this window
+ * draws: from its arrival to React's commit (checking it, the WebKit overlay,
+ * rendering and committing).
+ */
+export function useCommitTrace() {
+  const { store } = useWindow();
+  const revision = useStore(store, s => s.snapshot?.revision);
+  useLayoutEffect(() => {
+    const accepted = tracing ? snapshotAccepted.get(store) : undefined;
+    if (accepted && accepted.revision === revision) {
+      traceTiming('snapshot-commit', traceNow() - accepted.at, { tabs: accepted.tabs, rev: accepted.revision });
+    }
+  }, [store, revision]);
 }
 
 export function useBrowser<T>(select: (state: BrowserState) => T): T {

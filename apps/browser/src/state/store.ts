@@ -69,13 +69,21 @@ export function createBrowserStore(windowId: string) {
 }
 export type BrowserStore = ReturnType<typeof createBrowserStore>;
 
+/** When each window last took a snapshot, for the trace's snapshot-commit lines (useCommitTrace). */
+export const snapshotAccepted = new WeakMap<BrowserStore, { revision: number; at: number; tabs: number }>();
+let timing = false;
+/** Records snapshotAccepted; state/window.tsx turns it on while tracing. */
+export function timeSnapshots(on: boolean) { timing = on; }
+
 /** Applies a snapshot unless an equal or newer one from this session is already shown. */
 export function acceptSnapshot(store: BrowserStore, input: unknown) {
+  const at = timing ? performance.now() : 0;
   const next = validateSnapshot(input, store.windowId);
   const current = store.getState().engineSnapshot;
   if (current && current.session === next.session && current.revision >= next.revision) return;
   const engineSnapshot = current ? shareUnchanged(current, next) : next;
   const recentTabs = rememberActive(store.getState().recentTabs, next.activeTabId, next.tabs.map(t => t.id));
+  if (timing) snapshotAccepted.set(store, { revision: next.revision, at, tabs: next.tabs.length });
   store.setState({ engineSnapshot, snapshot: store.overlay(engineSnapshot), connectionError: null, recentTabs });
 }
 

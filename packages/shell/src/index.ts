@@ -119,6 +119,8 @@ type NativeShell = {
   setAppIcon(id: string): Promise<void>;
   copyText(text: string): Promise<void>;
   releaseVersion(): string | null;
+  traceEnabled(): boolean;
+  trace(line: string): void;
   chooseSaveFile(name: string): Promise<string | null>;
   addListener(event: 'onPreferenceChanged', listener: (event: { key: string; value: string | null }) => void): { remove(): void };
 };
@@ -150,6 +152,12 @@ export const chooseSaveFile = (name: string) => native().chooseSaveFile(name);
 export function releaseVersion(): string | null {
   try { return native().releaseVersion() ?? null; } catch { return null; }
 }
+/** Whether MERLIN_STARTUP_TRACE is set, so timing lines are wanted. */
+export function traceEnabled(): boolean {
+  try { return native().traceEnabled(); } catch { return false; }
+}
+/** Appends a line to the startup trace (only when traceEnabled). */
+export const trace = (line: string) => native().trace(line);
 /** A shell preference AppKit changed itself, such as "Don't ask again" on the quit question. */
 export function onPreferenceChanged(listener: (key: string, value: string | null) => void) {
   return native().addListener('onPreferenceChanged', e => listener(e.key, e.value));
