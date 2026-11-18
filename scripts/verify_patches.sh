@@ -10,6 +10,13 @@ TAG="${TAG:-$(sed -n 's/^tag: *//p' UPSTREAM_PIN)}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+# Gitiles serves base64 text. Retry: CI fetches hundreds of files, and one
+# dropped connection must not read as a patch that no longer applies.
+fetch() {
+  curl -sSf --max-time 60 --retry 4 --retry-all-errors --retry-delay 2 "$1?format=TEXT" |
+    base64 --decode || { echo "Could not download $1" >&2; return 1; }
+}
+
 files=$(python3 - <<'PY'
 from pathlib import Path
 existing, added = set(), set()
@@ -35,21 +42,17 @@ for f in $files; do
       git -C "$CHROMIUM_SRC/$dependency" show "$revision:$relative" > "$work/$f"
     else
       if [[ -z "${devtools_revision:-}" ]]; then
-        devtools_revision="$(curl -sf --max-time 60 \
-          "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/DEPS?format=TEXT" |
-          base64 --decode | sed -n "s/.*'devtools_frontend_revision': '\([a-f0-9]*\)'.*/\1/p")"
+        devtools_revision="$(fetch \
+          "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/DEPS" | sed -n "s/.*'devtools_frontend_revision': '\([a-f0-9]*\)'.*/\1/p")"
         [[ "$devtools_revision" =~ ^[a-f0-9]{40}$ ]] || { echo 'Missing pinned DevTools revision'; exit 1; }
       fi
-      curl -sf --max-time 60 \
-        "https://chromium.googlesource.com/devtools/devtools-frontend/+/$devtools_revision/$relative?format=TEXT" |
-        base64 --decode > "$work/$f"
+      fetch "https://chromium.googlesource.com/devtools/devtools-frontend/+/$devtools_revision/$relative" \
+        > "$work/$f"
     fi
   elif [[ -n "${CHROMIUM_SRC:-}" ]]; then
     git -C "$CHROMIUM_SRC" show "$TAG:$f" > "$work/$f"
   else
-    curl -sf --max-time 60 \
-      "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/$f?format=TEXT" |
-      base64 --decode > "$work/$f"
+    fetch "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/$f" > "$work/$f"
   fi
 done
 
