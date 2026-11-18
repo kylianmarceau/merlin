@@ -27,7 +27,10 @@ class PageEdgeColor : public content::WebContentsUserData<PageEdgeColor> {
   // The colour most of the top edge has, once sampled.
   static std::optional<SkColor> Get(content::WebContents* contents);
   // Reads the top edge of the page on screen. `changed` runs when the
-  // colour changes. Does nothing while the page is hidden or a read is out.
+  // colour changes. Does nothing while the page is hidden or a read is out;
+  // a read that finishes after the page has navigated is dropped. Called when
+  // the page may have changed colour (it loaded, drew, changed theme-color,
+  // came on screen or stopped scrolling), never on a timer.
   static void Sample(content::WebContents* contents, base::RepeatingClosure changed);
   // A new page committed: its first read replaces the colour, or clears it
   // when the new page's edge has no main colour. Until then the old colour

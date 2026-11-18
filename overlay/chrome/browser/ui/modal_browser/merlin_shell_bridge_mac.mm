@@ -97,6 +97,13 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_observer.h"
+#include "content/public/browser/render_widget_host_view.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "ui/native_theme/native_theme.h"
+#include "ui/native_theme/native_theme_observer.h"
 #include "base/timer/timer.h"
 
 namespace {
@@ -192,20 +199,25 @@ struct ShellPrompt {
   base::TimeTicks shown;
 };
 class WindowState : public TabStripModelObserver, public content::WebContentsObserver,
-                    public download::AllDownloadItemNotifier::Observer {
+                    public download::AllDownloadItemNotifier::Observer, public ui::NativeThemeObserver {
  public:
   explicit WindowState(BrowserWindowInterface* browser) : browser_(browser) {
     browser_->GetTabStripModel()->AddObserver(this);
     Observe(browser_->GetTabStripModel()->GetActiveWebContents());
     prefs_.Init(browser_->GetProfile()->GetPrefs());
-    prefs_.Add("merlin.shell.appearance", base::BindRepeating(&WindowState::Changed, base::Unretained(this)));
+    prefs_.Add("merlin.shell.appearance", base::BindRepeating([](WindowState* window) {
+      window->Changed();
+      window->SampleEdgeSoon();
+    }, base::Unretained(this)));
     switcher = std::make_unique<modal_browser::TabSwitcher>(
         browser_, base::BindRepeating(&WindowState::Changed, base::Unretained(this)));
     content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
         &WindowState::WatchDownloads, weak_factory_.GetWeakPtr()));
-    // Headers change colour as pages script, scroll and switch theme.
-    edge_timer_.Start(FROM_HERE, base::Milliseconds(1200),
-        base::BindRepeating(&WindowState::SampleEdge, base::Unretained(this)));
+    // The page's edge colour is read when it may have changed, never on a
+    // timer: a quiet page costs no wakeups (7.7). A sticky header that
+    // changes colour as the page scrolls is read once the scroll ends.
+    scrolls_.Watch(web_contents());
+    theme_.Observe(ui::NativeTheme::GetInstanceForNativeUi());
   }
   ~WindowState() override {
     browser_->GetTabStripModel()->RemoveObserver(this);
@@ -243,6 +255,18 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
                               std::optional<tab_groups::TabGroupId>, tabs::TabInterface*, int) override { Changed(); }
   void DidStartLoading() override { Changed(); }
   void DidStopLoading() override { Changed(); SampleEdgeSoon(); }
+  void OnVisibilityChanged(content::Visibility visibility) override {
+    if (visibility == content::Visibility::VISIBLE) SampleEdgeSoon();
+  }
+  void RenderFrameHostChanged(content::RenderFrameHost*, content::RenderFrameHost* now) override {
+    if (now && now->IsInPrimaryMainFrame()) scrolls_.Watch(web_contents());
+  }
+  void RenderViewReady() override { scrolls_.Watch(web_contents()); }
+  // Modal scrolling (j, k, gg, G) runs in the page; its scroll ends later.
+  void PageScrolled() { edge_after_scroll_.Start(FROM_HERE, base::Milliseconds(600),
+      base::BindOnce(&WindowState::SampleEdge, base::Unretained(this))); }
+  // The system appearance changed: pages that follow it restyle.
+  void OnNativeThemeUpdated(ui::NativeTheme*) override { SampleEdgeSoon(); }
   void DocumentOnLoadCompletedInPrimaryMainFrame() override { SampleEdgeSoon(); }
   void PrimaryPageChanged(content::Page&) override { Changed(); }
   void DidStartNavigation(content::NavigationHandle* navigation) override;
@@ -250,7 +274,7 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void DidFirstVisuallyNonEmptyPaint() override;
   bool ShowsStartPage(content::WebContents* contents) const;
   // The joined tab and toolbar take the site's colour.
-  void DidChangeThemeColor() override { Changed(); }
+  void DidChangeThemeColor() override { Changed(); SampleEdgeSoon(); }
   // Mixed content, a certificate warning proceeded past: the lock follows.
   void DidChangeVisibleSecurityState() override { Changed(); }
   // The shell shows a crashed page's own view (no sad tab: BrowserView draws it).
@@ -282,8 +306,35 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   // shortly after, once the page has styled itself.
   void SampleEdge();
   void SampleEdgeSoon();
-  base::RepeatingTimer edge_timer_;
   base::OneShotTimer edge_soon_;
+  base::OneShotTimer edge_after_scroll_;
+  // The end of a wheel, trackpad or fling scroll on the active page.
+  class ScrollWatcher : public content::RenderWidgetHost::InputEventObserver,
+                        public content::RenderWidgetHostObserver {
+   public:
+    explicit ScrollWatcher(WindowState* window) : window_(window) {}
+    ~ScrollWatcher() override { Watch(nullptr); }
+    void Watch(content::WebContents* contents) {
+      auto* view = contents ? contents->GetRenderWidgetHostView() : nullptr;
+      content::RenderWidgetHost* host = view ? view->GetRenderWidgetHost() : nullptr;
+      if (host == host_) return;
+      if (host_) { host_->RemoveInputEventObserver(this); host_->RemoveObserver(this); }
+      host_ = host;
+      if (host_) { host_->AddInputEventObserver(this); host_->AddObserver(this); }
+    }
+    void OnInputEvent(const content::RenderWidgetHost&, const blink::WebInputEvent& event,
+                      InputEventSource) override {
+      if (event.GetType() == blink::WebInputEvent::Type::kGestureScrollEnd) window_->PageScrolled();
+    }
+    void RenderWidgetHostDestroyed(content::RenderWidgetHost* host) override {
+      if (host == host_) Watch(nullptr);
+    }
+   private:
+    raw_ptr<WindowState> window_;
+    raw_ptr<content::RenderWidgetHost> host_ = nullptr;
+  };
+  ScrollWatcher scrolls_{this};
+  base::ScopedObservation<ui::NativeTheme, ui::NativeThemeObserver> theme_{this};
   // A navigation that started on the start page, and then the page it
   // committed to, which is drawing its first content: the shell keeps the
   // start page up meanwhile instead of an empty page.
@@ -415,6 +466,7 @@ void WindowState::StopHoldingStartPage() {
 void WindowState::OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
                                         const TabStripSelectionChange& selection) {
   Observe(browser_->GetTabStripModel()->GetActiveWebContents());
+  scrolls_.Watch(web_contents());
   // The hold belongs to the tab it started in.
   if (painting_ && painting_.get() != web_contents()) StopHoldingStartPage();
   if (!web_contents()) navigation_from_start_ = 0;
@@ -1316,6 +1368,10 @@ bool IsShellStartUrl(const GURL& url) {
 bool ShowsShellStartPage(BrowserWindowInterface* browser, content::WebContents* contents) {
   auto* state = Enabled() && browser ? FindWindow(WindowId(browser).c_str()) : nullptr;
   return state ? state->ShowsStartPage(contents) : IsShellStartUrl(contents->GetVisibleURL());
+}
+void ShellPageScrolled(BrowserWindowInterface* browser) {
+  if (!Enabled() || !browser) return;
+  if (auto* state = FindWindow(WindowId(browser).c_str())) state->PageScrolled();
 }
 void NotifyShellWindow(BrowserWindowInterface* browser) {
   if (!Enabled() || !browser) return;

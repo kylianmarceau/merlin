@@ -685,6 +685,7 @@ void ModalBrowserController::Scroll(ffi::ScrollKind scroll,
   }
   frame->ExecuteJavaScriptInIsolatedWorld(script, base::NullCallback(),
                                           ISOLATED_WORLD_ID_CHROME_INTERNAL);
+  ShellPageScrolled(browser_);
 }
 
 void ModalBrowserController::FocusAddressBar() {

@@ -12,6 +12,8 @@
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/weak_document_ptr.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
@@ -58,25 +60,30 @@ void PageEdgeColor::Sample(content::WebContents* contents, base::RepeatingClosur
   auto* data = GetOrCreateForWebContents(contents);
   if (data->reading_) return;
   data->reading_ = true;
+  // The read describes this document: one that arrives after the page has
+  // navigated is dropped, so the next page never takes the last one's colour.
+  content::WeakDocumentPtr document = contents->GetPrimaryMainFrame()->GetWeakDocumentPtr();
   // Counted where the copy arrives; only the result goes back to the UI thread.
   view->CopyFromSurface(
       gfx::Rect(0, 0, size.width(), kBand), gfx::Size(kColumns, kRows), base::Seconds(1),
       base::BindOnce(
           [](base::WeakPtr<PageEdgeColor> self, base::RepeatingClosure changed,
-             const content::CopyFromSurfaceResult& result) {
+             content::WeakDocumentPtr document, const content::CopyFromSurfaceResult& result) {
             const bool read = result.has_value() && !result->bitmap.drawsNothing();
             const std::optional<SkColor> color = read ? MainColor(result->bitmap) : std::nullopt;
             content::GetUIThreadTaskRunner({})->PostTask(
                 FROM_HERE, base::BindOnce(
-                               [](base::WeakPtr<PageEdgeColor> self, base::RepeatingClosure changed, bool read,
-                                  std::optional<SkColor> color) {
+                               [](base::WeakPtr<PageEdgeColor> self, base::RepeatingClosure changed,
+                                  content::WeakDocumentPtr document, bool read, std::optional<SkColor> color) {
                                  if (!self) return;
                                  self->reading_ = false;
+                                 content::RenderFrameHost* frame = document.AsRenderFrameHostIfValid();
+                                 if (!frame || frame != self->GetWebContents().GetPrimaryMainFrame()) return;
                                  if (read) self->OnSampled(std::move(changed), color);
                                },
-                               self, std::move(changed), read, color));
+                               self, std::move(changed), std::move(document), read, color));
           },
-          data->weak_factory_.GetWeakPtr(), std::move(changed)));
+          data->weak_factory_.GetWeakPtr(), std::move(changed), std::move(document)));
 }
 
 void PageEdgeColor::OnSampled(base::RepeatingClosure changed, std::optional<SkColor> color) {

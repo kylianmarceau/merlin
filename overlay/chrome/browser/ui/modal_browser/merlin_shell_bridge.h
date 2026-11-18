@@ -22,6 +22,9 @@ bool ReactShellEnabled();
 // the start page (`start_page`) are left to React.
 void RevealActivePage(BrowserWindowInterface* browser, bool start_page);
 void NotifyShellWindow(BrowserWindowInterface* browser);
+// A modal scroll (j, k, gg, G...) ran in `browser`'s active page: its edge
+// colour is read once the scroll has settled.
+void ShellPageScrolled(BrowserWindowInterface* browser);
 // The addresses the shell draws its start page for (lib/format.ts isStartUrl).
 bool IsShellStartUrl(const GURL& url);
 // Whether the shell shows its start page for `contents` rather than the page:
