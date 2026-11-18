@@ -6,6 +6,7 @@
 import { createStore } from 'zustand/vanilla';
 import { shellPrefs } from './shellPrefs';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
+import { acceptResults, type Omnibox } from './omnibox';
 import { rememberActive, type TabDrag } from './tabDrag';
 
 /** `location` is ⌘L's centred field for the current tab (Settings › Appearance › ⌘L opens the command bar: In the centre). */
@@ -18,13 +19,7 @@ export type Rect = { x: number; y: number; width: number; height: number };
 export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string };
 /** A notice; `action` adds one button to it ("View" on an update). */
 export type Toast = { id: number; tone: 'error' | 'info'; text: string; action?: { label: string; run(): void } };
-/**
- * `selected` is the highlighted suggestion; -1 means what was typed. `owner`
- * is the field that asked: the toolbar's address field shows its list under
- * itself; the start page and the new-tab pop-up show theirs in place.
- */
-export type SearchOwner = 'address' | 'search';
-export type Omnibox = { queryId: string; text: string; items: Suggestion[]; selected: number; owner: SearchOwner };
+export { currentSuggestions, type Omnibox, type SearchOwner } from './omnibox';
 
 export type BrowserState = {
   /** What the window shows: Chromium's snapshot, with WebKit tabs as WebKit shows them. */
@@ -167,10 +162,9 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
         case 'command.open': store.setState({ panel: 'command', popover: null }); break;
         case 'panel.open': openNativePanel(store, event.panel); break;
         case 'omnibox.results': {
-          const current = store.getState().omnibox;
           // Results for an older query never replace newer ones.
-          if (current && current.queryId === event.queryId)
-            store.setState({ omnibox: { ...current, items: event.items, selected: Math.min(current.selected, event.items.length - 1) } });
+          const next = acceptResults(store.getState().omnibox, event.queryId, event.items);
+          if (next) store.setState({ omnibox: next });
           break;
         }
         case 'engine.error': pushToast(store, event.message); break;

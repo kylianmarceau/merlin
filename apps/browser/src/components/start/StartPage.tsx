@@ -53,7 +53,7 @@ export function StartPage({ tab }: { tab: Tab }) {
               {search.suggestions.map((item, index) => <PopupRow key={`${index}:${item.url}`} title={item.title || item.url}
                 detail={suggestionDetail(item, displayHost(item.url))}
                 leading={<Icon name={suggestionIcons[item.kind]} tone={search.selected === index ? 'paletteSelectedText' : 'iconSecondary'} size="small" />}
-                selected={search.selected === index} onPress={() => search.open(index, false)} />)}
+                selected={search.selected === index} disabled={search.stale} onPress={() => search.open(index, false)} />)}
             </View>}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair }}>
               <Button label="Jump to a tab or file" icon="plus" size="small" onPress={() => void actions.command('palette menu')} />

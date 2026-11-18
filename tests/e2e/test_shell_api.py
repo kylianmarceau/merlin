@@ -77,6 +77,32 @@ class ShellApiTest(MerlinTestCase):
         row = self.download_report()
         self.assertEqual(row["received"], 20000)
 
+    def test_a_suggestion_opens_only_if_it_is_still_the_row_shown(self):
+        # M18: Chromium's list changes as results arrive, so the shell sends
+        # the row's address with its index, and a row that no longer matches
+        # is refused rather than opening whatever is at that index now.
+        two = self.server.url("/two")
+        self.ok("omnibox.query", {"queryId": "q1", "text": two, "preventInline": True})
+        refusals = []
+
+        def open_row() -> bool:
+            wrong = self.browser.shell_call("omnibox.open", {
+                "queryId": "q1", "index": 0, "url": self.server.url("/one"), "newTab": False})
+            refusals.append(wrong)
+            right = self.browser.shell_call("omnibox.open", {
+                "queryId": "q1", "index": 0, "url": two, "newTab": False})
+            return right.get("ok")
+
+        self.wait(open_row, "the suggestion for /two to open")
+        self.assertFalse(refusals[-1].get("ok"), refusals[-1])
+        self.assertEqual(refusals[-1].get("error"), "The suggestions changed; choose one again")
+        self.wait(lambda: self.browser.active_tab()["url"] == two, "/two to load")
+        self.assertFalse(self.server.requested("/one"))
+        # Another query's ID is refused too.
+        self.ok("omnibox.query", {"queryId": "q2", "text": two, "preventInline": True})
+        self.assertEqual(self.error("omnibox.open", {"queryId": "q1", "index": 0, "url": two, "newTab": False}),
+                         "The suggestions changed; choose one again")
+
 
 class ShellApiRefusedTest(MerlinTestCase):
     """Without the test switch, shell-call is refused."""

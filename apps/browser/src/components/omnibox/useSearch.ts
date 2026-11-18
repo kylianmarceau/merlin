@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { currentSuggestions } from '../../state/store';
 import type { Suggestion } from '../../state/types';
 import { useActions, useBrowser } from '../../state/window';
 
@@ -16,10 +17,12 @@ export function useSearch(initial = '') {
   const edited = text !== initial;
   const mine = typing && omnibox?.owner === 'search' && omnibox.text === text ? omnibox : null;
   const suggestions: Suggestion[] = mine?.items ?? [];
+  // Rows of an older query, shown greyed until this text's arrive; they can't be chosen.
+  const stale = !!mine && !currentSuggestions(mine).length;
   // -1 is what was typed; Enter then opens the top suggestion when it is Chromium's default, as the address field does.
-  const selected = mine ? (mine.selected >= 0 ? mine.selected : suggestions[0]?.default ? 0 : -1) : -1;
+  const selected = mine && !stale ? (mine.selected >= 0 ? mine.selected : suggestions[0]?.default ? 0 : -1) : -1;
   return {
-    text, typing, edited, suggestions, selected,
+    text, typing, edited, suggestions, stale, selected,
     change(next: string) {
       deleting.current = next.length < text.length;
       setText(next);

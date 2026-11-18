@@ -3,6 +3,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import { promptChipLabel, promptIcon } from '../../lib/prompts';
 import { addressParts, displayHost, isStartUrl, leftToRight } from '../../lib/format';
 import { securityBadge } from '../../lib/security';
+import { currentSuggestions } from '../../state/store';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
 import { Icon, IconButton, LoadingBar, Text, duration, useEscape, useTheme, font, geometry, radius, space } from '../ui';
 
@@ -73,7 +74,7 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
     actions.stopSuggesting();
   });
 
-  const top = omnibox?.items[0];
+  const top = currentSuggestions(omnibox)[0];
   const completion = editing && omnibox && omnibox.text === text && !deleting.current && top?.default && top.completion
     ? top.completion : '';
   const submit = (newTab = false) => {

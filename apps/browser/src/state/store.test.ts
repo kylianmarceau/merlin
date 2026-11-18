@@ -42,7 +42,7 @@ test('suggestions for an older query are ignored', () => {
   const client = new EngineClient('w', { call: () => new Promise(() => {}), subscribe: l => { listener = l; return () => {}; } });
   const store = createBrowserStore('w');
   attachEngine(store, client);
-  store.setState({ omnibox: { queryId: 'q2', text: 'exa', items: [], selected: -1, owner: 'address' } });
+  store.setState({ omnibox: { queryId: 'q2', text: 'exa', items: [], itemsQueryId: null, selected: -1, owner: 'address' } });
   const item = { kind: 'url' as const, title: 'Example', detail: 'example.com', url: 'https://example.com/', completion: 'mple.com', default: true };
   listener({ type: 'omnibox.results', windowId: 'w', queryId: 'q1', items: [item] });
   assert.equal(store.getState().omnibox?.items.length, 0);

@@ -218,7 +218,10 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   std::string suggest_query;
   void Suggest(const std::string& query, const std::string& text, bool prevent_inline);
   // Opens a suggestion; false when the results changed since `query`.
-  bool OpenSuggestion(const std::string& query, size_t index, bool new_tab);
+  // Opens result `index` of `query`, the latest query. With `url`, only if
+  // that result is still `url`: Chromium's list updates as results arrive,
+  // so an index alone could name another match than the row the shell showed.
+  bool OpenSuggestion(const std::string& query, size_t index, const std::string* url, bool new_tab);
   Dict find = Dict().Set("visible", false).Set("text", "").Set("matches", 0).Set("ordinal", 0).Set("focus", 0);
   std::string find_focused_tab;
   void OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
@@ -527,9 +530,10 @@ void WindowState::OnSuggestions(const std::vector<modal_browser::MerlinSuggestio
       Dict().Set("type", "omnibox.results").Set("windowId", WindowId(browser_))
           .Set("queryId", suggest_query).Set("items", std::move(items))));
 }
-bool WindowState::OpenSuggestion(const std::string& query, size_t index, bool new_tab) {
+bool WindowState::OpenSuggestion(const std::string& query, size_t index, const std::string* url, bool new_tab) {
   if (!suggestions || query != suggest_query || index >= suggestions->results().size()) return false;
   auto choice = suggestions->results()[index];
+  if (url && choice.destination.spec() != *url) return false;
   if (!modal_browser::MerlinSuggestions::IsOpenable(choice.destination)) return false;
   suggestions->Opened(choice.destination);
   suggestions->Stop();
@@ -679,9 +683,11 @@ char* Call(const char* window, const char* method, const char* json) {
   if (name == shell::method::kOmniboxOpen) {
     const auto* query = args->FindString("queryId");
     const auto index = args->FindInt("index");
+    const auto* url = args->FindString("url");
     const auto new_tab = args->FindBool("newTab");
-    if (!ValidToken(query) || !index || *index < 0 || !new_tab) return Error("Invalid suggestion");
-    return state->OpenSuggestion(*query, static_cast<size_t>(*index), *new_tab) ? Ok()
+    if (!ValidToken(query) || !index || *index < 0 || !url || url->size() > 8192 || !new_tab)
+      return Error("Invalid suggestion");
+    return state->OpenSuggestion(*query, static_cast<size_t>(*index), url, *new_tab) ? Ok()
         : Error("The suggestions changed; choose one again");
   }
   if (name == shell::method::kOmniboxEnter) {
@@ -695,7 +701,7 @@ char* Call(const char* window, const char* method, const char* json) {
       const auto& results = state->suggestions->results();
       if (const auto* top = state->suggestions->DefaultFor(base::UTF8ToUTF16(*text)); top && !results.empty() &&
           top == &results.front() && top->kind != modal_browser::MerlinSuggestions::Kind::kTab &&
-          state->OpenSuggestion(*query, 0, *new_tab))
+          state->OpenSuggestion(*query, 0, /*url=*/nullptr, *new_tab))
         return Ok();
     }
     const GURL url = ResolveAddress(browser->GetProfile(), *text);

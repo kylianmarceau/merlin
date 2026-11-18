@@ -179,7 +179,8 @@ export type Calls = {
   'switcher.cancel': { args: {}; result: null };
   'omnibox.query': { args: { queryId: string; text: string; preventInline: boolean }; result: null };
   'omnibox.stop': { args: {}; result: null };
-  'omnibox.open': { args: { queryId: string; index: number; newTab: boolean }; result: null };
+  /** Opens row `index` of query `queryId`'s results, only if that row is still `url`. */
+  'omnibox.open': { args: { queryId: string; index: number; url: string; newTab: boolean }; result: null };
   'omnibox.enter': { args: { queryId?: string; text: string; newTab: boolean }; result: null };
   'extensions.closePopup': { args: {}; result: null };
   'site.info': { args: {}; result: null };
