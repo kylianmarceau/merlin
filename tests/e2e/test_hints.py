@@ -8,29 +8,10 @@ the A key can't be sent through DevTools: labels are s, d, f, j.
 
 from __future__ import annotations
 
-import threading
 import time
 import unittest
 
-from merlin_e2e import MerlinTestCase
-
-
-def keep_page_busy(browser, seconds: float) -> None:
-    """Blocks the active page's renderer for `seconds`, starting at once.
-
-    Merlin's scripts in that page then run, and answer, only afterwards:
-    a request sent meanwhile is answered late, as from a slow page.
-    """
-    browser.eval("setTimeout(() => { const end = Date.now() + %d; while (Date.now() < end); }, 100)"
-                 % int(seconds * 1000))
-    time.sleep(0.25)
-
-
-def later(seconds: float, action) -> threading.Thread:
-    """Runs `action` on another thread after `seconds`, while this one waits on the page."""
-    thread = threading.Thread(target=lambda: (time.sleep(seconds), action()))
-    thread.start()
-    return thread
+from merlin_e2e import MerlinTestCase, later
 
 
 class HintsTest(MerlinTestCase):
@@ -88,11 +69,6 @@ class HintsTest(MerlinTestCase):
         self.wait(lambda: self.browser.eval("document.getElementById('field').value") == "x",
                   "Insert mode after gi")
 
-    def message(self) -> str:
-        reply = self.browser.shell_call("window.snapshot")
-        self.assertTrue(reply.get("ok"), reply)
-        return reply["result"]["modal"]["message"]
-
     def test_a_late_activation_after_a_tab_switch_does_nothing(self) -> None:
         # M20: the hint's answer arrives after another tab became active; it
         # must not open the first page's link from there.
@@ -101,12 +77,12 @@ class HintsTest(MerlinTestCase):
         self.browser.browserctl("focus", tab=1)
         self.wait(lambda: self.browser.tabs()[0]["active"], "the hints tab")
         self.show_hints("F")
-        keep_page_busy(self.browser, 2.5)
+        self.browser.keep_page_busy(2.5)
         switch = later(0.5, lambda: self.browser.browserctl("focus", tab=2))
         self.press("d")  # "Two", answered once the page is free again
         switch.join()
         self.wait(lambda: self.browser.tabs()[1]["active"], "the other tab")
-        self.wait(lambda: "The page changed" in self.message(), "the late answer to be refused", timeout=15)
+        self.wait(lambda: "The page changed" in self.browser.message(), "the late answer to be refused", timeout=15)
         time.sleep(0.5)
         self.assertEqual(len(self.browser.tabs()), 2, "the late answer opened a tab")
         self.assertFalse(self.server.requested("/two"), "the late answer followed the link")

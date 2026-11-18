@@ -287,7 +287,10 @@ class ModalBrowserController : public BrowserOps,
                         PageRequest request,
                         base::Value result);
   void ClickAt(content::RenderFrameHost* local_root, const gfx::PointF& point);
-  void OnMarkPosition(std::string letter, base::Value result);
+  void OnMarkPosition(std::string letter,
+                      PageRequest request,
+                      GURL url,
+                      base::Value result);
   void Navigate(const GURL& url, ffi::OpenDisposition disposition);
   void WriteClipboard(const std::u16string& text, std::u16string_view what);
   void PageWorkDone();
@@ -370,6 +373,10 @@ class ModalBrowserController : public BrowserOps,
   // The tab and hint generation the placed hints belong to.
   tabs::TabHandle placed_tab_;
   uint32_t placed_generation_ = 0;
+  // The latest RecordMark request for each letter; answers to older ones
+  // are dropped.
+  std::map<std::string, uint64_t> mark_requests_;
+  uint64_t next_mark_request_ = 0;
   base::RepeatingClosure page_work_done_for_testing_;
   // The frame the last document extraction came from.
   content::GlobalRenderFrameHostId document_frame_;

@@ -2488,24 +2488,42 @@ void ModalBrowserController::RecordMark(std::string_view letter) {
   if (!contents || RefuseInWebKit()) {
     return;
   }
-  contents->GetPrimaryMainFrame()->ExecuteJavaScriptInIsolatedWorld(
+  // The position and the URL must describe the same page, so the URL is
+  // the browser's own, taken now, never the page's claim or whatever tab
+  // is active when the answer arrives.
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  const uint64_t id = ++next_mark_request_;
+  mark_requests_[std::string(letter)] = id;
+  frame->ExecuteJavaScriptInIsolatedWorld(
       page_scripts::MarkPositionScript(),
       base::BindOnce(&ModalBrowserController::OnMarkPosition,
-                     weak_factory_.GetWeakPtr(), std::string(letter)),
+                     weak_factory_.GetWeakPtr(), std::string(letter),
+                     RequestTo(frame, id), frame->GetLastCommittedURL()),
       ISOLATED_WORLD_ID_CHROME_INTERNAL);
 }
 
 void ModalBrowserController::OnMarkPosition(std::string letter,
+                                            PageRequest request,
+                                            GURL url,
                                             base::Value result) {
+  auto latest = mark_requests_.find(letter);
+  if (latest == mark_requests_.end() || latest->second != request.generation) {
+    // A newer m of the same letter replaced this one.
+    PageWorkDone();
+    return;
+  }
+  mark_requests_.erase(latest);
   std::optional<page_scripts::MarkPosition> pos =
       page_scripts::ParseMarkPosition(result);
-  // Remember the browser's view of the URL, not the page's claim.
-  content::WebContents* contents = ActiveContents();
-  if (!pos || !contents) {
+  if (!RequestedFrame(request)) {
+    // The page navigated before answering: its position belongs to
+    // neither page.
+    ShowMessage(ffi::MessageLevel::Error,
+                "The page changed; mark " + letter + " was not set");
+  } else if (!pos) {
     ShowMessage(ffi::MessageLevel::Error, "Could not read the page position");
   } else {
-    router_.OnMarkRecorded(letter, contents->GetLastCommittedURL().spec(),
-                           pos->x, pos->y, *this);
+    router_.OnMarkRecorded(letter, url.spec(), pos->x, pos->y, *this);
   }
   PageWorkDone();
 }
