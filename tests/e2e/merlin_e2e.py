@@ -821,6 +821,22 @@ class Merlin:
         (self.profile / "DevToolsActivePort").unlink(missing_ok=True)
         self._launch()
 
+    def crash_and_restart(self) -> None:
+        """Ends Merlin as a crash does (SIGKILL to every process of it) and starts it again."""
+        # Chromium marks the session as running in the profile's preferences,
+        # which it writes some seconds after launch; a crash before then
+        # looks like a clean exit, as it would to Chromium.
+        preferences = self.profile / "Default/Preferences"
+        wait_until(lambda: '"exit_type":"Crashed"' in preferences.read_text(), timeout=30,
+                   interval=0.5, message="Chromium to record the running session")
+        self.cdp.close()
+        marker = f"--user-data-dir={self.profile}"
+        subprocess.run(["pkill", "-9", "-f", "--", marker], capture_output=True)
+        wait_until(lambda: subprocess.run(["pgrep", "-f", "--", marker], capture_output=True).returncode != 0,
+                   timeout=30, message="Merlin to end")
+        (self.profile / "DevToolsActivePort").unlink(missing_ok=True)
+        self._launch()
+
     def _connect(self) -> None:
         port_file = self.profile / "DevToolsActivePort"
         wait_until(lambda: port_file.exists() and len(port_file.read_text().split()) >= 2,
@@ -976,6 +992,26 @@ class Merlin:
         reply = self.shell_call("window.snapshot")
         assert reply.get("ok"), reply
         return reply["result"]["modal"]["message"]
+
+    def snapshot(self) -> dict:
+        """The front window's state, as the shell draws it."""
+        reply = self.shell_call("window.snapshot")
+        assert reply.get("ok"), reply
+        return reply["result"]
+
+    def prompt(self, timeout: float = 10) -> dict:
+        """The front window's current question (a permission, a dialog), once there is one."""
+        return wait_until(lambda: self.snapshot().get("prompt"), timeout=timeout, message="a prompt")
+
+    def answer_prompt(self, action: str, **fields: Any) -> dict:
+        """Answers the current prompt as its button would; returns the bridge's reply.
+
+        A prompt refuses answers in its first half second, so a click meant
+        for something else can't answer it; this waits that out.
+        """
+        prompt = self.prompt()
+        time.sleep(0.6)
+        return self.shell_call("permissions.answer", {"promptId": prompt["id"], "actionId": action, **fields})
 
     def scroll_y(self) -> int:
         return int(self.eval("Math.round(window.scrollY)"))
