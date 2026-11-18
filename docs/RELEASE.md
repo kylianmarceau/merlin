@@ -137,8 +137,9 @@ Custody:
    Beta versions use a suffix such as `0.3.0-beta.1` and `--prerelease`.
    The tag must identify the commit used to build the app; use `--target`
    with that commit when repackaging an older beta.
-6. Run the install test below on the draft's download, then publish the
-   stable draft as Latest:
+6. Run the install test below on the draft's download and record it in
+   `dist/<version>/install-qualification.md`, then publish the stable
+   draft as Latest:
 
    ```bash
    gh release edit v0.2.0 --draft=false --latest
@@ -151,25 +152,14 @@ Custody:
 
 ### Install test
 
-On another Mac, or at least another user account, download the DMG from the
-draft release **in a browser**, so macOS quarantines it as it would for a
-tester. Record the macOS version and the result of each step:
-
-- [ ] The checksum matches the `.sha256` file.
-- [ ] The DMG opens and shows Merlin, Applications, the read-me, licence,
-  NOTICE, third-party notices and build info. The notices include React
-  Native, Hermes, Zustand, SocketRocket, Expo and Ardia (packaging checks
-  this with `scripts/shell_notices.py --check`).
-- [ ] After dragging to Applications, the first launch is blocked with
-  "can't check" (not "damaged"), and **Open Anyway** in Privacy & Security
-  opens it.
-- [ ] Pages load; renderer, GPU and network helpers run (Activity Monitor
-  shows `Merlin Helper` processes).
-- [ ] A permission prompt works, e.g. location or notifications on a test
-  site, along with the macOS prompt if one appears.
-- [ ] Quit and relaunch without approving again.
-- [ ] Replace the app with a newer package (or a repackage of the same
-  build): bookmarks, history, workspaces and `config.toml` are still there.
+Every release is qualified on its own download before it is published:
+a quarantined DMG on a fresh macOS account through Open Anyway, replacing the
+previous version (profile, passwords without a keychain prompt, workspaces,
+camera access kept), camera, microphone, screen sharing, location and
+notification prompts, and one run on macOS 14 (a VM is fine). The checklist
+is [install-qualification.md](install-qualification.md); packaging copies
+it to `dist/<version>/install-qualification.md`, where the results are
+recorded and kept with `build-info.txt`. Don't publish with a failed step.
 
 If macOS reports the app as damaged, the signature is broken: don't publish.
 Check `codesign --verify --deep --strict --verbose=2 /Applications/Merlin.app`.
@@ -196,8 +186,8 @@ feature work:
 1. Branch from the last release's commit (or `main` if nothing unreleased is
    on it): `git switch -c security/<chromium version> <commit>`.
 2. Bump the pin: update `UPSTREAM_PIN` to the version and commit
-   `scripts/check_upstream.py` reports, and sync the checkout as
-   [CHROMIUM_UPDATE.md](CHROMIUM_UPDATE.md) describes.
+   `scripts/check_upstream.py` reports, and sync the checkout by the rebase
+   procedure in `docs/UPSTREAM.md`.
 3. Refresh the patches: `scripts/apply_patches.py`, then
    `scripts/verify_patches.sh`. Fix only what no longer applies.
 4. Build: `scripts/build_release.sh`, `scripts/build_react_shell.sh` and

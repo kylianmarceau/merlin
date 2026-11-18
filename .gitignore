@@ -29,6 +29,7 @@ claude_code_chromium_browser_prompt.md
 /docs/*
 !/docs/RELEASE.md
 !/docs/RELEASE_NOTES.md
+!/docs/install-qualification.md
 !/docs/PRIVACY.md
 !/docs/config.example.toml
 /branding/README.md
