@@ -816,7 +816,7 @@ class Merlin:
             self.cdp.call("Browser.close", timeout=10)
         self.cdp.close()
         marker = f"--user-data-dir={self.profile}"
-        wait_until(lambda: subprocess.run(["pgrep", "-f", marker], capture_output=True).returncode != 0,
+        wait_until(lambda: subprocess.run(["pgrep", "-f", "--", marker], capture_output=True).returncode != 0,
                    timeout=30, message="Merlin to quit")
         (self.profile / "DevToolsActivePort").unlink(missing_ok=True)
         self._launch()
@@ -1036,10 +1036,10 @@ class Merlin:
             self.cdp.close()
         marker = f"--user-data-dir={self.profile}"
         with contextlib.suppress(AssertionError):
-            wait_until(lambda: subprocess.run(["pgrep", "-f", marker],
+            wait_until(lambda: subprocess.run(["pgrep", "-f", "--", marker],
                                               capture_output=True).returncode != 0,
                        timeout=15, message="Merlin to quit")
-        subprocess.run(["pkill", "-f", marker], capture_output=True)
+        subprocess.run(["pkill", "-f", "--", marker], capture_output=True)
         # WebKit keeps the run's own store (WKWebsiteDataStore(forIdentifier:)) in the app's container.
         with contextlib.suppress(OSError):
             store = (self.webkit_folder / "webkit-store-id").read_text().strip()
