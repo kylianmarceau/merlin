@@ -468,4 +468,4 @@ Merlin is built on [Chromium](https://www.chromium.org/). Its keyboard model
 borrows heavily from Vim, Neovim, Vimium, qutebrowser and Tridactyl, its ad
 blocking uses [Brave's adblock-rust](https://github.com/brave/adblock-rust),
 and parts of its macOS interface are adapted from
-[Ardia](https://github.com/mantrakp04/ardia) (Apache 2.0; see [NOTICE](NOTICE)).
+[Ardia](https://github.com/ardia-browser/ardia) (Apache 2.0; see [NOTICE](NOTICE)).

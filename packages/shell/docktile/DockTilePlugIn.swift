@@ -1,6 +1,8 @@
 import AppKit
 
-// Merlin's Dock tile plug-in, after Ardia's. The Dock loads it from
+// Merlin's Dock tile plug-in. Adapted from Ardia's DockTilePlugIn
+// (packages/shell/docktile, Apache License 2.0, Copyright 2026 Mantra Patel;
+// see NOTICE). The Dock loads it from
 // Merlin.app/Contents/PlugIns (Info.plist NSDockTilePlugIn) for a Merlin kept
 // in the Dock, and keeps it loaded when Merlin is not running. It shows the
 // app icon chosen in Settings › Appearance (AppIcons.swift, compiled in), so

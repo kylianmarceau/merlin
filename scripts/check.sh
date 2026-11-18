@@ -18,6 +18,9 @@ python3 -m unittest discover -s scripts -p 'test_browser_tools.py'
 echo "==> assembly, build stamps and dSYM matching (fixtures only)"
 python3 -m unittest discover -s scripts -p 'test_react_assembly.py'
 
+echo "==> shipped credits name the React host's components and Ardia"
+python3 -m unittest discover -s scripts -p 'test_shell_notices.py'
+
 echo "==> shell vocabulary: generated copies and native code follow the table"
 python3 scripts/sync_shell_headers.py --check
 python3 -m unittest discover -s scripts -p 'test_shell_vocabulary.py'

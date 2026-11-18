@@ -232,7 +232,12 @@ for name, digest in json.load(open(sys.argv[1]))["lockfiles"].items(): print(f" 
 echo "==> disk image"
 ln -s /Applications "$stage/Applications"
 cp "$ROOT/LICENSE" "$stage/LICENSE.txt"
+cp "$ROOT/NOTICE" "$stage/NOTICE.txt"
 cp "$BUILD/credits.html" "$stage/Third-party notices.html"
+# The engine's credits plus the React host's: npm packages, Pods (Hermes,
+# SocketRocket, React), and NOTICE for the code adapted from Ardia.
+python3 scripts/shell_notices.py --append-to "$stage/Third-party notices.html"
+python3 scripts/shell_notices.py --check "$stage/Third-party notices.html"
 cp "$dist/build-info.txt" "$stage/Build info.txt"
 cat > "$stage/Read me first.txt" <<EOF
 Merlin $VERSION for Macs with Apple Silicon, macOS $min_macos or later.

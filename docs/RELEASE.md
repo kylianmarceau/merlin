@@ -110,7 +110,9 @@ tester. Record the macOS version and the result of each step:
 
 - [ ] The checksum matches the `.sha256` file.
 - [ ] The DMG opens and shows Merlin, Applications, the read-me, licence,
-  notices and build info.
+  NOTICE, third-party notices and build info. The notices include React
+  Native, Hermes, Zustand, SocketRocket, Expo and Ardia (packaging checks
+  this with `scripts/shell_notices.py --check`).
 - [ ] After dragging to Applications, the first launch is blocked with
   "can't check" (not "damaged"), and **Open Anyway** in Privacy & Security
   opens it.
