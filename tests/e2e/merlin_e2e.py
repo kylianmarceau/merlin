@@ -491,6 +491,15 @@ class PageServer:
                                "const t = window.opener ? window.opener.document.title : 'none';"
                                "fetch('/opener-report?title=' + encodeURIComponent(t)).finally(() => window.close());"
                                "</script>").encode(), {}
+        if path.startswith("/flood?"):
+            # /flood?n=N: N requests to the ad host at once; #done counts those settled.
+            count = int(urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)["n"][0])
+            base = self.url("/pagead/flood/", "pagead2.googlesyndication.com")
+            return 200, html, ("<!doctype html><title>flood</title><p id=\"done\">0</p><script>"
+                               f"let done = 0; for (let i = 0; i < {count}; i++) "
+                               f"fetch({json.dumps(base)} + i, {{mode: 'no-cors', cache: 'no-store'}})"
+                               ".catch(() => {}).finally(() => { document.getElementById('done').textContent = ++done; });"
+                               "</script>").encode(), {}
         if path.startswith("/set-cookie?"):
             # /set-cookie?name=value sets a session cookie for the host.
             return 200, html, PAGE_HTML.encode(), {"Set-Cookie": f"{path.split('?', 1)[1]}; Path=/"}

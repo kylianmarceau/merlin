@@ -91,10 +91,19 @@ Custody:
    Build the React host and assemble it with the engine using the commands
    in [the shell build guide](../apps/browser/README.md#build-when-ready).
    The distribution app is `apps/browser/build/assembled/Merlin.app`.
-3. Smoke-test the assembled app: it opens, pages and video play,
+3. Test the assembled app: `scripts/check.sh`, then
+   `scripts/run_e2e_tests.sh`, which also covers the ad blocker switched
+   off, without lists, with a list that fails to load, before its rules
+   are ready and overloaded (`test_adblock_states`). The ad blocker's
+   Chromium browser tests need a development build (`out/Modal` from
+   [`build/args.modal.gn`](../build/args.modal.gn), with
+   `autoninja -C out/Modal browser_tests`) and its disk space; where you
+   have one, run `scripts/run_browser_tests.sh` too and say in the release
+   notes whether it ran.
+4. Smoke-test the assembled app: it opens, pages and video play,
    hints, the palette, splits and workspaces work, an extension installs,
    and it quits and relaunches cleanly.
-4. Package:
+5. Package:
 
    ```bash
    MERLIN_APP="$PWD/apps/browser/build/assembled/Merlin.app" \
@@ -124,7 +133,7 @@ Custody:
    and package it with the stable version. There is no need to recompile
    Chromium or the shell solely to remove a beta suffix. Keep the original
    source commit and matching dSYMs; verify the repackaged download.
-5. Upload to a draft release. Edit
+6. Upload to a draft release. Edit
    [`RELEASE_NOTES.md`](RELEASE_NOTES.md) first if anything changed:
 
    ```bash
@@ -137,7 +146,7 @@ Custody:
    Beta versions use a suffix such as `0.3.0-beta.1` and `--prerelease`.
    The tag must identify the commit used to build the app; use `--target`
    with that commit when repackaging an older beta.
-6. Run the install test below on the draft's download and record it in
+7. Run the install test below on the draft's download and record it in
    `dist/<version>/install-qualification.md`, then publish the stable
    draft as Latest:
 
@@ -195,7 +204,7 @@ feature work:
 5. Test: `scripts/check.sh` (which includes `pnpm ui:check` and `ui:test`)
    and `scripts/run_e2e_tests.sh`
    against the assembled app.
-6. Package without the override and follow **Every release** from step 5,
+6. Package without the override and follow **Every release** from step 6,
    with release notes that name the Chromium version and its security fixes.
    Bump only the patch version (0.3.0 to 0.3.1).
 
