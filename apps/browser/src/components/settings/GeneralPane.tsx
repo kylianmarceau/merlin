@@ -3,7 +3,8 @@ import { View } from 'react-native';
 import { effectiveChannel } from '../../lib/updates';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { setProtectedVideoInWebKit, forgetSiteEngines, setShellPref } from '../../state/shellPrefsStorage';
-import { exportBookmarks, useDefaultBrowser, useLoginItem } from '../../state/system';
+import { exportStatus } from '../../state/bookmarkExport';
+import { exportBookmarks, useDefaultBrowser, useLoginItem, type ExportOutcome } from '../../state/system';
 import type { Preferences, PreferenceKey } from '../../state/types';
 import { checkForUpdates, useUpdates } from '../../state/updates';
 import { useAction, useActions } from '../../state/window';
@@ -30,6 +31,7 @@ export function GeneralPane({ p, set, openPage, onChooseDownloadDir }: {
         detail={login.status === 'requiresApproval' ? 'Allow it in System Settings › General › Login Items.' : undefined}>
         <Toggle label="Open Merlin at login" value={login.status === 'enabled' || login.status === 'requiresApproval'} onChange={login.set} />
       </FormRow>
+      {login.error && <Notice tone="error">{login.error}</Notice>}
       <FormRow title="Warn before quitting" detail="Asks before Merlin quits with ⌘Q.">
         <Toggle label="Warn before quitting" value={prefs.warnBeforeQuitting} onChange={on => void setShellPref('warnBeforeQuitting', on)} />
       </FormRow>
@@ -92,13 +94,14 @@ export function GeneralPane({ p, set, openPage, onChooseDownloadDir }: {
 }
 
 function DefaultBrowser() {
-  const { isDefault, make } = useDefaultBrowser();
+  const { isDefault, make, error } = useDefaultBrowser();
   return <FormGroup>
     <FormRow title={isDefault ? 'Merlin is your default browser' : 'Merlin works best as your default browser'}
       detail={isDefault ? undefined : 'Links from other apps open in Merlin. macOS asks you to confirm.'}>
       {isDefault ? <Icon name="checkmark.seal.fill" tone="textSuccess" size="large" />
         : <Button label="Set Merlin as Default" variant="primary" onPress={make} />}
     </FormRow>
+    {error && <Notice tone="error">{error}</Notice>}
   </FormGroup>;
 }
 
@@ -138,19 +141,19 @@ function Updates() {
 
 function ImportExport({ openPage }: { openPage(key: string): void }) {
   const action = useAction();
-  const [saved, setSaved] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<ExportOutcome | null>(null);
+  const status = exportStatus(outcome);
   return <FormGroup title="Import and Export">
     <FormRow title="Import from another browser" detail="Bookmarks, history, passwords and settings from Chrome, Safari, Firefox and more.">
       <Button label="Import…" onPress={() => openPage('import')} />
     </FormRow>
-    <FormRow title="Export bookmarks" detail={saved ? `Saved to ${saved.replace(/^\/Users\/[^/]+(?=\/|$)/, '~')}.`
-      : 'To an HTML file that Chrome, Safari, Firefox and every other browser can import.'}>
+    <FormRow title="Export bookmarks" detail={status.detail}>
       <Button label="Export…" disabled={action.busy} onPress={async () => {
-        const path = await exportBookmarks(file => action.run('bookmarks.export', { path: file }));
-        if (path && !action.error) setSaved(path);
+        const next = await exportBookmarks(file => action.run('bookmarks.export', { path: file }));
+        if (next.kind !== 'cancelled') setOutcome(next);
       }} />
     </FormRow>
-    {action.error && <Notice tone="error">{action.error}</Notice>}
+    {status.error && <Notice tone="error">{status.error}</Notice>}
   </FormGroup>;
 }
 

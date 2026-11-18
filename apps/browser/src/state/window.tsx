@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { useStore } from 'zustand';
 import { connectEngine } from '../platform/engine';
 import type { Request, Requests } from '../platform/protocol';
+import { settle, type ActionResult } from '../lib/result';
 import { createActions, type Actions } from './actions';
 import { attachEngine, createBrowserStore, pushToast, type BrowserState, type BrowserStore } from './store';
 import { followUpdateSetting } from './updates';
@@ -114,18 +115,25 @@ export function useRequest<R extends Request>(method: R, args: Requests[R]['args
   return { data, error, loading, reload: load, set: value => { generation.current++; setData(value); setLoading(false); } };
 }
 
-/** Runs a browser request from a control, reporting failure in place. */
+export type { ActionResult };
+
+/**
+ * Runs a browser request from a control, reporting failure in place. `run`
+ * resolves to the request's own outcome, so a caller acts on that, not on
+ * `error`, which still holds the state from before the request.
+ */
 export function useAction() {
   const actions = useActions();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
-  const run = useCallback(async <R extends Request>(method: R, args: Requests[R]['args'], timeoutMs?: number) => {
+  const run = useCallback(async <R extends Request>(method: R, args: Requests[R]['args'],
+    timeoutMs?: number): Promise<ActionResult<Requests[R]['result']>> => {
     setBusy(true); setError(null);
-    try { return await actions.request(method, args, timeoutMs); }
-    catch (e) { if (alive.current) setError(e instanceof Error ? e.message : String(e)); return undefined; }
-    finally { if (alive.current) setBusy(false); }
+    const result = await settle(() => actions.request(method, args, timeoutMs));
+    if (alive.current) { if (!result.ok) setError(result.error); setBusy(false); }
+    return result;
   }, [actions]);
   return { run, error, busy, clearError: () => setError(null) };
 }

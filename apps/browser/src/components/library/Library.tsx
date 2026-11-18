@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { formatDay, formatTime } from '../../lib/format';
+import { errorText, type ActionResult } from '../../lib/result';
 import type { BookmarkItem, BookmarkView, HistoryItem } from '../../state/types';
 import { useAction, useActions, useBrowser, useRequest, useSnapshot } from '../../state/window';
 import {
@@ -61,6 +62,12 @@ function Footer({ note, link, onPress }: { note: string; link: string; onPress()
   </View>;
 }
 
+/** A list that could not be read: says so, unlike an empty one, and offers to try again. */
+function LoadFailed({ what, error, onRetry }: { what: string; error: string; onRetry(): void }) {
+  return <EmptyState icon="exclamationmark.triangle" title={`Couldn’t load ${what}`} detail={error}
+    action={<Button label="Try Again" onPress={onRetry} />} />;
+}
+
 /** A visit: when, what and where, with a remove button on hover. */
 function HistoryRow({ item, onOpen, onRemove }: { item: HistoryItem; onOpen(): void; onRemove(): void }) {
   const { colors } = useTheme();
@@ -107,7 +114,7 @@ function History({ onOpen }: { onOpen(url: string): void }) {
       if (mine !== generation.current) return;
       setItems(current => before ? [...current, ...page.items] : page.items);
       setDone(page.done); setError(null);
-    } catch (e) { if (mine === generation.current) setError(e instanceof Error ? e.message : String(e)); }
+    } catch (e) { if (mine === generation.current) setError(errorText(e)); }
     finally { if (mine === generation.current) setLoading(false); }
   };
   useEffect(() => { void load(); }, [text]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -116,7 +123,7 @@ function History({ onOpen }: { onOpen(url: string): void }) {
     try {
       await actions.request('history.remove', { urls: [item.url] });
       setItems(current => current.filter(i => i.url !== item.url));
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    } catch (e) { setError(errorText(e)); }
   };
   const days = useMemo(() => {
     const groups: { day: string; items: HistoryItem[] }[] = [];
@@ -130,7 +137,8 @@ function History({ onOpen }: { onOpen(url: string): void }) {
   return <Box flex={1}>
     <Header query={query} onQuery={setQuery} placeholder="Search history" />
     <ScrollView style={{ flex: 1 }} contentContainerStyle={listStyle}>
-      {error && <Notice tone="error">{error}</Notice>}
+      {error && !items.length && !loading && <LoadFailed what="history" error={error} onRetry={() => void load()} />}
+      {error && !!items.length && <Notice tone="error">{error}</Notice>}
       {!loading && !items.length && !error && <EmptyState icon="clock" title={text ? 'Nothing matches' : 'No history yet'}
         detail={text ? 'Try other words.' : 'Pages you visit appear here.'} />}
       {days.map(group => <Box key={group.day} gap="hair" marginBottom="sm">
@@ -154,17 +162,23 @@ function Bookmarks({ onOpen }: { onOpen(url: string): void }) {
   const text = useDebounced(query.trim());
   const folder = useRequest('bookmarks.folder', folderId ? { folderId } : {}, [folderId]);
   const [results, setResults] = useState<BookmarkView | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searches, setSearches] = useState(0);
   const [editing, setEditing] = useState<BookmarkItem | 'new-folder' | null>(null);
   const action = useAction();
   useEffect(() => {
     let current = true;
+    setSearchError(null);
     if (!text) { setResults(null); return; }
-    actions.request('bookmarks.search', { text }).then(v => { if (current) setResults(v); }, () => {});
+    actions.request('bookmarks.search', { text }).then(v => { if (current) setResults(v); },
+      e => { if (current) { setResults(null); setSearchError(errorText(e)); } });
     return () => { current = false; };
-  }, [actions, text]);
+  }, [actions, text, searches]);
   const view = text ? results : folder.data;
-  const refresh = () => { folder.reload(); if (text) void actions.request('bookmarks.search', { text }).then(setResults, () => {}); };
-  const mutate = async (run: () => Promise<unknown>) => { if ((await run()) !== undefined) refresh(); };
+  const loadError = text ? searchError : folder.error;
+  const retry = () => { if (text) setSearches(n => n + 1); else folder.reload(); };
+  const refresh = () => { folder.reload(); if (text) setSearches(n => n + 1); };
+  const mutate = async (run: () => Promise<ActionResult<unknown>>) => { if ((await run()).ok) refresh(); };
   const move = (item: BookmarkItem, delta: number) => {
     if (!view) return;
     const index = view.items.findIndex(i => i.id === item.id);
@@ -184,8 +198,10 @@ function Bookmarks({ onOpen }: { onOpen(url: string): void }) {
       </React.Fragment>)}
     </Box>}
     <ScrollView style={{ flex: 1 }} contentContainerStyle={listStyle}>
-      {(folder.error || action.error) && <Notice tone="error">{folder.error || action.error}</Notice>}
-      {!view && !folder.error && <Box center pad="md"><Spinner /></Box>}
+      {action.error && <Notice tone="error">{action.error}</Notice>}
+      {!view && loadError && <LoadFailed what={text ? 'search results' : 'your bookmarks'} error={loadError} onRetry={retry} />}
+      {view && loadError && <Notice tone="error">{loadError}</Notice>}
+      {!view && !loadError && <Box center pad="md"><Spinner /></Box>}
       {view && !view.items.length && <EmptyState icon="bookmark" title={text ? 'No bookmarks match' : 'This folder is empty'} />}
       {view?.items.map((item, index) => <ListRow key={item.id} title={item.title || item.url || 'Untitled'}
         detail={item.folder ? `${item.count ?? 0} items` : [item.domain, item.where].filter(Boolean).join(' · ')}
@@ -205,7 +221,7 @@ function Bookmarks({ onOpen }: { onOpen(url: string): void }) {
         const result = editing === 'new-folder'
           ? await action.run('bookmarks.createFolder', { parentId: view!.folderId, title })
           : await action.run('bookmarks.edit', { id: editing.id, title, ...(editing.folder ? {} : { url }) });
-        if (result !== undefined) { setEditing(null); refresh(); }
+        if (result.ok) { setEditing(null); refresh(); }
       }} />}
   </Box>;
 }
@@ -254,8 +270,12 @@ function Downloads() {
       <Button label="Open Folder" icon="folder" onPress={() => void actions.openDownloadsFolder()} />
     </Header>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: space.xl }}>
-      {!shown.length && <EmptyState icon="arrow.down.to.line" title={q ? 'No downloads match' : 'No downloads'}
-        detail={q ? undefined : 'Files you download appear here.'} />}
+      {all.error && !shown.length && <LoadFailed what="your downloads" error={all.error} onRetry={all.reload} />}
+      {all.error && !!shown.length && <Box padX="lg" padBottom="sm"><Notice tone="error">
+        {`Older downloads couldn’t be loaded: ${all.error}`}</Notice></Box>}
+      {!all.error && all.loading && !all.data && !shown.length && <Box center pad="md"><Spinner /></Box>}
+      {!all.error && all.data && !shown.length && <EmptyState icon="arrow.down.to.line"
+        title={q ? 'No downloads match' : 'No downloads'} detail={q ? undefined : 'Files you download appear here.'} />}
       {shown.map(d => <DownloadRow key={d.id} download={d} onAction={a => void actions.downloadAction(d.id, a)}
         onMenu={() => void actions.downloadMenu(d.id)} />)}
     </ScrollView>

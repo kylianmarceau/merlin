@@ -41,7 +41,7 @@ export function Settings({ open }: { open: boolean }) {
   const action = useAction();
   const set: Set = async (key, value) => {
     const next = await action.run('settings.set', { key, value });
-    if (next) prefs.set(next);
+    if (next.ok) prefs.set(next.value);
   };
   const openPage = (key: string) => void action.run('settings.openPage', { key });
   const p = prefs.data;
@@ -54,7 +54,7 @@ export function Settings({ open }: { open: boolean }) {
         {p && section === 'general' && <GeneralPane p={p} set={set} openPage={openPage} onChooseDownloadDir={async () => {
           // The system folder picker stays open until the person chooses.
           const dir = await action.run('settings.chooseDownloadDir', {}, 10 * 60_000);
-          if (dir !== undefined) prefs.reload();
+          if (dir.ok) prefs.reload();
         }} />}
         {p && section === 'privacy' && <>
           <SectionHeader title="Privacy" detail="Passwords, site permissions and browsing data." />
@@ -160,7 +160,7 @@ function Workspaces({ onOpen }: { onOpen(name: string): void }) {
           <Button label="Open" size="small" onPress={() => onOpen(w.name)} />
           <Button label="Delete" size="small" variant="dangerGhost" icon="trash" onPress={async () => {
             const next = await action.run('settings.deleteWorkspace', { name: w.name });
-            if (next) list.set(next);
+            if (next.ok) list.set(next.value);
           }} />
         </Box>
       </FormRow>)}
@@ -179,10 +179,10 @@ function ConfigEditor({ onSaved }: { onSaved(): void }) {
     <SectionHeader title="Config File" detail={file.data ? file.data.path : 'Merlin reads keys, commands and options from this file.'}>
       <Button label="Revert" disabled={!dirty || action.busy} onPress={() => { setText(file.data?.text ?? ''); setResult(null); }} />
       <Button label="Save and Reload" variant="primary" disabled={!dirty || action.busy} onPress={async () => {
-        const error = await action.run('settings.saveConfig', { text: text ?? '' });
-        if (error === undefined) return;
-        setResult(error);
-        if (!error) { file.set({ ...file.data!, text: text ?? '', found: true, error: '' }); onSaved(); }
+        const saved = await action.run('settings.saveConfig', { text: text ?? '' });
+        if (!saved.ok) return;  // shown as action.error
+        setResult(saved.value);
+        if (!saved.value) { file.set({ ...file.data!, text: text ?? '', found: true, error: '' }); onSaved(); }
       }} />
     </SectionHeader>
     <Box gap="md">
@@ -213,7 +213,7 @@ function ModalBrowsing() {
       <Toggle label="Modal browsing" value={on} disabled={action.busy} onChange={async value => {
         setError('');
         const result = await action.run('settings.setOption', { name: 'modal_browsing', value });
-        if (result) setError(result);
+        if (result.ok && result.value) setError(result.value);
       }} />
     </FormRow>
   </FormGroup>;
