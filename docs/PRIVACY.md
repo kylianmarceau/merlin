@@ -35,7 +35,10 @@ WebKit store on this Mac, and makes no Safe Browsing lookups. Private windows
 share a WebKit session that is never written to disk and ends with the last
 private window, as Chromium's does: its pages close, its data is removed and
 the next private window starts a new one
-(decision 59).
+(decision 59). The icons of WebKit pages are fetched apart from both
+engines, with no cookies or credentials: normal pages' icons are cached in
+`~/Library/Caches/io.github.kylianmarceau.merlin/WebKitIcons`, private
+pages' only in memory for their session.
 
 When the native ad blocker is enabled, normal profiles can automatically
 refresh selected filter sources with Chromium's networking. The fixed catalog
@@ -71,6 +74,7 @@ launch.
 | Native blocker lists, source revisions/digests/retrieval times, serialized engine and previous snapshot | Chromium profile's `MerlinAdblock/current` and `current.previous` | within the user-owned profile | after a validated generation is built; atomic publication, at most two 64 MiB snapshots plus temporary staging |
 | Blocker enablement, list selection, automatic-update setting, last successful refresh and exact-host site exceptions | Chromium profile preferences (`merlin.adblock.*`) | Chromium profile permissions | explicit settings, commands or site-control changes; refresh time after a successful update |
 | Configuration | `~/.config/modal_browser/config.toml` (or `$XDG_CONFIG_HOME`) | replaced atomically (Chromium's `ImportantFileWriter`, 0600) | when you save in Settings › Config File, or flip a switch that writes an `[options]` value (Settings › Keys › Modal browsing) |
+| WebKit pages' cookies and site data, and their icons | WebKit's store for the app, `~/Library/WebKit/io.github.kylianmarceau.merlin`; icons in `~/Library/Caches/io.github.kylianmarceau.merlin/WebKitIcons` | user-owned | as WebKit pages load; never for private windows |
 | Shell preferences: appearance, layout, warnings, update channel and the sites you moved between Chromium and WebKit (hostnames only) | macOS defaults, `~/Library/Preferences/io.github.kylianmarceau.merlin.plist`, keys `MerlinShell.*` | user-owned | when you change a setting; a default value is never written |
 
 Private (incognito) page data is not saved by the workspace/editor layer: private windows cannot save

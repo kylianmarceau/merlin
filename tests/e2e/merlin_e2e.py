@@ -50,6 +50,9 @@ DEFAULT_APPS = [
 ]
 
 
+# Where WebKit keeps the app's identified data stores, one folder per store.
+WEBKIT_STORES = Path.home() / "Library/WebKit/io.github.kylianmarceau.merlin"
+
 sys.path.insert(0, str(ROOT / "scripts/lib"))
 from source_state import mismatch, source_state  # noqa: E402
 
@@ -342,6 +345,11 @@ class PacedDownload:
                 handler.connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
 
 
+# A 2x2 red PNG.
+ICON_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP4z8AARAwQCgAf7gP9i18U1AAAAABJRU5ErkJggg==")
+
+
 class Request:
     """One request the fixture server answered, with the headers tests read."""
 
@@ -426,6 +434,11 @@ class PageServer:
             self.requests.clear()
             self.sent.clear()
 
+    def requests_to(self, path_prefix: str, host: Optional[str] = None) -> list[Request]:
+        """Every request for paths starting with `path_prefix`, by any engine."""
+        with self.lock:
+            return [r for r in self.sent if r.path.startswith(path_prefix) and (host is None or r.host == host)]
+
     def webkit_requests(self, path_prefix: str, host: Optional[str] = None) -> list[Request]:
         """Requests WebKit made (Chromium's say Chrome in their user agent)."""
         with self.lock:
@@ -453,6 +466,15 @@ class PageServer:
             "/ads": ADS_HTML.replace("AD_URL", self.url("/pagead/js/adsbygoogle.js",
                                                         "pagead2.googlesyndication.com")),
         }
+        if path.startswith("/icon-page?"):
+            # /icon-page?name=X: a page whose icon is /icon/X.png.
+            name = path.split("=", 1)[1]
+            return 200, html, (f'<!doctype html><title>{name}</title><link rel="icon" href="/icon/{name}.png">'
+                               "<p>A page with an icon.</p>").encode(), {}
+        if path.startswith("/icon/"):
+            # Cacheable for a day, and it sets a cookie: neither may outlast a private page.
+            name = path[len("/icon/"):].split(".")[0]
+            return 200, "image/png", ICON_PNG, {"Cache-Control": "max-age=86400", "Set-Cookie": f"icon-{name}=1; Path=/"}
         if path.startswith("/set-cookie?"):
             # /set-cookie?name=value sets a session cookie for the host.
             return 200, html, PAGE_HTML.encode(), {"Set-Cookie": f"{path.split('?', 1)[1]}; Path=/"}
@@ -703,6 +725,7 @@ class Merlin:
         self.config_home = self.dir / "config"
         self.data_home = self.dir / "data"
         self.downloads = self.dir / "downloads"
+        self.webkit_folder = self.dir / "webkit"
         # Unix socket paths are limited to 104 bytes; keep this one short.
         self.socket_dir = Path(tempfile.mkdtemp(prefix="me2e-", dir="/tmp"))
         self.socket = self.socket_dir / "s.sock"
@@ -727,6 +750,9 @@ class Merlin:
             # the person's saved preferences. These tests observe real tabs;
             # the React new-tab pop-up is covered by the shell's unit tests.
             "-MerlinShell.newTabPopup", "off",
+            # WebKit's cookies, site data and icon cache for normal pages go
+            # in a folder of this run's own, never the person's.
+            "-MerlinWebKitTestFolder", str(self.webkit_folder),
             f"--host-resolver-rules=MAP *.test 127.0.0.1, MAP pagead2.googlesyndication.com 127.0.0.1",
             "--window-size=1280,900",
             # A hidden window is occluded; keep its pages running at full speed.
@@ -953,6 +979,12 @@ class Merlin:
                                               capture_output=True).returncode != 0,
                        timeout=15, message="Merlin to quit")
         subprocess.run(["pkill", "-f", marker], capture_output=True)
+        # WebKit keeps the run's own store (WKWebsiteDataStore(forIdentifier:)) in the app's container.
+        with contextlib.suppress(OSError):
+            store = (self.webkit_folder / "webkit-store-id").read_text().strip()
+            if store:
+                for path in WEBKIT_STORES.glob(f"*/{store}"):
+                    shutil.rmtree(path, ignore_errors=True)
         shutil.rmtree(self.dir, ignore_errors=True)
         shutil.rmtree(self.socket_dir, ignore_errors=True)
 
