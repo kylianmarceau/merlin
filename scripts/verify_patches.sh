@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Checks that patches/*.patch apply cleanly to the pinned Chromium tag,
 # without a checkout: downloads only the files the patches touch from
-# chromium.googlesource.com and checks them with the same git apply command
+# chromium.googlesource.com (or its GitHub mirror) and checks them with the same git apply command
 # used by apply_overlay.sh (no fuzzy context matching).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -12,29 +12,31 @@ scratch="$(mktemp -d)"
 trap 'rm -rf "$work" "$scratch"' EXIT
 
 # Gitiles serves base64 text, and throttles busy clients (CI) with 5xx
-# answers. Each attempt downloads to a fresh file, so a retry after a broken
-# transfer can't append to a half-written one, and backs off a little longer.
-# With VERIFY_PATCHES_CACHE set, files are kept there by tag or revision
-# (both immutable), so later runs download nothing.
+# answers, so each file falls back to Google's read-only GitHub mirror of
+# the same repository, which serves it raw. Each attempt downloads to a
+# fresh file, so a retry after a broken transfer can't append to a
+# half-written one. With VERIFY_PATCHES_CACHE set, files are kept there by
+# tag or revision (both immutable), so later runs download nothing.
 cache="${VERIFY_PATCHES_CACHE:-}"
-fetch() { # url cache-key output
-  if [[ -n "$cache" && -s "$cache/$2" ]]; then
-    cp "$cache/$2" "$3"
+fetch() { # gitiles-url github-url cache-key output
+  if [[ -n "$cache" && -s "$cache/$3" ]]; then
+    cp "$cache/$3" "$4"
     return
   fi
   local attempt raw="$scratch/download"
-  for attempt in 1 2 3 4 5 6 7 8; do
-    if curl -sSf --max-time 60 -o "$raw" "$1?format=TEXT" &&
-       base64 --decode < "$raw" > "$3"; then
+  for attempt in 1 2 3 4; do
+    if { curl -sSf --max-time 60 -o "$raw" "$1?format=TEXT" &&
+         base64 --decode < "$raw" > "$4"; } ||
+       curl -sSf --max-time 60 -o "$4" "$2"; then
       if [[ -n "$cache" ]]; then
-        mkdir -p "$(dirname "$cache/$2")"
-        cp "$3" "$cache/$2"
+        mkdir -p "$(dirname "$cache/$3")"
+        cp "$4" "$cache/$3"
       fi
       return
     fi
     sleep $((attempt * 3))
   done
-  echo "Could not download $1" >&2
+  echo "Could not download $1 or $2" >&2
   return 1
 }
 
@@ -64,18 +66,19 @@ for f in $files; do
     else
       if [[ -z "${devtools_revision:-}" ]]; then
         fetch "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/DEPS" \
-          "chromium/$TAG/DEPS" "$scratch/DEPS"
+          "https://raw.githubusercontent.com/chromium/chromium/$TAG/DEPS" "chromium/$TAG/DEPS" "$scratch/DEPS"
         devtools_revision="$(sed -n "s/.*'devtools_frontend_revision': '\([a-f0-9]*\)'.*/\1/p" "$scratch/DEPS")"
         [[ "$devtools_revision" =~ ^[a-f0-9]{40}$ ]] || { echo 'Missing pinned DevTools revision'; exit 1; }
       fi
       fetch "https://chromium.googlesource.com/devtools/devtools-frontend/+/$devtools_revision/$relative" \
+        "https://raw.githubusercontent.com/ChromeDevTools/devtools-frontend/$devtools_revision/$relative" \
         "devtools/$devtools_revision/$relative" "$work/$f"
     fi
   elif [[ -n "${CHROMIUM_SRC:-}" ]]; then
     git -C "$CHROMIUM_SRC" show "$TAG:$f" > "$work/$f"
   else
     fetch "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/$f" \
-      "chromium/$TAG/$f" "$work/$f"
+      "https://raw.githubusercontent.com/chromium/chromium/$TAG/$f" "chromium/$TAG/$f" "$work/$f"
   fi
 done
 

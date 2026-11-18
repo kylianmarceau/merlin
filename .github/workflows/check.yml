@@ -46,14 +46,14 @@ jobs:
 
       # The upstream files the patches touch, by Chromium tag and DevTools
       # revision. Gitiles throttles CI, so download them once per pin.
-      # Saved even when a later check fails, so a throttled first run still
-      # leaves what it downloaded for the next.
+      # Saved after every run, even a failed one, under a new key, so each
+      # run starts from everything earlier runs downloaded.
       - name: Restore pinned Chromium files
         id: pinned-files
         uses: actions/cache/restore@v4
         with:
           path: ~/.cache/merlin-verify-patches
-          key: verify-patches-${{ hashFiles('UPSTREAM_PIN') }}-${{ hashFiles('patches/*.patch') }}
+          key: verify-patches-${{ hashFiles('UPSTREAM_PIN') }}-${{ github.run_id }}
           restore-keys: verify-patches-${{ hashFiles('UPSTREAM_PIN') }}-
 
       # cargo fmt, clippy and test; pnpm ui:check and ui:test; the Python
@@ -64,8 +64,8 @@ jobs:
         run: VERIFY_PATCHES_CACHE="$HOME/.cache/merlin-verify-patches" scripts/check.sh
 
       - name: Save pinned Chromium files
-        if: always() && steps.pinned-files.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: ~/.cache/merlin-verify-patches
-          key: verify-patches-${{ hashFiles('UPSTREAM_PIN') }}-${{ hashFiles('patches/*.patch') }}
+          key: verify-patches-${{ hashFiles('UPSTREAM_PIN') }}-${{ github.run_id }}
