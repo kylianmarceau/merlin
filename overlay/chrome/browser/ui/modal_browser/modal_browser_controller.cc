@@ -824,6 +824,34 @@ content::RenderFrameHost* LocalRoot(content::RenderFrameHost* frame,
 
 }  // namespace
 
+ModalBrowserController::PageRequest ModalBrowserController::RequestTo(
+    content::RenderFrameHost* frame,
+    uint64_t generation) {
+  tabs::TabInterface* tab = browser_->GetActiveTabInterface();
+  return PageRequest{tab ? tab->GetHandle() : tabs::TabHandle(),
+                     frame->GetWeakDocumentPtr(), generation};
+}
+
+content::RenderFrameHost* ModalBrowserController::RequestedFrame(
+    const PageRequest& request) {
+  content::RenderFrameHost* frame = request.document.AsRenderFrameHostIfValid();
+  // A document kept in the back-forward cache is not the page shown.
+  return frame && frame->IsActive() ? frame : nullptr;
+}
+
+content::RenderFrameHost* ModalBrowserController::ActiveRequestedFrame(
+    const PageRequest& request) {
+  content::RenderFrameHost* frame = RequestedFrame(request);
+  tabs::TabInterface* tab = browser_->GetActiveTabInterface();
+  content::WebContents* contents = ActiveContents();
+  if (!frame || !tab || tab->GetHandle() != request.tab || !contents ||
+      ShowsWebKit(contents) ||
+      content::WebContents::FromRenderFrameHost(frame) != contents) {
+    return nullptr;
+  }
+  return frame;
+}
+
 void ModalBrowserController::CollectHints(uint32_t generation,
                                           ffi::HintTargets targets) {
   content::WebContents* contents = ActiveContents();
@@ -836,20 +864,23 @@ void ModalBrowserController::CollectHints(uint32_t generation,
   // order; each reports its targets in its own coordinates.
   HintCollection collection;
   collection.generation = generation;
+  collection.tab = browser_->GetActiveTabInterface()->GetHandle();
+  std::vector<content::RenderFrameHost*> frames;
   contents->GetPrimaryMainFrame()->ForEachRenderFrameHost(
-      [&collection](content::RenderFrameHost* frame) {
+      [&frames](content::RenderFrameHost* frame) {
         if (frame->IsActive() && frame->IsRenderFrameLive() &&
-            collection.frames.size() < kMaxHintFrames) {
-          collection.frames.push_back(frame->GetGlobalId());
+            frames.size() < kMaxHintFrames) {
+          frames.push_back(frame);
         }
       });
-  collection.results.resize(collection.frames.size());
-  collection.pending = static_cast<int>(collection.frames.size());
+  for (content::RenderFrameHost* frame : frames) {
+    collection.documents.push_back(frame->GetWeakDocumentPtr());
+  }
+  collection.results.resize(frames.size());
+  collection.pending = static_cast<int>(frames.size());
   hint_collection_ = std::move(collection);
-  const std::vector<content::GlobalRenderFrameHostId> frames =
-      hint_collection_->frames;
   for (size_t i = 0; i < frames.size(); ++i) {
-    content::RenderFrameHost::FromID(frames[i])->ExecuteJavaScriptInIsolatedWorld(
+    frames[i]->ExecuteJavaScriptInIsolatedWorld(
         page_scripts::CollectHintsScript(targets),
         base::BindOnce(&ModalBrowserController::OnFrameHintTargets,
                        weak_factory_.GetWeakPtr(), generation, i),
@@ -877,13 +908,17 @@ void ModalBrowserController::OnFrameHintTargets(uint32_t generation,
 
   content::WebContents* contents = ActiveContents();
   placed_hints_.clear();
+  placed_tab_ = collection.tab;
+  placed_generation_ = collection.generation;
   std::vector<ffi::HintKind> kinds;
-  if (contents) {
+  // Only targets of the page that was asked, still shown in the active tab.
+  if (contents && browser_->GetActiveTabInterface()->GetHandle() ==
+                      collection.tab) {
     const float scale = DeviceScaleFactor();
     const gfx::Size viewport = contents->GetContainerBounds().size();
-    for (size_t i = 0; i < collection.frames.size(); ++i) {
-      content::RenderFrameHost* frame =
-          content::RenderFrameHost::FromID(collection.frames[i]);
+    for (size_t i = 0; i < collection.documents.size(); ++i) {
+      content::RenderFrameHost* frame = ActiveRequestedFrame(
+          PageRequest{collection.tab, collection.documents[i], generation});
       const std::optional<page_scripts::HintTargets>& r = collection.results[i];
       if (!frame || !r) {
         continue;
@@ -918,7 +953,7 @@ void ModalBrowserController::OnFrameHintTargets(uint32_t generation,
           continue;
         }
         placed_hints_.push_back(
-            {collection.frames[i], t, r->targets[t].kind, root});
+            {collection.documents[i], t, r->targets[t].kind, root});
         kinds.push_back(r->targets[t].kind);
       }
     }
@@ -957,13 +992,13 @@ void ModalBrowserController::HideHints() {
 
 void ModalBrowserController::ActivateHint(uint32_t target,
                                           ffi::HintAction action) {
-  content::WebContents* contents = ActiveContents();
-  content::RenderFrameHost* frame =
+  const PageRequest request =
       target < placed_hints_.size()
-          ? content::RenderFrameHost::FromID(placed_hints_[target].frame)
-          : nullptr;
-  if (!frame || !contents ||
-      content::WebContents::FromRenderFrameHost(frame) != contents) {
+          ? PageRequest{placed_tab_, placed_hints_[target].document,
+                        placed_generation_}
+          : PageRequest();
+  content::RenderFrameHost* frame = ActiveRequestedFrame(request);
+  if (!frame) {
     ShowMessage(ffi::MessageLevel::Error, "The page changed; try again");
     return;
   }
@@ -980,19 +1015,25 @@ void ModalBrowserController::ActivateHint(uint32_t target,
   frame->ExecuteJavaScriptInIsolatedWorld(
       page_scripts::ActivationInfoScript(placed_hints_[target].index, op),
       base::BindOnce(&ModalBrowserController::OnActivationInfo,
-                     weak_factory_.GetWeakPtr(), action, frame->GetGlobalId()),
+                     weak_factory_.GetWeakPtr(), action, request),
       ISOLATED_WORLD_ID_CHROME_INTERNAL);
 }
 
-void ModalBrowserController::OnActivationInfo(
-    ffi::HintAction action,
-    content::GlobalRenderFrameHostId frame_id,
-    base::Value result) {
+void ModalBrowserController::OnActivationInfo(ffi::HintAction action,
+                                              PageRequest request,
+                                              base::Value result) {
+  // The answer describes the page that was asked. If another tab is active
+  // now, that page navigated, or newer hints replaced these, it must not
+  // click, open or copy anything.
+  content::RenderFrameHost* frame = ActiveRequestedFrame(request);
+  if (!frame || request.generation != placed_generation_) {
+    ShowMessage(ffi::MessageLevel::Error, "The page changed; try again");
+    PageWorkDone();
+    return;
+  }
   std::optional<page_scripts::ActivationInfo> info =
       page_scripts::ParseActivationInfo(result);
-  content::WebContents* contents = ActiveContents();
-  content::RenderFrameHost* frame = content::RenderFrameHost::FromID(frame_id);
-  if (!info || !contents || !frame) {
+  if (!info) {
     ShowMessage(ffi::MessageLevel::Error, "That element is gone");
     PageWorkDone();
     return;
