@@ -213,14 +213,15 @@ brew install --cask kylianmarceau/tap/merlin
 
 Attempt to open Merlin, then approve it in **System Settings > Privacy &
 Security > Open Anyway**, as described below. Homebrew preserves macOS
-quarantine protections. Quit Merlin before upgrading:
+quarantine protections. To upgrade:
 
 ```bash
 brew update
 brew upgrade --cask kylianmarceau/tap/merlin
 ```
 
-Profiles and configuration are kept. To switch an existing manual install
+The upgrade quits a running Merlin first. Profiles and configuration are
+kept; `brew uninstall --zap --cask merlin` removes them with the app. To switch an existing manual install
 to Homebrew, follow the [tap's adoption instructions](https://github.com/kylianmarceau/homebrew-tap#readme).
 
 ### Direct download

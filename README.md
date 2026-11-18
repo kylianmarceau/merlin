@@ -91,8 +91,8 @@ bugs exploited in the wild.
 brew uninstall --cask merlin
 ```
 
-or drag Merlin from Applications to the Bin. To remove your data as well,
-delete:
+or drag Merlin from Applications to the Bin. `brew uninstall --zap --cask
+merlin` removes your data as well; otherwise, to remove it, delete:
 
 - `~/Library/Application Support/Merlin` and `~/Library/Caches/Merlin` (the
   browser profile and its cache)
