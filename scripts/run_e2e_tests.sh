@@ -44,7 +44,7 @@ MERLIN_E2E_BUILD_CHECKED="${report##*$'\n'}"
 # A packaged app has the hardened runtime, which ignores DYLD_INSERT_LIBRARIES,
 # so the harness's background-app shim would not load. Test a copy signed the
 # same way without the runtime instead; the binaries are the same.
-if codesign -dv "$MERLIN_E2E_BUILD_CHECKED" 2>&1 | grep -q 'flags=.*runtime'; then
+if [[ "$(codesign -dv "$MERLIN_E2E_BUILD_CHECKED" 2>&1)" == *flags=*runtime* ]]; then
   copy_dir="$(mktemp -d "${TMPDIR:-/tmp}/merlin-e2e-app.XXXXXX")"
   trap 'rm -rf "$copy_dir"' EXIT
   copy_dir="$(cd "$copy_dir" && pwd -P)"  # the harness compares resolved paths

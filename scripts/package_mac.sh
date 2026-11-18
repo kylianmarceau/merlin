@@ -153,8 +153,11 @@ fi
 name="Merlin-$VERSION-arm64$suffix"
 dist="$ROOT/dist/$VERSION$suffix"
 mkdir -p "$dist"
-stage="$(mktemp -d "${TMPDIR:-/tmp}/merlin-package.XXXXXX")"
-trap 'rm -rf "$stage"' EXIT
+work="$(mktemp -d "${TMPDIR:-/tmp}/merlin-package.XXXXXX")"
+trap 'rm -rf "$work"' EXIT
+stage="$work/dmg"        # becomes the disk image
+symbols="$work/dSYMs"    # becomes the dSYM archive, outside the disk image
+mkdir "$stage"
 
 echo "==> copying Merlin.app"
 ditto "$APP" "$stage/Merlin.app"
@@ -196,9 +199,10 @@ fi
 python3 scripts/sign_app.py "$stage/Merlin.app" "${sign_args[@]}" \
   --runtime --entitlements "$(dirname "$(dirname "$BUILD")")/chrome/app"
 codesign --verify --deep --strict --verbose=1 "$stage/Merlin.app"
-codesign -dv "$stage/Merlin.app" 2>&1 | grep -E '^(Identifier|Signature|Sealed Resources|CodeDirectory)'
-codesign -dv "$stage/Merlin.app" 2>&1 | grep -q 'flags=.*runtime' || die "the signed app has no hardened runtime"
-requirement="$(codesign -d -r- "$stage/Merlin.app" 2>&1 | sed -n 's/^designated => //p')"
+signature="$(codesign -dv "$stage/Merlin.app" 2>&1)"
+grep -E '^(Identifier|Signature|Sealed Resources|CodeDirectory)' <<< "$signature"
+[[ "$signature" == *flags=*runtime* ]] || die "the signed app has no hardened runtime"
+requirement="$(codesign -d -r- "$stage/Merlin.app" 2>&1 | sed -n 's/^\(# \)\{0,1\}designated => //p')"
 if [[ "$identity" != - && "$requirement" == cdhash* ]]; then
   die "signed with $identity, but the designated requirement is still a code hash: $requirement"
 fi
@@ -209,7 +213,7 @@ if [[ "$symbols_skipped" != 1 ]]; then
   dsym_args=(--search "$BUILD" --search "$(dirname "$SHELL_APP")")
   [[ -z "${MERLIN_SHELL_DSYM:-}" ]] || dsym_args+=(--dsym "$MERLIN_SHELL_DSYM")
   python3 scripts/match_dsyms.py "$stage/Merlin.app" "${dsym_args[@]}" \
-    --copy-to "$stage/dSYMs" --map "$stage/dSYMs/UUIDs.txt"
+    --copy-to "$symbols" --map "$symbols/UUIDs.txt"
 fi
 
 echo "==> build information"
@@ -251,7 +255,7 @@ for name, digest in json.load(open(sys.argv[1]))["lockfiles"].items(): print(f" 
     dwarfdump --uuid "$stage/Merlin.app/Contents/MacOS/Merlin" "$framework" | sed "s|$stage/||"
   else
     echo "Binary UUIDs and their dSYMs:"
-    sed 's/^/  /' "$stage/dSYMs/UUIDs.txt"
+    sed 's/^/  /' "$symbols/UUIDs.txt"
   fi
   echo
   echo "Assembly manifest:"
@@ -292,6 +296,9 @@ hdiutil create -volname "Merlin $VERSION" -srcfolder "$stage" -format UDZO \
   -imagekey zlib-level=9 -ov "$dmg" >/dev/null
 (cd "$dist" && shasum -a 256 "$name.dmg" > "$name.dmg.sha256")
 
+# The install test's checklist, to fill in for this release (docs/RELEASE.md).
+sed "s/{{VERSION}}/$VERSION$suffix/g" docs/install-qualification.md > "$dist/install-qualification.md"
+
 # The release notes to upload: docs/RELEASE_NOTES.md, headed by a warning
 # when the gate above was overridden.
 notes="$dist/release-notes.md"
@@ -306,7 +313,7 @@ notes="$dist/release-notes.md"
 
 if [[ "$symbols_skipped" != 1 ]]; then
   # No AppleDouble (._) files or extended attributes in the archive.
-  ditto -c -k --norsrc --noextattr --keepParent "$stage/dSYMs" "$dist/$name-dSYMs.zip"
+  ditto -c -k --norsrc --noextattr --keepParent "$symbols" "$dist/$name-dSYMs.zip"
 fi
 
 echo
