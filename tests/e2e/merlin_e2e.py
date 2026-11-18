@@ -78,6 +78,28 @@ class OtherBuild(Exception):
     """The app under test wasn't assembled from this checkout."""
 
 
+class QuarantinedApp(Exception):
+    """macOS would run the app under test from a translocated copy, without the test's arguments."""
+
+
+def refuse_quarantined(app: Path) -> None:
+    """Raises QuarantinedApp if any file in the app carries com.apple.quarantine.
+
+    `open` starts a quarantined app from a randomized App Translocation path
+    and drops its --args and --env, so the instance would open the person's
+    own profile in ~/Library/Application Support/Merlin instead of the test's.
+    It also outlives the test: deleting the original while it runs can leave
+    it stuck in the kernel, still holding that profile's databases, until the
+    Mac restarts (2026-11-18).
+    """
+    found = subprocess.run(["xattr", "-r", "-l", str(app)], capture_output=True, text=True).stdout
+    if "com.apple.quarantine" in found:
+        raise QuarantinedApp(
+            f"Refusing to test {app}: it is quarantined, so macOS would start it translocated, "
+            "without the test's profile and arguments, on your own profile. Test a copy without "
+            "the attribute: ditto it elsewhere, then xattr -dr com.apple.quarantine <copy>.")
+
+
 def describe_and_verify(app: Path, allow_other: bool) -> list[str]:
     """Lines naming the build under test; raises OtherBuild unless it matches HEAD."""
     contents = app / "Contents"
@@ -121,6 +143,7 @@ def app_path() -> Path:
     app = find_app()
     if app not in _verified:
         allow = os.environ.get("MERLIN_E2E_ALLOW_OTHER_BUILD") == "1"
+        refuse_quarantined(app)  # whatever --allow-other-build says
         lines = describe_and_verify(app, allow)  # raises OtherBuild for every class until fixed
         # run_e2e_tests.sh has already printed these at the top of the log.
         if os.environ.get("MERLIN_E2E_BUILD_CHECKED") != str(app):
