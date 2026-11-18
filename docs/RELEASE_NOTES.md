@@ -1,10 +1,18 @@
-Merlin 0.3.1, a keyboard-driven browser for macOS built on
+Merlin 0.3.2, a keyboard-driven browser for macOS built on
 Chromium 157.0.8103.26.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
 
-## What's new since 0.3.0
+## What's new in 0.3.2
+
+* **One profile warning, not five.** If part of your profile can't be
+  opened at launch, Merlin now says "Something went wrong when opening
+  your profile" once. It used to ask once for every database it couldn't
+  open, about five times in a row, and could open an extra empty window
+  behind the dialogs.
+
+## What's new in 0.3.1
 
 This release fixes what two audits of 0.3.0 found. Most of it is about
 Merlin doing what it says: the address, lock and site panel tell the truth,
