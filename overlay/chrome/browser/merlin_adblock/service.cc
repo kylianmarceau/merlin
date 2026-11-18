@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/barrier_closure.h"
+#include "base/command_line.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -30,6 +31,14 @@
 
 namespace merlin_adblock {
 namespace {
+// End-to-end tests hold the rules back to see the panel's not-ready state.
+// Only an instance started for testing, with a throwaway profile, does.
+bool HoldRulesForTesting() {
+  const base::CommandLine& line = *base::CommandLine::ForCurrentProcess();
+  return line.HasSwitch("merlin-test-adblock-hold") &&
+         line.HasSwitch("merlin-test-shell-api") &&
+         line.HasSwitch("user-data-dir");
+}
 class CacheInvalidation {
  public:
   static void Start(content::RenderProcessHost* process,
@@ -122,7 +131,9 @@ void Service::InvalidateResourceCaches(base::OnceClosure done) {
     CacheInvalidation::Start(process, barrier);
 }
 Service::Service(Profile* profile)
-    : profile_(profile), gate_(base::MakeRefCounted<RequestGate>()) {
+    : profile_(profile),
+      gate_(base::MakeRefCounted<RequestGate>()),
+      hold_rules_for_testing_(HoldRulesForTesting()) {
   pref_changes_.Init(profile_->GetPrefs());
   for (const char* pref : {kEnabledPref, kExceptionsPref})
     pref_changes_.Add(pref, base::BindRepeating(
@@ -169,6 +180,11 @@ void Service::Initialize() {
     ReleaseWaiters();
     return;
   }
+  if (hold_rules_for_testing_) {
+    state_ = Readiness::kInitializing;
+    PublishGate();
+    return;
+  }
   if (!evaluator_) {
     state_ = Readiness::kInitializing;
     startup_timer_.Start(FROM_HERE, base::Seconds(2),
@@ -202,6 +218,11 @@ void Service::Initialize() {
           weak_factory_.GetWeakPtr(), configuration));
 }
 void Service::Install(Bundle bundle, base::OnceCallback<void(bool)> done) {
+  if (hold_rules_for_testing_) {
+    if (done)
+      std::move(done).Run(false);
+    return;
+  }
   const uint64_t request = ++install_request_;
   if (!bundle.key.empty()) {
     InstallIdentified(std::move(bundle), std::move(done), request);
@@ -275,7 +296,8 @@ void Service::Installed(scoped_refptr<Evaluator> candidate,
   }
 }
 void Service::WhenReady(base::OnceClosure callback) {
-  if (state_ == Readiness::kInitializing && waiters_.size() < 2048)
+  if (state_ == Readiness::kInitializing && !hold_rules_for_testing_ &&
+      waiters_.size() < 2048)
     waiters_.push_back(std::move(callback));
   else
     std::move(callback).Run();
@@ -294,6 +316,38 @@ bool Service::EnabledFor(const GURL& top_level) const {
          !profile_->GetPrefs()
               ->GetDict(kExceptionsPref)
               .contains(top_level.host());
+}
+ProtectionState Service::EffectiveProtection(const GURL& top_level) const {
+  if (!top_level.SchemeIsHTTPOrHTTPS())
+    return {Protection::kNotApplicable, "Ad blocking applies to web pages."};
+  if (!base::FeatureList::IsEnabled(kMerlinAdblock))
+    return {Protection::kDisabledGlobally,
+            "Ad blocking is not part of this build."};
+  if (!profile_->GetPrefs()->GetBoolean(kEnabledPref))
+    return {Protection::kDisabledGlobally,
+            "Ad blocking is off for every site in Settings."};
+  if (Groups().empty())
+    return {Protection::kDisabledGlobally,
+            "Ad blocking has no filter lists; choose some in Settings."};
+  if (profile_->GetPrefs()->GetDict(kExceptionsPref).contains(top_level.host()))
+    return {Protection::kSiteException,
+            "You turned blocking off for this site."};
+  switch (state_) {
+    case Readiness::kReady:
+      return {Protection::kEnabled,
+              "Ads and trackers are blocked on this site."};
+    case Readiness::kInitializing:
+      return {Protection::kNotReady,
+              "The filter lists are still loading, so ads may show until "
+              "they are ready."};
+    case Readiness::kDegraded:
+      return {Protection::kDegraded,
+              "The filter lists could not be loaded, so ads and trackers "
+              "are not blocked."};
+    case Readiness::kDisabled:
+      break;
+  }
+  return {Protection::kDisabledGlobally, "Ad blocking is off."};
 }
 void Service::SetEnabled(bool enabled) {
   profile_->GetPrefs()->SetBoolean(kEnabledPref, enabled);

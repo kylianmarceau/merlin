@@ -37,6 +37,20 @@ inline constexpr char kExceptionsPref[] = "merlin.adblock.exceptions";
 inline constexpr char kUpdatesPref[] = "merlin.adblock.updates";
 inline constexpr char kListsPref[] = "merlin.adblock.lists";
 enum class Readiness { kDisabled, kInitializing, kReady, kDegraded };
+// Whether blocking applies to one page, as the site panel tells people.
+enum class Protection {
+  kEnabled,           // rules are loaded and apply to this site
+  kDisabledGlobally,  // off in Settings, no filter lists, or not in this build
+  kSiteException,     // the person turned it off for this site
+  kNotReady,          // the filter lists are still loading
+  kDegraded,          // no usable rules; pages load unblocked
+  kNotApplicable,     // not a web page
+};
+struct ProtectionState {
+  Protection state = Protection::kNotApplicable;
+  // One sentence that says why, for the site panel.
+  std::string reason;
+};
 class Updater;
 
 // Thread-safe snapshot of the state request proxies need, published by the
@@ -76,6 +90,9 @@ class Service : public KeyedService {
   base::WeakPtr<Service> GetWeakPtr() { return weak_factory_.GetWeakPtr(); }
   const scoped_refptr<RequestGate>& gate() const { return gate_; }
   bool EnabledFor(const GURL& top_level) const;
+  // What blocking actually does for `top_level` now: the global switch, the
+  // filter lists, the site's exception and whether rules are loaded.
+  ProtectionState EffectiveProtection(const GURL& top_level) const;
   void SetEnabled(bool enabled);
   std::vector<std::string> Groups() const;
   void SetGroups(std::vector<std::string> groups);
@@ -157,6 +174,9 @@ class Service : public KeyedService {
   };
   std::map<int64_t, NavigationCount> navigation_counts_;
   bool testing_rules_ = false;
+  // --merlin-test-adblock-hold (end-to-end tests only): rules never load, so
+  // the service stays initializing and pages load unblocked.
+  const bool hold_rules_for_testing_;
   PrefChangeRegistrar pref_changes_;
   base::WeakPtrFactory<Service> weak_factory_{this};
 };

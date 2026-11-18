@@ -49,9 +49,12 @@
 #include "components/history/core/browser/history_types.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/prefs/pref_service.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/reload_type.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/weak_document_ptr.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/browser/extension_action.h"
@@ -696,6 +699,27 @@ bool RunShellService(BrowserWindowInterface* browser,
          RunDownloads(browser, method, args, reply);
 }
 
+namespace {
+
+const char* ProtectionName(merlin_adblock::Protection state) {
+  switch (state) {
+    case merlin_adblock::Protection::kEnabled:
+      return shell::protection::kEnabled;
+    case merlin_adblock::Protection::kDisabledGlobally:
+      return shell::protection::kDisabledGlobally;
+    case merlin_adblock::Protection::kSiteException:
+      return shell::protection::kSiteException;
+    case merlin_adblock::Protection::kNotReady:
+      return shell::protection::kNotReady;
+    case merlin_adblock::Protection::kDegraded:
+      return shell::protection::kDegraded;
+    case merlin_adblock::Protection::kNotApplicable:
+      return shell::protection::kNotApplicable;
+  }
+}
+
+}  // namespace
+
 void ShowShellSiteInfo(BrowserWindowInterface* browser) {
   content::WebContents* contents =
       browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
@@ -725,18 +749,38 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
                   ? "This page is part of Merlin."
                   : "This page does not come from a website.";
   }
-  auto* adblock = merlin_adblock::Service::Get(browser->GetProfile());
+  // What blocking really does here, not just whether the host is excepted:
+  // it can be off everywhere, have no lists, or still be loading.
+  const merlin_adblock::ProtectionState protection =
+      merlin_adblock::Service::Get(browser->GetProfile())
+          ->EffectiveProtection(url);
   List actions;
   if (web) {
-    const auto exceptions = adblock->Exceptions();
-    const bool off = std::find(exceptions.begin(), exceptions.end(),
-                               url.host()) != exceptions.end();
-    message += off ? "\n\nBlocking is off for this site."
-                   : "\n\nAds and trackers are blocked on this site.";
-    actions.Append(Dict()
-                       .Set("id", "blocking")
-                       .Set("label", off ? "Turn blocking on" : "Turn blocking off")
-                       .Set("emphasis", "normal"));
+    message += "\n\n" + protection.reason;
+    switch (protection.state) {
+      case merlin_adblock::Protection::kDisabledGlobally:
+        actions.Append(Dict()
+                           .Set("id", "adblock-settings")
+                           .Set("label", "Ad blocking settings")
+                           .Set("emphasis", "normal"));
+        break;
+      case merlin_adblock::Protection::kSiteException:
+        actions.Append(Dict()
+                           .Set("id", "blocking")
+                           .Set("label", "Turn blocking on")
+                           .Set("emphasis", "normal"));
+        break;
+      case merlin_adblock::Protection::kEnabled:
+      case merlin_adblock::Protection::kNotReady:
+      case merlin_adblock::Protection::kDegraded:
+        actions.Append(Dict()
+                           .Set("id", "blocking")
+                           .Set("label", "Turn blocking off")
+                           .Set("emphasis", "normal"));
+        break;
+      case merlin_adblock::Protection::kNotApplicable:
+        break;
+    }
     actions.Append(Dict()
                        .Set("id", "settings")
                        .Set("label", "Site settings")
@@ -744,29 +788,46 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
   }
   actions.Append(
       Dict().Set("id", "done").Set("label", "Done").Set("emphasis", "primary"));
+  // The answer acts on the tab and page the panel describes, even if
+  // another tab is active by then or this one has moved on.
+  tabs::TabInterface* tab = tabs::TabInterface::MaybeGetFromContents(contents);
+  const tabs::TabHandle handle = tab ? tab->GetHandle() : tabs::TabHandle();
+  const content::WeakDocumentPtr document =
+      contents->GetPrimaryMainFrame()->GetWeakDocumentPtr();
   ShowShellPrompt(
       browser,
       Dict()
           .Set("kind", "alert")
           .Set("anchor", "site")
           .Set("security", security)
+          .Set("protection", ProtectionName(protection.state))
           .Set("origin", web ? FormatShellDisplayUrl(url).host : std::string("Merlin"))
           .Set("title", web ? "About this site" : "About this page")
           .Set("message", message)
           .Set("actions", std::move(actions)),
       base::BindOnce(
           [](base::WeakPtr<BrowserWindowInterface> browser, GURL url,
+             tabs::TabHandle handle, content::WeakDocumentPtr document,
              ShellPromptReply reply) {
             if (!browser) {
               return;
             }
             if (reply.action == "blocking") {
               merlin_adblock::Service::Get(browser->GetProfile())->ToggleSite(url);
-              if (auto* contents =
-                      browser->GetTabStripModel()->GetActiveWebContents()) {
+              // Reload only that tab, and only while it still shows the
+              // page the panel was opened for.
+              tabs::TabInterface* tab = handle.Get();
+              content::WebContents* contents =
+                  tab ? tab->GetContents() : nullptr;
+              content::RenderFrameHost* frame =
+                  document.AsRenderFrameHostIfValid();
+              if (contents && frame &&
+                  frame == contents->GetPrimaryMainFrame()) {
                 contents->GetController().Reload(content::ReloadType::NORMAL,
                                                  true);
               }
+            } else if (reply.action == "adblock-settings") {
+              OpenShellPanel(browser.get(), shell::panel::kSettings);
             } else if (reply.action == "settings") {
               chrome::AddTabAt(
                   browser.get(),
@@ -776,7 +837,7 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
                   -1, true);
             }
           },
-          browser->GetWeakPtr(), url));
+          browser->GetWeakPtr(), url, handle, document));
 }
 
 }  // namespace modal_browser
