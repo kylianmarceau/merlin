@@ -51,7 +51,11 @@ fixture page (`MerlinTestCase.reset`).
 - **Isolation.** A throwaway `--user-data-dir`, `XDG_CONFIG_HOME` (so
   `config.toml`), `XDG_DATA_HOME` (so workspaces), download folder (seeded
   into the profile's preferences, so nothing lands in `~/Downloads`),
-  browserctl socket and DevTools port; `--use-mock-keychain`. Your own Merlin keeps running and its
+  browserctl socket and DevTools port; `--use-mock-keychain`. WebKit pages
+  get a folder of the run's own (`-MerlinWebKitTestFolder`): a data store
+  made for the run (`WKWebsiteDataStore(forIdentifier:)`, removed when the
+  instance closes) and an icon cache, so tests never read or clear your
+  WebKit sign-ins. Your own Merlin keeps running and its
   profile, config, sign-ins and clipboard are not touched. No test reads or
   writes the clipboard. Shell preferences live in the app's macOS defaults,
   which tests only read. A process-only defaults argument disables the new-tab
@@ -117,7 +121,7 @@ fixture page (`MerlinTestCase.reset`).
 | `test_address` | The address and security the snapshot gives the address field, from Chromium's formatter and security state: user names dropped (`accounts.google.com@evil.test`), ports kept, lookalike hosts left in punycode, international and right-to-left hosts, IPv6, long hosts; `insecure` for http, `internal` for Merlin's pages, and `dangerous` for an expired certificate before and after proceeding past its warning, in the site panel too (`fixtures/expired.test.*`, a throwaway certificate that expired in 2024) |
 | `test_site_panel` | The site panel's ad-blocking line and button from the blocker's real state: on, off everywhere (no site toggle, a way to Settings), off for the site, and still loading (`--merlin-test-adblock-hold`, test-only: rules never load and pages load unblocked); its answer toggles the site it was opened for and reloads only that tab, only while it shows the same page, after a tab switch or a navigation |
 | `test_downloads` | Every download action the shell sends, on downloads the fixture server holds in each state: pause and resume (also by `:browser download-pause`), cancel, retry after the connection drops, forget, and the refusals of each. Opening and showing a file put windows in front, so they run only with `MERLIN_E2E_DESKTOP=1` |
-| `test_webkit` | Tabs shown in WebKit (fixture hosts on `*.localhost`, routed by `-MerlinShell.siteEngines`; the server tells WebKit's requests by their user agent): private windows open together share WebKit's cookies, the last private window to close ends the session, and normal windows never see private cookies |
+| `test_webkit` | Tabs shown in WebKit (fixture hosts on `*.localhost`, routed by `-MerlinShell.siteEngines`; the server tells WebKit's requests by their user agent): private windows open together share WebKit's cookies, the last private window to close ends the session, and normal windows never see private cookies; icons: a normal page's is cached in WebKit's own icon folder and never the app's shared URL cache, a private page's leaves no file in either, and no icon fetch sends or keeps a cookie |
 | `test_identity` | Chromium's own pages (passwords, settings, extensions, certificates, version) and error pages never say Chrome; error-page restyling (an expected failure, see below) |
 
 ### Known failure

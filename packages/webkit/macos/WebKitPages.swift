@@ -22,6 +22,39 @@ final class WebKitPages {
 
   func page(_ tabId: String) -> WebKitPage? { pages[tabId] }
 
+  /// A folder of WebKit data of the tests' own (-MerlinWebKitTestFolder,
+  /// process-only): normal pages keep their cookies and site data in a store
+  /// of their own and their icons in a cache there, so a test never reads or
+  /// clears the person's.
+  static let testFolder: URL? = UserDefaults.standard.string(forKey: "MerlinWebKitTestFolder")
+    .flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) }
+
+  /// Normal pages' store: WebKit's default one for this app.
+  lazy var normalStore: WKWebsiteDataStore = {
+    guard let folder = Self.testFolder else { return .default() }
+    return WKWebsiteDataStore(forIdentifier: Self.storeIdentifier(in: folder))
+  }()
+
+  /// Normal pages' icons, cached in a folder of their own.
+  lazy var normalIcons = IconFetcher(cache: Self.testFolder?.appendingPathComponent("icons") ??
+    FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+      .appendingPathComponent(Bundle.main.bundleIdentifier ?? "io.github.kylianmarceau.merlin")
+      .appendingPathComponent("WebKitIcons"))
+
+  func icons(ephemeral: Bool) -> IconFetcher { ephemeral ? openPrivateSession().icons : normalIcons }
+
+  /// The test folder's store, named in the folder so the tests can remove it.
+  private static func storeIdentifier(in folder: URL) -> UUID {
+    let file = folder.appendingPathComponent("webkit-store-id")
+    if let text = try? String(contentsOf: file, encoding: .utf8), let id = UUID(uuidString: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+      return id
+    }
+    let id = UUID()
+    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try? id.uuidString.write(to: file, atomically: true, encoding: .utf8)
+    return id
+  }
+
   /// Keeps a page that stops showing in its window, hidden. Its video and
   /// sound play on, as in a background tab, and it shows again at once.
   func park(_ webView: MerlinWKWebView) {
@@ -92,6 +125,7 @@ final class WebKitPages {
   private func endPrivateSessionIfUnused() {
     guard let session = privateSession, session.windows.isEmpty, session.pages.isEmpty else { return }
     privateSession = nil
+    session.icons.invalidate()
     let store = session.store
     store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {
       // Keeps the store until its data has gone.
@@ -113,7 +147,7 @@ final class WebKitPages {
   private func configuration(ephemeral: Bool) -> WKWebViewConfiguration {
     let configuration = WKWebViewConfiguration()
     // WebKit keeps its own cookies and sign-ins, apart from Chromium's.
-    configuration.websiteDataStore = ephemeral ? openPrivateSession().store : .default()
+    configuration.websiteDataStore = ephemeral ? openPrivateSession().store : normalStore
     configuration.applicationNameForUserAgent = "Version/\(Self.safariVersion) Safari/605.1.15"
     configuration.mediaTypesRequiringUserActionForPlayback = []
     configuration.allowsAirPlayForMediaPlayback = true
@@ -130,6 +164,8 @@ final class WebKitPages {
 /// and pages (by tab ID) that keep it open.
 final class PrivateSession {
   let store = WKWebsiteDataStore.nonPersistent()
+  /// Its icons: fetched with no disk cache, cookies or credentials.
+  let icons = IconFetcher(cache: nil)
   var windows = Set<String>()
   var pages = Set<String>()
 }
@@ -146,6 +182,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
   private var closed = false
   private var favicon: String?
   private var faviconPage: String?
+  private var iconTask: URLSessionTask?
 
   init(tabId: String, ephemeral: Bool, configuration: WKWebViewConfiguration) {
     self.tabId = tabId
@@ -204,6 +241,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
   func close() {
     guard !closed else { return }
     closed = true
+    iconTask?.cancel()
+    iconTask = nil
     observations = []
     webView.onKey = nil
     webView.navigationDelegate = nil
@@ -265,25 +304,24 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
       return links.length ? links[0].href : new URL('/favicon.ico', location.href).href;
     })()
     """
-  private static let iconLimit = 256 * 1024
-
-  /// The page's icon as a data URL, fetched once per site.
+  /// The page's icon as a data URL, fetched once per site, apart from the
+  /// page's own networking (IconFetcher).
   private func loadIcon() {
     guard let host = webView.url?.host, faviconPage != host else { return }
     faviconPage = host
     favicon = nil
+    iconTask?.cancel()
+    iconTask = nil
     webView.evaluateJavaScript(Self.iconScript) { [weak self] value, _ in
-      guard let self, let href = value as? String, let url = URL(string: href), url.scheme == "https" || url.scheme == "http" else { return }
-      URLSession.shared.dataTask(with: url) { data, response, _ in
-        guard let data, !data.isEmpty, data.count <= Self.iconLimit,
-          let type = (response as? HTTPURLResponse)?.mimeType ?? response?.mimeType, type.hasPrefix("image/") else { return }
-        let dataURL = "data:\(type);base64,\(data.base64EncodedString())"
-        DispatchQueue.main.async {
-          guard !self.closed, self.faviconPage == host else { return }
-          self.favicon = dataURL
-          self.changed()
-        }
-      }.resume()
+      guard let self, !self.closed, self.faviconPage == host, let href = value as? String, let url = URL(string: href),
+        url.scheme == "https" || url.scheme == "http" else { return }
+      self.iconTask = WebKitPages.shared.icons(ephemeral: self.ephemeral).fetch(url) { [weak self] dataURL in
+        guard let self, !self.closed, self.faviconPage == host else { return }
+        self.iconTask = nil
+        guard let dataURL else { return }
+        self.favicon = dataURL
+        self.changed()
+      }
     }
   }
 
@@ -398,6 +436,94 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
     alert.messageText = host.isEmpty ? "This page says" : "\(host) says"
     alert.informativeText = message
     return alert
+  }
+}
+
+/// Fetches WebKit pages' icons, apart from every other networking in
+/// Merlin: no cookies are sent or kept and no credentials are used.
+/// Normal pages' icons are cached in a folder of their own; private pages'
+/// in memory only, for as long as their session. A body stops at 256 KiB
+/// while it arrives, and only an image that decodes is shown, redrawn as a
+/// PNG of at most 64 pixels. Main thread only.
+final class IconFetcher: NSObject, URLSessionDataDelegate {
+  static let limit = 256 * 1024
+  static let side: CGFloat = 64
+
+  private var session: URLSession!
+  private var bodies: [Int: Data] = [:]
+  private var done: [Int: (String?) -> Void] = [:]
+
+  /// `cache` is the folder for a disk cache; nil keeps nothing on disk.
+  init(cache: URL?) {
+    super.init()
+    let configuration: URLSessionConfiguration = cache == nil ? .ephemeral : .default
+    if let cache {
+      configuration.urlCache = URLCache(memoryCapacity: 512 * 1024, diskCapacity: 16 * 1024 * 1024, directory: cache)
+    }
+    configuration.httpCookieStorage = nil
+    configuration.httpShouldSetCookies = false
+    configuration.httpCookieAcceptPolicy = .never
+    configuration.urlCredentialStorage = nil
+    configuration.timeoutIntervalForRequest = 15
+    session = URLSession(configuration: configuration, delegate: self, delegateQueue: .main)
+  }
+
+  /// Fetches `url`; `completion` gets a data URL, or nil. Cancelling the task calls it with nil.
+  func fetch(_ url: URL, completion: @escaping (String?) -> Void) -> URLSessionTask {
+    let task = session.dataTask(with: url)
+    bodies[task.taskIdentifier] = Data()
+    done[task.taskIdentifier] = completion
+    task.resume()
+    return task
+  }
+
+  /// Cancels every fetch and releases the session (and its memory cache).
+  func invalidate() {
+    session.invalidateAndCancel()
+  }
+
+  func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+                  completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+    let ok = (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } ?? true
+    let image = response.mimeType?.hasPrefix("image/") ?? false
+    completionHandler(ok && image && response.expectedContentLength <= Int64(Self.limit) ? .allow : .cancel)
+  }
+
+  func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    guard var body = bodies[dataTask.taskIdentifier] else { return }
+    body.append(data)
+    if body.count > Self.limit {
+      bodies[dataTask.taskIdentifier] = nil
+      dataTask.cancel()
+      return
+    }
+    bodies[dataTask.taskIdentifier] = body
+  }
+
+  func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    let body = bodies.removeValue(forKey: task.taskIdentifier)
+    guard let completion = done.removeValue(forKey: task.taskIdentifier) else { return }
+    guard error == nil, let body, !body.isEmpty else { return completion(nil) }
+    completion(Self.png(body).map { "data:image/png;base64,\($0.base64EncodedString())" })
+  }
+
+  /// The image redrawn as a PNG no larger than `side` pixels; nil if it isn't one.
+  static func png(_ data: Data) -> Data? {
+    guard let image = NSImage(data: data), image.isValid else { return nil }
+    let pixels = image.representations.map { CGFloat(max($0.pixelsWide, $0.pixelsHigh)) }.max() ?? 0
+    let natural = pixels > 0 ? pixels : max(image.size.width, image.size.height)
+    guard natural > 0, image.size.width > 0, image.size.height > 0 else { return nil }
+    let scale = min(side, natural) / max(image.size.width, image.size.height)
+    let width = max(1, Int((image.size.width * scale).rounded())), height = max(1, Int((image.size.height * scale).rounded()))
+    guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
+                                        samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                                        bytesPerRow: 0, bitsPerPixel: 0),
+      let context = NSGraphicsContext(bitmapImageRep: bitmap) else { return nil }
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = context
+    image.draw(in: NSRect(x: 0, y: 0, width: width, height: height), from: .zero, operation: .copy, fraction: 1)
+    NSGraphicsContext.restoreGraphicsState()
+    return bitmap.representation(using: .png, properties: [:])
   }
 }
 
