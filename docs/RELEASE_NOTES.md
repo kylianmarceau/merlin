@@ -1,8 +1,98 @@
-Merlin 0.3.0, a keyboard-driven browser for macOS built on
+Merlin 0.3.1, a keyboard-driven browser for macOS built on
 Chromium 157.0.8103.26.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new since 0.3.0
+
+This release fixes what two audits of 0.3.0 found. Most of it is about
+Merlin doing what it says: the address, lock and site panel tell the truth,
+private WebKit browsing ends when it should, and buttons that did nothing
+now work.
+
+**Updating from 0.3.0:** releases are now signed with one Merlin
+certificate instead of a fresh ad-hoc signature each time. This update
+changes the signature once: macOS asks once more before Merlin can read its
+saved passwords, and camera and microphone access are asked for again.
+Later updates keep both.
+
+### Fixes
+
+* **The downloads panel's buttons work.** Every button on a download
+  (pause, resume, retry, show in Finder and the rest) failed with "Unknown
+  download action".
+* **The address and lock are Chromium's.** The address field shows an
+  address the way Chrome does (no user name or password, look-alike
+  hosts in punycode), and the lock comes from the page's real security
+  state, not from whether the address starts with `https`.
+* **The site panel tells the truth.** It no longer says ads are blocked
+  while blocking is off or its rules are still loading, and its toggle
+  acts on the page it describes, even if you switched tabs meanwhile.
+* **Workspaces save everything.** Making, renaming or collapsing a tab
+  group, pinning a tab, changing a split and moving the window are now
+  saved, and so is the last change before you close a window.
+* **Editing in your editor (`ge`) keeps your text** if the window closes
+  while the editor is open, and Merlin reads a save only once the editor
+  has finished writing it.
+* **Failures are reported.** Exporting bookmarks says Saved only when the
+  file was written, and the Library shows "Couldn't load" with Try Again
+  instead of an empty list when History, Bookmarks or Downloads fail.
+* **Restore tabs after a crash.** If Merlin quits unexpectedly, the next
+  launch asks whether to restore your tabs instead of opening an empty
+  window.
+* **Pages are released after `alert()`, `confirm()` and `prompt()`.** A
+  page stayed stuck after you answered one of its dialogs.
+* **Keys act on the page you see.** Link hints, marks (`m`) and the
+  address field's Enter no longer act on another tab or an older list of
+  suggestions when the answer arrives late, and two settings changed at
+  once no longer undo each other in `config.toml`. The Config File editor
+  refuses to save over changes made since you opened it.
+
+### WebKit pages (Netflix and other streaming sites)
+
+* **Private WebKit browsing ends with the last private window.** A new
+  private window used to share the earlier ones' WebKit cookies and
+  sign-ins.
+* **WebKit pages' icons are fetched privately**, without cookies, and in
+  memory only for private windows.
+* **Clearing browsing data clears WebKit too**, and the private start
+  page no longer claims that nothing at all is kept.
+* **Bookmarks, workspaces, `browserctl` and `:yank` use the page WebKit
+  shows**, not the page before it.
+* **Tabs move between engines as you'd expect.** Opening an address from
+  the address field, a bookmark or `browserctl` takes the tab to the right
+  engine, changing a site's engine moves all its tabs, and sign-in
+  pop-ups keep their link to the page that opened them.
+
+### Interface
+
+* **A window's interface can recover.** If it hits an error, the window
+  says so and offers **Reload Interface** and **Copy Diagnostics**, and a
+  failure of the interface's engine reloads every window, tabs intact,
+  instead of crashing Merlin.
+* **Manage bookmarks from the keyboard and VoiceOver.** Option-Up and
+  Option-Down move a bookmark, Command-Delete removes it, and VoiceOver's
+  Actions menu offers Move Up, Move Down, Edit and Delete. A row's buttons
+  also appear when it has keyboard focus.
+* **Allow browserctl** in **Settings > General** turns `browserctl` off or
+  on without editing `config.toml`.
+* **Finder shows Merlin's version** in Get Info, instead of Chromium's.
+* **Less work while idle.** The toolbar no longer checks the page's
+  colour every 1.2 seconds, only when the page may have changed, so
+  Merlin wakes the Mac less and uses less CPU while you aren't using it.
+* Control-Tab loads previews only for the cards it shows.
+* A disabled slider can no longer be moved with the keys or VoiceOver,
+  and says it is disabled.
+* `:read` and `:script` are gone from the commands: they only ever
+  printed an error.
+
+### Install and release
+
+* Releases use the hardened runtime and one signing certificate (see
+  above). The disk image includes the notices for every component.
+* `brew upgrade` quits Merlin before replacing it, and
+  `brew uninstall --zap --cask merlin` also removes Merlin's data.
 
 ## What's new since 0.2.0
 
