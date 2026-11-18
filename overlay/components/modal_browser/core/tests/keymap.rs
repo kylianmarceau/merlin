@@ -162,7 +162,7 @@ fn config_errors() {
     assert!(matches!(
         bind(Mode::Normal, "x", "script x"),
         KeymapError::InvalidCommand {
-            error: CommandError::NotImplemented { .. },
+            error: CommandError::Unknown { .. },
             ..
         }
     ));

@@ -108,10 +108,7 @@ fn windows_and_browser_pages() {
         run(&mut s, "downloads").actions,
         vec![Action::ShowBrowserPage(BrowserPage::Downloads)]
     );
-    assert_eq!(
-        run(&mut s, "read").actions,
-        vec![Action::ShowBrowserPage(BrowserPage::ReadingMode)]
-    );
+    assert!(s.submit_command_line("read").error.is_some());
     assert_eq!(
         run(&mut s, "devtools").actions,
         vec![Action::ToggleDevTools]

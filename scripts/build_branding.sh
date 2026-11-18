@@ -77,7 +77,7 @@ done
 iconutil -c icns "$work/merlin.iconset" -o "$ROOT/branding/merlin.icns"
 render "$ROOT/branding/merlin-app-icon-1024.png" 1024
 
-# The bundle's app.icns, in Chromium's 1x-only layout (docs/mac/icons.md).
+# The bundle's app.icns, in Chromium's 1x-only layout (Chromium's //docs/mac/icons.md).
 # compile_car.py replaces it with actool's own when actool emits one.
 mkdir "$work/app.iconset"
 for s in 16 32 128 256 512; do

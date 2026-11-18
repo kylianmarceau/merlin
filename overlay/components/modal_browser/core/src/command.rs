@@ -683,15 +683,17 @@ impl CommandRegistry {
                 {
                     out.push_str(&format!("  :{:<14} {}\n", spec.name, spec.summary));
                 }
-                out.push_str("Planned:\n  ");
                 let planned: Vec<&str> = self
                     .specs
                     .iter()
                     .filter(|s| s.status == CommandStatus::Planned)
                     .map(|s| s.name)
                     .collect();
-                out.push_str(&planned.join(", "));
-                out.push('\n');
+                if !planned.is_empty() {
+                    out.push_str("Planned:\n  ");
+                    out.push_str(&planned.join(", "));
+                    out.push('\n');
+                }
                 Ok(out)
             }
             Some(topic) => {
@@ -953,7 +955,6 @@ pub const BROWSER_COMMANDS: [(&str, &str); 18] = [
     ("download-pause", "pause or resume a download"),
     ("download-retry", "download a failed file again"),
 ];
-const READ_USAGE: &str = ":read";
 const OUTLINE_USAGE: &str = ":outline";
 const LINKS_USAGE: &str = ":links";
 const EXTRACT_USAGE: &str = ":extract <markdown|text|links|code|headings> [editor]";
@@ -1565,10 +1566,6 @@ fn cmd_site(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
     page(inv, SITE_USAGE, BrowserPage::SiteInfo)
 }
 
-fn cmd_read(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
-    page(inv, READ_USAGE, BrowserPage::ReadingMode)
-}
-
 fn cmd_browser(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
     let (name, arg) = match inv.args.as_slice() {
         [name] => (name.as_str(), ""),
@@ -1841,23 +1838,6 @@ fn available(
         status: CommandStatus::Available,
         accepts_bang: false,
         handler: Some(handler),
-    }
-}
-
-fn planned(
-    name: &'static str,
-    aliases: &'static [&'static str],
-    usage: &'static str,
-    summary: &'static str,
-) -> CommandSpec {
-    CommandSpec {
-        name,
-        aliases,
-        usage,
-        summary,
-        status: CommandStatus::Planned,
-        accepts_bang: false,
-        handler: None,
     }
 }
 
@@ -2205,13 +2185,6 @@ fn builtin_specs() -> Vec<CommandSpec> {
             cmd_devtools,
         ),
         available(
-            "read",
-            &["reader"],
-            READ_USAGE,
-            "open this page in Reading mode",
-            cmd_read,
-        ),
-        available(
             "outline",
             &["toc"],
             OUTLINE_USAGE,
@@ -2278,12 +2251,9 @@ fn builtin_specs() -> Vec<CommandSpec> {
             "record and replay keys",
             cmd_macro,
         ),
-        // Beyond the beta (product plan): listed in help, refused when run.
-        planned(
-            "script",
-            &[],
-            ":script <name>",
-            "run a script plugin (after a permission model exists)",
-        ),
+        // Only commands that work are built in: `?`, completion and the
+        // palette offer every one. Reading mode (needs Chromium's side
+        // panel) and script plugins (need a permission model) come back here
+        // when they work.
     ]
 }

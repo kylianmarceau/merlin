@@ -25,7 +25,7 @@ namespace modal_browser {
 // (ui/color/color_provider.cc). So one mixer appended after Chrome's own that
 // redefines the base system colors (kColorSysHeader, kColorSysBase, ...)
 // recolors everything derived from them, with no upstream patch and without
-// touching Chrome's theme model (DECISIONS 16, 33).
+// touching Chrome's theme model.
 //
 // The mixer steps aside when the profile has a Chrome theme or a color the
 // user picked, and for high contrast and forced colors.

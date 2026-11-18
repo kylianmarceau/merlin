@@ -13,6 +13,8 @@ members = [
   "tools/modalctl",
   "tools/browserctl",
 ]
+# libFuzzer targets; their own workspace (fuzz/README.md).
+exclude = ["fuzz"]
 
 [workspace.package]
 edition = "2024"

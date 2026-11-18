@@ -16,7 +16,7 @@ what each release is checked for by hand.
 | C ABI | `packages/engine/include/` | Versioned engine calls/events and host root creation; no C++ objects cross the framework boundary |
 | Engine module | `packages/engine/` | The `MerlinEngine` Expo module: calls, events and native page attachment |
 | AppKit module | `packages/shell/` | One Expo module per AppKit view (`MerlinShell`, `MerlinShellSymbol`, …; pod `MerlinShellViews`): SF Symbols, vibrancy, shadowed surfaces, the window drag region, outside-press detection, context-menu areas and native menus |
-| WebKit module | `packages/webkit/` | The `MerlinWebKit` Expo module: a WKWebView per tab for sites Chromium can't play (Netflix and other DRM services). `state/webkit.ts` decides which tabs show one (decision 59 in the decisions log) |
+| WebKit module | `packages/webkit/` | The `MerlinWebKit` Expo module: a WKWebView per tab for sites Chromium can't play (Netflix and other DRM services). `state/webkit.ts` decides which tabs show one |
 | Platform | `apps/browser/src/platform/` | The only JS that imports the native packages |
 | State | `apps/browser/src/state/` | A Zustand store per window, its actions and hooks, validated snapshots and the rules for which overlays show |
 | Components | `apps/browser/src/components/` | `ui/` (tokens, motion, about 30 shared pieces) and one folder per feature |
@@ -224,7 +224,8 @@ request button instead of interrupting the page.
 
 - Side-panel extensions report that side panels are not part of Merlin, and
   `chrome.action.openPopup()` from an extension is not supported.
-- Reading mode needs Chromium's side panel and is reported as unavailable.
+- There is no Reading mode: Chromium's needs its side panel. The command
+  registry offers only commands that work, so `:read` isn't one.
 - Card upload to a payments account, IBAN, virtual cards and Autofill AI offers
   are not shown; their controllers see no bubble and continue.
 - The fullscreen exit/security indicator remains Chromium's native bubble.
@@ -258,7 +259,6 @@ conditions as the previous baseline.
 
 ### One profile
 
-Merlin keeps one Chromium profile and has no profile UI
-(decision 44 in the decisions log). The
+Merlin keeps one Chromium profile and has no profile UI. The
 shell has no profiles popover or `profiles.*` requests, and Chromium's avatar
 bubble does nothing in a React window.

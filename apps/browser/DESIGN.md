@@ -93,8 +93,7 @@ The stored accent names predate Tide and stay as the browser saves them:
 
 Every raised surface is a `Panel`: one fill, a hairline edge and a native layer
 shadow. React Native's shadow props do nothing on macOS views. **(tested)**
-Glass panels follow Settings › Appearance › Interface style
-(decision 60 in the decisions log):
+Glass panels follow Settings › Appearance › Interface style:
 with **Glass** (macOS 26 and later) they are macOS Liquid Glass
 (`PopoverSurface`, drawn by the native `PopoverBubble`), with no extra edge
 or shadow. Liquid Glass has only a regular and a clear look, and tint barely
@@ -104,6 +103,11 @@ above it the regular glass cross-fades into clear; with **Classic** they are `su
 half-point edge and a layer shadow, nothing showing through. Controls light
 up the same way: `GlassFill` is a glass plate with Glass and a flat wash
 (`rowHover`, `rowPressed`) with Classic.
+
+On macOS 14 and 15 there is no Liquid Glass and Settings hides the choice:
+panels and controls are always Classic, while the window around the page
+keeps the system's sidebar vibrancy of the stored style (Glass by default),
+so the desktop still shows faintly through the tinted shell.
 
 | Surface | Fill | Radius | Shadow | Blocks the page |
 | --- | --- | --- | --- | --- |

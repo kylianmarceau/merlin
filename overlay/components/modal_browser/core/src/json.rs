@@ -1,9 +1,11 @@
 //! A small, strict JSON reader and writer.
 //!
 //! Used for data the browser writes and reads back (workspace files) and for
-//! the `browserctl` socket protocol. The core stays dependency-free (see
-//! `docs/DECISIONS.md` #7), and these documents are small and simple, so a
-//! bounded parser of our own is less to maintain than a vendored crate.
+//! the `browserctl` socket protocol. The core stays dependency-free (every
+//! crate would have to be one Chromium vendors, and each `//third_party`
+//! import is more patch to carry on every rebase), and these documents are
+//! small and simple, so a bounded parser of our own is less to maintain than
+//! Chromium's vendored `serde_json`.
 //!
 //! Strict RFC 8259: no comments, no trailing commas, no NaN. Bounded in
 //! size ([`MAX_INPUT_LEN`]) and nesting ([`MAX_DEPTH`]), so hostile input

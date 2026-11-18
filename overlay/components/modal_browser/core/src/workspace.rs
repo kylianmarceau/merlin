@@ -4,7 +4,7 @@
 //!
 //! A workspace is *not* a profile. Profiles are Chromium storage identities
 //! (cookies, credentials); a workspace is only a list of pages and how they
-//! were laid out (`docs/DECISIONS.md` #11). Nothing private beyond URLs and
+//! were laid out. Nothing private beyond URLs and
 //! titles is stored: no form data, no scroll positions, no page content.
 //!
 //! The core encodes and decodes; the host reads and writes the files

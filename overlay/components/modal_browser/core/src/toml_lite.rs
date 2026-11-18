@@ -1,7 +1,8 @@
 //! A strict parser for the subset of TOML the configuration file uses.
 //!
-//! No TOML crate is vendored in Chromium at our pinned version (see
-//! `docs/DECISIONS.md` #7), and the core has no third-party dependencies.
+//! No TOML crate is vendored in Chromium at our pinned version, and the core
+//! has no third-party dependencies (each `//third_party` import is more
+//! patch to carry on every rebase).
 //! This parser accepts a well-defined subset and rejects everything else
 //! with a line number, so any file it accepts means the same thing to a
 //! full TOML parser. Moving to the real `toml` crate later is therefore not
@@ -317,10 +318,10 @@ impl Parser<'_> {
         if raw.contains(':') || raw.matches('-').count() > 1 {
             return self.error("dates and times are not supported");
         }
-        let digits = raw.strip_prefix('+').unwrap_or(&raw);
-        let (negative, digits) = match digits.strip_prefix('-') {
+        // One optional sign, then digits.
+        let (negative, digits) = match raw.strip_prefix('-') {
             Some(rest) => (true, rest),
-            None => (false, digits),
+            None => (false, raw.strip_prefix('+').unwrap_or(&raw)),
         };
         let valid = !digits.is_empty()
             && !digits.starts_with('_')
@@ -331,9 +332,12 @@ impl Parser<'_> {
         if !valid {
             return self.error(format!("invalid integer '{raw}'"));
         }
+        // Parsed with its sign, so i64::MIN, whose magnitude no i64 holds,
+        // is in range.
+        let sign = if negative { "-" } else { "" };
         let cleaned: String = digits.chars().filter(|c| *c != '_').collect();
-        match cleaned.parse::<i64>() {
-            Ok(v) => Ok(Value::Integer(if negative { -v } else { v })),
+        match format!("{sign}{cleaned}").parse::<i64>() {
+            Ok(v) => Ok(Value::Integer(v)),
             Err(_) => self.error(format!("integer '{raw}' is out of range")),
         }
     }

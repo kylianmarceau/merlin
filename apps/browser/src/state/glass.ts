@@ -1,6 +1,9 @@
 // The glass look every window draws with, from Settings › Appearance ›
-// Interface style. Glass needs macOS 26's Liquid Glass; earlier macOS draws
-// Classic whatever the setting says, and Settings doesn't offer the choice.
+// Interface style. Liquid Glass panels need macOS 26. On macOS 14 and 15
+// Settings doesn't offer the choice and panels and controls are always
+// Classic (`on` is false), but the stored style (Glass by default) still
+// decides `translucent`: the window around the page keeps the system's
+// sidebar vibrancy, which those versions have.
 import { useMemo } from 'react';
 import { isLiquidGlass } from '../platform/shell';
 import { useShellPrefs } from './shellPrefs';

@@ -351,14 +351,46 @@ fn unknown_commands_suggest_close_names() {
 
 #[test]
 fn planned_commands_say_so() {
+    let mut r = reg();
+    r.register(CommandSpec {
+        name: "someday",
+        aliases: &[],
+        usage: ":someday",
+        summary: "not built yet",
+        status: CommandStatus::Planned,
+        accepts_bang: false,
+        handler: None,
+    })
+    .unwrap();
+    let inv = r.parse("someday x", None).unwrap();
     assert_eq!(
-        err("script x"),
-        CommandError::NotImplemented { name: "script" }
+        r.run(&inv),
+        Err(CommandError::NotImplemented { name: "someday" })
     );
     assert_eq!(
-        err("script x").to_string(),
-        "':script' is planned but not built yet"
+        r.run(&inv).unwrap_err().to_string(),
+        "':someday' is planned but not built yet"
     );
+    assert!(r.help(None).unwrap().contains("Planned:\n  someday\n"));
+    assert!(r.help(Some(":someday")).unwrap().contains("planned"));
+}
+
+/// Built-ins are only commands that work: nothing in `?`, completion or the
+/// palette only ever prints an error (`:read` needed Chromium's side panel,
+/// `:script` a permission model).
+#[test]
+fn every_built_in_command_works() {
+    let r = reg();
+    for spec in r.specs() {
+        assert_eq!(spec.status, CommandStatus::Available, ":{}", spec.name);
+        assert!(spec.handler.is_some(), ":{}", spec.name);
+    }
+    for gone in ["read", "reader", "script"] {
+        assert!(r.get(gone).is_none(), ":{gone}");
+    }
+    let help = r.help(None).unwrap();
+    assert!(!help.contains("Planned"), "{help}");
+    assert!(!help.contains(":read"), "{help}");
 }
 
 #[test]
@@ -371,7 +403,6 @@ fn every_vision_command_is_registered() {
         "b",
         "history",
         "bookmark",
-        "read",
         "extract",
         "split",
         "vsplit",
@@ -431,12 +462,6 @@ fn help_overview_and_topics() {
     };
     assert!(text.starts_with(":tabnew [url | search terms]"));
     assert!(text.contains(":tabopen"));
-
-    let planned = actions("help :script");
-    let [Action::ShowMessage { text, .. }] = planned.as_slice() else {
-        panic!("{planned:?}");
-    };
-    assert!(text.contains("planned"));
 
     assert!(matches!(err("help nosuch"), CommandError::Unknown { .. }));
 }

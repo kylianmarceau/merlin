@@ -1,0 +1,51 @@
+# Every check that works without a Chromium checkout, on every push and pull
+# request. It runs scripts/check.sh, the same script you run locally, so the
+# two always agree. The Chromium build itself stays manual (docs/RELEASE.md).
+name: check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      # cargo fmt, clippy and test; pnpm ui:check and ui:test; the Python
+      # tool tests (assembly, notices, vocabulary, upstream checker);
+      # page-script, visual-identity and filter-integrity checks; and
+      # verify_patches.sh against the pinned Chromium tag.
+      - name: scripts/check.sh
+        run: scripts/check.sh
