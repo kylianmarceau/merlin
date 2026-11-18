@@ -29,6 +29,47 @@ a Developer ID identity or Apple notarization.
   security reports there; until
   it is on, the Security tab has no **Report a vulnerability** button.
 
+### Signing identity
+
+An ad-hoc signature's designated requirement is a hash of the code
+(`codesign -d -r- /Applications/Merlin.app` shows `cdhash H"…"` for 0.3.0),
+so each new build looks like a different app to macOS: the keychain asks
+again before Merlin can read "Chromium Safe Storage" (the name Chromium
+ gives it), the key that encrypts
+saved passwords and cookies, and camera, microphone and other privacy grants
+reset. Releases are therefore signed with one self-signed certificate, which
+makes the requirement `identifier "io.github.kylianmarceau.merlin" and
+certificate leaf = H"…"`, the same for every build. Gatekeeper treats a
+self-signed app like an ad-hoc one, so the Open Anyway steps don't change,
+and no Apple account is involved.
+
+Create it once, on the Mac that packages releases:
+
+```bash
+scripts/create_signing_identity.sh /Volumes/<offline drive>/merlin-signing.p12
+```
+
+It puts "Merlin Release Signing" in the login keychain and writes a
+password-protected `.p12` backup. Package with
+`MERLIN_SIGN_IDENTITY="Merlin Release Signing"`; `build-info.txt` records
+the identity and the designated requirement, and packaging fails if a named
+identity still produced a code-hash requirement.
+
+Custody:
+
+- The private key lives in the maintainer's login keychain and in the `.p12`
+  backup, nowhere else. Keep the backup offline (an encrypted drive, not
+  cloud storage or this repository) and its password in a password manager.
+- To package on another Mac, import the backup there
+  (`security import merlin-signing.p12 -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign`)
+  instead of creating a new identity.
+- A new certificate changes the requirement once for everyone: users answer
+  the keychain prompt and grant camera and microphone access again. Only do
+  that if the key is lost or exposed, and say so in the release notes.
+- If the key is exposed, someone could sign an app that macOS lets read
+  Merlin's keychain item. Create a new identity, release with it, and tell
+  users in the release notes.
+
 ### Every release
 
 1. Commit everything that should ship. `build-info.txt` records the commit
@@ -57,6 +98,7 @@ a Developer ID identity or Apple notarization.
 
    ```bash
    MERLIN_APP="$PWD/apps/browser/build/assembled/Merlin.app" \
+   MERLIN_SIGN_IDENTITY="Merlin Release Signing" \
    MERLIN_VERSION=0.2.0 scripts/package_mac.sh
    ```
 

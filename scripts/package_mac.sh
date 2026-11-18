@@ -25,6 +25,12 @@
 # location...) and its renderer and GPU helpers (JIT), and library
 # validation off, which ad-hoc code (no team ID) needs.
 #
+# MERLIN_SIGN_IDENTITY names Merlin's self-signed certificate
+# (scripts/create_signing_identity.sh; MERLIN_SIGN_KEYCHAIN if it isn't in
+# the login keychain). Signed with it, every release has the same designated
+# requirement, so saved passwords and privacy grants survive updates.
+# Without it the signature is ad-hoc and packaging warns.
+#
 # Needs out/Release from scripts/build_release.sh (which also writes
 # credits.html), the React host from scripts/build_react_shell.sh, and the two
 # assembled. MERLIN_PACKAGE_DEV=1 accepts a component build or the
@@ -150,10 +156,24 @@ echo "==> release version"
 
 echo "==> signing with the hardened runtime, innermost first"
 # Chromium's own entitlement files, from the checkout the engine was built in.
-python3 scripts/sign_app.py "$stage/Merlin.app" --runtime --entitlements "$(dirname "$(dirname "$BUILD")")/chrome/app"
+identity="${MERLIN_SIGN_IDENTITY:--}"
+sign_args=(--identity "$identity")
+[[ -z "${MERLIN_SIGN_KEYCHAIN:-}" ]] || sign_args+=(--keychain "$MERLIN_SIGN_KEYCHAIN")
+if [[ "$identity" == - && -z "$suffix" ]]; then
+  echo "warning: ad-hoc signature. Each build then looks like a new app to macOS: the keychain" >&2
+  echo "         asks again about saved passwords and privacy grants reset. Set MERLIN_SIGN_IDENTITY" >&2
+  echo "         (docs/RELEASE.md, \"Signing identity\")." >&2
+fi
+python3 scripts/sign_app.py "$stage/Merlin.app" "${sign_args[@]}" \
+  --runtime --entitlements "$(dirname "$(dirname "$BUILD")")/chrome/app"
 codesign --verify --deep --strict --verbose=1 "$stage/Merlin.app"
 codesign -dv "$stage/Merlin.app" 2>&1 | grep -E '^(Identifier|Signature|Sealed Resources|CodeDirectory)'
 codesign -dv "$stage/Merlin.app" 2>&1 | grep -q 'flags=.*runtime' || die "the signed app has no hardened runtime"
+requirement="$(codesign -d -r- "$stage/Merlin.app" 2>&1 | sed -n 's/^designated => //p')"
+if [[ "$identity" != - && "$requirement" == cdhash* ]]; then
+  die "signed with $identity, but the designated requirement is still a code hash: $requirement"
+fi
+echo "designated requirement: $requirement"
 
 if [[ "$symbols_skipped" != 1 ]]; then
   echo "==> debug symbols: one dSYM per packaged binary, matched by UUID"
@@ -181,7 +201,12 @@ changes() { local c; c="$(field "$1.sourceChanges")"; [[ -z "$c" ]] || echo " + 
   echo "Bundle ID: $bundle_id"
   echo "Minimum macOS: $min_macos"
   echo "Architecture: arm64"
-  echo "Signature: ad-hoc, hardened runtime (no Developer ID, not notarized)"
+  if [[ "$identity" == - ]]; then
+    echo "Signature: ad-hoc, hardened runtime (no Developer ID, not notarized)"
+  else
+    echo "Signature: self-signed \"$identity\", hardened runtime (no Developer ID, not notarized)"
+  fi
+  echo "Designated requirement: $requirement"
   echo "UI: React Native macOS / Hermes (shell ABI 1)"
   echo "Lockfiles (SHA-256):"
   python3 -c 'import json, sys
