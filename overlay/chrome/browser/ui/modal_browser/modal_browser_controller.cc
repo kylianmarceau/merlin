@@ -360,6 +360,7 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser)
 
 ModalBrowserController::~ModalBrowserController() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  KeepEditedFileOnClose();
   BrowserctlService::Get().Update(this, false);
   browser_->GetTabStripModel()->RemoveObserver(this);
   Observe(nullptr);
@@ -2159,6 +2160,33 @@ content::RenderFrameHost* ModalBrowserController::FocusedFrame() {
   }
   content::RenderFrameHost* frame = contents->GetFocusedFrame();
   return frame ? frame : contents->GetPrimaryMainFrame();
+}
+
+void ModalBrowserController::KeepEditedFileOnClose() {
+  // The window is going while its field is open in an editor: the editor
+  // still has the file, so keep it, and say where in a window that stays.
+  if (!field_editor_ || field_editor_->path().empty()) {
+    return;
+  }
+  field_editor_->KeepFile();
+  const std::string message =
+      "A window closed while you were editing a field; your text is kept at " +
+      field_editor_->path().value();
+  LOG(WARNING) << message;
+  ModalBrowserController* other = nullptr;
+  GlobalBrowserCollection::GetInstance()->ForEach(
+      [&](BrowserWindowInterface* browser) {
+        ModalBrowserController* c = From(browser);
+        if (c && c != this) {
+          other = c;
+          return false;
+        }
+        return true;
+      },
+      BrowserCollection::Order::kActivation);
+  if (other) {
+    other->ShowMessage(ffi::MessageLevel::Info, message);
+  }
 }
 
 void ModalBrowserController::CancelFieldEdit() {

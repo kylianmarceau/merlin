@@ -26,7 +26,11 @@ namespace modal_browser {
 // * The editor starts from an argv list with no shell, so no text from the
 //   page or the config is ever interpreted as a command.
 // * Saves are reported as they happen, so editors that hand the file to an
-//   already-running app (and return at once) still work.
+//   already-running app (and return at once) still work. A save is read
+//   only once two checks in a row find the same size and modification
+//   time, so a file still being written never reaches the page.
+// * An editor that fails at once (exits non-zero within a few seconds)
+//   ends the session with an error rather than a long watch.
 // * Destroying the session stops watching and deletes the file, unless
 //   KeepFile() was called (the page went away and the text would be lost).
 //
@@ -64,6 +68,9 @@ class ExternalEditor {
   // How often the file is checked, and how long a session may last.
   static constexpr base::TimeDelta kPollInterval = base::Milliseconds(400);
   static constexpr base::TimeDelta kMaxDuration = base::Hours(4);
+  // An editor that exits sooner may have handed the file to an app that is
+  // already running; one that exits sooner with an error failed.
+  static constexpr base::TimeDelta kLauncherGrace = base::Seconds(3);
 
   // Directory searched (with $PATH) for a bare program name: GUI apps get a
   // minimal $PATH, so Homebrew and user tools would not be found otherwise.
