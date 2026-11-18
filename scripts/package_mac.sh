@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# Packages out/Release/Merlin.app for GitHub Releases.
+# Packages the assembled Merlin.app for GitHub Releases.
 #
+#   MERLIN_APP="$PWD/apps/browser/build/assembled/Merlin.app" \
 #   MERLIN_VERSION=0.2.0 scripts/package_mac.sh
+#
+# MERLIN_APP is required and must be an app from scripts/assemble_react_app.py.
+# The engine on its own (out/Release/Merlin.app) opens Chromium's windows
+# without Merlin's interface, so it is refused: no assembly manifest, no
+# Hermes, no React bundle, or no engine or shell API export.
 #
 # Writes to dist/<version>/:
 #   Merlin-<version>-arm64.dmg          the download: app, Applications link,
@@ -19,17 +25,22 @@
 # Open Anyway. No hardened runtime, so no entitlements are needed.
 #
 # Needs out/Release from scripts/build_release.sh (which also writes
-# credits.html). MERLIN_PACKAGE_DEV=1 accepts a component build or the
+# credits.html), the React host from scripts/build_react_shell.sh, and the two
+# assembled. MERLIN_PACKAGE_DEV=1 accepts a component build or the
 # placeholder bundle ID, to try this script out; its output is named
 # *-dev-not-for-release and must not be published. MERLIN_SKIP_SYMBOLS=1
 # skips the dSYM archive.
 set -euo pipefail
+# A relative MERLIN_APP means one relative to where the script was run.
+if [[ -n "${MERLIN_APP:-}" && "$MERLIN_APP" != /* ]]; then
+  MERLIN_APP="$PWD/$MERLIN_APP"
+fi
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 CHROMIUM_DIR="${CHROMIUM_DIR:-$HOME/chromium}"
 OUT="${OUT:-out/Release}"
 BUILD="$CHROMIUM_DIR/src/$OUT"
-APP="${MERLIN_APP:-$BUILD/Merlin.app}"
+APP="${MERLIN_APP:-}"
 VERSION="${MERLIN_VERSION:-}"
 DEV="${MERLIN_PACKAGE_DEV:-0}"
 
@@ -37,7 +48,22 @@ die() { echo "package_mac: $*" >&2; exit 1; }
 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] ||
   die "set MERLIN_VERSION to a version such as 0.2.0 or 0.3.0-beta.1"
-[[ -d "$APP" ]] || die "no app at $APP; run scripts/build_release.sh"
+assemble_hint="build it with scripts/build_release.sh and scripts/build_react_shell.sh, assemble it with scripts/assemble_react_app.py, then set MERLIN_APP to apps/browser/build/assembled/Merlin.app"
+[[ -n "$APP" ]] || die "set MERLIN_APP to the assembled Merlin.app; $assemble_hint"
+[[ -d "$APP" ]] || die "no app at $APP; $assemble_hint"
+# Only the assembled product ships. out/Release/Merlin.app is the engine alone.
+not_assembled() { die "$APP is not an assembled Merlin.app: $1. $assemble_hint"; }
+[[ -f "$APP/Contents/Resources/merlin-shell-build.json" ]] ||
+  not_assembled "it has no assembly manifest (Contents/Resources/merlin-shell-build.json)"
+[[ -d "$APP/Contents/Frameworks/hermes.framework" ]] ||
+  not_assembled "it has no Hermes framework"
+[[ -f "$APP/Contents/Resources/main.jsbundle" ]] ||
+  not_assembled "it has no React bundle (main.jsbundle)"
+exports() { xcrun nm -gU "$1" 2>/dev/null | awk '{ print $NF }'; }
+exports "$APP/Contents/Frameworks/Merlin Framework.framework/Merlin Framework" |
+  grep -x _MerlinEngineGetAPI >/dev/null || not_assembled "its framework does not export MerlinEngineGetAPI"
+exports "$APP/Contents/MacOS/Merlin" | grep -x _MerlinShellGetAPI >/dev/null ||
+  not_assembled "its executable is not the React host (no MerlinShellGetAPI export)"
 [[ -f "$BUILD/credits.html" ]] ||
   die "no $BUILD/credits.html; run OUT=$OUT scripts/licenses.sh"
 
@@ -138,10 +164,8 @@ commit="$(git rev-parse HEAD)"
   echo "Minimum macOS: $min_macos"
   echo "Architecture: arm64"
   echo "Signature: ad-hoc (no Developer ID, not notarized)"
-  if [[ -f "$APP/Contents/Resources/merlin-shell-build.json" ]]; then
-    echo "UI: React Native macOS / Hermes (shell ABI 1)"
-    cat "$APP/Contents/Resources/merlin-shell-build.json"
-  fi
+  echo "UI: React Native macOS / Hermes (shell ABI 1)"
+  cat "$APP/Contents/Resources/merlin-shell-build.json"
   echo
   echo "Binary UUIDs (match these to the dSYMs):"
   dwarfdump --uuid "$stage/Merlin.app/Contents/MacOS/Merlin" "$framework" | sed "s|$stage/||"

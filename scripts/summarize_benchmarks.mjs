@@ -4,7 +4,7 @@
 import { readFile, readdir } from "node:fs/promises";
 const dir = process.argv[2];
 if (!dir) throw Error("usage: summarize_benchmarks.mjs <results-dir>");
-const order = ["merlin-release", "merlin-dev", "brave", "dia", "merlin-release-adblock"];
+const order = ["merlin-release", "merlin-engine-only", "merlin-dev", "brave", "dia", "merlin-release-adblock"];
 const R = {};
 for (const f of await readdir(dir)) if (f.endsWith(".json")) {
   const j = JSON.parse(await readFile(dir + "/" + f, "utf8"));
