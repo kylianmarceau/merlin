@@ -8,13 +8,34 @@ cd "$(dirname "$0")/.."
 
 TAG="${TAG:-$(sed -n 's/^tag: *//p' UPSTREAM_PIN)}"
 work="$(mktemp -d)"
-trap 'rm -rf "$work"' EXIT
+scratch="$(mktemp -d)"
+trap 'rm -rf "$work" "$scratch"' EXIT
 
-# Gitiles serves base64 text. Retry: CI fetches hundreds of files, and one
-# dropped connection must not read as a patch that no longer applies.
-fetch() {
-  curl -sSf --max-time 60 --retry 4 --retry-all-errors --retry-delay 2 "$1?format=TEXT" |
-    base64 --decode || { echo "Could not download $1" >&2; return 1; }
+# Gitiles serves base64 text, and throttles busy clients (CI) with 5xx
+# answers. Each attempt downloads to a fresh file, so a retry after a broken
+# transfer can't append to a half-written one, and backs off a little longer.
+# With VERIFY_PATCHES_CACHE set, files are kept there by tag or revision
+# (both immutable), so later runs download nothing.
+cache="${VERIFY_PATCHES_CACHE:-}"
+fetch() { # url cache-key output
+  if [[ -n "$cache" && -s "$cache/$2" ]]; then
+    cp "$cache/$2" "$3"
+    return
+  fi
+  local attempt raw="$scratch/download"
+  for attempt in 1 2 3 4 5 6 7 8; do
+    if curl -sSf --max-time 60 -o "$raw" "$1?format=TEXT" &&
+       base64 --decode < "$raw" > "$3"; then
+      if [[ -n "$cache" ]]; then
+        mkdir -p "$(dirname "$cache/$2")"
+        cp "$3" "$cache/$2"
+      fi
+      return
+    fi
+    sleep $((attempt * 3))
+  done
+  echo "Could not download $1" >&2
+  return 1
 }
 
 files=$(python3 - <<'PY'
@@ -42,17 +63,19 @@ for f in $files; do
       git -C "$CHROMIUM_SRC/$dependency" show "$revision:$relative" > "$work/$f"
     else
       if [[ -z "${devtools_revision:-}" ]]; then
-        devtools_revision="$(fetch \
-          "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/DEPS" | sed -n "s/.*'devtools_frontend_revision': '\([a-f0-9]*\)'.*/\1/p")"
+        fetch "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/DEPS" \
+          "chromium/$TAG/DEPS" "$scratch/DEPS"
+        devtools_revision="$(sed -n "s/.*'devtools_frontend_revision': '\([a-f0-9]*\)'.*/\1/p" "$scratch/DEPS")"
         [[ "$devtools_revision" =~ ^[a-f0-9]{40}$ ]] || { echo 'Missing pinned DevTools revision'; exit 1; }
       fi
       fetch "https://chromium.googlesource.com/devtools/devtools-frontend/+/$devtools_revision/$relative" \
-        > "$work/$f"
+        "devtools/$devtools_revision/$relative" "$work/$f"
     fi
   elif [[ -n "${CHROMIUM_SRC:-}" ]]; then
     git -C "$CHROMIUM_SRC" show "$TAG:$f" > "$work/$f"
   else
-    fetch "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/$f" > "$work/$f"
+    fetch "https://chromium.googlesource.com/chromium/src/+/refs/tags/$TAG/$f" \
+      "chromium/$TAG/$f" "$work/$f"
   fi
 done
 

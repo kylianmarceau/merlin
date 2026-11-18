@@ -63,6 +63,6 @@ echo "==> bundled ad blocker integrity and provenance"
 python3 scripts/prepare_adblock_resources.py
 
 echo "==> patches apply to pinned upstream files (needs network)"
-scripts/verify_patches.sh
+scripts/verify_patches.sh  # VERIFY_PATCHES_CACHE=<dir> keeps the downloads
 
 echo "All checks passed."

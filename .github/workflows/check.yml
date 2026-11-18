@@ -44,9 +44,28 @@ jobs:
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
 
+      # The upstream files the patches touch, by Chromium tag and DevTools
+      # revision. Gitiles throttles CI, so download them once per pin.
+      # Saved even when a later check fails, so a throttled first run still
+      # leaves what it downloaded for the next.
+      - name: Restore pinned Chromium files
+        id: pinned-files
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/merlin-verify-patches
+          key: verify-patches-${{ hashFiles('UPSTREAM_PIN') }}-${{ hashFiles('patches/*.patch') }}
+          restore-keys: verify-patches-${{ hashFiles('UPSTREAM_PIN') }}-
+
       # cargo fmt, clippy and test; pnpm ui:check and ui:test; the Python
       # tool tests (assembly, notices, vocabulary, upstream checker);
       # page-script, visual-identity and filter-integrity checks; and
       # verify_patches.sh against the pinned Chromium tag.
       - name: scripts/check.sh
-        run: scripts/check.sh
+        run: VERIFY_PATCHES_CACHE="$HOME/.cache/merlin-verify-patches" scripts/check.sh
+
+      - name: Save pinned Chromium files
+        if: always() && steps.pinned-files.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/merlin-verify-patches
+          key: verify-patches-${{ hashFiles('UPSTREAM_PIN') }}-${{ hashFiles('patches/*.patch') }}
