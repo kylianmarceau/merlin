@@ -1,15 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { displayHost } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import { Panel, Text, geometry, radius, space, useInteraction, useTheme } from '../ui';
 import { Favicon } from '../favicon/Favicon';
-
-/** At most this many cards to a row; more tabs wrap onto further rows. */
-const perRow = 5;
-/** Cards shown at once, around the highlighted one. */
-const shownMax = 15;
+import { perRow, shownCards, thumbnailsToRequest } from './switcherCards';
 
 /**
  * Ctrl-Tab's cards, while Control is held: every tab of the window with the
@@ -23,20 +19,21 @@ export function TabSwitcher() {
   const { colors } = useTheme();
   const switcher = snapshot.switcher;
   const [thumbs, setThumbs] = useState<Record<string, string | null>>({});
-  const ids = switcher?.tabs.join(',') ?? '';
+  // Thumbnails asked for while these cards are open; closing them forgets.
+  const asked = useRef(new Set<string>());
+  // Long lists show a window of cards that keeps the highlighted one in view.
+  const { first, shown } = shownCards(switcher?.tabs ?? [], switcher?.selected ?? 0);
+  const shownIds = shown.join(',');
   useEffect(() => {
-    if (!switcher) { setThumbs({}); return; }
-    let alive = true;
-    for (const id of switcher.tabs) {
-      void actions.thumbnail(id).then(url => { if (alive) setThumbs(t => ({ ...t, [id]: url })); });
+    if (!switcher) { asked.current = new Set(); setThumbs({}); return; }
+    for (const id of thumbnailsToRequest(shown, asked.current)) {
+      asked.current.add(id);
+      const mine = asked.current;
+      void actions.thumbnail(id).then(url => { if (mine === asked.current) setThumbs(t => ({ ...t, [id]: url })); });
     }
-    return () => { alive = false; };
-  }, [ids]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [!!switcher, shownIds]);  // eslint-disable-line react-hooks/exhaustive-deps
   if (!switcher) return null;
   const byId = new Map(snapshot.tabs.map(t => [t.id, t]));
-  // Long lists show a window of cards that keeps the highlighted one in view.
-  const first = Math.max(0, Math.min(switcher.selected - Math.floor(shownMax / 2), switcher.tabs.length - shownMax));
-  const shown = switcher.tabs.slice(first, first + shownMax);
   const columns = Math.min(perRow, shown.length);
   return <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center',
     justifyContent: 'center' }}>
