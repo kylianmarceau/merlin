@@ -4,7 +4,7 @@ import { addressParts, leftToRight } from '../../lib/format';
 import { securityBadge } from '../../lib/security';
 import { useActions, useActiveTab, useSnapshot } from '../../state/window';
 import { Box, DragRegion, IconButton, Text, geometry, useTheme } from '../ui';
-import { Page } from '../page/Page';
+import { TabPage } from '../page/TabPage';
 import { Overlays } from './Overlays';
 
 /**
@@ -30,7 +30,7 @@ export function PopupWindow() {
       <Text variant="label" lines={1} flex={1}>{tab ? leftToRight(addressParts(tab).host) : ''}</Text>
       {tab?.loading && <Text variant="caption">Loading…</Text>}
     </Box>}
-    {tab && <Page tabId={tab.id} />}
+    {tab && <TabPage tab={tab} active />}
     <Overlays />
   </View>;
 }

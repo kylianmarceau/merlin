@@ -52,6 +52,12 @@ export type Tab = {
    * Chromium, loads it there). Absent once claimed, and from older engines.
    */
   restoreInWebKit?: { url: string; title: string };
+  /**
+   * On a tab shown in WebKit: Chromium's latest navigation behind it was
+   * started by the browser for the person, not by its page, so it shows in
+   * the engine its address opens in. Absent otherwise, and from older engines.
+   */
+  userInitiated?: boolean;
 };
 export type Download = {
   id: string; name: string; received: number; total: number;
@@ -386,7 +392,8 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.surface !== undefined && (typeof tab.surface !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.surface))) ||
         (tab.group !== undefined && typeof tab.group !== 'string') ||
         (tab.split !== undefined && (typeof tab.split !== 'string' || !tab.split)) ||
-        (tab.restoreInWebKit !== undefined && !fields(tab.restoreInWebKit, { url: isString, title: isString }))) {
+        (tab.restoreInWebKit !== undefined && !fields(tab.restoreInWebKit, { url: isString, title: isString })) ||
+        (tab.userInitiated !== undefined && typeof tab.userInitiated !== 'boolean')) {
       throw new Error('Invalid tab snapshot');
     }
     ids.add(tab.id);

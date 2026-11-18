@@ -129,6 +129,10 @@ function reconcile(store: BrowserStore, engine: EngineClient) {
         void leave(store, engine, tab.id);
         break;
       case 'close': remove(tab.id); break;
+      case 'migrate':
+        remove(tab.id);
+        if (step.url !== tab.url) void engine.call('navigation.open', { tabId: tab.id, text: step.url }).catch(() => {});
+        break;
       case 'restore': restore(store, tab.id, tab.url, step.url, step.title, snapshot.private); break;
       case 'decline':
         if (declined.has(tab.id)) break;
@@ -327,14 +331,10 @@ export function navigateWebKitTab(tabId: string, url: string | null, ephemeral: 
  * The tab menu's "Open in WebKit" or "Open in Chromium": the tab's site
  * moves, and stays moved. Returns whether anything changed.
  */
-export async function moveSite(engine: EngineClient, tabId: string, url: string, to: PageEngine) {
+export async function moveSite(url: string, to: PageEngine) {
   const site = siteOf(url);
   if (!site) return false;
+  // The new choice reaches every tab on the site in every window (attachWebKit's preference watch).
   await setSiteEngine(site, to);
-  if (to === 'webkit') return true; // The new choice reaches every window's tabs (attachWebKit's preference watch).
-  const wk = pages()[tabId];
-  if (!wk) return true;
-  remove(tabId);
-  await engine.call('navigation.open', { tabId, text: wk.url || url });
   return true;
 }

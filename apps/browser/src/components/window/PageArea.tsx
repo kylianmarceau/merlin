@@ -6,8 +6,7 @@ import type { Tab } from '../../state/types';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
 import { Box, Button, EmptyState, Text, geometry, radius, space, useTheme } from '../ui';
 import { FindBar } from '../find/FindBar';
-import { Page } from '../page/Page';
-import { WebKitPage } from '../page/WebKitPage';
+import { TabPage } from '../page/TabPage';
 import { StartPage } from '../start/StartPage';
 
 /** The active page, both halves of a split view, or the start page. A page in fullscreen is shown alone. */
@@ -62,10 +61,10 @@ function Pane({ tab, hints }: { tab: Tab; hints: boolean }) {
   const start = tab.start ?? !loading;
   if (tab.crashed) return <CrashedPage tab={tab} />;
   // Chromium's page behind it, and its link hints, aren't shown.
-  if (tab.engine === 'webkit') return <WebKitPage key="webkit" tabId={tab.id} active={hints} />;
+  if (tab.engine === 'webkit') return <TabPage tab={tab} active={hints} />;
   const prefix = snapshot.modal.hintPrefix ?? '';
   return <View style={{ flex: 1 }}>
-    {loading && <Page key="page" tabId={tab.id} />}
+    {loading && <TabPage tab={tab} active={hints} />}
     {start && <View key="start" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: colors.startBackground }}>
       {!loading && <StartPage tab={tab} />}

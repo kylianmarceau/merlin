@@ -114,3 +114,25 @@ test('native code hears what a WebKit tab shows, once it shows a web page', () =
   assert.equal(engineOverlay(wk({ url: '' })), null);
   assert.equal(engineOverlay(undefined), null);
 });
+
+// The Codex audit's replays (M15, M16), with what they now give.
+test('M15: a settled WebKit tab moves to Chromium as soon as its site no longer opens in WebKit', () => {
+  const shown = wk({ url: 'https://www.netflix.com/watch/123', base: 'https://example.org/previous' });
+  const offNow = (url: string) => engineFor(url, { protectedVideoInWebKit: false, siteEngines: {} });
+  assert.deepEqual(decide(tab('https://example.org/previous'), shown, offNow, 0), { kind: 'migrate', url: 'https://www.netflix.com/watch/123' });
+  const movedByHand = (url: string) => engineFor(url, { protectedVideoInWebKit: true, siteEngines: { 'https://www.netflix.com': 'chromium' } });
+  assert.deepEqual(decide(tab('https://example.org/previous'), shown, movedByHand, 0), { kind: 'migrate', url: 'https://www.netflix.com/watch/123' });
+  // Unchanged preferences leave it alone.
+  assert.deepEqual(decide(tab('https://example.org/previous'), shown, engineOf, 0), { kind: 'none' });
+});
+
+test('M16: a navigation the person starts behind WebKit shows, even on the page before’s site', () => {
+  const shown = wk({ url: 'https://www.netflix.com/watch/123', base: 'https://example.org/previous' });
+  assert.deepEqual(decide(tab('https://example.org/new-bookmark', { userInitiated: true }), shown, engineOf, 0),
+    { kind: 'migrate', url: 'https://example.org/new-bookmark' });
+  // The page before changing its own address is still the page before.
+  assert.deepEqual(decide(tab('https://example.org/previous#top'), shown, engineOf, 0), { kind: 'settle', base: 'https://example.org/previous#top' });
+  // To another WebKit site, WebKit follows either way.
+  assert.deepEqual(decide(tab('https://www.netflix.com/title/9', { userInitiated: true }), shown, engineOf, 0),
+    { kind: 'follow', url: 'https://www.netflix.com/title/9' });
+});
