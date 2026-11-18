@@ -88,6 +88,10 @@ fn toml_unsupported_features_fail_with_line_numbers() {
         ("a = 01", "invalid integer"),
         ("a = [1 2]", "expected ','"),
         ("a = \"\\q\"", "escape"),
+        ("a = +-5", "invalid integer"),
+        ("a = -+5", "invalid integer"),
+        ("a = 9223372036854775808", "out of range"),
+        ("a = -9223372036854775809", "out of range"),
     ];
     for (text, needle) in cases {
         let err = toml_lite::parse(text).expect_err(text);
@@ -99,6 +103,19 @@ fn toml_unsupported_features_fail_with_line_numbers() {
     }
     let err = toml_lite::parse("ok = 1\n\nbad = ?").unwrap_err();
     assert_eq!(err.line, 3);
+}
+
+#[test]
+fn toml_integers_cover_the_whole_i64_range() {
+    for (text, value) in [
+        ("a = -9223372036854775808", i64::MIN),
+        ("a = 9223372036854775807", i64::MAX),
+        ("a = +1_000", 1000),
+        ("a = -0", 0),
+    ] {
+        let entries = toml_lite::parse(text).expect(text);
+        assert_eq!(entries[0].value, Value::Integer(value), "{text}");
+    }
 }
 
 #[test]
