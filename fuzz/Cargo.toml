@@ -1,0 +1,57 @@
+# libFuzzer targets for the core's parsers, run with cargo-fuzz (nightly):
+# see README.md. Outside the root workspace, so `cargo test --workspace`
+# and the Chromium build never see libfuzzer-sys.
+[package]
+name = "modal_browser_fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "BSD-3-Clause"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+modal_browser_core = { path = "../overlay/components/modal_browser/core" }
+
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "json"
+path = "fuzz_targets/json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "toml_lite"
+path = "fuzz_targets/toml_lite.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ipc"
+path = "fuzz_targets/ipc.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "keys"
+path = "fuzz_targets/keys.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "target"
+path = "fuzz_targets/target.rs"
+test = false
+doc = false
+bench = false

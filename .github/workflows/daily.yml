@@ -1,9 +1,14 @@
-# Daily: is the pinned Chromium behind Mac Stable? Stable releases carry the
-# security fixes, so when a rebase is due this opens one issue for it
-# (docs/UPSTREAM.md, "Rebase procedure"; docs/RELEASE.md, security-only
+# Daily jobs that don't belong on every push.
+#
+# chromium-stable: is the pinned Chromium behind Mac Stable? Stable releases
+# carry the security fixes, so when a rebase is due this opens one issue for
+# it (docs/UPSTREAM.md, "Rebase procedure"; docs/RELEASE.md, security-only
 # release). An unconfirmed result (pin ahead of Stable, commit mismatch, or a
 # failed check) fails the job so it is noticed.
-name: upstream
+#
+# fuzz: each parser fuzz target for 60 seconds (scripts/fuzz.sh), keeping
+# the corpus between runs. A failing input fails the job and is uploaded.
+name: daily
 
 on:
   schedule:
@@ -12,11 +17,13 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   chromium-stable:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +61,33 @@ jobs:
           procedure in \`docs/UPSTREAM.md\`, then cut a security-only release
           (\`docs/RELEASE.md\`).
 
-          Opened by the daily \`upstream\` workflow.
+          Opened by the \`daily\` workflow.
           EOF
           )"
+
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Restore the corpus
+        uses: actions/cache@v4
+        with:
+          path: fuzz/corpus
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+
+      - name: scripts/fuzz.sh
+        run: scripts/fuzz.sh 60
+
+      - name: Upload failing inputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts/

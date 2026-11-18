@@ -23,6 +23,9 @@ pnpm install --frozen-lockfile
 pnpm ui:check
 pnpm ui:test
 
+echo "==> fuzz targets build (scripts/fuzz.sh runs them)"
+cargo check --quiet --locked --manifest-path fuzz/Cargo.toml
+
 echo "==> upstream checker and browser test runner regressions"
 python3 -m unittest discover -s scripts -p 'test_browser_tools.py'
 

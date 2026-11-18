@@ -12,6 +12,7 @@ suite covers it, is in [CAPABILITIES.md](CAPABILITIES.md).
 | `pnpm ui:test` | Node, pnpm | Shell state, protocol validation, design conventions (no colour, size or timing literals, no React Native shadows or `Modal`, imports only downwards) |
 | `cargo test --workspace` | Rust, Xcode's clang | The Rust core (modes, keys, commands, config, palette, hints, workspaces, `browserctl` protocol), the cxx bridge, and the C++ router harness below |
 | `python3 -m unittest discover -s scripts -p 'test_*.py'` | Python | Assembly refuses stale or colliding inputs, build stamps and dSYM matching, shipped notices, the shell vocabulary, the upstream checker |
+| `scripts/fuzz.sh` | Rust | The core's parsers (JSON, `config.toml`, the `browserctl` protocol, key notation, `:open` targets) never panic on any input, and what they accept reads back the same. CI runs each target for 60 seconds a day; `cargo test` runs the same checks over seeds and mutations. See [fuzz/README.md](../fuzz/README.md) |
 | `out/Release/modal_browser_unittests` | Chromium checkout | The parts of the overlay that need only `//base`: `config.toml` changes run read, change, write as one step on one sequence, so options set at once all land; a whole-file save from an older revision is refused; `SetOption` keeps the rest of the file |
 | `scripts/run_browser_tests.sh` | Chromium build (`out/Modal`, `browser_tests`) | The ad blocker's browser tests inside Chromium; with a filter, upstream suites under Chromium's defaults |
 | `scripts/run_e2e_tests.sh` | Assembled `Merlin.app` | About 115 tests through the real app: keys and modes, hints, tabs and splits, config, `browserctl` and workspaces, the editor, downloads, the address field and site panel, ad blocking, groups, Peek, WebKit tabs, picture in picture (opt-in) and identity. See [tests/e2e/README.md](../tests/e2e/README.md) |
@@ -25,8 +26,9 @@ loaded sessions with many tabs.
 
 `.github/workflows/check.yml` runs `scripts/check.sh` on macOS for every
 push and pull request, so a local pass and a CI pass mean the same thing.
-`.github/workflows/upstream.yml` runs daily: it compares `UPSTREAM_PIN` with
-Mac Stable and opens an issue when a rebase is due.
+`.github/workflows/daily.yml` compares `UPSTREAM_PIN` with Mac Stable and
+opens an issue when a rebase is due, and runs each fuzz target for 60
+seconds.
 The Chromium build, browser tests and end-to-end tests stay manual: they
 need a Chromium checkout and hours of build time.
 

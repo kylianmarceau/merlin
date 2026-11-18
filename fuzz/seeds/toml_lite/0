@@ -1,0 +1,4 @@
+[options]
+scroll_step = 60
+hint_chars = "asdf"
+smooth = true

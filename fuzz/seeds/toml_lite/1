@@ -1,0 +1,3 @@
+[keys.normal]
+"<C-d>" = "scroll page-down"
+j = 'scroll down'
