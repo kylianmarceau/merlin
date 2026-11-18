@@ -3,6 +3,7 @@ import { PanResponder, Pressable, View } from 'react-native';
 import { showMenu } from '../../platform/shell';
 import { Icon } from './Icon';
 import { useInteraction } from './interaction';
+import { sliderAccessibility, steppedValue } from './slider';
 import { Text } from './Text';
 import { useTheme } from './theme';
 import { geometry, opacity, radius, space } from './tokens';
@@ -35,7 +36,8 @@ export function PopUp<T extends string>({ label, value, options, onChange, disab
 /**
  * A 0 to 1 slider. It reports while dragged, so what it changes can be seen
  * changing; `label` and `valueText` are read by VoiceOver, and the arrow
- * keys move it by a tenth.
+ * keys move it by a tenth. A disabled one takes no keys, drags or VoiceOver
+ * steps, and VoiceOver reads it as dimmed.
  */
 export function Slider({ label, value, valueText, onChange, disabled = false }: {
   label: string; value: number; valueText: string; onChange(value: number): void; disabled?: boolean;
@@ -60,12 +62,14 @@ export function Slider({ label, value, valueText, onChange, disabled = false }: 
     onPanResponderMove: (_, g) => latest.current.onChange(clamp(start.current + g.dx / Math.max(1, latest.current.width - thumb))),
     onPanResponderTerminationRequest: () => false,
   }), [thumb]);
-  const step = (delta: number) => onChange(clamp(Math.round((value + delta) * 10) / 10));
+  const step = (action: string) => {
+    const next = steppedValue(value, action, disabled);
+    if (next !== null) onChange(next);
+  };
   return <View accessible accessibilityRole="adjustable" accessibilityLabel={label} accessibilityValue={{ text: valueText }}
-    accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
-    onAccessibilityAction={e => step(e.nativeEvent.actionName === 'increment' ? 0.1 : -0.1)}
-    focusable={!disabled} keyDownEvents={[{ key: 'ArrowLeft' }, { key: 'ArrowRight' }]}
-    onKeyDown={e => step(e.nativeEvent.key === 'ArrowRight' ? 0.1 : -0.1)}
+    {...sliderAccessibility(disabled)} onAccessibilityAction={e => step(e.nativeEvent.actionName)}
+    focusable={!disabled} keyDownEvents={disabled ? [] : [{ key: 'ArrowLeft' }, { key: 'ArrowRight' }]}
+    onKeyDown={e => step(e.nativeEvent.key)}
     {...(disabled ? {} : pan.panHandlers)} onLayout={e => setWidth(e.nativeEvent.layout.width)}
     style={{ width: geometry.slider, height: thumb, justifyContent: 'center', opacity: disabled ? opacity.disabled : 1 }}>
     <View style={{ height: geometry.sliderTrack, borderRadius: radius.pill, backgroundColor: colors.fillTrack }}>
