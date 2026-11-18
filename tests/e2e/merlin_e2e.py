@@ -94,7 +94,7 @@ def describe_and_verify(app: Path, allow_other: bool) -> list[str]:
     recorded = (manifest or {}).get("sourceCommit")
     changes = (manifest or {}).get("sourceChanges")
     lines = [
-        # A packaged release shows Merlin's version in CFBundleShortVersionString (decision 64).
+        # A packaged release shows Merlin's version in CFBundleShortVersionString (docs/RELEASE.md).
         f"app:       {app} (Chromium {info.get('MerlinChromiumVersion') or info.get('CFBundleShortVersionString', '?')})",
         f"host:      {macho_uuids(host)}",
         f"framework: {macho_uuids(framework)}",

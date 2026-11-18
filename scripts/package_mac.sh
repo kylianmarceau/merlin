@@ -187,8 +187,8 @@ echo "==> release version"
 /usr/libexec/PlistBuddy -c "Delete :MerlinVersion" "$stage/Merlin.app/Contents/Info.plist" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :MerlinVersion string $VERSION" "$stage/Merlin.app/Contents/Info.plist"
 # Finder's Version column and Get Info read CFBundleShortVersionString, so it
-# says Merlin's version; Chromium's moves to MerlinChromiumVersion (decision
-# 64). Chromium reads its framework's own Info.plist, which keeps its version,
+# says Merlin's version; Chromium's moves to MerlinChromiumVersion
+# (docs/RELEASE.md). Chromium reads its framework's own Info.plist, which keeps its version,
 # and CFBundleVersion stays Chromium's build number for LaunchServices.
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$stage/Merlin.app/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Delete :MerlinChromiumVersion" "$stage/Merlin.app/Contents/Info.plist" 2>/dev/null || true

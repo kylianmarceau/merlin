@@ -119,7 +119,11 @@ Custody:
    their lockfiles and binary UUIDs, and the packaging commit separately.
 
    It stamps `MERLIN_VERSION` into the app's `Info.plist` as `MerlinVersion`,
-   which Settings › General › Updates compares with GitHub Releases. Then it
+   which Settings › General › Updates compares with GitHub Releases, and as
+   `CFBundleShortVersionString`, which Finder's Get Info shows; Chromium's
+   version moves to `MerlinChromiumVersion`. Chromium reads its version from
+   its framework's own `Info.plist`, which is untouched, and
+   `CFBundleVersion` stays Chromium's build number for LaunchServices. Then it
    signs the app (`scripts/sign_app.py`: every binary and bundle, innermost
    first) with the hardened runtime and Chromium's entitlement files: camera,
    microphone, location, USB, Bluetooth, print and photos for the app, JIT
