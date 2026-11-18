@@ -121,6 +121,35 @@ if [[ "$bundle_id" == local.* ]]; then
   suffix="-dev-not-for-release"
 fi
 
+# Security-release gate: the Chromium the engine was built against must be
+# the current Mac Stable release, which carries the security fixes
+# (scripts/check_upstream.py). MERLIN_ALLOW_STALE_CHROMIUM=1 packages anyway
+# and says so in build-info.txt and at the top of the release notes.
+echo "==> Chromium security check"
+engine_pin="$(mktemp "${TMPDIR:-/tmp}/merlin-engine-pin.XXXXXX")"
+git show "$engine_commit:UPSTREAM_PIN" > "$engine_pin" 2>/dev/null || cp UPSTREAM_PIN "$engine_pin"
+upstream_status=0
+upstream="$(python3 scripts/check_upstream.py --json --pin "$engine_pin")" || upstream_status=$?
+rm -f "$engine_pin"
+upstream_field() { python3 -c 'import json, sys
+try: print(json.loads(sys.argv[1]).get(sys.argv[2]) or "")
+except ValueError: print("no answer" if sys.argv[2] == "error" else "")' "$upstream" "$1"; }
+upstream_state="$(upstream_field status)"
+stale_chromium=""
+if [[ "$upstream_status" != 0 ]]; then
+  case "$upstream_state" in
+    behind) stale_chromium="This build uses Chromium $(upstream_field pinned); Mac Stable is $(upstream_field stable), with security fixes it lacks" ;;
+    error) stale_chromium="Chromium's current Stable release could not be checked ($(upstream_field error))" ;;
+    *) stale_chromium="Chromium $(upstream_field pinned) is not confirmed as current Mac Stable ($upstream_state)" ;;
+  esac
+  if [[ "${MERLIN_ALLOW_STALE_CHROMIUM:-0}" != 1 && "$DEV" != 1 ]]; then
+    die "$stale_chromium. Rebase first (docs/RELEASE.md, \"Security-only release\"), or set MERLIN_ALLOW_STALE_CHROMIUM=1 to package anyway; the release notes will say so"
+  fi
+  echo "warning: $stale_chromium; packaging anyway" >&2
+else
+  echo "Chromium $(upstream_field pinned) is current Mac Stable"
+fi
+
 name="Merlin-$VERSION-arm64$suffix"
 dist="$ROOT/dist/$VERSION$suffix"
 mkdir -p "$dist"
@@ -195,6 +224,11 @@ changes() { local c; c="$(field "$1.sourceChanges")"; [[ -z "$c" ]] || echo " + 
   echo "Shell source commit: $shell_commit$(changes shell)"
   echo "Packaging commit: $packaging_commit (scripts and docs only)"
   echo "Chromium: $chromium_version"
+  if [[ -n "$stale_chromium" ]]; then
+    echo "Chromium security check: NOT CURRENT, packaged with MERLIN_ALLOW_STALE_CHROMIUM=1: $stale_chromium"
+  else
+    echo "Chromium security check: current Mac Stable on $(date -u +%Y-%m-%d)"
+  fi
   # The pin the engine was built against, not the packaging checkout's.
   git show "$engine_commit:UPSTREAM_PIN" 2>/dev/null | sed 's/^/Pin /' ||
     echo "Pin: unknown (commit $engine_commit is not in this clone)"
@@ -258,6 +292,18 @@ hdiutil create -volname "Merlin $VERSION" -srcfolder "$stage" -format UDZO \
   -imagekey zlib-level=9 -ov "$dmg" >/dev/null
 (cd "$dist" && shasum -a 256 "$name.dmg" > "$name.dmg.sha256")
 
+# The release notes to upload: docs/RELEASE_NOTES.md, headed by a warning
+# when the gate above was overridden.
+notes="$dist/release-notes.md"
+{
+  if [[ -n "$stale_chromium" ]]; then
+    echo "> **Security notice:** $stale_chromium."
+    echo "> A release with the current Chromium follows; see SECURITY.md."
+    echo
+  fi
+  cat docs/RELEASE_NOTES.md
+} > "$notes"
+
 if [[ "$symbols_skipped" != 1 ]]; then
   # No AppleDouble (._) files or extended attributes in the archive.
   ditto -c -k --norsrc --noextattr --keepParent "$stage/dSYMs" "$dist/$name-dSYMs.zip"
@@ -282,7 +328,7 @@ else
 Next:
   1. Upload to a draft $release_kind:
      gh release create v$VERSION $release_flags --title "Merlin $VERSION" \\
-       --notes-file docs/RELEASE_NOTES.md "$dmg" "$dmg.sha256"
+       --notes-file "$notes" "$dmg" "$dmg.sha256"
   2. Download it in a browser on another Mac and run the install test in
      docs/RELEASE.md before publishing the draft.
   3. For a stable release, publish as Latest, then update the Homebrew tap:

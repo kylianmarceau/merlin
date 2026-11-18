@@ -176,11 +176,40 @@ Check `codesign --verify --deep --strict --verbose=2 /Applications/Merlin.app`.
 
 ### Security updates
 
-Updates are manual until an updater exists. Check for Chromium Stable
-releases with `scripts/check_upstream.py`, follow the rebase procedure in `docs/UPSTREAM.md` to
-update, then release as above. The targets: three days for a Stable security
-release, 24 hours when Google reports a fix for a bug exploited in the wild.
-Testers hear about releases by watching the repository.
+Updates are manual until an updater exists. Testers hear about releases by
+watching the repository. The targets (SECURITY.md): three days for a Chromium
+Stable security release, 24 hours when Google reports a fix for a bug
+exploited in the wild.
+
+`scripts/package_mac.sh` is the gate: it runs `scripts/check_upstream.py`
+against the pin the engine was built with and refuses to package unless that
+is the current Mac Stable release. `MERLIN_ALLOW_STALE_CHROMIUM=1` packages
+anyway; `build-info.txt` then says so, and `dist/<version>/release-notes.md`,
+the notes to upload, opens with a security notice. If the check itself
+fails (no network), it refuses too.
+
+### Security-only release
+
+To meet those targets, a Chromium security update ships on its own, with no
+feature work:
+
+1. Branch from the last release's commit (or `main` if nothing unreleased is
+   on it): `git switch -c security/<chromium version> <commit>`.
+2. Bump the pin: update `UPSTREAM_PIN` to the version and commit
+   `scripts/check_upstream.py` reports, and sync the checkout as
+   [CHROMIUM_UPDATE.md](CHROMIUM_UPDATE.md) describes.
+3. Refresh the patches: `scripts/apply_patches.py`, then
+   `scripts/verify_patches.sh`. Fix only what no longer applies.
+4. Build: `scripts/build_release.sh`, `scripts/build_react_shell.sh` and
+   assembly, as above.
+5. Test: `scripts/check.sh`, `pnpm ui:test` and `scripts/run_e2e_tests.sh`
+   against the assembled app.
+6. Package without the override and follow **Every release** from step 5,
+   with release notes that name the Chromium version and its security fixes.
+   Bump only the patch version (0.3.0 to 0.3.1).
+
+If a rebase can't be finished in time, say so in a security advisory or
+release note rather than packaging a stale engine silently.
 
 ## Installing an unnotarized GitHub release
 
