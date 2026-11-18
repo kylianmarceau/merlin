@@ -6,7 +6,8 @@ import { createStore } from 'zustand/vanilla';
 import { engineFor, hostLabel, siteOf, type PageEngine } from '../lib/engines';
 import type { EngineClient } from '../platform/protocol';
 import {
-  closeWebKitPage, focusWebKitPage, loadWebKitPage, subscribeWebKit, webKitCommand, type WebKitCommand, type WebKitEvent,
+  closeWebKitPage, focusWebKitPage, loadWebKitPage, setPrivateWindow, subscribeWebKit, webKitCommand, type WebKitCommand,
+  type WebKitEvent,
 } from '../platform/webkit';
 import { shellPrefs } from './shellPrefs';
 import { loadEnginePrefs, setSiteEngine } from './shellPrefsStorage';
@@ -56,6 +57,7 @@ export function attachWebKit(store: BrowserStore, engine: EngineClient, openTab:
   windows.set(store.windowId, { store, engine, openTab });
   listenToPages();
   const run = () => reconcile(store, engine);
+  const offPrivate = followPrivateWindow(store);
   const offStore = store.subscribe((s, previous) => { if (s.engineSnapshot !== previous.engineSnapshot) run(); });
   const offPages = webkitTabs.subscribe(() => { refreshOverlay(store); showIcons(store); });
   const offPrefs = shellPrefs.subscribe((s, previous) => {
@@ -65,10 +67,37 @@ export function attachWebKit(store: BrowserStore, engine: EngineClient, openTab:
   refreshOverlay(store);
   run();
   return () => {
-    offStore(); offPages(); offPrefs();
+    offStore(); offPages(); offPrefs(); offPrivate();
     windows.delete(store.windowId);
     store.overlay = snapshot => snapshot;
     pruneLater();
+  };
+}
+
+/**
+ * Tells WebKit while this window is a private one. WebKit's private session
+ * (its sign-ins and site data) lasts while any private window is open, as
+ * Chromium's does, and ends with the last. Returns the window's closing.
+ */
+function followPrivateWindow(store: BrowserStore): () => void {
+  let registered = false;
+  const check = () => {
+    if (registered || unavailable || store.getState().engineSnapshot?.private !== true) return;
+    registered = true;
+    try {
+      void setPrivateWindow(store.windowId, true).catch(() => {});
+    } catch {
+      unavailable = true;
+    }
+  };
+  const off = store.subscribe(check);
+  check();
+  return () => {
+    off();
+    if (!registered) return;
+    try {
+      void setPrivateWindow(store.windowId, false).catch(() => {});
+    } catch { /* Without the module there are no private WebKit pages. */ }
   };
 }
 

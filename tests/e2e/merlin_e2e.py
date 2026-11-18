@@ -342,6 +342,20 @@ class PacedDownload:
                 handler.connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
 
 
+class Request:
+    """One request the fixture server answered, with the headers tests read."""
+
+    def __init__(self, host: str, path: str, cookie: str, user_agent: str) -> None:
+        self.host, self.path, self.cookie, self.user_agent = host, path, cookie, user_agent
+
+    @property
+    def webkit(self) -> bool:
+        return "Safari/" in self.user_agent and "Chrome/" not in self.user_agent
+
+    def __repr__(self) -> str:
+        return f"Request({self.host}{self.path}, cookie={self.cookie!r})"
+
+
 class PageServer:
     """Serves the fixtures on 127.0.0.1 and records every path requested."""
 
@@ -356,6 +370,8 @@ class PageServer:
                 host = (self.headers.get("Host") or "").split(":")[0]
                 with server.lock:
                     server.requests.append((host, self.path))
+                    server.sent.append(Request(host, self.path, self.headers.get("Cookie") or "",
+                                               self.headers.get("User-Agent") or ""))
                     paced = server.paced.get(self.path.split("?")[0])
                 if paced:
                     paced.serve(self)
@@ -371,6 +387,7 @@ class PageServer:
 
         self.lock = threading.Lock()
         self.requests: list[tuple[str, str]] = []
+        self.sent: list[Request] = []
         self.paced: dict[str, PacedDownload] = {}
         class Server(http.server.ThreadingHTTPServer):
             daemon_threads = True
@@ -407,6 +424,13 @@ class PageServer:
     def clear(self) -> None:
         with self.lock:
             self.requests.clear()
+            self.sent.clear()
+
+    def webkit_requests(self, path_prefix: str, host: Optional[str] = None) -> list[Request]:
+        """Requests WebKit made (Chromium's say Chrome in their user agent)."""
+        with self.lock:
+            return [r for r in self.sent if r.webkit and r.path.startswith(path_prefix)
+                    and (host is None or r.host == host)]
 
     def url(self, path: str, host: str = "localhost") -> str:
         return f"http://{host}:{self.port}{path}"
@@ -429,6 +453,9 @@ class PageServer:
             "/ads": ADS_HTML.replace("AD_URL", self.url("/pagead/js/adsbygoogle.js",
                                                         "pagead2.googlesyndication.com")),
         }
+        if path.startswith("/set-cookie?"):
+            # /set-cookie?name=value sets a session cookie for the host.
+            return 200, html, PAGE_HTML.encode(), {"Set-Cookie": f"{path.split('?', 1)[1]}; Path=/"}
         if path.startswith("/pagead/"):
             return 200, "text/javascript", b"window.adLoaded = true;", {}
         if path == "/report-2026.pdf":
@@ -787,6 +814,36 @@ class Merlin:
 
     def active_tab(self) -> dict:
         return next(t for t in self.tabs() if t["active"] and t["window"] == 1)
+
+    # -- private windows ----------------------------------------------------
+
+    def private_pages(self) -> list[dict]:
+        """Private windows' tabs, which browserctl never lists; DevTools does."""
+        default = self.cdp.call("Target.getBrowserContexts")["defaultBrowserContextId"]
+        return [p for p in self.cdp.pages() if p.get("browserContextId") != default]
+
+    def open_private_window(self, url: Optional[str] = None) -> str:
+        """Opens a private window (`:private`) and loads `url` in its tab.
+
+        Returns the tab's DevTools session.
+        """
+        before = {p["targetId"] for p in self.private_pages()}
+        self.command("private")
+        page = wait_until(lambda: next((p for p in self.private_pages() if p["targetId"] not in before), None),
+                          message="the private window")
+        session = self.cdp.session_for(page["targetId"])
+        if url:
+            self.cdp.call("Page.navigate", {"url": url}, session)
+        return session
+
+    def close_private_windows(self) -> None:
+        """Closes every private window, as closing their last tabs does."""
+        for page in self.private_pages():
+            with contextlib.suppress(CdpError):
+                self.cdp.call("Target.closeTarget", {"targetId": page["targetId"]})
+        wait_until(lambda: not self.private_pages(), message="the private windows to close")
+        # The shell hears that a window closed when its root goes, just after.
+        time.sleep(1)
 
     # -- pages --------------------------------------------------------------
 

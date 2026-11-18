@@ -11,9 +11,11 @@ final class WebKitPages {
   /// asks for a page and lays out its view in the same update.
   let hosts = NSHashTable<MerlinWebKitPageView>.weakObjects()
   private var pages: [String: WebKitPage] = [:]
-  /// Private windows share one store that is never written to disk, like
-  /// Chromium's off-the-record profile. It goes when Merlin quits.
-  private lazy var privateStore = WKWebsiteDataStore.nonPersistent()
+  /// Private windows share one session, like Chromium's off-the-record
+  /// profile: a store never written to disk, which ends with the last
+  /// private window (and its last page). The next private page starts a new
+  /// one.
+  private var privateSession: PrivateSession?
 
   /// One hidden view per window that holds the pages of tabs not shown.
   private let parking = NSMapTable<NSWindow, NSView>.weakToStrongObjects()
@@ -44,15 +46,57 @@ final class WebKitPages {
       page.load(target)
       return
     }
-    pages.removeValue(forKey: tabId)?.close()
+    close(tabId: tabId)
     let page = WebKitPage(tabId: tabId, ephemeral: ephemeral, configuration: configuration(ephemeral: ephemeral))
     pages[tabId] = page
+    if ephemeral { openPrivateSession().pages.insert(tabId) }
     page.load(target)
     for host in hosts.allObjects where host.tabID == tabId { host.bind() }
   }
 
   func close(tabId: String) {
-    pages.removeValue(forKey: tabId)?.close()
+    guard let page = pages.removeValue(forKey: tabId) else { return }
+    page.close()
+    if page.ephemeral, let session = privateSession {
+      session.pages.remove(tabId)
+      endPrivateSessionIfUnused()
+    }
+  }
+
+  /// A private window opened or closed. The shell says so, since the window
+  /// and not only its pages keeps the session: a private window showing only
+  /// Chromium pages still shares WebKit's sign-ins with the next page.
+  func privateWindow(_ windowId: String, open: Bool) {
+    if open {
+      openPrivateSession().windows.insert(windowId)
+    } else if let session = privateSession {
+      session.windows.remove(windowId)
+      guard session.windows.isEmpty else { return }
+      // The last private window: its pages go with it, as Chromium's do.
+      for tabId in session.pages { pages.removeValue(forKey: tabId)?.close() }
+      session.pages.removeAll()
+      endPrivateSessionIfUnused()
+    }
+  }
+
+  private func openPrivateSession() -> PrivateSession {
+    if let session = privateSession { return session }
+    let session = PrivateSession()
+    privateSession = session
+    return session
+  }
+
+  /// No private window and no private page: the session ends. Its data is
+  /// removed now rather than whenever WebKit lets the store go, and the
+  /// store is dropped, so nothing from it reaches a later private page.
+  private func endPrivateSessionIfUnused() {
+    guard let session = privateSession, session.windows.isEmpty, session.pages.isEmpty else { return }
+    privateSession = nil
+    let store = session.store
+    store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {
+      // Keeps the store until its data has gone.
+      _ = store
+    }
   }
 
   /// Safari's version, so sites that check the browser (Netflix does) see
@@ -69,7 +113,7 @@ final class WebKitPages {
   private func configuration(ephemeral: Bool) -> WKWebViewConfiguration {
     let configuration = WKWebViewConfiguration()
     // WebKit keeps its own cookies and sign-ins, apart from Chromium's.
-    configuration.websiteDataStore = ephemeral ? privateStore : .default()
+    configuration.websiteDataStore = ephemeral ? openPrivateSession().store : .default()
     configuration.applicationNameForUserAgent = "Version/\(Self.safariVersion) Safari/605.1.15"
     configuration.mediaTypesRequiringUserActionForPlayback = []
     configuration.allowsAirPlayForMediaPlayback = true
@@ -80,6 +124,14 @@ final class WebKitPages {
     configuration.defaultWebpagePreferences.preferredContentMode = .desktop
     return configuration
   }
+}
+
+/// The private windows' WebKit session: its store, and the private windows
+/// and pages (by tab ID) that keep it open.
+final class PrivateSession {
+  let store = WKWebsiteDataStore.nonPersistent()
+  var windows = Set<String>()
+  var pages = Set<String>()
 }
 
 /// One tab's WebKit page. It reports its address, title, loading state and

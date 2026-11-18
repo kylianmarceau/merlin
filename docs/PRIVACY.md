@@ -31,8 +31,10 @@ Merlin's Chromium has no Widevine, so nothing downloads a DRM module.
 Netflix and other sites that need DRM open in WebKit, macOS's own engine,
 which plays them with FairPlay and talks to the sites' own licence servers.
 WebKit keeps its cookies and site data apart from Chromium's, in Merlin's
-WebKit store on this Mac (private windows use one that is never written to
-disk), and makes no Safe Browsing lookups
+WebKit store on this Mac, and makes no Safe Browsing lookups. Private windows
+share a WebKit session that is never written to disk and ends with the last
+private window, as Chromium's does: its pages close, its data is removed and
+the next private window starts a new one
 (decision 59).
 
 When the native ad blocker is enabled, normal profiles can automatically

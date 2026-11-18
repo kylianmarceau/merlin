@@ -38,6 +38,12 @@ public final class MerlinWebKitModule: Module {
       WebKitPages.shared.close(tabId: tabId)
     }.runOnQueue(.main)
 
+    // A private window opened or closed; the last to close ends WebKit's
+    // private session.
+    AsyncFunction("privateWindow") { (windowId: String, open: Bool) in
+      WebKitPages.shared.privateWindow(windowId, open: open)
+    }.runOnQueue(.main)
+
     View(MerlinWebKitPageView.self) {
       Prop("tabId") { (view, value: String) in view.tabID = value }
       Prop("active") { (view, value: Bool) in view.active = value }

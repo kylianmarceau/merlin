@@ -24,6 +24,7 @@ type NativeWebKit = {
   command(tabId: string, command: WebKitCommand): Promise<void>;
   focus(tabId: string): Promise<void>;
   close(tabId: string): Promise<void>;
+  privateWindow(windowId: string, open: boolean): Promise<void>;
   addListener(name: string, listener: (body: Record<string, unknown>) => void): Subscription;
 };
 
@@ -34,6 +35,8 @@ export const loadWebKitPage = (tabId: string, url: string, ephemeral: boolean) =
 export const webKitCommand = (tabId: string, command: WebKitCommand) => module().command(tabId, command);
 export const focusWebKitPage = (tabId: string) => module().focus(tabId);
 export const closeWebKitPage = (tabId: string) => module().close(tabId);
+/** A private window opened or closed: WebKit's private session ends with the last one. */
+export const setPrivateWindow = (windowId: string, open: boolean) => module().privateWindow(windowId, open);
 
 const commands: readonly string[] = ['back', 'forward', 'reload', 'reloadFromOrigin', 'stop'];
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
