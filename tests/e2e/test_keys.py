@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 import unittest
 
-from merlin_e2e import MerlinTestCase
+from merlin_e2e import MerlinTestCase, later
 
 
 class KeysTest(MerlinTestCase):
@@ -112,6 +112,33 @@ class KeysTest(MerlinTestCase):
         self.wait(lambda: self.browser.scroll_y() > 1000, "G")
         self.press("'b")
         self.wait(lambda: self.browser.scroll_y() == 300, "'b to return to the mark")
+
+    def test_a_late_mark_keeps_its_own_page(self) -> None:
+        # M23: the page answers m after another tab became active; the mark
+        # pairs this page's position with this page's address, not the
+        # other tab's.
+        page = self.browser.active_tab()["url"]
+        self.press("5j")
+        self.wait(lambda: self.browser.scroll_y() == 300, "5j")
+        other = self.server.url("/page", "b.test")
+        self.browser.browserctl("open", url=other, where="tab")
+        self.wait(lambda: len(self.browser.tabs()) == 2, "a second tab")
+        self.browser.browserctl("focus", tab=1)
+        self.wait(lambda: self.browser.tabs()[0]["active"], "the first tab")
+        self.browser.keep_page_busy(2.5)
+        switch = later(0.5, lambda: self.browser.browserctl("focus", tab=2))
+        self.press("mb")  # answered once the page is free again
+        switch.join()
+        self.wait(lambda: self.browser.tabs()[1]["active"], "the other tab")
+        self.wait(lambda: "Mark b set" in self.browser.message(), "the late answer", timeout=15)
+        self.browser.command("marks")
+        marks = self.browser.message()
+        self.assertIn(page, marks)
+        self.assertNotIn("b.test", marks)
+        # In the other tab the mark is on another page, so it doesn't scroll.
+        self.press("'b")
+        self.wait(lambda: "on another page" in self.browser.message(), "'b to refuse")
+        self.assertEqual(self.browser.scroll_y(), 0)
 
     def test_macros_record_and_replay(self) -> None:
         self.press("qbjq")

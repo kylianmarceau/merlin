@@ -8,7 +8,7 @@ import { useInteraction } from './interaction';
 import { useEscape } from './keys';
 import { duration } from './motion';
 import { useTheme } from './theme';
-import { font, geometry, radius, space } from './tokens';
+import { font, geometry, opacity, radius, space } from './tokens';
 
 /**
  * The one place every centred pop-up sits: the command menu (`:` and
@@ -91,15 +91,16 @@ export function PopupField({ value, placeholder, label, icon = 'magnifyingglass'
 }
 
 /** One result in a centred pop-up: what it is first, then what choosing it does. */
-export function PopupRow({ title, detail, keys, leading, selected, onPress }: {
-  title: string; detail?: string; keys?: string; leading?: React.ReactNode; selected: boolean; onPress(): void;
+export function PopupRow({ title, detail, keys, leading, selected, disabled, onPress }: {
+  title: string; detail?: string; keys?: string; leading?: React.ReactNode; selected: boolean; disabled?: boolean; onPress(): void;
 }) {
   const { colors } = useTheme();
   const { hovered, handlers } = useInteraction();
   return <Pressable accessibilityRole="menuitem" accessibilityLabel={detail ? `${title}, ${detail}` : title}
-    accessibilityState={{ selected }} onPress={onPress} {...handlers}
+    accessibilityState={{ selected, disabled: !!disabled }} disabled={disabled} onPress={onPress} {...handlers}
     style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: geometry.paletteRow, paddingHorizontal: space.md,
-      borderRadius: radius.field, backgroundColor: colors[selected ? 'paletteSelected' : hovered ? 'fillHover' : 'fillTransparent'] }}>
+      borderRadius: radius.field, opacity: disabled ? opacity.disabled : 1,
+      backgroundColor: colors[selected ? 'paletteSelected' : hovered && !disabled ? 'fillHover' : 'fillTransparent'] }}>
     {leading}
     <Text lines={1} style={{ flexShrink: 1 }} tone={selected ? 'paletteSelectedText' : 'textPrimary'}>{title}</Text>
     <View style={{ flex: 1 }} />

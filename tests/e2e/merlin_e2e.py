@@ -511,6 +511,16 @@ class PageServer:
 # The DevTools protocol, over a minimal WebSocket client (no dependencies).
 
 
+def later(seconds: float, action: Callable[[], Any]) -> threading.Thread:
+    """Runs `action` on another thread after `seconds`, while this one waits on a page.
+
+    Join the returned thread before checking what `action` did.
+    """
+    thread = threading.Thread(target=lambda: (time.sleep(seconds), action()), daemon=True)
+    thread.start()
+    return thread
+
+
 class CdpError(Exception):
     pass
 
@@ -946,6 +956,23 @@ class Merlin:
                         return
                     session = self.active_session()
                     break
+
+    def keep_page_busy(self, seconds: float) -> None:
+        """Blocks the active page's renderer for `seconds`, starting at once.
+
+        Merlin's scripts in that page run, and answer, only afterwards: a
+        request sent meanwhile is answered late, as by a slow page. The
+        browser itself keeps answering browserctl.
+        """
+        self.eval("setTimeout(() => { const end = Date.now() + %d; while (Date.now() < end); }, 100)"
+                  % int(seconds * 1000))
+        time.sleep(0.25)
+
+    def message(self) -> str:
+        """The front window's status message."""
+        reply = self.shell_call("window.snapshot")
+        assert reply.get("ok"), reply
+        return reply["result"]["modal"]["message"]
 
     def scroll_y(self) -> int:
         return int(self.eval("Math.round(window.scrollY)"))

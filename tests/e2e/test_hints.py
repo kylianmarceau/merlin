@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 import unittest
 
-from merlin_e2e import MerlinTestCase
+from merlin_e2e import MerlinTestCase, later
 
 
 class HintsTest(MerlinTestCase):
@@ -68,6 +68,24 @@ class HintsTest(MerlinTestCase):
         self.press("x")
         self.wait(lambda: self.browser.eval("document.getElementById('field').value") == "x",
                   "Insert mode after gi")
+
+    def test_a_late_activation_after_a_tab_switch_does_nothing(self) -> None:
+        # M20: the hint's answer arrives after another tab became active; it
+        # must not open the first page's link from there.
+        self.browser.browserctl("open", url=self.server.url("/page", "b.test"), where="tab")
+        self.wait(lambda: len(self.browser.tabs()) == 2, "a second tab")
+        self.browser.browserctl("focus", tab=1)
+        self.wait(lambda: self.browser.tabs()[0]["active"], "the hints tab")
+        self.show_hints("F")
+        self.browser.keep_page_busy(2.5)
+        switch = later(0.5, lambda: self.browser.browserctl("focus", tab=2))
+        self.press("d")  # "Two", answered once the page is free again
+        switch.join()
+        self.wait(lambda: self.browser.tabs()[1]["active"], "the other tab")
+        self.wait(lambda: "The page changed" in self.browser.message(), "the late answer to be refused", timeout=15)
+        time.sleep(0.5)
+        self.assertEqual(len(self.browser.tabs()), 2, "the late answer opened a tab")
+        self.assertFalse(self.server.requested("/two"), "the late answer followed the link")
 
     def test_hints_reach_into_frames(self) -> None:
         self.browser.open("/frames")

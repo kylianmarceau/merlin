@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/modal_browser/modal_input_router.h"
 #include "chrome/browser/ui/modal_browser/page_scripts.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/editable_level.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -265,12 +266,31 @@ class ModalBrowserController : public BrowserOps,
   float DeviceScaleFactor();
   void LoadConfig(bool announce);
   void OnConfigRead(bool announce, config_file::ReadResult result);
+  // Where an asynchronous page request went: the tab, the document and the
+  // request it answers. Its answer describes that page only, and is dropped
+  // when the page is no longer the one shown, never applied to whatever is
+  // active by then.
+  struct PageRequest {
+    tabs::TabHandle tab;
+    content::WeakDocumentPtr document;
+    uint64_t generation = 0;
+  };
+  // A request to `frame`, a frame of the active tab.
+  PageRequest RequestTo(content::RenderFrameHost* frame, uint64_t generation);
+  // The request's frame if its document is still loaded in it; else null.
+  content::RenderFrameHost* RequestedFrame(const PageRequest& request);
+  // The request's frame if it also still belongs to the active tab, shown
+  // in Chromium; else null.
+  content::RenderFrameHost* ActiveRequestedFrame(const PageRequest& request);
   void OnFrameHintTargets(uint32_t generation, size_t index, base::Value result);
   void OnActivationInfo(ffi::HintAction action,
-                        content::GlobalRenderFrameHostId frame,
+                        PageRequest request,
                         base::Value result);
   void ClickAt(content::RenderFrameHost* local_root, const gfx::PointF& point);
-  void OnMarkPosition(std::string letter, base::Value result);
+  void OnMarkPosition(std::string letter,
+                      PageRequest request,
+                      GURL url,
+                      base::Value result);
   void Navigate(const GURL& url, ffi::OpenDisposition disposition);
   void WriteClipboard(const std::u16string& text, std::u16string_view what);
   void PageWorkDone();
@@ -330,24 +350,33 @@ class ModalBrowserController : public BrowserOps,
   // fields from rich editors when IsFocusedElementEditable() is true.
   content::EditableLevel last_editable_level_ =
       content::EditableLevel::kNotEditable;
-  // Targets from the last hint collection, and the frame they came from.
-  // A hint request waiting for its frames to answer.
+  // A hint request waiting for its frames to answer: the tab it was for,
+  // and each frame's document as it was asked.
   struct HintCollection {
     uint32_t generation = 0;
     int pending = 0;
-    std::vector<content::GlobalRenderFrameHostId> frames;
+    tabs::TabHandle tab;
+    std::vector<content::WeakDocumentPtr> documents;
     std::vector<std::optional<page_scripts::HintTargets>> results;
   };
   std::optional<HintCollection> hint_collection_;
-  // Targets of the hints on screen: the frame, the index in that frame's
-  // list, and where the label goes in the web contents.
+  // Targets of the hints on screen: the document they were collected from,
+  // the index in that frame's list, and where the label goes in the web
+  // contents.
   struct PlacedHint {
-    content::GlobalRenderFrameHostId frame;
+    content::WeakDocumentPtr document;
     uint32_t index = 0;
     ffi::HintKind kind = ffi::HintKind::Other;
     gfx::PointF root_dip;
   };
   std::vector<PlacedHint> placed_hints_;
+  // The tab and hint generation the placed hints belong to.
+  tabs::TabHandle placed_tab_;
+  uint32_t placed_generation_ = 0;
+  // The latest RecordMark request for each letter; answers to older ones
+  // are dropped.
+  std::map<std::string, uint64_t> mark_requests_;
+  uint64_t next_mark_request_ = 0;
   base::RepeatingClosure page_work_done_for_testing_;
   // The frame the last document extraction came from.
   content::GlobalRenderFrameHostId document_frame_;

@@ -8,6 +8,7 @@ import { tabUnits } from './splits';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
 import { groupColors, type Appearance, type Calls, type DownloadAction, type EngineClient, type GroupColor, type Method, type Request,
   type Requests } from '../platform/protocol';
+import { currentSuggestions, moveSelection, startQuery, suggestionChoice } from './omnibox';
 import {
   dismissToast, pushToast, rememberFavicon, type AnchorName, type BrowserStore, type Panel, type PopoverName, type Rect,
   type SearchOwner,
@@ -340,8 +341,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     suggest(text: string, preventInline: boolean, owner: SearchOwner = 'address') {
       if (!text.trim()) { actions.stopSuggesting(); return; }
       const queryId = `q${(++queryCounter).toString(36)}`;
-      const current = store.getState().omnibox;
-      store.setState({ omnibox: { queryId, text, items: current?.owner === owner ? current.items : [], selected: -1, owner } });
+      store.setState({ omnibox: startQuery(store.getState().omnibox, queryId, text, owner) });
       void engine.call('omnibox.query', { queryId, text, preventInline }).catch(fail);
     },
     stopSuggesting() {
@@ -350,33 +350,34 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       void engine.call('omnibox.stop', {}).catch(() => {});
     },
     moveSuggestion(delta: number) {
-      const omnibox = store.getState().omnibox;
-      if (!omnibox || !omnibox.items.length) return;
-      // A default top suggestion already shows as highlighted while nothing
-      // is chosen, so moving starts from it and never goes above it.
-      const top = omnibox.items[0]?.default ? 0 : -1;
-      const from = Math.max(top, omnibox.selected);
-      const selected = Math.max(top, Math.min(omnibox.items.length - 1, from + delta));
-      store.setState({ omnibox: { ...omnibox, selected } });
+      const next = moveSelection(store.getState().omnibox, delta);
+      if (next) store.setState({ omnibox: next });
     },
+    /**
+     * Opens row `index` of the latest query's rows. A greyed row, from an
+     * older query, opens nothing. Chromium is sent the row's query, index
+     * and address, and opens it only if its list still has that match there.
+     */
     async openSuggestion(index: number, newTab: boolean) {
-      const omnibox = store.getState().omnibox;
-      if (!omnibox) return false;
+      const choice = suggestionChoice(store.getState().omnibox, index);
+      if (!choice) return false;
       store.setState({ omnibox: null });
-      if (webKitTakes(omnibox.items[index]?.url ?? null, newTab)) return true;
-      return run('omnibox.open', { queryId: omnibox.queryId, index, newTab });
+      if (webKitTakes(choice.url, newTab)) return true;
+      return run('omnibox.open', { ...choice, newTab });
     },
     async submitAddress(text: string, newTab: boolean) {
       const omnibox = store.getState().omnibox;
       store.setState({ omnibox: null });
       // Enter takes the default suggestion, as Chromium does; without one only Chromium knows.
-      const top = omnibox?.items[0];
+      // Rows of an older query don't describe this text.
+      const items = currentSuggestions(omnibox);
+      const top = items[0];
       // Settings › General › When input looks like a website: Prefer Search Engine searches
       // for "example.com" rather than opening it. A typed scheme ("https://…") still opens.
       if (omnibox && top?.default && top.kind === 'url' && shellPrefs.getState().searchPreference === 'search'
         && !/^[a-z][a-z0-9+.-]*:\/\//i.test(text.trim())) {
-        const search = omnibox.items.findIndex(item => item.kind === 'search');
-        if (search >= 0) return run('omnibox.open', { queryId: omnibox.queryId, index: search, newTab });
+        const search = suggestionChoice(omnibox, items.findIndex(item => item.kind === 'search'));
+        if (search) return run('omnibox.open', { ...search, newTab });
       }
       if (webKitTakes(top?.default ? top.url : addressUrl(text), newTab)) return true;
       return run('omnibox.enter', { ...(omnibox ? { queryId: omnibox.queryId } : {}), text, newTab });

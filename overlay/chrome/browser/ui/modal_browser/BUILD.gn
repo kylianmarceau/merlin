@@ -6,6 +6,7 @@
 # `gn check out/Modal "//chrome/browser/ui/modal_browser/*"`.
 
 import("//build/config/ui.gni")
+import("//testing/test.gni")
 
 assert(toolkit_views)
 
@@ -28,6 +29,30 @@ source_set("process_policy") {
     "merlin_process_policy.h",
   ]
   deps = [ "//base" ]
+}
+
+# Locating, reading and changing config.toml. Only //base, so its unit tests
+# build without the browser.
+source_set("config_file") {
+  sources = [
+    "config_file.cc",
+    "config_file.h",
+  ]
+  public_deps = [ "//base" ]
+}
+
+# Unit tests of the parts that need only //base:
+#   autoninja -C out/Release chrome/browser/ui/modal_browser:modal_browser_unittests
+#   out/Release/modal_browser_unittests
+test("modal_browser_unittests") {
+  sources = [ "config_file_unittest.cc" ]
+  deps = [
+    ":config_file",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//testing/gtest",
+  ]
 }
 
 source_set("design_tokens") {
@@ -104,8 +129,6 @@ source_set("modal_browser") {
   sources = [
     "browserctl_server.cc",
     "browserctl_server.h",
-    "config_file.cc",
-    "config_file.h",
     "external_editor.cc",
     "external_editor.h",
     "merlin_downloads.cc",
@@ -162,6 +185,7 @@ source_set("modal_browser") {
     frameworks = [ "AppKit.framework" ]
   }
   public_deps = [
+    ":config_file",
     ":design_tokens",
     ":process_policy",
     ":router",
