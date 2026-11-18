@@ -52,13 +52,15 @@ MERLIN_E2E_BUILD_CHECKED="${report##*$'\n'}"
 # would open your own profile. Test a copy without the attribute instead.
 hardened=0; quarantined=0
 [[ "$(codesign -dv "$MERLIN_E2E_BUILD_CHECKED" 2>&1)" == *flags=*runtime* ]] && hardened=1
-xattr -r -l "$MERLIN_E2E_BUILD_CHECKED" 2>/dev/null | grep -q com.apple.quarantine && quarantined=1
+# grep without -q: with pipefail, -q's early exit would fail the pipeline.
+[[ "$(xattr -r -l "$MERLIN_E2E_BUILD_CHECKED" 2>/dev/null)" == *com.apple.quarantine* ]] && quarantined=1
 if (( hardened || quarantined )); then
   copy_dir="$(mktemp -d "${TMPDIR:-/tmp}/merlin-e2e-app.XXXXXX")"
   copy_dir="$(cd "$copy_dir" && pwd -P)"  # the harness compares resolved paths
   # End any instance still running from the copy before deleting it: an app
   # whose files vanish while it runs can hang in the kernel as it exits.
-  trap 'pkill -9 -f -- "$copy_dir/Merlin.app/" 2>/dev/null
+  # (set -e applies in the trap too, so nothing in it may fail.)
+  trap 'pkill -9 -f -- "$copy_dir/Merlin.app/" 2>/dev/null || true
         for _ in $(seq 1 50); do pgrep -f -- "$copy_dir/Merlin.app/" >/dev/null || break; sleep 0.2; done
         rm -rf "$copy_dir"' EXIT
   cp -cR "$MERLIN_E2E_BUILD_CHECKED" "$copy_dir/" 2>/dev/null ||
@@ -68,7 +70,9 @@ if (( hardened || quarantined )); then
     python3 ../../scripts/sign_app.py "$copy_dir/Merlin.app" >/dev/null
     echo "hardened:  the app has the hardened runtime; testing a copy re-signed without it, $copy_dir/Merlin.app"
   fi
-  (( quarantined )) && echo "quarantined: testing a copy without com.apple.quarantine, $copy_dir/Merlin.app"
+  if (( quarantined )); then
+    echo "quarantined: testing a copy without com.apple.quarantine, $copy_dir/Merlin.app"
+  fi
   MERLIN_APP="$copy_dir/Merlin.app"
   MERLIN_E2E_BUILD_CHECKED="$MERLIN_APP"
   export MERLIN_APP

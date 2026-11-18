@@ -49,7 +49,11 @@ class CrashTest(MerlinTestCase):
         self.wait(lambda: self.browser.scroll_y() > 0, "j to scroll")
         self.browser.open("/hints")
         self.press("f")
-        time.sleep(0.15)
+        # Hints collect their labels from the page first, and a renderer
+        # started after a crash answers more slowly than a warm one: a
+        # person's 0.15 s gap (test_hints) failed here whenever the Mac was
+        # busy, on 0.3.1 as on 0.3.2.
+        time.sleep(1.0)
         self.press("s")
         self.wait(lambda: self.browser.active_tab()["url"].endswith("/one"), "the first hint to be followed")
 
