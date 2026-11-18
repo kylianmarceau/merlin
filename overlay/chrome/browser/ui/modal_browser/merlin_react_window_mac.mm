@@ -11,11 +11,13 @@
 #include <cstddef>
 #include <algorithm>
 #include <vector>
+#include <map>
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -94,6 +96,13 @@ const MerlinShellAPI* ShellAPI() {
   CHECK(api && api->abi_version == 1 && api->struct_size >= offsetof(MerlinShellAPI, prewarm) &&
         api->create_root && api->release_root) << "Launch with Merlin's React Native host executable";
   return api;
+}
+
+class ReactBrowserWindow;
+// The React windows by their browser, for RemountReactShell.
+std::map<BrowserWindowInterface*, ReactBrowserWindow*>& ReactWindows() {
+  static base::NoDestructor<std::map<BrowserWindowInterface*, ReactBrowserWindow*>> windows;
+  return *windows;
 }
 
 Dict Action(const char* id, const char* label, const char* emphasis = "normal") {
@@ -251,8 +260,10 @@ class ReactBrowserWindow final : public BrowserWindow,
     widget_->AddObserver(this);
     page_host_ = widget_->SetClientContentsView(std::make_unique<views::NativeViewHost>());
     ArmClose();
+    ReactWindows()[browser_.get()] = this;
   }
   ~ReactBrowserWindow() override {
+    ReactWindows().erase(browser_.get());
     weak_factory_.InvalidateWeakPtrs();
     if (content_observer_) [NSNotificationCenter.defaultCenter removeObserver:content_observer_];
     modal_observers_.Notify(&web_modal::ModalDialogHostObserver::OnHostDestroying);
@@ -273,6 +284,15 @@ class ReactBrowserWindow final : public BrowserWindow,
     root_ = api_->create_root(id.c_str());
     CHECK(root_);
     page_host_->Attach(gfx::NativeView((__bridge NSView*)root_.get()));
+  }
+  // A new React root in place of this one: the interface starts again from
+  // the browser's state, while the tabs and their pages carry on.
+  void Remount() {
+    if (!root_) return;
+    page_host_->Detach();
+    api_->release_root(root_);
+    root_ = nullptr;
+    Mount();
   }
   void Show() override { Mount(); HoldUntilDrawn(); BrowserActiveStateManager::From(browser_)->DidBecomeActive(); widget_->Show(); }
   void ShowInactive() override { Mount(); HoldUntilDrawn(); widget_->ShowInactive(); }
@@ -771,6 +791,21 @@ void ClearWebKitData(const std::string& json, base::OnceCallback<void(std::strin
     std::unique_ptr<Done> done(static_cast<Done*>(context));
     std::move(*done).Run(error ? std::string(error) : std::string());
   }, new Done(std::move(done)));
+}
+bool RemountReactShell(BrowserWindowInterface* browser) {
+  const auto it = ReactWindows().find(browser);
+  if (it == ReactWindows().end()) return false;
+  it->second->Remount();
+  return true;
+}
+bool ReloadReactShell(const std::string& reason) {
+  if (!ReactShellEnabled()) return false;
+  auto get = reinterpret_cast<MerlinShellGetAPIFn>(dlsym(RTLD_DEFAULT, "MerlinShellGetAPI"));
+  const auto* api = get ? get(1) : nullptr;
+  // reload was added within ABI 1; an older host has no such field.
+  if (!api || api->struct_size < offsetof(MerlinShellAPI, reload) + sizeof(api->reload) || !api->reload) return false;
+  api->reload(reason.c_str());
+  return true;
 }
 std::unique_ptr<BrowserWindow, BrowserWindowDeleter> CreateReactBrowserWindow(BrowserWindowInterface* browser) {
   return std::unique_ptr<BrowserWindow, BrowserWindowDeleter>(new ReactBrowserWindow(browser));

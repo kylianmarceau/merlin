@@ -24,6 +24,12 @@ typedef struct MerlinShellAPI {
   // the normal store's}. `done` runs once on the UI thread, possibly before
   // this returns, with NULL or an error that is valid only during the call.
   void (*clear_webkit_data)(const char* json, void (*done)(const char* error, void* context), void* context);
+  // Added within ABI 1. Reloads the shared React bridge: the bundle runs
+  // again, and every window's root runs the app again with its window ID.
+  // Pages stay with Chromium. The host also does this itself, a few times at
+  // most, when JavaScript fails outside any window's error boundary.
+  // `reason` is logged.
+  void (*reload)(const char* reason);
 } MerlinShellAPI;
 typedef const MerlinShellAPI* (*MerlinShellGetAPIFn)(uint32_t abi_version);
 const MerlinShellAPI* MerlinShellGetAPI(uint32_t abi_version);

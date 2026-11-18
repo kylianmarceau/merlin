@@ -230,3 +230,11 @@ test('a peek is described exactly', () => {
   assert.equal(validateSnapshot({ ...snapshot(), peek: null }, 'window-one').peek, null);
   assert.throws(() => validateSnapshot({ ...snapshot(), peek: { ...peek, loading: 'yes' } } as unknown as Snapshot, 'window-one'));
 });
+
+test('a test instance’s request to fail is read only as render or timer', () => {
+  assert.deepEqual(parseEngineEvent('{"type":"test.throw","windowId":"w","where":"render"}'),
+    { type: 'test.throw', windowId: 'w', where: 'render' });
+  assert.deepEqual(parseEngineEvent('{"type":"test.throw","windowId":"w","where":"timer"}'),
+    { type: 'test.throw', windowId: 'w', where: 'timer' });
+  assert.throws(() => parseEngineEvent('{"type":"test.throw","windowId":"w","where":"exit"}'));
+});

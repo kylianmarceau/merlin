@@ -7,6 +7,7 @@
 #include <string_view>
 #include <deque>
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
+#include "chrome/browser/ui/modal_browser/merlin_react_window.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "base/time/time.h"
 #include <cstdlib>
@@ -18,6 +19,7 @@
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
@@ -214,6 +216,12 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     }
   }
   std::deque<ShellPrompt> prompts;
+  // What this window's interface last said about itself (shell.report): how
+  // many times a root has shown its first snapshot, how many times its error
+  // boundary caught a failure, and the last one. For the log and the tests.
+  int shell_ready = 0;
+  int shell_failures = 0;
+  std::string shell_last_error;
   // Ctrl-Tab's cards.
   std::unique_ptr<modal_browser::TabSwitcher> switcher;
   // Address-bar suggestions, created on first use.
@@ -630,6 +638,34 @@ char* Call(const char* window, const char* method, const char* json) {
   auto* browser = state->browser();
   auto* strip = browser->GetTabStripModel();
   if (name == shell::method::kWindowSnapshot) return Ok(base::Value(state->Snapshot()));
+  if (name == shell::method::kShellReport) {
+    // The interface showed its first snapshot, or its error boundary caught
+    // a failure. Logged, so a report or a crash log has it.
+    const auto* report = args->FindString("state");
+    const auto* message = args->FindString("message");
+    const auto* stack = args->FindString("stack");
+    if (!report || (message && message->size() > 4096) || (stack && stack->size() > 32 * 1024))
+      return Error("Invalid interface report");
+    if (*report == shell::shell_report::kReady) {
+      ++state->shell_ready;
+    } else if (*report == shell::shell_report::kFailed) {
+      ++state->shell_failures;
+      state->shell_last_error = message ? *message : std::string();
+      LOG(ERROR) << "Merlin's interface failed in window " << window << ": " << state->shell_last_error
+                 << (stack && !stack->empty() ? "\n" + *stack : std::string());
+    } else {
+      return Error("Invalid interface report");
+    }
+    return Ok();
+  }
+  if (name == shell::method::kShellReloadWindow) {
+    // "Reload Interface": a new React root for this window, after this call
+    // has returned to the root it replaces. The tabs stay as they are.
+    content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce([](std::string id) {
+      if (auto* state = FindWindow(id.c_str())) modal_browser::RemountReactShell(state->browser());
+    }, std::string(window)));
+    return Ok();
+  }
   if (const auto* request = args->FindString("requestId")) {
     // Requests answer with a "reply" event after this call returns, so a
     // synchronous answer never re-enters the shell during its own call.
@@ -1186,6 +1222,41 @@ void AnswerShellCall(modal_browser::ShellCallDone done, const Dict& reply) {
 }
 }  // namespace
 
+namespace {
+// test.shell, which only shell-call reaches (never React): a window's
+// interface state, or a failure made on purpose to see it recover.
+void RunShellTest(BrowserWindowInterface* browser, const Dict& args, modal_browser::ShellCallDone done) {
+  auto* state = FindWindow(WindowId(browser).c_str());
+  const auto* action = args.FindString("action");
+  namespace test = shell::test_shell_action;
+  if (!action) {
+    std::move(done).Run(false, "test.shell needs an action");
+  } else if (*action == test::kState) {
+    // This window's, and every window's by ID.
+    Dict windows;
+    for (const auto& [id, window] : GetRegistry().windows)
+      windows.Set(id, Dict().Set("ready", window->shell_ready).Set("failures", window->shell_failures));
+    Dict value = Dict().Set("ready", state->shell_ready).Set("failures", state->shell_failures)
+        .Set("lastError", state->shell_last_error).Set("windows", std::move(windows));
+    std::move(done).Run(true, base::WriteJson(value).value_or("null"));
+  } else if (*action == test::kThrowInRender || *action == test::kThrowInTimer) {
+    // The interface throws while drawing (its error boundary catches it), or
+    // from a timer, outside React (the host reloads the bridge).
+    GetRegistry().Emit(Dict().Set("type", "test.throw").Set("windowId", WindowId(browser))
+        .Set("where", *action == test::kThrowInRender ? "render" : "timer"));
+    std::move(done).Run(true, "null");
+  } else if (*action == test::kReloadBridge) {
+    if (!modal_browser::ReloadReactShell("test.shell reloadBridge")) {
+      std::move(done).Run(false, "This host can't reload its interface");
+      return;
+    }
+    std::move(done).Run(true, "null");
+  } else {
+    std::move(done).Run(false, "Unknown test.shell action");
+  }
+}
+}  // namespace
+
 namespace modal_browser {
 void RunShellCallForTesting(BrowserWindowInterface* browser, const std::string& method,
                             const std::string& args_json, ShellCallDone done) {
@@ -1199,6 +1270,10 @@ void RunShellCallForTesting(BrowserWindowInterface* browser, const std::string& 
     return;
   }
   const std::string window = WindowId(browser);
+  if (method == shell::method::kTestShell) {
+    RunShellTest(browser, *args, std::move(done));
+    return;
+  }
   const auto& requests = shell::method::kRequests;
   const bool request = std::find(requests.begin(), requests.end(), method) != requests.end();
   auto& registry = GetRegistry();

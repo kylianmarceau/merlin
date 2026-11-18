@@ -61,6 +61,8 @@ inline constexpr char kOmniboxEnter[] = "omnibox.enter";
 inline constexpr char kExtensionsClosePopup[] = "extensions.closePopup";
 inline constexpr char kSiteInfo[] = "site.info";
 inline constexpr char kTabsSetEngineOverlay[] = "tabs.setEngineOverlay";
+inline constexpr char kShellReport[] = "shell.report";
+inline constexpr char kShellReloadWindow[] = "shell.reloadWindow";
 // requests
 inline constexpr char kSettingsGet[] = "settings.get";
 inline constexpr char kSettingsSet[] = "settings.set";
@@ -89,7 +91,8 @@ inline constexpr char kPrivacyClearData[] = "privacy.clearData";
 // nativeOnly
 inline constexpr char kApplicationWindows[] = "application.windows";
 inline constexpr char kPageFocus[] = "page.focus";
-inline constexpr std::array<std::string_view, 47> kCalls = {
+inline constexpr char kTestShell[] = "test.shell";
+inline constexpr std::array<std::string_view, 49> kCalls = {
     kWindowSnapshot,
     kFindQuery,
     kFindClose,
@@ -137,6 +140,8 @@ inline constexpr std::array<std::string_view, 47> kCalls = {
     kExtensionsClosePopup,
     kSiteInfo,
     kTabsSetEngineOverlay,
+    kShellReport,
+    kShellReloadWindow,
 };
 inline constexpr std::array<std::string_view, 24> kRequests = {
     kSettingsGet,
@@ -164,9 +169,10 @@ inline constexpr std::array<std::string_view, 24> kRequests = {
     kDownloadsList,
     kPrivacyClearData,
 };
-inline constexpr std::array<std::string_view, 2> kNativeOnly = {
+inline constexpr std::array<std::string_view, 3> kNativeOnly = {
     kApplicationWindows,
     kPageFocus,
+    kTestShell,
 };
 }  // namespace method
 
@@ -283,6 +289,20 @@ inline constexpr char kCookies[] = "cookies";
 inline constexpr char kCache[] = "cache";
 inline constexpr std::array<std::string_view, 3> kAll = {kHistory, kCookies, kCache};
 }  // namespace clear_data_type
+
+namespace shell_report {
+inline constexpr char kReady[] = "ready";
+inline constexpr char kFailed[] = "failed";
+inline constexpr std::array<std::string_view, 2> kAll = {kReady, kFailed};
+}  // namespace shell_report
+
+namespace test_shell_action {
+inline constexpr char kState[] = "state";
+inline constexpr char kThrowInRender[] = "throwInRender";
+inline constexpr char kThrowInTimer[] = "throwInTimer";
+inline constexpr char kReloadBridge[] = "reloadBridge";
+inline constexpr std::array<std::string_view, 4> kAll = {kState, kThrowInRender, kThrowInTimer, kReloadBridge};
+}  // namespace test_shell_action
 
 namespace protection {
 inline constexpr char kEnabled[] = "enabled";

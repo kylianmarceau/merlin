@@ -1,7 +1,7 @@
 import {
   appearanceAccents, appearanceModes, groupColors, panels, protections, securities,
   type AppearanceAccent, type AppearanceMode, type BooleanOption, type CallMethod, type ClearDataType, type DownloadAction, type GroupColor,
-  type PaletteKey, type Panel, type PreferenceKey, type Protection, type RequestMethod, type Security, type SplitSide, type StringOption,
+  type PaletteKey, type Panel, type PreferenceKey, type Protection, type RequestMethod, type Security, type ShellReport, type SplitSide, type StringOption,
 } from './vocabulary';
 // Method names and argument values come from merlin_shell_vocabulary.json, shared with native code.
 export * from './vocabulary';
@@ -192,6 +192,10 @@ export type Calls = {
    * restores that page, not the hidden one.
    */
   'tabs.setEngineOverlay': { args: { tabId: string; overlay: { engine: 'webkit'; url: string; title: string } | null }; result: null };
+  /** The window's interface showed its first snapshot, or its error boundary caught a failure (logged by Chromium). */
+  'shell.report': { args: { state: ShellReport; message?: string; stack?: string }; result: null };
+  /** "Reload Interface": Chromium gives the window a new React root; its tabs carry on. */
+  'shell.reloadWindow': { args: {}; result: null };
 };
 export type Method = keyof Calls;
 
@@ -269,7 +273,9 @@ export type EngineEvent = { type: 'snapshot'; snapshot: Snapshot } | { type: 'ad
   | { type: 'engine.error'; windowId: string; message: string }
   | { type: 'panel.open'; windowId: string; panel: PanelName }
   | { type: 'reply'; windowId: string; requestId: string; ok: boolean; value?: unknown; error?: string }
-  | { type: 'omnibox.results'; windowId: string; queryId: string; items: Suggestion[] };
+  | { type: 'omnibox.results'; windowId: string; queryId: string; items: Suggestion[] }
+  /** Tests only (native code sends it only to a test instance): fail while drawing, or from a timer outside React. */
+  | { type: 'test.throw'; windowId: string; where: 'render' | 'timer' };
 
 export function parseEngineEvent(json: string): EngineEvent {
   const value: unknown = JSON.parse(json);
@@ -290,6 +296,8 @@ export function parseEngineEvent(json: string): EngineEvent {
     return { type: 'reply', windowId: v.windowId, requestId: v.requestId, ok: v.ok, value: v.value, error: v.error as string | undefined };
   if (v.type === 'omnibox.results' && typeof v.windowId === 'string' && typeof v.queryId === 'string' && listOf(suggestion)(v.items))
     return { type: 'omnibox.results', windowId: v.windowId, queryId: v.queryId, items: v.items as Suggestion[] };
+  if (v.type === 'test.throw' && typeof v.windowId === 'string' && (v.where === 'render' || v.where === 'timer'))
+    return { type: 'test.throw', windowId: v.windowId, where: v.where };
   throw new Error('Unknown engine event');
 }
 export interface Transport {

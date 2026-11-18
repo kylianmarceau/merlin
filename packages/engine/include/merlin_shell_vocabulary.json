@@ -56,7 +56,9 @@
       "omnibox.enter",
       "extensions.closePopup",
       "site.info",
-      "tabs.setEngineOverlay"
+      "tabs.setEngineOverlay",
+      "shell.report",
+      "shell.reloadWindow"
     ],
     "requests": [
       "settings.get",
@@ -86,7 +88,8 @@
     ],
     "nativeOnly": [
       "application.windows",
-      "page.focus"
+      "page.focus",
+      "test.shell"
     ]
   },
   "enums": {
@@ -179,6 +182,16 @@
       "history",
       "cookies",
       "cache"
+    ],
+    "shellReport": [
+      "ready",
+      "failed"
+    ],
+    "testShellAction": [
+      "state",
+      "throwInRender",
+      "throwInTimer",
+      "reloadBridge"
     ],
     "protection": [
       "enabled",

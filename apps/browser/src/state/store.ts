@@ -48,13 +48,15 @@ export type BrowserState = {
   /** Tabs most recently active first, for the tab a dragged tab splits with when it is the only one on screen. */
   recentTabs: string[];
   groupDialog: GroupDialog | null;
+  /** Tests only: the window's interface fails as it next draws, to show its error boundary. */
+  failInRender: boolean;
 };
 
 export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [],
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, panes: {}, recentTabs: [], groupDialog: null,
+    downloadLandings: 0, tabDrag: null, panes: {}, recentTabs: [], groupDialog: null, failInRender: false,
   };
 }
 
@@ -168,6 +170,13 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
           break;
         }
         case 'engine.error': pushToast(store, event.message); break;
+        // Only a test instance sends this (test.shell): the error boundary
+        // catches a failure while drawing; the host reloads the bridge after
+        // one no boundary sees.
+        case 'test.throw':
+          if (event.where === 'render') store.setState({ failInRender: true });
+          else setTimeout(() => { throw new Error('test.shell: an uncaught error from a timer'); });
+          break;
         default: break;
       }
     } catch (e) { fail(e); }

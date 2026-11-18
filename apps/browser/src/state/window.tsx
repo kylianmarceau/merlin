@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { connectEngine } from '../platform/engine';
+import { copyText, releaseVersion } from '../platform/shell';
 import type { Request, Requests } from '../platform/protocol';
 import { settle, type ActionResult } from '../lib/result';
 import { createActions, type Actions } from './actions';
@@ -25,6 +26,32 @@ function followUpdates() {
     if (window) pushToast(window.store, `${update.name} is available.`, 'info',
       { label: 'View', run: () => void window.actions.newTab(update.url) });
   });
+}
+
+/**
+ * The window's line to Chromium for its error boundary (InterfaceBoundary),
+ * apart from the window's own connection, which may be what failed. Reports
+ * never throw; `reloadWindow` says whether Chromium will give the window a
+ * new root.
+ */
+export function interfaceReporter(windowId: string) {
+  let engine: ReturnType<typeof connectEngine> | null = null;
+  const client = () => (engine ??= connectEngine(windowId));
+  return {
+    report(state: 'ready' | 'failed', message?: string, stack?: string) {
+      try {
+        void client().call('shell.report', { state, ...(message ? { message: message.slice(0, 4096) } : {}),
+          ...(stack ? { stack: stack.slice(0, 32 * 1024) } : {}) }).catch(() => undefined);
+      } catch { /* No engine: nothing to tell. */ }
+    },
+    async reloadWindow(): Promise<boolean> {
+      try { await client().call('shell.reloadWindow', {}); return true; } catch { return false; }
+    },
+    version: releaseVersion,
+    async copy(text: string): Promise<boolean> {
+      try { await copyText(text); return true; } catch { return false; }
+    },
+  };
 }
 
 /** Connects one window to Chromium. A missing engine is shown, never papered over. */

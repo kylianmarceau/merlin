@@ -1,5 +1,7 @@
 #import "AppDelegate.h"
+#import <React/RCTAssert.h>
 #import <React/RCTBridge.h>
+#import <React/RCTReloadCommand.h>
 #import <React/RCTRootView.h>
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTPerformanceLogger.h>
@@ -39,11 +41,32 @@ void MerlinStartupTrace(const char* event) {
   fflush(file);
 }
 
+// How often the host reloads the bridge by itself after a JavaScript failure
+// that no window's error boundary caught: often enough to recover from a
+// one-off, never in a loop when the bundle fails every time it runs.
+static const NSUInteger kRecoveriesPerWindow = 3;
+static const NSTimeInterval kRecoveryWindow = 60;
+
 @implementation MerlinShellRuntime {
   RCTBridge* _bridge;
+  NSMutableArray<NSDate*>* _recoveries;
 }
 - (instancetype)init {
-  if ((self = [super init]) && TraceFile()) {
+  if (!(self = [super init])) return nil;
+  _recoveries = [NSMutableArray new];
+  // Without a handler, React Native's release build raises an exception for
+  // an uncaught JavaScript error (RCTFatal), which ends the whole browser.
+  // Instead, reload the bridge: every window's interface comes back, and
+  // Chromium keeps the pages.
+  __weak MerlinShellRuntime* weakRuntime = self;
+  RCTSetFatalHandler(^(NSError* error) {
+    NSString* stack = [error.userInfo[RCTJSStackTraceKey] description] ?: @"";
+    NSLog(@"Merlin's interface failed: %@\n%@", error.localizedDescription, stack);
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [weakRuntime recoverFrom:error.localizedDescription];
+    });
+  });
+  if (TraceFile()) {
     NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
     [center addObserverForName:RCTJavaScriptDidLoadNotification object:nil queue:nil
                     usingBlock:^(NSNotification*) { MerlinStartupTrace("js-loaded"); }];
@@ -92,6 +115,27 @@ void MerlinStartupTrace(const char* event) {
     return [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index"];
 #endif
   return [NSBundle.mainBundle URLForResource:@"main" withExtension:@"jsbundle"];
+}
+- (void)reload:(NSString*)reason {
+  NSAssert(NSThread.isMainThread, @"Reload React on the browser UI thread");
+  if (!_bridge) return;
+  NSLog(@"Reloading Merlin's interface: %@", reason);
+  MerlinStartupTrace("bridge-reload");
+  // The bridge listens for this; each RCTRootView then runs the app again.
+  RCTTriggerReloadCommandListeners(reason);
+}
+- (void)recoverFrom:(NSString*)failure {
+  NSDate* now = [NSDate date];
+  [_recoveries filterUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDate* at, NSDictionary*) {
+    return [now timeIntervalSinceDate:at] < kRecoveryWindow;
+  }]];
+  if (_recoveries.count >= kRecoveriesPerWindow) {
+    NSLog(@"Merlin's interface failed %lu times in a minute; not reloading it again. Quit and reopen Merlin.",
+          (unsigned long)_recoveries.count + 1);
+    return;
+  }
+  [_recoveries addObject:now];
+  [self reload:[@"recovering from: " stringByAppendingString:failure ?: @"an error"]];
 }
 - (void)invalidate {
   [_bridge invalidate];
@@ -148,7 +192,12 @@ void ClearWebKitData(const char* json, void (*done)(const char*, void*), void* c
     done(error.length ? error.UTF8String : nullptr, context);
   }];
 }
-const MerlinShellAPI api = {1, sizeof(MerlinShellAPI), CreateRoot, ReleaseRoot, Shutdown, Prewarm, ClearWebKitData};
+void Reload(const char* reason) {
+  NSCAssert(NSThread.isMainThread, @"Reload React on the browser UI thread");
+  if (!NSThread.isMainThread || !runtime) return;
+  [runtime reload:reason && reason[0] ? @(reason) : @"requested by the browser"];
+}
+const MerlinShellAPI api = {1, sizeof(MerlinShellAPI), CreateRoot, ReleaseRoot, Shutdown, Prewarm, ClearWebKitData, Reload};
 }
 extern "C" __attribute__((visibility("default"), used))
 const MerlinShellAPI* MerlinShellGetAPI(uint32_t version) {

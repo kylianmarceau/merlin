@@ -48,6 +48,8 @@ export const callMethods = [
   'extensions.closePopup',
   'site.info',
   'tabs.setEngineOverlay',
+  'shell.report',
+  'shell.reloadWindow',
 ] as const;
 export type CallMethod = typeof callMethods[number];
 export const requestMethods = [
@@ -77,7 +79,7 @@ export const requestMethods = [
   'privacy.clearData',
 ] as const;
 export type RequestMethod = typeof requestMethods[number];
-export const nativeOnlyMethods = ['application.windows', 'page.focus'] as const;
+export const nativeOnlyMethods = ['application.windows', 'page.focus', 'test.shell'] as const;
 export type NativeOnlyMethod = typeof nativeOnlyMethods[number];
 export const downloadActions = ['open', 'show', 'cancel', 'pause', 'retry', 'discard', 'forget'] as const;
 export type DownloadAction = typeof downloadActions[number];
@@ -121,6 +123,10 @@ export const securities = ['secure', 'insecure', 'dangerous', 'internal', 'pendi
 export type Security = typeof securities[number];
 export const clearDataTypes = ['history', 'cookies', 'cache'] as const;
 export type ClearDataType = typeof clearDataTypes[number];
+export const shellReports = ['ready', 'failed'] as const;
+export type ShellReport = typeof shellReports[number];
+export const testShellActions = ['state', 'throwInRender', 'throwInTimer', 'reloadBridge'] as const;
+export type TestShellAction = typeof testShellActions[number];
 export const protections = [
   'enabled',
   'disabledGlobally',

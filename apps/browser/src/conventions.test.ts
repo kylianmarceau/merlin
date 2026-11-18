@@ -101,5 +101,6 @@ test('layers import only downwards', () => {
 });
 
 test('components act through state, never on the store or engine directly', () => {
-  assert.deepEqual(violations(/\.(getState|setState)\(|\bconnectEngine\b|\bEngineClient\b/, p => p.startsWith('components/')), []);
+  // A class component's own this.setState is React state, not the store.
+  assert.deepEqual(violations(/(?<!\bthis)\.(getState|setState)\(|\bconnectEngine\b|\bEngineClient\b/, p => p.startsWith('components/')), []);
 });

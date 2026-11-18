@@ -18,5 +18,12 @@ void PrewarmReactShell();
 // or an error. Browser UI thread only.
 void ClearWebKitData(const std::string& json,
                      base::OnceCallback<void(std::string error)> done);
+// "Reload Interface": releases `browser`'s React root and creates another,
+// so its interface starts again from the browser's state while its tabs carry
+// on. False when `browser` has no React window. Browser UI thread only.
+bool RemountReactShell(BrowserWindowInterface* browser);
+// Reloads the shared React bridge (MerlinShellAPI's reload): every window's
+// interface starts again. False when the host can't. Browser UI thread only.
+bool ReloadReactShell(const std::string& reason);
 }  // namespace modal_browser
 #endif

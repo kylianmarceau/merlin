@@ -5,6 +5,17 @@ The browser's interface is the React Native macOS shell in `apps/browser`
 window, Chromium's pages embedded as native views. This document covers the
 engine side: the modal input core, its Rust/C++ split and Chromium hooks.
 
+When the interface fails, the pages don't: Chromium owns every tab, and a
+React root only shows them. A failure while drawing a window stops at that
+window's error boundary (`InterfaceBoundary.tsx`), which reports it to
+Chromium's log (`shell.report`) and offers Reload Interface: Chromium
+releases the window's root and creates another (`shell.reloadWindow`,
+`RemountReactShell`). A failure outside React (a timer, an event handler, the
+bundle) is fatal to React Native, whose release build would raise an
+exception and end the browser; the host's fatal handler reloads the shared
+bridge instead, at most three times a minute (`AppDelegate.mm`), and every
+root runs the app again with its window ID.
+
 A Chromium fork with a Rust core for the parts that make this browser
 different. Chromium (C++) keeps everything it already does well: rendering,
 networking, process isolation, extensions, DevTools, security UI. Merlin

@@ -86,4 +86,5 @@ the surfaces it can't see.
 | Site permission prompts and page dialogs (`alert`, `confirm`, `prompt`) | Supported, answered in the shell | e2e `test_prompts` |
 | Input methods and dead keys, in fields and in Normal mode | Supported: their keys always reach the page | e2e `test_input`, with the keys an input method sends; no real input method |
 | Recovery from a renderer or GPU process crash | Supported | e2e `test_crash` |
+| Recovery when the interface itself fails: a window's error boundary with Reload Interface and Copy Diagnostics, and a bridge reload after an error outside React | Supported: tabs stay open | e2e `test_interface` |
 | Passkeys and security keys, client certificates, proxy authentication, enterprise policies | Inherited from Chromium | Not tested: needs hardware or a matching setup |
