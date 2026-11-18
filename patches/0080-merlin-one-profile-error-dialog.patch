@@ -1,0 +1,18 @@
+--- a/chrome/browser/ui/profiles/profile_error_dialog.cc
++++ b/chrome/browser/ui/profiles/profile_error_dialog.cc
+@@ -69,6 +69,15 @@ void ShowProfileErrorDialog(ProfileErrorType type,
+       l10n_util::GetStringUTF16(IDS_PROFILE_ERROR_DIALOG_CHECKBOX),
+       base::BindOnce(&OnProfileErrorDialogDismissed, diagnostics));
+ #else   // BUILDFLAG(GOOGLE_CHROME_BRANDING)
++  // Merlin: every profile database that fails to open reports its own error
++  // with the same message, and on macOS each one is a modal that startup
++  // waits behind, so a profile another process still held asked five times
++  // in a row. Say it once per run.
++  static bool g_profile_error_dialog_shown = false;
++  if (g_profile_error_dialog_shown) {
++    return;
++  }
++  g_profile_error_dialog_shown = true;
+   chrome::ShowWarningMessageBoxAsync(
+       gfx::NativeWindow(),
+       l10n_util::GetStringUTF16(IDS_PROFILE_ERROR_DIALOG_TITLE),
