@@ -279,6 +279,7 @@ class ModalBrowserController : public BrowserOps,
   void OnFieldWritten(uint64_t generation, base::Value result);
   void OnFieldEditDone(uint64_t generation, std::string error);
   void CancelFieldEdit();
+  void KeepEditedFileOnClose();
   void ScheduleAutosave();
   // What a workspace save of this window would record now.
   struct WorkspaceCapture {

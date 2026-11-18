@@ -14,6 +14,7 @@
 #include "base/files/file_util.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/task/sequenced_task_runner.h"
@@ -68,6 +69,7 @@ struct ExternalEditor::PollResult {
   bool changed = false;
   std::string text;
   bool exited = false;
+  int exit_code = 0;
 };
 
 // Owns the directory, the file and the process, on a background sequence.
@@ -171,30 +173,54 @@ class ExternalEditor::Worker {
 
   PollResult Poll() {
     PollResult result;
-    base::File::Info info;
-    if (!file_.empty() && base::GetFileInfo(file_, &info) &&
-        (info.last_modified != last_modified_ || info.size != last_size_)) {
-      last_modified_ = info.last_modified;
-      last_size_ = info.size;
-      std::string text;
-      if (base::ReadFileToStringWithMaxSize(file_, &text, kMaxTextBytes) &&
-          base::IsStringUTF8(text)) {
-        // Editors add a final newline to files; fields did not have one.
-        if (base::EndsWith(text, "\n") && !base::EndsWith(original_tail_, "\n")) {
-          text.pop_back();
-        }
-        result.changed = true;
-        result.text = std::move(text);
-      }
-    }
-    // Report the exit once; the process is reaped and forgotten.
+    // Reap the editor first: once it has exited, what it wrote is final.
     if (process_.IsValid()) {
       int code = 0;
       if (process_.WaitForExitWithTimeout(base::TimeDelta(), &code)) {
         result.exited = true;
+        result.exit_code = code;
         process_ = base::Process();
       }
     }
+    base::File::Info info;
+    if (file_.empty() || !base::GetFileInfo(file_, &info)) {
+      pending_ = false;
+      return result;
+    }
+    if (info.last_modified == last_modified_ && info.size == last_size_) {
+      pending_ = false;  // unchanged since the last text reported
+      return result;
+    }
+    // A save in progress changes size or time between checks. Read it once
+    // two checks agree, or at once if the editor has just exited.
+    const bool settled = pending_ && info.last_modified == pending_modified_ &&
+                         info.size == pending_size_;
+    if (!settled && !result.exited) {
+      pending_ = true;
+      pending_modified_ = info.last_modified;
+      pending_size_ = info.size;
+      return result;
+    }
+    pending_ = false;
+    std::string text;
+    if (!base::ReadFileToStringWithMaxSize(file_, &text, kMaxTextBytes) ||
+        !base::IsStringUTF8(text)) {
+      return result;
+    }
+    base::File::Info after;
+    if (!base::GetFileInfo(file_, &after) ||
+        after.last_modified != info.last_modified || after.size != info.size ||
+        static_cast<int64_t>(text.size()) != info.size) {
+      return result;  // written to while reading: look again next time
+    }
+    last_modified_ = info.last_modified;
+    last_size_ = info.size;
+    // Editors add a final newline to files; fields did not have one.
+    if (base::EndsWith(text, "\n") && !base::EndsWith(original_tail_, "\n")) {
+      text.pop_back();
+    }
+    result.changed = true;
+    result.text = std::move(text);
     return result;
   }
 
@@ -205,8 +231,13 @@ class ExternalEditor::Worker {
   base::FilePath dir_;
   base::FilePath file_;
   base::Process process_;
+  // The file as last reported (or as first written).
   base::Time last_modified_;
   int64_t last_size_ = -1;
+  // A change seen once, waiting for the next check to agree.
+  bool pending_ = false;
+  base::Time pending_modified_;
+  int64_t pending_size_ = -1;
   std::string original_tail_;
   bool keep_ = false;
 };
@@ -277,10 +308,17 @@ void ExternalEditor::OnPolled(PollResult result) {
         FROM_HERE, base::BindOnce(on_saved_, std::move(result.text)));
   }
   if (result.exited) {
-    // A launcher that hands the file to an app already running (and exits
-    // at once) is not the end of the edit: keep watching for saves until
-    // the session is replaced or times out.
-    if (base::TimeTicks::Now() - started_ < base::Seconds(3)) {
+    if (base::TimeTicks::Now() - started_ < kLauncherGrace) {
+      // Failing at once is an error, not an edit to wait four hours for.
+      if (result.exit_code != 0) {
+        Finish((program_.empty() ? std::string("The editor") : program_) +
+               " exited with an error (code " +
+               base::NumberToString(result.exit_code) + ")");
+        return;
+      }
+      // A launcher that hands the file to an app already running (and
+      // exits at once) is not the end of the edit: keep watching for saves
+      // until the session is replaced or times out.
       return;
     }
     Finish(std::string());
