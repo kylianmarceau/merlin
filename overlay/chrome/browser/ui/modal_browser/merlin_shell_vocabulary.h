@@ -60,6 +60,7 @@ inline constexpr char kOmniboxOpen[] = "omnibox.open";
 inline constexpr char kOmniboxEnter[] = "omnibox.enter";
 inline constexpr char kExtensionsClosePopup[] = "extensions.closePopup";
 inline constexpr char kSiteInfo[] = "site.info";
+inline constexpr char kTabsSetEngineOverlay[] = "tabs.setEngineOverlay";
 // requests
 inline constexpr char kSettingsGet[] = "settings.get";
 inline constexpr char kSettingsSet[] = "settings.set";
@@ -88,7 +89,7 @@ inline constexpr char kPrivacyClearData[] = "privacy.clearData";
 // nativeOnly
 inline constexpr char kApplicationWindows[] = "application.windows";
 inline constexpr char kPageFocus[] = "page.focus";
-inline constexpr std::array<std::string_view, 46> kCalls = {
+inline constexpr std::array<std::string_view, 47> kCalls = {
     kWindowSnapshot,
     kFindQuery,
     kFindClose,
@@ -135,6 +136,7 @@ inline constexpr std::array<std::string_view, 46> kCalls = {
     kOmniboxEnter,
     kExtensionsClosePopup,
     kSiteInfo,
+    kTabsSetEngineOverlay,
 };
 inline constexpr std::array<std::string_view, 24> kRequests = {
     kSettingsGet,

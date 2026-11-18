@@ -111,6 +111,8 @@ source_set("modal_browser") {
     "merlin_downloads.cc",
     "merlin_downloads.h",
     "merlin_preferences.cc",
+    "merlin_page_identity.cc",
+    "merlin_page_identity.h",
     "merlin_preferences.h",
     "merlin_shell_vocabulary.h",
     "merlin_suggestions.cc",

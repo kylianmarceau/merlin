@@ -7,6 +7,7 @@
 #include <string_view>
 #include <deque>
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
+#include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "base/time/time.h"
 #include <cstdlib>
 #include <cstring>
@@ -460,6 +461,8 @@ Dict WindowState::Snapshot() {
     if (const auto split = strip->GetSplitForTab(i)) entry.Set("split", split->ToString());
     if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
     if (const auto edge = modal_browser::PageEdgeColor::Get(contents)) entry.Set("surface", HexColor(*edge));
+    if (const auto restored = modal_browser::RestoredWebKitPage(contents))
+      entry.Set("restoreInWebKit", Dict().Set("url", restored->url.spec()).Set("title", base::UTF16ToUTF8(restored->title)));
     tabs.Append(std::move(entry));
   }
   // Running downloads and the most recent others; the Library asks for all
@@ -880,8 +883,27 @@ char* Call(const char* window, const char* method, const char* json) {
     controller->OnUserChangedFindText(value);
     find_in_page::FindTabHelper::FromWebContents(contents)->StartFinding(value, *forward, false, true);
   } else if (name == shell::method::kTabsBookmark) {
-    if (index != strip->active_index() || !chrome::CanBookmarkCurrentTab(browser)) return Error("This tab cannot be bookmarked");
-    chrome::BookmarkCurrentTab(browser);
+    if (index != strip->active_index()) return Error("This tab cannot be bookmarked");
+    // A tab shown in WebKit saves WebKit's page, not Chromium's hidden one.
+    if (!modal_browser::BookmarkWebKitPage(contents)) {
+      if (!chrome::CanBookmarkCurrentTab(browser)) return Error("This tab cannot be bookmarked");
+      chrome::BookmarkCurrentTab(browser);
+    }
+  } else if (name == shell::method::kTabsSetEngineOverlay) {
+    const auto* overlay = args->Find("overlay");
+    if (!overlay || (!overlay->is_none() && !overlay->is_dict())) return Error("Invalid engine overlay");
+    if (overlay->is_none()) {
+      modal_browser::PageIdentity::Clear(contents);
+    } else {
+      const auto* engine = overlay->GetDict().FindString("engine");
+      const auto* url = overlay->GetDict().FindString("url");
+      const auto* title = overlay->GetDict().FindString("title");
+      const GURL target(url ? *url : std::string());
+      if (!engine || *engine != "webkit" || !title || !target.SchemeIsHTTPOrHTTPS() || title->size() > 64 * 1024)
+        return Error("Invalid engine overlay");
+      modal_browser::PageIdentity::Show(contents, target, base::UTF8ToUTF16(*title));
+    }
+    state->Changed();  // A restored WebKit page, now claimed, leaves the snapshot.
   } else if (name == shell::method::kTabsActivate) strip->ActivateTabAt(index);
   else if (name == shell::method::kTabsClose) strip->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE | TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
   else if (name == shell::method::kTabsPin) {

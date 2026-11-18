@@ -52,7 +52,7 @@ fixture page (`MerlinTestCase.reset`).
   `config.toml`), `XDG_DATA_HOME` (so workspaces), download folder (seeded
   into the profile's preferences, so nothing lands in `~/Downloads`),
   browserctl socket and DevTools port; `--use-mock-keychain`. WebKit pages
-  get a folder of the run's own (`-MerlinWebKitTestFolder`): a data store
+  get a folder of the run's own (`MERLIN_WEBKIT_TEST_FOLDER`): a data store
   made for the run (`WKWebsiteDataStore(forIdentifier:)`, removed when the
   instance closes) and an icon cache, so tests never read or clear your
   WebKit sign-ins. Your own Merlin keeps running and its

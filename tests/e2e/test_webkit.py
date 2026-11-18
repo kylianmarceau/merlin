@@ -84,7 +84,7 @@ class PrivateSessionTest(WebKitCase):
     def test_normal_windows_never_see_private_cookies(self) -> None:
         self.browser.open_private_window(self.webkit_url("/set-cookie?secret=1", "wk2.localhost"))
         self.webkit_load("/set-cookie?secret=1", "wk2.localhost")
-        self.browser.browserctl("open", url=self.webkit_url("/check-normal", "wk2.localhost"), where="current")
+        self.browser.browserctl("open", url=self.webkit_url("/check-normal", "wk2.localhost"), where="tab")
         self.assertNotIn("secret=1", self.webkit_load("/check-normal", "wk2.localhost").cookie)
 
 
@@ -105,7 +105,7 @@ class IconTest(WebKitCase):
                          f"the icon {name} to be fetched")
 
     def load_normal_icon(self, name: str, host: str = "wk.localhost") -> None:
-        self.browser.browserctl("open", url=self.webkit_url(f"/icon-page?name={name}", host), where="current")
+        self.browser.browserctl("open", url=self.webkit_url(f"/icon-page?name={name}", host), where="tab")
         self.webkit_load(f"/icon-page?name={name}", host)
         self.icon_fetch(name, host)
 
@@ -216,3 +216,76 @@ class ClearDataTest(WebKitCase):
         reply = self.browser.shell_call("permissions.answer", {"promptId": prompt["id"], "actionId": action})
         self.assertTrue(reply.get("ok"), reply)
 
+
+class PageIdentityTest(WebKitCase):
+    """Native readers of a tab's page (browserctl, bookmarks, yank, workspaces,
+    session restore) see the page WebKit shows, not Chromium's hidden one."""
+
+    def show_in_webkit(self, path: str, host: str = "wk.localhost") -> str:
+        """Opens `path` in a new tab, which the shell shows in WebKit; returns its address."""
+        url = self.webkit_url(path, host)
+        self.browser.browserctl("open", url=url, where="tab")
+        self.webkit_load(path, host)
+        self.wait(lambda: self.browser.active_tab()["url"] == url, "browserctl to see WebKit's address")
+        return url
+
+    def snapshot(self) -> dict:
+        reply = self.browser.shell_call("window.snapshot")
+        self.assertTrue(reply.get("ok"), reply)
+        return reply["result"]
+
+    def test_browserctl_sees_the_webkit_page(self) -> None:
+        url = self.show_in_webkit("/page?identity=1")
+        current = self.browser.browserctl("current")
+        self.assertTrue(current["ok"], current)
+        self.assertEqual(current["result"]["url"], url)
+        self.assertIn(url, [t["url"] for t in self.browser.tabs()])
+
+    def test_bookmark_saves_the_webkit_page(self) -> None:
+        url = self.show_in_webkit("/page?bookmark=1")
+        self.browser.command("bookmark")
+        found = self.wait(lambda: [i for i in self.browser.shell_call("bookmarks.search", {"text": "bookmark=1"})
+                                   .get("result", {}).get("items", []) if i.get("url") == url], "the bookmark")
+        self.assertEqual(len(found), 1)
+
+    def test_yank_copies_the_webkit_address(self) -> None:
+        url = self.show_in_webkit("/page?yank=1")
+        # The test instance leaves the system clipboard alone and says what it would copy.
+        self.browser.command("yank url")
+        self.wait(lambda: url in self.snapshot()["modal"]["message"], "the copied address")
+
+    def test_page_commands_refuse_rather_than_act_on_the_hidden_page(self) -> None:
+        self.show_in_webkit("/page?refuse=1")
+        for line in ("hint", "find", "edit", "outline"):
+            self.browser.command(line)
+            self.wait(lambda: "Not available in WebKit tabs" in self.snapshot()["modal"]["message"], f":{line} to refuse")
+
+    def test_workspace_saves_and_restores_the_webkit_page(self) -> None:
+        url = self.show_in_webkit("/page?workspace=1")
+        self.browser.command("workspace save wk")
+        path = self.browser.workspace_dir / "wk.json"
+        saved = self.wait(lambda: path.exists() and json.loads(path.read_text()), "the workspace file")
+        tab = next(t for t in saved["tabs"] if t["url"] == url)
+        self.assertEqual(tab.get("engine"), "webkit")
+        self.server.clear()
+        self.browser.command("workspace save other")
+        self.browser.command("workspace open wk")
+        self.wait(lambda: len({t["window"] for t in self.browser.tabs()}) == 2, "the restored window")
+        self.assertIn(url, [t["url"] for t in self.browser.tabs()])
+        self.browser.command("workspace delete other")
+        self.browser.command("workspace delete wk")
+
+
+class SessionRestoreTest(WebKitCase):
+    """A WebKit tab comes back in WebKit, at its own address, when Merlin starts again."""
+
+    def test_quit_and_restore(self) -> None:
+        url = self.webkit_url("/page?restore=1")
+        self.browser.browserctl("open", url=url, where="tab")
+        self.webkit_load("/page?restore=1")
+        self.wait(lambda: url in [t["url"] for t in self.browser.tabs()], "browserctl to see WebKit's address")
+        time.sleep(1)  # the session is written on its own schedule
+        self.server.clear()
+        self.browser.restart()
+        self.webkit_load("/page?restore=1")
+        self.wait(lambda: url in [t["url"] for t in self.browser.tabs()], "the restored tab's WebKit address")

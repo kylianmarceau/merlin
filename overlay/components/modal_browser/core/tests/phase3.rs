@@ -887,3 +887,27 @@ fn key_bindings_list_bound_commands_for_settings() {
     );
     assert!(b.iter().all(|(keys, _, _)| !keys.is_empty()));
 }
+
+#[test]
+fn workspace_records_tabs_shown_in_webkit() {
+    let tabs = [
+        WindowTab {
+            url: "https://www.netflix.com/watch/1".into(),
+            title: "Netflix".into(),
+            active: true,
+            webkit: true,
+            ..WindowTab::default()
+        },
+        WindowTab {
+            url: "https://docs.rs/".into(),
+            ..WindowTab::default()
+        },
+    ];
+    let saved = modal_browser_core::Workspace::from_window("tv", 1, &tabs, None, None).unwrap();
+    let text = saved.to_value().to_json();
+    assert!(text.contains(r#""engine":"webkit""#), "{text}");
+    assert_eq!(text.matches("engine").count(), 1, "{text}");
+    let (back, _) = modal_browser_core::Workspace::decode("tv", &text).unwrap();
+    assert!(back.tabs[0].webkit);
+    assert!(!back.tabs[1].webkit);
+}

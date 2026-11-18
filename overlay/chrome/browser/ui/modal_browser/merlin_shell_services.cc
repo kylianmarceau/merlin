@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/modal_browser/config_file.h"
 #include "chrome/browser/merlin_adblock/service.h"
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
+#include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "chrome/browser/ui/modal_browser/merlin_preferences.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_window.h"
@@ -962,6 +963,40 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
   content::WebContents* contents =
       browser ? browser->GetTabStripModel()->GetActiveWebContents() : nullptr;
   if (!contents) {
+    return;
+  }
+  // A tab shown in WebKit: Chromium knows neither its connection nor its
+  // blocking, only which site it is, so the panel says that much.
+  if (ShowsWebKit(contents)) {
+    const GURL url = GetVisiblePage(contents).url;
+    ShowShellPrompt(
+        browser,
+        Dict()
+            .Set("kind", "alert")
+            .Set("anchor", "site")
+            .Set("origin", FormatShellDisplayUrl(url).host)
+            .Set("title", "About this site")
+            .Set("message",
+                 "This page is shown in WebKit, macOS's own engine, so its "
+                 "protected video plays. WebKit keeps its own sign-ins, and "
+                 "Merlin's ad blocker doesn't reach it.")
+            .Set("actions", List()
+                                .Append(Dict()
+                                            .Set("id", "forget")
+                                            .Set("label", "Forget this site")
+                                            .Set("emphasis", "normal"))
+                                .Append(Dict()
+                                            .Set("id", "done")
+                                            .Set("label", "Done")
+                                            .Set("emphasis", "primary"))),
+        base::BindOnce(
+            [](base::WeakPtr<BrowserWindowInterface> browser, GURL url,
+               ShellPromptReply reply) {
+              if (browser && reply.action == "forget") {
+                ConfirmForgetSite(browser.get(), url);
+              }
+            },
+            browser->GetWeakPtr(), url));
     return;
   }
   const GURL url = contents->GetLastCommittedURL();
