@@ -60,6 +60,28 @@ class WebKitCase(MerlinTestCase):
                          f"WebKit to load {host}{path}")
 
 
+class RoutingTest(WebKitCase):
+    """A site the preferences open in WebKit shows there; Chromium keeps the tab, off the site."""
+
+    def test_a_webkit_site_shows_in_webkit_and_chromium_steps_off_it(self) -> None:
+        before = len(self.browser.tabs())
+        url = self.webkit_url("/page?routed=1")
+        self.browser.browserctl("open", url=url, where="tab")
+        self.webkit_load("/page?routed=1")
+        self.wait(lambda: self.browser.active_tab()["url"] == url, "the tab to show WebKit's page")
+        self.assertEqual(len(self.browser.tabs()), before + 1, "one tab, in either engine")
+        # Chromium's own page for the tab is no longer on the site.
+        self.wait(lambda: not [p for p in self.browser.cdp.pages() if p["url"].startswith(self.webkit_url("/"))],
+                  "Chromium's tab to leave the site")
+
+    def test_other_sites_stay_in_chromium(self) -> None:
+        url = self.server.url("/page?chromium=1", "chromium.test")
+        self.browser.browserctl("open", url=url, where="tab")
+        self.wait(lambda: self.browser.active_tab()["url"] == url and self.server.chromium_requests("/page?chromium=1"),
+                  "Chromium to load it")
+        self.assertFalse(self.server.webkit_requests("/page?chromium=1"))
+
+
 class PrivateSessionTest(WebKitCase):
     """WebKit's private session lasts as long as Chromium's: until the last private window closes."""
 
