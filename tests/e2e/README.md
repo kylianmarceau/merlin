@@ -40,8 +40,9 @@ header then says why it differs. `python3 tests/e2e/merlin_e2e.py
 --check-build` prints the header and checks without running anything.
 
 The record says which sources the products were assembled with. That the
-products themselves were rebuilt from those sources is the assembler's
-modification-time check (`--allow-stale` skips it).
+products themselves were built from those sources is the assembler's check
+of each product's build stamp. An app assembled with `--allow-stale` says so
+in its record, and the runner refuses it like an app from another commit.
 
 ## How it works
 

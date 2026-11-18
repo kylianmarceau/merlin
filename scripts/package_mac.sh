@@ -29,7 +29,14 @@
 # assembled. MERLIN_PACKAGE_DEV=1 accepts a component build or the
 # placeholder bundle ID, to try this script out; its output is named
 # *-dev-not-for-release and must not be published. MERLIN_SKIP_SYMBOLS=1
-# skips the dSYM archive.
+# (development packages only) skips the dSYM archive.
+#
+# Every packaged Mach-O file needs a dSYM with its UUID (scripts/
+# match_dsyms.py), found in the engine's build directory and next to the
+# React host (scripts/build_react_shell.sh writes MerlinShell.app.dSYM);
+# MERLIN_SHELL_DSYM names one elsewhere. build-info.txt records the engine
+# and shell source commits from the assembly manifest, and the packaging
+# commit separately.
 set -euo pipefail
 # A relative MERLIN_APP means one relative to where the script was run.
 if [[ -n "${MERLIN_APP:-}" && "$MERLIN_APP" != /* ]]; then
@@ -37,9 +44,6 @@ if [[ -n "${MERLIN_APP:-}" && "$MERLIN_APP" != /* ]]; then
 fi
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
-CHROMIUM_DIR="${CHROMIUM_DIR:-$HOME/chromium}"
-OUT="${OUT:-out/Release}"
-BUILD="$CHROMIUM_DIR/src/$OUT"
 APP="${MERLIN_APP:-}"
 VERSION="${MERLIN_VERSION:-}"
 DEV="${MERLIN_PACKAGE_DEV:-0}"
@@ -64,6 +68,27 @@ exports "$APP/Contents/Frameworks/Merlin Framework.framework/Merlin Framework" |
   grep -x _MerlinEngineGetAPI >/dev/null || not_assembled "its framework does not export MerlinEngineGetAPI"
 exports "$APP/Contents/MacOS/Merlin" | grep -x _MerlinShellGetAPI >/dev/null ||
   not_assembled "its executable is not the React host (no MerlinShellGetAPI export)"
+
+# Provenance comes from the assembly manifest, not from this checkout: the
+# engine's and the host's source commits, their binary UUIDs and lockfiles.
+manifest="$APP/Contents/Resources/merlin-shell-build.json"
+field() { python3 -c 'import json, sys
+value = json.load(open(sys.argv[1]))
+for key in sys.argv[2].split("."):
+    value = (value or {}).get(key) if isinstance(value, dict) else None
+print("" if value is None else value if isinstance(value, str) else json.dumps(value))' "$manifest" "$1"; }
+engine_commit="$(field engine.sourceCommit)"
+shell_commit="$(field shell.sourceCommit)"
+[[ -n "$engine_commit" && -n "$shell_commit" ]] ||
+  not_assembled "its manifest records no engine or shell source commit (assembled before builds were stamped)"
+stale="$(field staleProducts)"
+if [[ "$stale" != "[]" ]]; then
+  [[ "$DEV" == 1 ]] || die "$APP was assembled with --allow-stale from a stale $stale; rebuild, reassemble, then package"
+fi
+ENGINE_APP="$(field engineApp)"
+SHELL_APP="$(field shellApp)"
+BUILD="$(dirname "$ENGINE_APP")"
+OUT="out/$(basename "$BUILD")"
 [[ -f "$BUILD/credits.html" ]] ||
   die "no $BUILD/credits.html; run OUT=$OUT scripts/licenses.sh"
 
@@ -73,6 +98,13 @@ chromium_version="$(plist CFBundleShortVersionString)"
 min_macos="$(plist LSMinimumSystemVersion)"
 
 suffix=""
+symbols_skipped=0
+if [[ "${MERLIN_SKIP_SYMBOLS:-0}" == 1 ]]; then
+  [[ "$DEV" == 1 ]] || die "a release keeps every binary's dSYM; MERLIN_SKIP_SYMBOLS=1 needs MERLIN_PACKAGE_DEV=1"
+  symbols_skipped=1
+  suffix="-dev-not-for-release"
+fi
+[[ "$stale" == "[]" ]] || suffix="-dev-not-for-release"
 if grep -Eq '^[[:space:]]*is_component_build[[:space:]]*=[[:space:]]*true' "$BUILD/args.gn"; then
   [[ "$DEV" == 1 ]] || die "$OUT is a component build; a release needs build/args.release.gn"
   suffix="-dev-not-for-release"
@@ -150,25 +182,48 @@ echo "signed $count items"
 codesign --verify --deep --strict --verbose=1 "$stage/Merlin.app"
 codesign -dv "$stage/Merlin.app" 2>&1 | grep -E '^(Identifier|Signature|Sealed Resources)'
 
+if [[ "$symbols_skipped" != 1 ]]; then
+  echo "==> debug symbols: one dSYM per packaged binary, matched by UUID"
+  dsym_args=(--search "$BUILD" --search "$(dirname "$SHELL_APP")")
+  [[ -z "${MERLIN_SHELL_DSYM:-}" ]] || dsym_args+=(--dsym "$MERLIN_SHELL_DSYM")
+  python3 scripts/match_dsyms.py "$stage/Merlin.app" "${dsym_args[@]}" \
+    --copy-to "$stage/dSYMs" --map "$stage/dSYMs/UUIDs.txt"
+fi
+
 echo "==> build information"
 framework="$stage/Merlin.app/Contents/Frameworks/Merlin Framework.framework/Merlin Framework"
-commit="$(git rev-parse HEAD)"
-[[ -z "$(git status --porcelain)" ]] || commit="$commit (with uncommitted changes)"
+packaging_commit="$(git rev-parse HEAD)"
+[[ -z "$(git status --porcelain)" ]] || packaging_commit="$packaging_commit (with uncommitted changes)"
+changes() { local c; c="$(field "$1.sourceChanges")"; [[ -z "$c" ]] || echo " + uncommitted changes $c"; }
 {
   echo "Merlin $VERSION$suffix"
   echo "Packaged: $(date -u +%Y-%m-%dT%H:%M:%SZ) on macOS $(sw_vers -productVersion)"
-  echo "Merlin commit: $commit"
+  echo "Engine source commit: $engine_commit$(changes engine)"
+  echo "Shell source commit: $shell_commit$(changes shell)"
+  echo "Packaging commit: $packaging_commit (scripts and docs only)"
   echo "Chromium: $chromium_version"
-  sed 's/^/Pin /' UPSTREAM_PIN
+  # The pin the engine was built against, not the packaging checkout's.
+  git show "$engine_commit:UPSTREAM_PIN" 2>/dev/null | sed 's/^/Pin /' ||
+    echo "Pin: unknown (commit $engine_commit is not in this clone)"
   echo "Bundle ID: $bundle_id"
   echo "Minimum macOS: $min_macos"
   echo "Architecture: arm64"
   echo "Signature: ad-hoc (no Developer ID, not notarized)"
   echo "UI: React Native macOS / Hermes (shell ABI 1)"
-  cat "$APP/Contents/Resources/merlin-shell-build.json"
+  echo "Lockfiles (SHA-256):"
+  python3 -c 'import json, sys
+for name, digest in json.load(open(sys.argv[1]))["lockfiles"].items(): print(f"  {name} {digest}")' "$manifest"
   echo
-  echo "Binary UUIDs (match these to the dSYMs):"
-  dwarfdump --uuid "$stage/Merlin.app/Contents/MacOS/Merlin" "$framework" | sed "s|$stage/||"
+  if [[ "$symbols_skipped" == 1 ]]; then
+    echo "Binary UUIDs (no dSYMs kept; MERLIN_SKIP_SYMBOLS=1):"
+    dwarfdump --uuid "$stage/Merlin.app/Contents/MacOS/Merlin" "$framework" | sed "s|$stage/||"
+  else
+    echo "Binary UUIDs and their dSYMs:"
+    sed 's/^/  /' "$stage/dSYMs/UUIDs.txt"
+  fi
+  echo
+  echo "Assembly manifest:"
+  sed 's/^/  /' "$manifest"
   echo
   echo "GN args ($OUT/args.gn):"
   sed 's/^/  /' "$BUILD/args.gn"
@@ -200,22 +255,9 @@ hdiutil create -volname "Merlin $VERSION" -srcfolder "$stage" -format UDZO \
   -imagekey zlib-level=9 -ov "$dmg" >/dev/null
 (cd "$dist" && shasum -a 256 "$name.dmg" > "$name.dmg.sha256")
 
-if [[ "${MERLIN_SKIP_SYMBOLS:-0}" != 1 ]]; then
-  dsyms=()
-  while IFS= read -r -d '' d; do dsyms+=("$d"); done \
-    < <(find "$BUILD" -maxdepth 1 -name '*.dSYM' -print0)
-  if (( ${#dsyms[@]} )); then
-    echo "==> debug symbols (${#dsyms[@]} dSYMs)"
-    rm -rf "$stage/dSYMs" && mkdir "$stage/dSYMs"
-    for d in "${dsyms[@]}"; do ditto "$d" "$stage/dSYMs/$(basename "$d")"; done
-    if [[ -n "${MERLIN_SHELL_DSYM:-}" ]]; then
-      [[ -d "$MERLIN_SHELL_DSYM" ]] || die "no shell dSYM at $MERLIN_SHELL_DSYM"
-      ditto "$MERLIN_SHELL_DSYM" "$stage/dSYMs/$(basename "$MERLIN_SHELL_DSYM")"
-    fi
-    ditto -c -k --keepParent "$stage/dSYMs" "$dist/$name-dSYMs.zip"
-  else
-    echo "warning: no dSYMs in $BUILD; crash reports from this build can't be symbolized" >&2
-  fi
+if [[ "$symbols_skipped" != 1 ]]; then
+  # No AppleDouble (._) files or extended attributes in the archive.
+  ditto -c -k --norsrc --noextattr --keepParent "$stage/dSYMs" "$dist/$name-dSYMs.zip"
 fi
 
 echo

@@ -35,8 +35,14 @@ FORCE_BUNDLING=1 RCT_NEW_ARCH_ENABLED=0 xcodebuild \
   -workspace "$ROOT/apps/browser/macos/MerlinShell.xcworkspace" \
   -scheme MerlinShell-macOS -configuration "$CONFIGURATION" \
   -destination 'generic/platform=macOS' -derivedDataPath "$DERIVED_DATA" \
-  ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+  ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO \
+  DEBUG_INFORMATION_FORMAT=dwarf-with-dsym build
+APP="$DERIVED_DATA/Build/Products/$CONFIGURATION/MerlinShell.app"
+# Packaging needs the host's symbols for crash reports (scripts/match_dsyms.py).
+[[ -d "$APP.dSYM" ]] || { echo "xcodebuild wrote no $APP.dSYM" >&2; exit 1; }
 # The Dock tile plug-in that keeps the chosen app icon after Merlin quits.
-packages/shell/docktile/build.sh "$DERIVED_DATA/Build/Products/$CONFIGURATION/MerlinShell.app"
-echo "React host: $DERIVED_DATA/Build/Products/$CONFIGURATION/MerlinShell.app"
+packages/shell/docktile/build.sh "$APP"
+# What the host was built from, checked by assembly (scripts/lib/build_stamp.py).
+python3 scripts/stamp_build.py shell "$APP"
+echo "React host: $APP"
 echo "Next: assemble it with the rebuilt Chromium app using scripts/assemble_react_app.py."

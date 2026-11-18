@@ -139,27 +139,34 @@ pnpm 10.28.2 and CocoaPods. The React shell requires macOS 14 or later.
    ```
 
    Add `--check-only` to check the required products and exported ABI first.
-   Assembly refuses an engine or host older than its sources (the overlay,
-   the patch series and the files it patches; the shell's JS and native
-   code), so a stale build is never packaged; `--allow-stale` overrides it.
+   `scripts/build_release.sh` and `scripts/build_react_shell.sh` stamp each
+   product's Info.plist with the commit and uncommitted changes it was built
+   from and its binary's UUID (`scripts/stamp_build.py`). Assembly refuses a
+   product whose sources (the overlay, patches and Rust crates for the
+   engine; the shell's JS, native code and lockfiles for the host) differ
+   from the checkout's, or whose binary changed after it was stamped, so a
+   stale build is never packaged. `--allow-stale` assembles it anyway, says
+   so in the manifest, and the e2e runner and packaging then refuse it.
    Assembly preserves Chromium's framework, helper bundles, app identity,
    icons, URL handlers and permission descriptions, adds the React resources
    and Hermes, and replaces only the browser executable. It refuses to
    overwrite an existing output or silently replace colliding resources.
    Neither input app is modified. `Contents/Resources/merlin-shell-build.json`
-   records the source commit and any uncommitted product changes; the e2e
+   records the source commit and any uncommitted product changes, each
+   product's stamp, the lockfiles' hashes and every binary's UUID; the e2e
    runner refuses an app whose record differs from its checkout
    ([tests/e2e/README.md](../../tests/e2e/README.md)).
 4. Package the assembled app through the existing ad-hoc signing workflow:
 
    ```sh
    MERLIN_APP="$PWD/apps/browser/build/assembled/Merlin.app" \
-   MERLIN_SHELL_DSYM="$PWD/apps/browser/build/native/Build/Products/Release/MerlinShell.app.dSYM" \
    MERLIN_VERSION=0.2.0 scripts/package_mac.sh
    ```
 
-   `CHROMIUM_DIR` and `OUT` still identify the engine's credits, GN arguments
-   and dSYMs. Keep both engine and shell dSYMs. GitHub Releases use free ad-hoc
+   The assembly manifest names the engine's build directory, which holds its
+   credits, GN arguments and dSYMs. Packaging keeps one dSYM per packaged
+   binary, matched by UUID (`scripts/match_dsyms.py`), and fails if any is
+   missing. GitHub Releases use free ad-hoc
    signing; Developer ID and notarization are outside the agreed release scope.
    Follow the installation checks in `docs/RELEASE.md` before publishing.
 

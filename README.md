@@ -393,10 +393,12 @@ open apps/browser/build/assembled/Merlin.app
 Chromium is checked out to `~/chromium` by default; set `CHROMIUM_DIR` for
 another path (without spaces). The engine on its own (`out/Release/Merlin.app`)
 opens Chromium's windows without Merlin's interface or keys, so always run
-the assembled app. Assembly refuses inputs older than their sources and an
-output that already exists, and records the commit it was assembled from,
-which the end-to-end tests (`scripts/run_e2e_tests.sh`) check before testing
-it. Packaging a release is covered in
+the assembled app. Each build script stamps its product with the commit it
+was built from and its binary's UUID (`scripts/stamp_build.py`). Assembly
+refuses a product built from other sources, or rebuilt without its build
+script, and an output that already exists. It records both products' commits,
+the lockfiles' hashes and every binary's UUID, which the end-to-end tests
+(`scripts/run_e2e_tests.sh`) and packaging check. Packaging a release is covered in
 [docs/RELEASE.md](docs/RELEASE.md), and the interface's architecture and
 Metro development setup in [apps/browser/README.md](apps/browser/README.md).
 

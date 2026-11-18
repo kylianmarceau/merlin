@@ -24,10 +24,14 @@ trap 'rm -rf "$work"' EXIT
 
 rm -rf "$plugin"
 mkdir -p "$plugin/Contents/MacOS"
-xcrun swiftc -O -parse-as-library -module-name "$name" -target "arm64-apple-macos$min_os" \
+xcrun swiftc -O -g -parse-as-library -module-name "$name" -target "arm64-apple-macos$min_os" \
   -sdk "$(xcrun --sdk macosx --show-sdk-path)" -module-cache-path "$work/cache" \
   -Xlinker -bundle -emit-executable -framework AppKit \
   -o "$plugin/Contents/MacOS/$name" "${sources[@]}"
+# Its symbols, next to the app's own dSYM, for packaging to match by UUID.
+dsym="$(dirname "$app")/$name.plugin.dSYM"
+rm -rf "$dsym"
+xcrun dsymutil "$plugin/Contents/MacOS/$name" -o "$dsym"
 
 cat > "$plugin/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

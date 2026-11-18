@@ -6,6 +6,7 @@ icons and permission usage strings survive. Only the browser executable is
 replaced. Signing is the packaging script's job.
 """
 import argparse
+import hashlib
 import json
 import plistlib
 import shutil
@@ -15,7 +16,8 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'lib'))
-from source_state import source_state  # noqa: E402
+from build_stamp import KEY as STAMP_KEY, PRODUCTS, app_uuids, read as read_stamp  # noqa: E402
+from source_state import product_mismatch, source_state  # noqa: E402
 
 
 def plist(path):
@@ -33,43 +35,28 @@ def require_symbols(binary, names):
 
 
 REPO = Path(__file__).resolve().parent.parent
+LOCKFILES = ('Cargo.lock', 'pnpm-lock.yaml', 'apps/browser/macos/Podfile.lock')
 
 
-def stale_engine_sources(engine_app, shell_app):
-    """Engine and host sources edited after the products were built.
+def product_problems(engine_app, shell_app):
+    """{'engine': (stamp, problem), 'shell': (stamp, problem)}; problem is None for a current product.
 
-    The engine comes from out/<dir>/Merlin.app inside a Chromium checkout:
-    Merlin's overlay and every upstream file the patch series touches must be
-    older than its framework. The app icon assets only reach the bundle's
-    Resources, so they are checked against the copies there instead. The
-    host's native and JS sources must be older than its executable. A stale
-    engine once shipped without a crash fix.
+    Each product's build stamp (scripts/stamp_build.py) must describe its
+    binary as it is now, and name the sources this checkout has for it. A
+    stale engine once shipped without a crash fix.
     """
-    framework = engine_app / 'Contents/Frameworks/Merlin Framework.framework/Merlin Framework'
-    shell_info = plist(shell_app / 'Contents/Info.plist')
-    executable = shell_app / 'Contents/MacOS' / shell_info['CFBundleExecutable']
-    src = engine_app.parent.parent.parent  # <src>/out/<dir>/Merlin.app
-    engine_sources = [path for path in (REPO / 'overlay').rglob('*')
-                      if path.is_file() and path.name != '.DS_Store' and '/target/' not in str(path)]
-    for patch in sorted((REPO / 'patches').glob('*.patch')):
-        engine_sources.append(patch)
-        for line in patch.read_text().splitlines():
-            if line.startswith('+++ b/'):
-                upstream = src / line[6:].split('\t')[0]
-                if upstream.is_file():
-                    engine_sources.append(upstream)
-    host_sources = [path for root in ('apps/browser/src', 'apps/browser/macos/MerlinShell-macOS', 'packages/engine',
-                                      'packages/shell', 'packages/webkit', 'pnpm-patches')
-                    for path in (REPO / root).rglob('*')
-                    if path.is_file() and path.name != '.DS_Store' and not path.name.endswith('.test.ts')]
-    built_engine = framework.resolve().stat().st_mtime
-    built_host = executable.stat().st_mtime
-    icon_assets = REPO / 'overlay/chrome/app/theme/merlin/mac'
-    copied = [engine_app / 'Contents/Resources' / name for name in ('Assets.car', 'app.icns')]
-    built_icons = min((path.stat().st_mtime for path in copied if path.is_file()), default=built_engine)
-    built = lambda path: built_icons if icon_assets in path.parents else built_engine
-    return ([path for path in engine_sources if path.stat().st_mtime > built(path)],
-            [path for path in host_sources if path.stat().st_mtime > built_host])
+    result = {}
+    for product, app in (('engine', engine_app), ('shell', shell_app)):
+        record, problem = read_stamp(app, product)
+        if not problem:
+            problem = product_mismatch(record, source_state(REPO, PRODUCTS[product]), REPO, PRODUCTS[product])
+        result[product] = (record, problem)
+    return result
+
+
+def lockfile_hashes():
+    return {name: hashlib.sha256((REPO / name).read_bytes()).hexdigest()
+            for name in LOCKFILES if (REPO / name).is_file()}
 
 
 def merge_directory(source, destination):
@@ -96,15 +83,15 @@ def assemble(engine_app, shell_app, destination, check_only=False, allow_stale=F
         raise ValueError('Chromium and React host bundle identifiers must match')
     framework = engine_app / 'Contents/Frameworks/Merlin Framework.framework/Merlin Framework'
     executable = shell_app / 'Contents/MacOS' / shell_info['CFBundleExecutable']
-    if not allow_stale:
-        engine_newer, host_newer = stale_engine_sources(engine_app, shell_app)
-        for name, newer, fix in (('engine', engine_newer, 'rebuild Chromium (autoninja -C out/Release chrome)'),
-                                 ('React host', host_newer, 'run scripts/build_react_shell.sh')):
-            if newer:
-                shown = ', '.join(str(path.relative_to(REPO) if REPO in path.parents else path) for path in newer[:5])
-                more = f' and {len(newer) - 5} more' if len(newer) > 5 else ''
-                raise ValueError(f'The {name} is older than its sources ({shown}{more}); {fix}, '
-                                 'or pass --allow-stale to assemble it anyway')
+    problems = product_problems(engine_app, shell_app)
+    fixes = {'engine': 'rebuild it with scripts/build_release.sh',
+             'shell': 'rebuild it with scripts/build_react_shell.sh'}
+    stale = [product for product, (_, problem) in problems.items() if problem]
+    if stale and not allow_stale:
+        product = stale[0]
+        name = 'engine' if product == 'engine' else 'React host'
+        raise ValueError(f'The {name} does not match this checkout: {problems[product][1]}; {fixes[product]}, '
+                         'or pass --allow-stale to assemble it anyway')
     require_symbols(framework, ['_ChromeMain', '_MerlinEngineGetAPI'])
     require_symbols(executable, ['_MerlinShellGetAPI'])
     if not (shell_app / 'Contents/Resources/main.jsbundle').is_file():
@@ -138,17 +125,23 @@ def assemble(engine_app, shell_app, destination, check_only=False, allow_stale=F
         engine_info['LSMinimumSystemVersion'] = max(
             (engine_info.get('LSMinimumSystemVersion', '14.0'),
              shell_info.get('LSMinimumSystemVersion', '14.0')), key=version)
-        for key in ('NSMainStoryboardFile', 'NSMainNibFile'):
+        for key in ('NSMainStoryboardFile', 'NSMainNibFile', STAMP_KEY):
             engine_info.pop(key, None)
         with (stage / 'Contents/Info.plist').open('wb') as stream:
             plistlib.dump(engine_info, stream)
         shutil.rmtree(stage / 'Contents/_CodeSignature', ignore_errors=True)
         # The e2e runner compares sourceCommit and sourceChanges with its
-        # checkout and refuses to test an app built from other sources.
+        # checkout and refuses to test an app built from other sources. Both
+        # products match them unless --allow-stale was needed (staleProducts).
+        describe = lambda product: {**(problems[product][0] or {}), 'problem': problems[product][1]}
         (stage / 'Contents/Resources/merlin-shell-build.json').write_text(json.dumps({
             'architecture': 'react-native-macos', 'abi': 1,
             'engineApp': str(engine_app), 'shellApp': str(shell_app),
             **source_state(REPO),
+            'staleProducts': stale,
+            'engine': describe('engine'), 'shell': describe('shell'),
+            'lockfiles': lockfile_hashes(),
+            'machoUUIDs': app_uuids(stage),
         }, indent=2) + '\n')
         stage.rename(destination)
     print(f'Assembled {destination}; ad-hoc sign with scripts/package_mac.sh before installation.')
@@ -161,7 +154,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--check-only', action='store_true')
     parser.add_argument('--allow-stale', action='store_true',
-                        help='assemble even if sources changed after either product was built')
+                        help='assemble even if either product was built from other sources; '
+                             'the manifest says so and the e2e runner refuses it')
     args = parser.parse_args()
     try:
         assemble(args.engine_app.resolve(), args.shell_app.resolve(), args.output.resolve(), args.check_only,

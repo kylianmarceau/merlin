@@ -57,9 +57,15 @@ a Developer ID identity or Apple notarization.
 
    ```bash
    MERLIN_APP="$PWD/apps/browser/build/assembled/Merlin.app" \
-   MERLIN_SHELL_DSYM="$PWD/apps/browser/build/native/Build/Products/Release/MerlinShell.app.dSYM" \
    MERLIN_VERSION=0.2.0 scripts/package_mac.sh
    ```
+
+   It packages only an assembled app: the engine alone
+   (`out/Release/Merlin.app`) is refused. Every packaged binary needs a dSYM
+   with its UUID, from the engine's build directory or next to the React
+   host; packaging fails naming any that has none. `build-info.txt` records
+   the engine's and the shell's source commits from the assembly manifest,
+   their lockfiles and binary UUIDs, and the packaging commit separately.
 
    It stamps `MERLIN_VERSION` into the app's `Info.plist` as `MerlinVersion`,
    which Settings › General › Updates compares with GitHub Releases. Then it

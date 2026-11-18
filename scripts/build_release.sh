@@ -57,6 +57,8 @@ gn gen "$OUT"
 autoninja -C "$OUT" chrome
 
 cd "$ROOT"
+# What the engine was built from, checked by assembly (scripts/lib/build_stamp.py).
+python3 scripts/stamp_build.py engine "$SRC/$OUT/Merlin.app"
 OUT="$OUT" scripts/licenses.sh
 echo
 echo "Built the engine: $SRC/$OUT/Merlin.app"
