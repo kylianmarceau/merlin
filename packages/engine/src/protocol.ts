@@ -1,7 +1,7 @@
 import {
-  appearanceAccents, appearanceModes, groupColors, panels, securities,
+  appearanceAccents, appearanceModes, groupColors, panels, protections, securities,
   type AppearanceAccent, type AppearanceMode, type BooleanOption, type CallMethod, type DownloadAction, type GroupColor,
-  type PaletteKey, type Panel, type PreferenceKey, type RequestMethod, type Security, type SplitSide, type StringOption,
+  type PaletteKey, type Panel, type PreferenceKey, type Protection, type RequestMethod, type Security, type SplitSide, type StringOption,
 } from './vocabulary';
 // Method names and argument values come from merlin_shell_vocabulary.json, shared with native code.
 export * from './vocabulary';
@@ -67,6 +67,8 @@ export type Prompt = {
   anchor?: PromptAnchor;
   /** Site information only: the connection's security. */
   security?: Security;
+  /** Site information only: what ad blocking does on this page. */
+  protection?: Protection;
   actions: { id: string; label: string; emphasis: 'normal' | 'primary' | 'danger' }[];
 };
 export type PromptAnchor = 'site' | 'page' | 'window';
@@ -403,6 +405,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
       !['permission', 'confirm', 'alert', 'beforeUnload'].includes(s.prompt.kind) ||
       (s.prompt.anchor !== undefined && !['site', 'page', 'window'].includes(s.prompt.anchor)) ||
       (s.prompt.security !== undefined && !securities.includes(s.prompt.security)) ||
+      (s.prompt.protection !== undefined && !protections.includes(s.prompt.protection)) ||
       !Array.isArray(s.prompt.actions) || s.prompt.actions.length === 0 ||
       s.prompt.actions.some(a => !a || typeof a.id !== 'string' || !a.id || typeof a.label !== 'string' ||
         !['normal', 'primary', 'danger'].includes(a.emphasis)) ||

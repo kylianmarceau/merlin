@@ -272,6 +272,16 @@ inline constexpr char kPending[] = "pending";
 inline constexpr std::array<std::string_view, 5> kAll = {kSecure, kInsecure, kDangerous, kInternal, kPending};
 }  // namespace security
 
+namespace protection {
+inline constexpr char kEnabled[] = "enabled";
+inline constexpr char kDisabledGlobally[] = "disabledGlobally";
+inline constexpr char kSiteException[] = "siteException";
+inline constexpr char kNotReady[] = "notReady";
+inline constexpr char kDegraded[] = "degraded";
+inline constexpr char kNotApplicable[] = "notApplicable";
+inline constexpr std::array<std::string_view, 6> kAll = {kEnabled, kDisabledGlobally, kSiteException, kNotReady, kDegraded, kNotApplicable};
+}  // namespace protection
+
 }  // namespace modal_browser::shell
 
 #endif  // CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_SHELL_VOCABULARY_H_

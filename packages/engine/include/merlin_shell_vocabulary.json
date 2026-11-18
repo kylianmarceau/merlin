@@ -171,6 +171,14 @@
       "dangerous",
       "internal",
       "pending"
+    ],
+    "protection": [
+      "enabled",
+      "disabledGlobally",
+      "siteException",
+      "notReady",
+      "degraded",
+      "notApplicable"
     ]
   }
 }

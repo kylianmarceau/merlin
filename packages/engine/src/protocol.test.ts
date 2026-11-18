@@ -131,12 +131,14 @@ test('pop-up windows and extension popups are described exactly', () => {
   assert.deepEqual(validateSnapshot({ ...snapshot(), extensionPopup: popup }, 'window-one').extensionPopup, popup);
   assert.throws(() => validateSnapshot({ ...snapshot(), extensionPopup: { ...popup, width: -1 } }, 'window-one'));
 });
-test('prompts name only known places and security states', () => {
+test('prompts name only known places, security and protection states', () => {
   const prompt = { id: 'p', kind: 'alert', origin: 'example.com', title: 'About this site', message: '', anchor: 'site',
-    security: 'secure', actions: [{ id: 'done', label: 'Done', emphasis: 'primary' }] };
+    security: 'secure', protection: 'notReady', actions: [{ id: 'done', label: 'Done', emphasis: 'primary' }] };
   assert.equal(validateSnapshot({ ...snapshot(), prompt }, 'window-one').prompt?.anchor, 'site');
   assert.throws(() => validateSnapshot({ ...snapshot(), prompt: { ...prompt, anchor: 'toolbar' } }, 'window-one'));
   assert.throws(() => validateSnapshot({ ...snapshot(), prompt: { ...prompt, security: 'fine' } }, 'window-one'));
+  assert.equal(validateSnapshot({ ...snapshot(), prompt }, 'window-one').prompt?.protection, 'notReady');
+  assert.throws(() => validateSnapshot({ ...snapshot(), prompt: { ...prompt, protection: 'blocked' } }, 'window-one'));
 });
 test('address suggestions are validated before they render', () => {
   const item = { kind: 'search', title: 'cats', detail: '', url: 'https://search/?q=cats', completion: '', default: true };
