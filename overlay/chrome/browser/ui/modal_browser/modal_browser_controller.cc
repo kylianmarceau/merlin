@@ -1958,10 +1958,6 @@ void ModalBrowserController::ShowBrowserPage(ffi::BrowserPage page) {
     case ffi::BrowserPage::SiteInfo:
       ShowSiteInfo();
       return;
-    case ffi::BrowserPage::ReadingMode:
-      ShowMessage(ffi::MessageLevel::Error,
-                  "Reading mode needs a side panel, which Merlin does not use");
-      return;
     case ffi::BrowserPage::Settings:
     default:
       break;

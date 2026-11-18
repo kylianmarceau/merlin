@@ -224,7 +224,8 @@ request button instead of interrupting the page.
 
 - Side-panel extensions report that side panels are not part of Merlin, and
   `chrome.action.openPopup()` from an extension is not supported.
-- Reading mode needs Chromium's side panel and is reported as unavailable.
+- There is no Reading mode: Chromium's needs its side panel. The command
+  registry offers only commands that work, so `:read` isn't one.
 - Card upload to a payments account, IBAN, virtual cards and Autofill AI offers
   are not shown; their controllers see no bubble and continue.
 - The fullscreen exit/security indicator remains Chromium's native bubble.

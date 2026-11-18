@@ -126,8 +126,6 @@ pub enum BrowserPage {
     Downloads,
     Settings,
     Extensions,
-    /// Chromium's Reading mode side panel.
-    ReadingMode,
     /// The site's connection, permissions and cookies (Page Info).
     SiteInfo,
 }

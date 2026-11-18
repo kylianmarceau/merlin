@@ -416,8 +416,7 @@ void ReloadFindAddressHelp() {
   w.Press(":", true);
   w.Submit("script x");
   CHECK_TRUE(w.browser.palette_visible);
-  CHECK_EQ_STR(w.browser.palette_error,
-               "':script' is planned but not built yet");
+  CHECK_EQ_STR(w.browser.palette_error, "unknown command 'script' (try ':help')");
 }
 
 void CompletionAndBinding() {

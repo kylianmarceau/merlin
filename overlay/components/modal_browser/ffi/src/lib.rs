@@ -218,7 +218,6 @@ mod ffi {
         Downloads,
         Settings,
         Extensions,
-        ReadingMode,
         SiteInfo,
     }
 
@@ -1656,7 +1655,6 @@ impl From<CoreBrowserPage> for BrowserPage {
             CoreBrowserPage::Downloads => BrowserPage::Downloads,
             CoreBrowserPage::Settings => BrowserPage::Settings,
             CoreBrowserPage::Extensions => BrowserPage::Extensions,
-            CoreBrowserPage::ReadingMode => BrowserPage::ReadingMode,
             CoreBrowserPage::SiteInfo => BrowserPage::SiteInfo,
         }
     }
