@@ -752,6 +752,26 @@ void PrewarmReactShell() {
   if (api && api->struct_size >= offsetof(MerlinShellAPI, prewarm) + sizeof(api->prewarm) && api->prewarm)
     api->prewarm();
 }
+void ClearWebKitData(const std::string& json, base::OnceCallback<void(std::string error)> done) {
+  // Without the React host there are no WebKit pages, so nothing to clear.
+  if (!ReactShellEnabled()) {
+    std::move(done).Run(std::string());
+    return;
+  }
+  auto get = reinterpret_cast<MerlinShellGetAPIFn>(dlsym(RTLD_DEFAULT, "MerlinShellGetAPI"));
+  const auto* api = get ? get(1) : nullptr;
+  // clear_webkit_data was added within ABI 1; an older host has no such field.
+  if (!api || api->struct_size < offsetof(MerlinShellAPI, clear_webkit_data) + sizeof(api->clear_webkit_data) ||
+      !api->clear_webkit_data) {
+    std::move(done).Run("This copy of Merlin can't clear WebKit's data");
+    return;
+  }
+  using Done = base::OnceCallback<void(std::string)>;
+  api->clear_webkit_data(json.c_str(), [](const char* error, void* context) {
+    std::unique_ptr<Done> done(static_cast<Done*>(context));
+    std::move(*done).Run(error ? std::string(error) : std::string());
+  }, new Done(std::move(done)));
+}
 std::unique_ptr<BrowserWindow, BrowserWindowDeleter> CreateReactBrowserWindow(BrowserWindowInterface* browser) {
   return std::unique_ptr<BrowserWindow, BrowserWindowDeleter>(new ReactBrowserWindow(browser));
 }

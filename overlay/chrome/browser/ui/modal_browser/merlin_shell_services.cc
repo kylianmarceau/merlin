@@ -8,11 +8,14 @@
 #include <utility>
 #include <vector>
 
+#include "base/barrier_callback.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/json/json_writer.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/no_destructor.h"
+#include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/escape.h"
 #include "base/strings/string_util.h"
@@ -21,6 +24,7 @@
 #include "base/time/time.h"
 #include "base/task/bind_post_task.h"
 #include "chrome/browser/bookmarks/bookmark_html_writer.h"
+#include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
@@ -33,6 +37,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_downloads.h"
 #include "chrome/browser/ui/modal_browser/merlin_preferences.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_extension_popup.h"
+#include "chrome/browser/ui/modal_browser/merlin_react_window.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
@@ -51,6 +56,8 @@
 #include "components/prefs/pref_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/browsing_data_filter_builder.h"
+#include "content/public/browser/browsing_data_remover.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
@@ -61,6 +68,7 @@
 #include "extensions/browser/extension_action_manager.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
+#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/models/tree_node_iterator.h"
 #include "ui/base/base_window.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
@@ -682,6 +690,178 @@ bool RunDownloads(BrowserWindowInterface* browser,
   return true;
 }
 
+// -- Browsing data ------------------------------------------------------------
+
+// Runs one Chromium removal and answers `done` once: empty, or what failed.
+// Owns itself until the remover reports. The remover tells only the
+// observers registered with it, so this one observes it meanwhile.
+class ChromiumClearing : public content::BrowsingDataRemover::Observer {
+ public:
+  static void Start(Profile* profile,
+                    base::Time since,
+                    uint64_t mask,
+                    std::unique_ptr<content::BrowsingDataFilterBuilder> filter,
+                    base::OnceCallback<void(std::string)> done) {
+    content::BrowsingDataRemover* remover = profile->GetBrowsingDataRemover();
+    auto* clearing = new ChromiumClearing(remover, std::move(done));
+    remover->RemoveWithFilterAndReply(
+        since, base::Time::Max(), mask,
+        content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB,
+        std::move(filter), clearing);
+  }
+
+  void OnBrowsingDataRemoverDone(uint64_t failed_data_types) override {
+    observation_.Reset();
+    std::move(done_).Run(failed_data_types
+                             ? "Some of Chromium's data could not be cleared."
+                             : std::string());
+    delete this;
+  }
+
+ private:
+  ChromiumClearing(content::BrowsingDataRemover* remover,
+                   base::OnceCallback<void(std::string)> done)
+      : done_(std::move(done)) {
+    observation_.Observe(remover);
+  }
+  ~ChromiumClearing() override = default;
+
+  base::OnceCallback<void(std::string)> done_;
+  base::ScopedObservation<content::BrowsingDataRemover,
+                          content::BrowsingDataRemover::Observer>
+      observation_{this};
+};
+
+// Clears both engines' data together: Chromium's for the window's profile,
+// and WebKit's pages' (the normal store, or the private session for a
+// private window). `domain` limits it to one site's data (all time);
+// empty is every site since `since`. `done` gets one result for both:
+// empty, or what failed.
+void ClearBothEngines(Profile* profile,
+                      base::Time since,
+                      const std::vector<std::string>& types,
+                      const std::string& domain,
+                      base::OnceCallback<void(std::string)> done) {
+  uint64_t mask = 0;
+  List webkit_types;
+  for (const std::string& type : types) {
+    if (type == shell::clear_data_type::kHistory) {
+      mask |= chrome_browsing_data_remover::DATA_TYPE_HISTORY;
+    } else if (type == shell::clear_data_type::kCookies) {
+      mask |= chrome_browsing_data_remover::DATA_TYPE_SITE_DATA;
+      webkit_types.Append(type);
+    } else if (type == shell::clear_data_type::kCache) {
+      mask |= content::BrowsingDataRemover::DATA_TYPE_CACHE;
+      webkit_types.Append(type);
+    }
+  }
+  auto both = base::BarrierCallback<std::string>(
+      2, base::BindOnce(
+             [](base::OnceCallback<void(std::string)> done,
+                std::vector<std::string> errors) {
+               std::erase(errors, std::string());
+               std::move(done).Run(base::JoinString(errors, " "));
+             },
+             std::move(done)));
+  auto filter = content::BrowsingDataFilterBuilder::Create(
+      domain.empty() ? content::BrowsingDataFilterBuilder::Mode::kPreserve
+                     : content::BrowsingDataFilterBuilder::Mode::kDelete);
+  if (!domain.empty()) {
+    filter->AddRegisterableDomain(domain);
+  }
+  ChromiumClearing::Start(profile, domain.empty() ? since : base::Time(), mask,
+                          std::move(filter), both);
+  if (webkit_types.empty()) {
+    both.Run(std::string());
+    return;
+  }
+  Dict request;
+  request.Set("since", domain.empty() && !since.is_null()
+                           ? since.InSecondsFSinceUnixEpoch()
+                           : 0.0);
+  request.Set("types", std::move(webkit_types));
+  if (!domain.empty()) {
+    request.Set("site", domain);
+  }
+  request.Set("private", profile->IsOffTheRecord());
+  ClearWebKitData(
+      base::WriteJson(request).value_or("{}"),
+      base::BindOnce(
+          [](base::OnceCallback<void(std::string)> both, std::string error) {
+            std::move(both).Run(error.empty()
+                                    ? error
+                                    : "WebKit's data could not be cleared: " +
+                                          error);
+          },
+          both));
+}
+
+// The domain a site's data is kept under: its registrable domain
+// ("netflix.com" for www.netflix.com), or the host itself when it has none
+// (localhost, an IP address), as Chromium's and WebKit's records name it.
+std::string DataDomain(const GURL& url) {
+  std::string domain = net::registry_controlled_domains::GetDomainAndRegistry(
+      url, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+  return domain.empty() ? std::string(url.host()) : domain;
+}
+
+bool RunBrowsingData(BrowserWindowInterface* browser,
+                     const std::string& method,
+                     const Dict& args,
+                     ShellServiceReply& reply) {
+  if (method != shell::method::kPrivacyClearData) {
+    return false;
+  }
+  const List* list = args.FindList("types");
+  if (!list) {
+    Fail(std::move(reply), "Choose what to clear");
+    return true;
+  }
+  std::vector<std::string> types;
+  for (const base::Value& type : *list) {
+    if (!type.is_string() ||
+        !std::ranges::contains(shell::clear_data_type::kAll, type.GetString())) {
+      Fail(std::move(reply), "Unknown kind of browsing data");
+      return true;
+    }
+    types.push_back(type.GetString());
+  }
+  if (types.empty()) {
+    Fail(std::move(reply), "Choose what to clear");
+    return true;
+  }
+  const std::optional<double> since = args.FindDouble("since");
+  const std::string* site = args.FindString("site");
+  std::string domain;
+  if (site && !site->empty()) {
+    const GURL url("https://" + *site + "/");
+    if (!url.is_valid() || url.host() != *site) {
+      Fail(std::move(reply), "Invalid site");
+      return true;
+    }
+    if (std::ranges::contains(types, shell::clear_data_type::kHistory)) {
+      Fail(std::move(reply), "A site's history can't be cleared this way");
+      return true;
+    }
+    domain = DataDomain(url);
+  }
+  ClearBothEngines(
+      browser->GetProfile(),
+      since && *since > 0 ? base::Time::FromSecondsSinceUnixEpoch(*since)
+                          : base::Time(),
+      types, domain,
+      base::BindOnce(
+          [](ShellServiceReply reply, std::string error) {
+            if (error.empty()) {
+              Reply(std::move(reply), base::Value());
+            } else {
+              Fail(std::move(reply), std::move(error));
+            }
+          },
+          std::move(reply)));
+  return true;
+}
+
 }  // namespace
 
 bool RunShellService(BrowserWindowInterface* browser,
@@ -696,7 +876,8 @@ bool RunShellService(BrowserWindowInterface* browser,
          RunHistory(browser, method, args, reply) ||
          RunBookmarks(browser, method, args, reply) ||
          RunExtensions(browser, method, args, reply) ||
-         RunDownloads(browser, method, args, reply);
+         RunDownloads(browser, method, args, reply) ||
+         RunBrowsingData(browser, method, args, reply);
 }
 
 namespace {
@@ -716,6 +897,63 @@ const char* ProtectionName(merlin_adblock::Protection state) {
     case merlin_adblock::Protection::kNotApplicable:
       return shell::protection::kNotApplicable;
   }
+}
+
+// Asks before removing a site's cookies, site data and cache from both
+// engines, then says what happened.
+void ConfirmForgetSite(BrowserWindowInterface* browser, const GURL& url) {
+  const std::string domain = DataDomain(url);
+  ShowShellPrompt(
+      browser,
+      Dict()
+          .Set("kind", "confirm")
+          .Set("anchor", "site")
+          .Set("origin", domain)
+          .Set("title", "Forget " + domain + "?")
+          .Set("message",
+               "Its cookies, site data and cached files are removed from "
+               "Chromium and WebKit, and you are signed out of it. Your "
+               "history, bookmarks and downloads stay.")
+          .Set("actions",
+               List()
+                   .Append(Dict()
+                               .Set("id", "cancel")
+                               .Set("label", "Cancel")
+                               .Set("emphasis", "normal"))
+                   .Append(Dict()
+                               .Set("id", "forget")
+                               .Set("label", "Forget")
+                               .Set("emphasis", "danger"))),
+      base::BindOnce(
+          [](base::WeakPtr<BrowserWindowInterface> browser,
+             std::string domain, ShellPromptReply reply) {
+            if (!browser || reply.action != "forget") {
+              return;
+            }
+            ClearBothEngines(
+                browser->GetProfile(), base::Time(),
+                {shell::clear_data_type::kCookies,
+                 shell::clear_data_type::kCache},
+                domain,
+                base::BindOnce(
+                    [](base::WeakPtr<BrowserWindowInterface> browser,
+                       std::string domain, std::string error) {
+                      ModalBrowserController* controller =
+                          browser ? Controller(browser.get()) : nullptr;
+                      if (!controller) {
+                        return;
+                      }
+                      if (error.empty()) {
+                        controller->ShowMessage(ffi::MessageLevel::Info,
+                                                "Forgot " + domain);
+                      } else {
+                        controller->ShowMessage(ffi::MessageLevel::Error,
+                                                error);
+                      }
+                    },
+                    browser, domain));
+          },
+          browser->GetWeakPtr(), domain));
 }
 
 }  // namespace
@@ -785,6 +1023,10 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
                        .Set("id", "settings")
                        .Set("label", "Site settings")
                        .Set("emphasis", "normal"));
+    actions.Append(Dict()
+                       .Set("id", "forget")
+                       .Set("label", "Forget this site")
+                       .Set("emphasis", "normal"));
   }
   actions.Append(
       Dict().Set("id", "done").Set("label", "Done").Set("emphasis", "primary"));
@@ -826,6 +1068,8 @@ void ShowShellSiteInfo(BrowserWindowInterface* browser) {
                 contents->GetController().Reload(content::ReloadType::NORMAL,
                                                  true);
               }
+            } else if (reply.action == "forget") {
+              ConfirmForgetSite(browser.get(), url);
             } else if (reply.action == "adblock-settings") {
               OpenShellPanel(browser.get(), shell::panel::kSettings);
             } else if (reply.action == "settings") {

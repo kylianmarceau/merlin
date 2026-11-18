@@ -84,6 +84,7 @@ inline constexpr char kExtensionsSetEnabled[] = "extensions.setEnabled";
 inline constexpr char kExtensionsRun[] = "extensions.run";
 inline constexpr char kExtensionsManage[] = "extensions.manage";
 inline constexpr char kDownloadsList[] = "downloads.list";
+inline constexpr char kPrivacyClearData[] = "privacy.clearData";
 // nativeOnly
 inline constexpr char kApplicationWindows[] = "application.windows";
 inline constexpr char kPageFocus[] = "page.focus";
@@ -135,7 +136,7 @@ inline constexpr std::array<std::string_view, 46> kCalls = {
     kExtensionsClosePopup,
     kSiteInfo,
 };
-inline constexpr std::array<std::string_view, 23> kRequests = {
+inline constexpr std::array<std::string_view, 24> kRequests = {
     kSettingsGet,
     kSettingsSet,
     kSettingsChooseDownloadDir,
@@ -159,6 +160,7 @@ inline constexpr std::array<std::string_view, 23> kRequests = {
     kExtensionsRun,
     kExtensionsManage,
     kDownloadsList,
+    kPrivacyClearData,
 };
 inline constexpr std::array<std::string_view, 2> kNativeOnly = {
     kApplicationWindows,
@@ -271,6 +273,13 @@ inline constexpr char kInternal[] = "internal";
 inline constexpr char kPending[] = "pending";
 inline constexpr std::array<std::string_view, 5> kAll = {kSecure, kInsecure, kDangerous, kInternal, kPending};
 }  // namespace security
+
+namespace clear_data_type {
+inline constexpr char kHistory[] = "history";
+inline constexpr char kCookies[] = "cookies";
+inline constexpr char kCache[] = "cache";
+inline constexpr std::array<std::string_view, 3> kAll = {kHistory, kCookies, kCache};
+}  // namespace clear_data_type
 
 namespace protection {
 inline constexpr char kEnabled[] = "enabled";

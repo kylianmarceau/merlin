@@ -99,7 +99,9 @@ class IconTest(WebKitCase):
         return self.browser.webkit_folder / "icons"
 
     def icon_fetch(self, name: str, host: str = "wk.localhost"):
-        return self.wait(lambda: next(iter(self.server.requests_to(f"/icon/{name}.png", host)), None),
+        """WebKit's fetch of the icon (IconFetcher's URLSession; Chromium fetches its own page's icon too)."""
+        return self.wait(lambda: next((r for r in self.server.requests_to(f"/icon/{name}.png", host)
+                                       if "CFNetwork/" in r.user_agent), None),
                          f"the icon {name} to be fetched")
 
     def load_normal_icon(self, name: str, host: str = "wk.localhost") -> None:
@@ -134,3 +136,83 @@ class IconTest(WebKitCase):
         self.browser.browserctl("open", url=self.webkit_url(f"/icon-page?name={second}"), where="tab")
         self.webkit_load(f"/icon-page?name={second}")
         self.assertEqual(self.icon_fetch(second).cookie, "")
+
+
+class ClearDataTest(WebKitCase):
+    """privacy.clearData, Merlin's Clear Browsing Data, clears Chromium's data and WebKit's together."""
+
+    def clear(self, **args) -> None:
+        reply = self.browser.shell_call("privacy.clearData", {"since": 0, "types": ["cookies"], **args})
+        self.assertTrue(reply.get("ok"), reply)
+
+    def chromium_cookie(self, host: str, path: str) -> str:
+        """The Cookie header Chromium sends loading `path` from `host` (a Chromium site)."""
+        self.browser.open(path, host)  # waits until it has loaded, so its cookie is kept
+        return self.wait(lambda: next(iter(self.server.chromium_requests(path, host)), None),
+                         f"Chromium to load {host}{path}").cookie
+
+    def webkit_cookie(self, host: str, path: str) -> str:
+        self.browser.browserctl("open", url=self.webkit_url(path, host), where="tab")
+        return self.webkit_load(path, host).cookie
+
+    def set_cookies(self) -> None:
+        """c=1 on localhost and o=1 on other.test in Chromium; w=1 on wk and v=1 on wk2 in WebKit."""
+        self.chromium_cookie("localhost", "/set-cookie?c=1")
+        self.chromium_cookie("other.test", "/set-cookie?o=1")
+        self.webkit_cookie("wk.localhost", "/set-cookie?w=1")
+        self.webkit_cookie("wk2.localhost", "/set-cookie?v=1")
+        self.assertIn("c=1", self.chromium_cookie("localhost", "/before"))
+        self.assertIn("o=1", self.chromium_cookie("other.test", "/before"))
+        self.assertIn("w=1", self.webkit_cookie("wk.localhost", "/before"))
+        self.assertIn("v=1", self.webkit_cookie("wk2.localhost", "/before"))
+
+    def test_clearing_cookies_clears_both_engines(self) -> None:
+        self.set_cookies()
+        self.clear()
+        self.assertNotIn("c=1", self.chromium_cookie("localhost", "/after"))
+        self.assertNotIn("o=1", self.chromium_cookie("other.test", "/after"))
+        self.assertNotIn("w=1", self.webkit_cookie("wk.localhost", "/after"))
+        self.assertNotIn("v=1", self.webkit_cookie("wk2.localhost", "/after"))
+
+    def test_clearing_one_site_keeps_the_others(self) -> None:
+        self.set_cookies()
+        self.clear(site="wk.localhost")
+        self.assertNotIn("w=1", self.webkit_cookie("wk.localhost", "/after-wk"))
+        self.assertIn("v=1", self.webkit_cookie("wk2.localhost", "/after-wk"))
+        self.assertIn("c=1", self.chromium_cookie("localhost", "/after-wk"))
+        self.clear(site="other.test")
+        self.assertNotIn("o=1", self.chromium_cookie("other.test", "/after-other"))
+        self.assertIn("c=1", self.chromium_cookie("localhost", "/after-other"))
+        self.assertIn("v=1", self.webkit_cookie("wk2.localhost", "/after-other"))
+
+    def test_refusals(self) -> None:
+        for args, error in (({"types": []}, "Choose what to clear"), ({"types": ["passwords"]}, "Unknown kind"),
+                            ({"types": ["history"], "site": "other.test"}, "history"),
+                            ({"types": ["cookies"], "site": "a b"}, "Invalid site")):
+            reply = self.browser.shell_call("privacy.clearData", {"since": 0, **args})
+            self.assertFalse(reply.get("ok"), reply)
+            self.assertIn(error, reply.get("error", ""))
+
+    def test_site_panel_forgets_the_site(self) -> None:
+        self.set_cookies()
+        self.browser.open("/page", "other.test")
+        self.assertTrue(self.browser.shell_call("site.info").get("ok"))
+        panel = self.wait(lambda: self.snapshot().get("prompt"), "the site panel")
+        self.assertIn("forget", [a["id"] for a in panel["actions"]])
+        self.answer(panel, "forget")
+        confirm = self.wait(lambda: (p := self.snapshot().get("prompt")) and p["id"] != panel["id"] and p, "the confirmation")
+        self.assertEqual(confirm["title"], "Forget other.test?")
+        self.answer(confirm, "forget")
+        self.wait(lambda: "o=1" not in self.chromium_cookie("other.test", f"/forgot-{time.monotonic()}"), "other.test forgotten")
+        self.assertIn("c=1", self.chromium_cookie("localhost", "/after-forget"))
+
+    def snapshot(self) -> dict:
+        reply = self.browser.shell_call("window.snapshot")
+        self.assertTrue(reply.get("ok"), reply)
+        return reply["result"]
+
+    def answer(self, prompt: dict, action: str) -> None:
+        time.sleep(0.6)  # prompts ignore answers for their first half second
+        reply = self.browser.shell_call("permissions.answer", {"promptId": prompt["id"], "actionId": action})
+        self.assertTrue(reply.get("ok"), reply)
+

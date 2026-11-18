@@ -65,7 +65,10 @@ export function StartPage({ tab }: { tab: Tab }) {
       </View>
       {snapshot.private
         ? <View style={{ marginTop: space.lg + space.sm }}>
-          <Text variant="label" weight="regular" tone="textSecondary" align="center">Private window. Nothing from it is kept after you close it.</Text>
+          <Text variant="label" weight="regular" tone="textSecondary" align="center">
+            Private window. Its history, cookies and site data go when you close the last private window.
+            Downloads and bookmarks you save stay.
+          </Text>
         </View>
         : !!others.length && <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center',
           gap: space.md + space.hair, marginTop: space.lg + space.sm, maxWidth: geometry.palette }}>
