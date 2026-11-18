@@ -59,7 +59,6 @@ class ReactScriptDialog final : public javascript_dialogs::TabModalDialogView {
   void Finish(ShellPromptReply answer) {
     if (closed_) return;
     closed_ = true;
-    weak_factory_.InvalidateWeakPtrs();
     if (browser_) CancelShellPrompt(browser_.get(), id_);
     modal_scope_.reset();
     auto reply = std::move(reply_);
@@ -67,8 +66,12 @@ class ReactScriptDialog final : public javascript_dialogs::TabModalDialogView {
     // Manager callbacks can re-enter. Retire the view before invoking them and
     // delete on the next UI task, after its current call stack unwinds.
     base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(FROM_HERE, this);
+    // TabModalDialogManager holds this view by a weak pointer and answers the
+    // page only while it is still valid, so invalidate it only afterwards;
+    // `closed_` already keeps a re-entrant call from finishing twice.
     if (answer.action.empty()) { if (forced) std::move(forced).Run(); }
     else if (reply) std::move(reply).Run(answer.action == "accept", base::UTF8ToUTF16(answer.text));
+    weak_factory_.InvalidateWeakPtrs();
   }
   base::WeakPtr<BrowserWindowInterface> browser_;
   content::JavaScriptDialogManager::DialogClosedCallback reply_;
