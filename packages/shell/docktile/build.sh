@@ -24,10 +24,14 @@ trap 'rm -rf "$work"' EXIT
 
 rm -rf "$plugin"
 mkdir -p "$plugin/Contents/MacOS"
-xcrun swiftc -O -g -parse-as-library -module-name "$name" -target "arm64-apple-macos$min_os" \
-  -sdk "$(xcrun --sdk macosx --show-sdk-path)" -module-cache-path "$work/cache" \
+# Compiled to an object first: the dSYM is made from its debug information,
+# which swiftc's own temporary objects would take with them.
+sdk="$(xcrun --sdk macosx --show-sdk-path)"
+xcrun swiftc -O -g -parse-as-library -wmo -module-name "$name" -target "arm64-apple-macos$min_os" \
+  -sdk "$sdk" -module-cache-path "$work/cache" -c -o "$work/$name.o" "${sources[@]}"
+xcrun swiftc -target "arm64-apple-macos$min_os" -sdk "$sdk" \
   -Xlinker -bundle -emit-executable -framework AppKit \
-  -o "$plugin/Contents/MacOS/$name" "${sources[@]}"
+  -o "$plugin/Contents/MacOS/$name" "$work/$name.o"
 # Its symbols, next to the app's own dSYM, for packaging to match by UUID.
 dsym="$(dirname "$app")/$name.plugin.dSYM"
 rm -rf "$dsym"
