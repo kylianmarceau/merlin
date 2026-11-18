@@ -40,6 +40,7 @@ import tempfile
 import threading
 import time
 import unittest
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -479,6 +480,17 @@ class PageServer:
             # Cacheable for a day, and it sets a cookie: neither may outlast a private page.
             name = path[len("/icon/"):].split(".")[0]
             return 200, "image/png", ICON_PNG, {"Cache-Control": "max-age=86400", "Set-Cookie": f"icon-{name}=1; Path=/"}
+        if path.startswith("/opener-page"):
+            # Opens /opener-child (or ?open=<url>) as soon as it loads.
+            target = urllib.parse.parse_qs(urllib.parse.urlsplit(path).query).get("open", ["/opener-child"])[0]
+            return 200, html, ("<!doctype html><title>Opener</title><p>Opens a window.</p>"
+                               f"<script>window.open({json.dumps(target)}, 'signin', 'width=420,height=480');</script>").encode(), {}
+        if path.startswith("/opener-child"):
+            # Reports its opener's title (readable only through a working, same-site opener), then closes.
+            return 200, html, ("<!doctype html><title>Child</title><script>"
+                               "const t = window.opener ? window.opener.document.title : 'none';"
+                               "fetch('/opener-report?title=' + encodeURIComponent(t)).finally(() => window.close());"
+                               "</script>").encode(), {}
         if path.startswith("/set-cookie?"):
             # /set-cookie?name=value sets a session cookie for the host.
             return 200, html, PAGE_HTML.encode(), {"Set-Cookie": f"{path.split('?', 1)[1]}; Path=/"}

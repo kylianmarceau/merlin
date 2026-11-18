@@ -50,8 +50,15 @@ class PageIdentity : public content::WebContentsUserData<PageIdentity>,
 
   const GURL& url() const { return url_; }
   const std::u16string& title() const { return title_; }
+  // Whether Chromium's latest navigation behind the WebKit page was started
+  // by the browser (the address field, a bookmark, a menu or modal command,
+  // browserctl) rather than by its page. The shell then takes the tab to the
+  // engine that address opens in, instead of treating it as the page behind
+  // updating itself.
+  bool user_initiated() const { return user_initiated_; }
 
   // content::WebContentsObserver:
+  void DidStartNavigation(content::NavigationHandle* navigation) override;
   void NavigationEntryCommitted(
       const content::LoadCommittedDetails& details) override;
 
@@ -65,6 +72,7 @@ class PageIdentity : public content::WebContentsUserData<PageIdentity>,
   GURL url_;
   std::u16string title_;
   int recorded_entry_ = 0;
+  bool user_initiated_ = false;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 };

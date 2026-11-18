@@ -51,7 +51,14 @@ export type Step =
    */
   | { kind: 'restore'; url: string; title: string }
   /** A restored WebKit page whose site now opens in Chromium: load it there. */
-  | { kind: 'decline'; url: string };
+  | { kind: 'decline'; url: string }
+  /**
+   * The tab belongs in Chromium now: WebKit's page closes and Chromium shows
+   * `url`, loading it if its tab isn't there already. For an address the
+   * person went to (the field, a bookmark, a command, browserctl), and for a
+   * WebKit page whose site the preferences now open in Chromium.
+   */
+  | { kind: 'migrate'; url: string };
 
 const none: Step = { kind: 'none' };
 
@@ -75,8 +82,13 @@ export function decide(tab: Tab, wk: WebKitTab | undefined, engineOf: (url: stri
     if (tab.canGoBack) return { kind: 'leave', how: 'back' };
     return { kind: 'leave', how: tab.loading && wk.leaveTries < blankAfterTries ? 'stop' : 'blank' };
   }
-  if (tab.url === wk.base) return none;
+  if (tab.url === wk.base) {
+    // The preferences changed and WebKit's page now opens in Chromium: it moves now.
+    return wk.url && engineOf(wk.url) !== 'webkit' ? { kind: 'migrate', url: wk.url } : none;
+  }
   if (wanted) return { kind: 'follow', url: tab.url };
+  // Merlin started this navigation for the person: it shows, wherever it is.
+  if (tab.userInitiated) return { kind: 'migrate', url: tab.url };
   // The page behind changed its own address (a script, a redirect, the start
   // page's own address): still the same page as far as the person can tell.
   if (isStartUrl(tab.url) ? isStartUrl(wk.base) : siteOf(tab.url) === siteOf(wk.base)) return { kind: 'settle', base: tab.url };
@@ -97,7 +109,7 @@ export function overlayTab(tab: Tab, wk: WebKitTab): Tab {
     // Chromium's tab behind is on another page, or the start page; none of its state shows.
     audible: false, start: false, color: wk.color, surface: wk.surface, favicon: wk.faviconKey ?? '', engine: 'webkit',
     // Nor its address formatting or security, which describe that other page.
-    displayUrl: undefined, displayHost: undefined, security: undefined, restoreInWebKit: undefined,
+    displayUrl: undefined, displayHost: undefined, security: undefined, restoreInWebKit: undefined, userInitiated: undefined,
   };
 }
 

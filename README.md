@@ -334,9 +334,12 @@ These are the differences:
   [Updating](#updating).
 - **Streaming sites run in WebKit.** Merlin's Chromium has no Widevine.
   WebKit tabs keep their own sign-ins and have no modal keys, link hints,
-  find in page, downloads, ad blocking or Chromium history. Right-click a tab
-  to move a site between engines, or turn this off in **Settings › General ›
-  Protected video**.
+  find in page, downloads, ad blocking or Chromium history; commands that
+  need them say "Not available in WebKit tabs". Bookmarks, workspaces,
+  `browserctl` and session restore keep the WebKit page itself, and Clear
+  browsing data clears both engines. A site's sign-in pop-ups open in their
+  own window. Right-click a tab to move a site between engines (every tab on
+  it moves), or turn this off in **Settings › General › Protected video**.
 - **One profile.** Use workspaces and private windows to keep browsing apart.
 - **No Reading mode or side panels.** Extensions that use a side panel or
   `chrome.action.openPopup()` don't get them.

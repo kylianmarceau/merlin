@@ -265,7 +265,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         case 'duplicate': await actions.newTab(tab.url); break;
         case 'bookmark': await actions.bookmarkTab(tabId); break;
         case 'webkit': case 'chromium':
-          try { await moveSite(engine, tabId, tab.url, choice); } catch (e) { fail(e); }
+          try { await moveSite(tab.url, choice); } catch (e) { fail(e); }
           break;
         case 'split': await actions.splitTab(tabId); break;
         case 'unsplit': await actions.unsplitTab(tabId); break;
@@ -293,7 +293,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       let choice: string | null;
       try { choice = await showMenu(items); } catch (e) { fail(e); return; }
       if (choice === 'chromium') {
-        try { await moveSite(engine, tab.id, tab.url, 'chromium'); } catch (e) { fail(e); }
+        try { await moveSite(tab.url, 'chromium'); } catch (e) { fail(e); }
       }
     },
 

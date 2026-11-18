@@ -16,6 +16,7 @@
 #include "components/sessions/content/content_serialized_navigation_driver.h"
 #include "components/sessions/content/extended_info_handler.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 
@@ -191,6 +192,12 @@ void PageIdentity::Record() {
   entry->SetUserData(kSessionKey, std::make_unique<WebKitEntry>(url_, title_));
   // The session service writes an entry again when it hears it changed.
   controller.NotifyEntryChanged(entry);
+}
+
+void PageIdentity::DidStartNavigation(content::NavigationHandle* navigation) {
+  if (navigation->IsInPrimaryMainFrame()) {
+    user_initiated_ = !navigation->IsRendererInitiated();
+  }
 }
 
 void PageIdentity::NavigationEntryCommitted(

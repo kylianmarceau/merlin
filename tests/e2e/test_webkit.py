@@ -289,3 +289,33 @@ class SessionRestoreTest(WebKitCase):
         self.browser.restart()
         self.webkit_load("/page?restore=1")
         self.wait(lambda: url in [t["url"] for t in self.browser.tabs()], "the restored tab's WebKit address")
+
+
+class NavigationTest(WebKitCase):
+    """Which engine shows a tab follows where the person sends it, and pop-ups keep their opener."""
+
+    def test_a_navigation_the_person_starts_shows_even_on_the_page_befores_site(self) -> None:
+        # Chromium's tab is on localhost; the WebKit page is shown over it.
+        self.browser.open("/page?before=1")
+        url = self.webkit_url("/page?shown=1")
+        self.browser.browserctl("open", url=url, where="current")
+        self.webkit_load("/page?shown=1")
+        self.wait(lambda: self.browser.active_tab()["url"] == url, "the WebKit page")
+        # browserctl, like the address field or a bookmark, goes to the page before's site (M16).
+        after = self.server.url("/page?after=1")
+        self.browser.browserctl("open", url=after, where="current")
+        self.wait(lambda: self.browser.active_tab()["url"] == after, "Chromium's page to show")
+
+    def test_a_same_site_popup_keeps_its_opener(self) -> None:
+        before = len(self.browser.tabs())
+        self.browser.browserctl("open", url=self.webkit_url("/opener-page"), where="tab")
+        report = self.webkit_load("/opener-report")
+        self.assertEqual(report.path, "/opener-report?title=Opener")
+        self.assertEqual(len(self.browser.tabs()), before + 1, "the pop-up opened a tab")
+
+    def test_another_sites_window_opens_as_a_tab(self) -> None:
+        before = len(self.browser.tabs())
+        target = self.webkit_url("/page?other=1", "wk2.localhost")
+        self.browser.browserctl("open", url=self.webkit_url(f"/opener-page?open={target}"), where="tab")
+        self.webkit_load("/page?other=1", "wk2.localhost")
+        self.wait(lambda: len(self.browser.tabs()) == before + 2, "the other site's tab")

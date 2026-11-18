@@ -461,6 +461,8 @@ Dict WindowState::Snapshot() {
     if (const auto split = strip->GetSplitForTab(i)) entry.Set("split", split->ToString());
     if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
     if (const auto edge = modal_browser::PageEdgeColor::Get(contents)) entry.Set("surface", HexColor(*edge));
+    if (const auto* identity = modal_browser::PageIdentity::FromWebContents(contents); identity && identity->user_initiated())
+      entry.Set("userInitiated", true);
     if (const auto restored = modal_browser::RestoredWebKitPage(contents))
       entry.Set("restoreInWebKit", Dict().Set("url", restored->url.spec()).Set("title", base::UTF16ToUTF8(restored->title)));
     tabs.Append(std::move(entry));

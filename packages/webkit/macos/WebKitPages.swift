@@ -200,7 +200,8 @@ final class WebKitPages {
     configuration.mediaTypesRequiringUserActionForPlayback = []
     configuration.allowsAirPlayForMediaPlayback = true
     configuration.preferences.isElementFullscreenEnabled = true
-    configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+    // A pop-up needs a click, except in a test instance, whose pages can't be clicked.
+    configuration.preferences.javaScriptCanOpenWindowsAutomatically = Self.testFolder != nil
     // Merlin makes no Safe Browsing lookups in Chromium; nor does WebKit here.
     configuration.preferences.isFraudulentWebsiteWarningEnabled = false
     configuration.defaultWebpagePreferences.preferredContentMode = .desktop
@@ -244,6 +245,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
   private var favicon: String?
   private var faviconPage: String?
   private var iconTask: URLSessionTask?
+  /// Same-site windows the page opened (sign-in pop-ups), which keep `window.opener`.
+  private var popups: [WebKitPopup] = []
 
   init(tabId: String, ephemeral: Bool, configuration: WKWebViewConfiguration) {
     self.tabId = tabId
@@ -304,6 +307,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
     closed = true
     iconTask?.cancel()
     iconTask = nil
+    popups.forEach { $0.close() }
+    popups = []
     observations = []
     webView.onKey = nil
     webView.navigationDelegate = nil
@@ -313,6 +318,11 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
     webView.closeAllMediaPresentations(completionHandler: nil)
     webView.removeFromSuperview()
   }
+
+  /// A link or script in a pop-up opened another window: a tab, as from the page.
+  func openTab(_ url: URL) { emit("openTab", ["url": url.absoluteString]) }
+
+  func popupClosed(_ popup: WebKitPopup) { popups.removeAll { $0 === popup } }
 
   private func emit(_ name: String, _ body: [String: Any]) {
     guard !closed else { return }
@@ -442,14 +452,42 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
 
   // MARK: WKUIDelegate
 
-  /// Links and scripts that open a window open a tab instead, which goes to
-  /// whichever engine its site uses.
+  /// A window the page opens on its own site (a sign-in or payment pop-up)
+  /// opens as a pop-up window that keeps `window.opener`, as sign-in flows
+  /// need. Any other opens a tab instead, which goes to whichever engine its
+  /// site uses.
   func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-    if let url = action.request.url, url.scheme == "https" || url.scheme == "http" {
+    let url = action.request.url
+    if Self.sameSite(url, as: webView.url), !closed {
+      let popup = WebKitPopup(opener: self, configuration: configuration, features: windowFeatures, parent: webView.window)
+      popups.append(popup)
+      return popup.webView
+    }
+    if let url, url.scheme == "https" || url.scheme == "http" {
       emit("openTab", ["url": url.absoluteString])
     }
     return nil
+  }
+
+  /// Whether `target` is on the page's site. An empty or about:blank window
+  /// is the opener's own, until it navigates. Sites are compared by their
+  /// last two labels, or three under a short second-level label (co.uk).
+  static func sameSite(_ target: URL?, as page: URL?) -> Bool {
+    guard let pageHost = page?.host?.lowercased(), page?.scheme == "https" || page?.scheme == "http" else { return false }
+    guard let target, let host = target.host?.lowercased() else {
+      return target == nil || target?.absoluteString == "about:blank" || target?.absoluteString.isEmpty == true
+    }
+    guard target.scheme == "https" || target.scheme == "http" else { return false }
+    return site(host) == site(pageHost)
+  }
+
+  private static func site(_ host: String) -> String {
+    let labels = host.split(separator: ".")
+    if labels.count <= 2 || host.allSatisfy({ $0.isNumber || $0 == "." }) { return host }
+    let second = labels[labels.count - 2]
+    let keep = second.count <= 3 && labels.count >= 3 && ["co", "com", "org", "net", "gov", "ac", "edu", "ne", "or"].contains(String(second)) ? 3 : 2
+    return labels.suffix(keep).joined(separator: ".")
   }
 
   func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
@@ -497,6 +535,71 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
     alert.messageText = host.isEmpty ? "This page says" : "\(host) says"
     alert.informativeText = message
     return alert
+  }
+}
+
+/// A window a WebKit page opened on its own site: a plain titled window with
+/// the page's host, so it can't pass for another site or for Merlin's own,
+/// holding a web view WebKit made from the opener's configuration (same
+/// store, `window.opener`). It closes when its script closes it, when its
+/// opener's page closes, or when the person closes it.
+final class WebKitPopup: NSObject, WKUIDelegate, WKNavigationDelegate, NSWindowDelegate {
+  let webView: WKWebView
+  private let window: NSWindow
+  private weak var opener: WebKitPage?
+  private var observation: NSKeyValueObservation?
+  private var closing = false
+
+  init(opener: WebKitPage, configuration: WKWebViewConfiguration, features: WKWindowFeatures, parent: NSWindow?) {
+    self.opener = opener
+    let width = CGFloat(features.width?.doubleValue ?? 500), height = CGFloat(features.height?.doubleValue ?? 640)
+    let size = NSSize(width: min(max(width, 320), 1600), height: min(max(height, 240), 1200))
+    webView = WKWebView(frame: NSRect(origin: .zero, size: size), configuration: configuration)
+    window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled, .closable, .resizable, .miniaturizable],
+                      backing: .buffered, defer: false)
+    super.init()
+    window.isReleasedWhenClosed = false
+    window.contentView = webView
+    window.delegate = self
+    webView.uiDelegate = self
+    webView.navigationDelegate = self
+    observation = webView.observe(\.url) { [weak self] view, _ in self?.window.title = view.url?.host ?? "" }
+    if let parent {
+      let frame = parent.frame
+      window.setFrameOrigin(NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2))
+    } else {
+      window.center()
+    }
+    window.makeKeyAndOrderFront(nil)
+  }
+
+  func close() {
+    guard !closing else { return }
+    closing = true
+    observation = nil
+    webView.uiDelegate = nil
+    webView.navigationDelegate = nil
+    webView.stopLoading()
+    window.delegate = nil
+    window.close()
+    opener?.popupClosed(self)
+  }
+
+  func windowWillClose(_ notification: Notification) { close() }
+
+  func webViewDidClose(_ webView: WKWebView) { close() }
+
+  /// Windows the pop-up opens become tabs.
+  func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+               for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+    if let url = action.request.url, url.scheme == "https" || url.scheme == "http" { opener?.openTab(url) }
+    return nil
+  }
+
+  func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+               decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+    let scheme = action.request.url?.scheme?.lowercased() ?? ""
+    decisionHandler(["http", "https", "about", "data", "blob"].contains(scheme) ? .allow : .cancel)
   }
 }
 
