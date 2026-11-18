@@ -101,7 +101,8 @@ OUT="out/$(basename "$BUILD")"
 
 plist() { /usr/libexec/PlistBuddy -c "Print :$1" "$APP/Contents/Info.plist"; }
 bundle_id="$(plist CFBundleIdentifier)"
-chromium_version="$(plist CFBundleShortVersionString)"
+# An app packaged before keeps Chromium's version in MerlinChromiumVersion.
+chromium_version="$(plist MerlinChromiumVersion 2>/dev/null || plist CFBundleShortVersionString)"
 min_macos="$(plist LSMinimumSystemVersion)"
 
 suffix=""
@@ -185,6 +186,13 @@ echo "==> release version"
 # Updates. Chromium's own version stays in CFBundleShortVersionString.
 /usr/libexec/PlistBuddy -c "Delete :MerlinVersion" "$stage/Merlin.app/Contents/Info.plist" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :MerlinVersion string $VERSION" "$stage/Merlin.app/Contents/Info.plist"
+# Finder's Version column and Get Info read CFBundleShortVersionString, so it
+# says Merlin's version; Chromium's moves to MerlinChromiumVersion (decision
+# 64). Chromium reads its framework's own Info.plist, which keeps its version,
+# and CFBundleVersion stays Chromium's build number for LaunchServices.
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$stage/Merlin.app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Delete :MerlinChromiumVersion" "$stage/Merlin.app/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :MerlinChromiumVersion string $chromium_version" "$stage/Merlin.app/Contents/Info.plist"
 
 echo "==> signing with the hardened runtime, innermost first"
 # Chromium's own entitlement files, from the checkout the engine was built in.

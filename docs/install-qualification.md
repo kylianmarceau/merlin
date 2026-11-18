@@ -27,6 +27,7 @@ Groups > Add User), on the newest macOS. macOS version: ______
 - [ ] Pages and a video play; Activity Monitor shows `Merlin Helper`
   (Renderer, GPU) processes.
 - [ ] Quit and relaunch: no approval asked again.
+- [ ] Finder's Get Info on Merlin.app shows version {{VERSION}}.
 
 ## 2. Replacing the previous version
 
