@@ -13,26 +13,27 @@ from pathlib import Path
 
 # Everything that ends up in the engine or the React host. Tests, docs and
 # scripts are not product sources: changing them needs no new build.
-PRODUCT_SOURCES = (
-    'overlay', 'patches', 'apps/browser', 'packages', 'pnpm-patches', 'tools',
-    'Cargo.toml', 'Cargo.lock', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'UPSTREAM_PIN',
-)
+# The engine (Chromium with Merlin's overlay and patches) and the React host
+# are built separately, so each records the state of its own sources.
+ENGINE_SOURCES = ('overlay', 'patches', 'tools', 'Cargo.toml', 'Cargo.lock', 'UPSTREAM_PIN')
+SHELL_SOURCES = ('apps/browser', 'packages', 'pnpm-patches', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml')
+PRODUCT_SOURCES = ENGINE_SOURCES + SHELL_SOURCES
 
 
 def _git(repo: Path, *args: str) -> bytes:
     return subprocess.run(['git', '-C', str(repo), *args], check=True, capture_output=True).stdout
 
 
-def source_state(repo: Path) -> dict:
-    """{'sourceCommit': HEAD, 'sourceChanges': digest of uncommitted product changes, or None}."""
+def source_state(repo: Path, sources: tuple = PRODUCT_SOURCES) -> dict:
+    """{'sourceCommit': HEAD, 'sourceChanges': digest of uncommitted changes to `sources`, or None}."""
     commit = _git(repo, 'rev-parse', 'HEAD').decode().strip()
     digest = hashlib.sha256()
     changed = False
-    diff = _git(repo, 'diff', 'HEAD', '--binary', '--', *PRODUCT_SOURCES)
+    diff = _git(repo, 'diff', 'HEAD', '--binary', '--', *sources)
     if diff:
         digest.update(diff)
         changed = True
-    untracked = _git(repo, 'ls-files', '--others', '--exclude-standard', '-z', '--', *PRODUCT_SOURCES)
+    untracked = _git(repo, 'ls-files', '--others', '--exclude-standard', '-z', '--', *sources)
     for name in sorted(filter(None, untracked.split(b'\0'))):
         path = repo / name.decode()
         if path.is_file():
@@ -41,9 +42,9 @@ def source_state(repo: Path) -> dict:
     return {'sourceCommit': commit, 'sourceChanges': digest.hexdigest() if changed else None}
 
 
-def same_products(repo: Path, recorded: str, commit: str) -> bool:
+def same_products(repo: Path, recorded: str, commit: str, sources: tuple = PRODUCT_SOURCES) -> bool:
     """Whether two commits have the same product sources (only tests, docs or scripts differ)."""
-    result = subprocess.run(['git', '-C', str(repo), 'diff', '--quiet', recorded, commit, '--', *PRODUCT_SOURCES],
+    result = subprocess.run(['git', '-C', str(repo), 'diff', '--quiet', recorded, commit, '--', *sources],
                             capture_output=True)
     return result.returncode == 0  # 1: they differ; 128: a commit this clone doesn't have
 
@@ -57,6 +58,9 @@ def mismatch(manifest: dict | None, current: dict, repo: Path | None = None) -> 
     """
     if manifest is None:
         return 'it has no assembly manifest (merlin-shell-build.json), so it is not an assembled build of this checkout'
+    if manifest.get('staleProducts'):
+        return (f"it was assembled with --allow-stale from a {' and '.join(manifest['staleProducts'])} "
+                'built from other sources')
     recorded = manifest.get('sourceCommit')
     if not recorded:
         return 'its assembly manifest records no source commit (assembled before builds were recorded)'
@@ -70,4 +74,21 @@ def mismatch(manifest: dict | None, current: dict, repo: Path | None = None) -> 
         if now is None:
             return 'the app was assembled with uncommitted product changes that the checkout no longer has'
         return 'the checkout\'s uncommitted product changes differ from the ones the app was assembled with'
+    return None
+
+
+def product_mismatch(stamp: dict | None, current: dict, repo: Path, sources: tuple) -> str | None:
+    """Why a product stamped with `stamp` wasn't built from `current` sources, or None if it was.
+
+    Commits are compared by their `sources`, so a commit that changes only
+    the other product, tests or docs needs no rebuild.
+    """
+    if not stamp or not stamp.get('sourceCommit'):
+        return 'it records no source commit'
+    recorded = stamp['sourceCommit']
+    if recorded != current['sourceCommit'] and not same_products(repo, recorded, current['sourceCommit'], sources):
+        return f'it was built from commit {recorded[:12]}, and its sources have changed since'
+    if stamp.get('sourceChanges') != current['sourceChanges']:
+        return ('it was built with uncommitted changes that differ from the checkout\'s'
+                if stamp.get('sourceChanges') else 'the checkout has uncommitted changes it was built without')
     return None

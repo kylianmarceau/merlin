@@ -4,7 +4,7 @@ Copyright 2026 The Merlin Authors
 Merlin is licensed under the BSD 3-Clause licence (see LICENSE).
 
 Portions of the macOS shell are adapted from Ardia
-(https://github.com/mantrakp04/ardia), Copyright 2026 Mantra Patel,
+(https://github.com/ardia-browser/ardia), Copyright 2026 Mantra Patel,
 licensed under the Apache License, Version 2.0
 (https://www.apache.org/licenses/LICENSE-2.0):
 
@@ -12,7 +12,16 @@ licensed under the Apache License, Version 2.0
   popover bubble outline (from Ardia's GlassEffect, LiquidGlass and
   PopoverBubble).
 - packages/shell/macos/ShellSystem.swift: ThinScrollBars.
+- packages/shell/docktile/DockTilePlugIn.swift: the Dock tile plug-in
+  (from Ardia's DockTilePlugIn).
+- packages/shell/macos/AppIcons.swift: in part, how the chosen icon is
+  stored, announced to the Dock tile and redrawn for the system icon style
+  (from Ardia's AppIcons).
 - pnpm-patches/: fixes to React Native macOS and Expo Modules Core.
+
+All of it comes from Ardia's own source files (packages/shell and the
+root patches/ folder), which Ardia licenses under Apache-2.0. None comes
+from Ardia's engine patches (engine/), which are GPL-3.0.
 
 The adapted files carry a notice saying so. Changes: renamed, reduced to
 what Merlin uses, solid Classic surfaces, Merlin's colour handling.

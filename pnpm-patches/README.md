@@ -4,10 +4,13 @@ pnpm applies these on every install (`patchedDependencies` in
 `pnpm-workspace.yaml`); the Podfile compiles React Native and Expo from
 `node_modules`, so a rebuild picks them up.
 
-All three come from Ardia (https://github.com/mantrakp04/ardia, commit
+All three come from Ardia (https://github.com/ardia-browser/ardia, commit
 c463d559fa7e682ddb13b88e950e487edd0cd45e, `patches/`), Copyright 2026 Mantra
 Patel, licensed under the Apache License, Version 2.0 (`LICENSE.Apache-2.0`
 here). They are carried unchanged; edits inside them are marked `[Ardia: …]`.
+They are byte-identical to Ardia's root `patches/` at that commit (checked
+2026-11-18), part of Ardia's own Apache-2.0 source, not its GPL-3.0 engine
+patches in `engine/`.
 
 | Patch | What it fixes |
 | --- | --- |

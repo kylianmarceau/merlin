@@ -47,6 +47,14 @@ class AssemblyTest(unittest.TestCase):
                       return_value={'sourceCommit': 'c' * 40, 'sourceChanges': None})
         state.start()
         self.addCleanup(state.stop)
+        # Both products stamped at the checkout's commit, with their binaries unchanged since.
+        self.stamps = {product: {'product': product, 'sourceCommit': 'c' * 40, 'sourceChanges': None,
+                                 'uuids': [f'{product.upper()}-UUID']} for product in ('engine', 'shell')}
+        self.stamp_problems = {'engine': None, 'shell': None}
+        stamps = patch('assemble_react_app.read_stamp',
+                       side_effect=lambda app, product: (self.stamps[product], self.stamp_problems[product]))
+        stamps.start()
+        self.addCleanup(stamps.stop)
 
     def test_manifest_records_the_source_commit(self):
         import json
@@ -88,27 +96,6 @@ class AssemblyTest(unittest.TestCase):
         self.assertEqual((self.output / 'Contents/PlugIns/MerlinDockTile.plugin/Contents/MacOS/MerlinDockTile')
                          .read_text(), 'plug-in')
 
-    def test_icon_assets_are_checked_against_the_copied_icons(self):
-        import os
-        import assemble_react_app
-        repo = self.root / 'repo'
-        icons = repo / 'overlay/chrome/app/theme/merlin/mac'
-        icons.mkdir(parents=True)
-        (repo / 'patches').mkdir()
-        (repo / 'apps/browser/src').mkdir(parents=True)
-        source = icons / 'Assets.car'
-        source.write_text('new icon')
-        framework = self.engine / 'Contents/Frameworks/Merlin Framework.framework/Versions/157/Merlin Framework'
-        copied = self.engine / 'Contents/Resources/app.icns'
-        os.utime(framework, (source.stat().st_mtime - 60,) * 2)
-        with patch.object(assemble_react_app, 'REPO', repo):
-            # Copied into the app after the change: current, though the framework is older.
-            os.utime(copied, (source.stat().st_mtime + 1,) * 2)
-            self.assertEqual(assemble_react_app.stale_engine_sources(self.engine, self.shell)[0], [])
-            # Not copied yet: stale.
-            os.utime(copied, (source.stat().st_mtime - 60,) * 2)
-            self.assertEqual(assemble_react_app.stale_engine_sources(self.engine, self.shell)[0], [source])
-
     def test_collision_leaves_no_partial_output(self):
         (self.shell / 'Contents/Resources/app.icns').write_text('wrong icon')
         with self.assertRaisesRegex(ValueError, 'Conflicting resource'):
@@ -127,23 +114,106 @@ class AssemblyTest(unittest.TestCase):
             assemble(self.engine, self.shell, self.output)
         self.assertEqual((self.output / 'keep').read_text(), 'user file')
 
-    def test_products_older_than_their_sources_are_rejected(self):
-        import os
+    def test_manifest_records_each_products_provenance(self):
+        import json
+        assemble(self.engine, self.shell, self.output)
+        manifest = json.loads((self.output / 'Contents/Resources/merlin-shell-build.json').read_text())
+        self.assertEqual(manifest['engine']['sourceCommit'], 'c' * 40)
+        self.assertEqual(manifest['engine']['uuids'], ['ENGINE-UUID'])
+        self.assertEqual(manifest['shell']['uuids'], ['SHELL-UUID'])
+        self.assertIsNone(manifest['shell']['problem'])
+        self.assertEqual(manifest['staleProducts'], [])
+        self.assertIn('Cargo.lock', manifest['lockfiles'])
+        self.assertIn('machoUUIDs', manifest)
+        with (self.output / 'Contents/Info.plist').open('rb') as stream:
+            self.assertNotIn('MerlinBuild', plistlib.load(stream))
+
+    def test_a_product_from_another_commit_is_rejected(self):
         import assemble_react_app
-        repo = self.root / 'repo'
-        (repo / 'overlay').mkdir(parents=True)
-        (repo / 'patches').mkdir()
-        (repo / 'apps/browser/src').mkdir(parents=True)
-        source = repo / 'overlay/bridge.mm'
-        source.write_text('new code')
-        framework = self.engine / 'Contents/Frameworks/Merlin Framework.framework/Versions/157/Merlin Framework'
-        os.utime(framework, (source.stat().st_mtime - 60,) * 2)
-        with patch.object(assemble_react_app, 'REPO', repo):
-            with self.assertRaisesRegex(ValueError, 'engine is older than its sources'):
+        self.stamps['engine']['sourceCommit'] = 'a' * 40
+        with patch.object(assemble_react_app, 'product_mismatch', wraps=assemble_react_app.product_mismatch), \
+                patch('source_state.same_products', return_value=False):
+            with self.assertRaisesRegex(ValueError, 'engine does not match this checkout: it was built from commit '
+                                                    'aaaaaaaaaaaa, and its sources have changed since'):
                 assemble(self.engine, self.shell, self.output)
-            self.assertFalse(self.output.exists())
-            assemble(self.engine, self.shell, self.output, allow_stale=True)
-            self.assertTrue(self.output.exists())
+        self.assertFalse(self.output.exists())
+
+    def test_a_commit_that_changes_only_the_other_product_needs_no_rebuild(self):
+        self.stamps['engine']['sourceCommit'] = 'a' * 40
+        with patch('source_state.same_products', return_value=True) as same:
+            assemble(self.engine, self.shell, self.output)
+        from source_state import ENGINE_SOURCES
+        self.assertEqual(same.call_args.args[1:], ('a' * 40, 'c' * 40, ENGINE_SOURCES))
+
+    def test_a_product_rebuilt_after_its_stamp_is_rejected(self):
+        self.stamp_problems['shell'] = 'it was rebuilt after it was stamped (its binary UUID changed)'
+        with self.assertRaisesRegex(ValueError, 'React host does not match this checkout: it was rebuilt'):
+            assemble(self.engine, self.shell, self.output)
+
+    def test_allow_stale_assembles_but_e2e_refuses_the_result(self):
+        import json
+        from source_state import mismatch
+        self.stamp_problems['engine'] = 'it has no build stamp'
+        assemble(self.engine, self.shell, self.output, allow_stale=True)
+        manifest = json.loads((self.output / 'Contents/Resources/merlin-shell-build.json').read_text())
+        self.assertEqual(manifest['staleProducts'], ['engine'])
+        self.assertEqual(manifest['engine']['problem'], 'it has no build stamp')
+        self.assertIn('--allow-stale', mismatch(manifest, {'sourceCommit': 'c' * 40, 'sourceChanges': None}))
+
+
+class MatchDsymsTest(unittest.TestCase):
+    """Packaging keeps a dSYM for every packaged binary, matched by UUID."""
+
+    def setUp(self):
+        import match_dsyms
+        self.match = match_dsyms.match
+
+    def test_every_binary_matched(self):
+        lines, keep, missing = self.match(
+            {'Contents/MacOS/Merlin': ['SHELL'], 'Contents/Frameworks/hermes.framework/Versions/0/hermes': ['H']},
+            {'SHELL': Path('/b/MerlinShell.app.dSYM'), 'UNUSED': Path('/b/protoc.dSYM')})
+        self.assertEqual(missing, [])
+        self.assertEqual(keep, [Path('/b/MerlinShell.app.dSYM')])
+        self.assertIn('SHELL  Contents/MacOS/Merlin  ->  MerlinShell.app.dSYM', lines)
+        self.assertTrue(any('no dSYM (Hermes' in line for line in lines))
+
+    def test_a_missing_dsym_fails(self):
+        # The engine's Merlin.dSYM describes the engine executable that assembly replaces.
+        _, _, missing = self.match({'Contents/MacOS/Merlin': ['SHELL']}, {'ENGINE': Path('/b/Merlin.dSYM')})
+        self.assertEqual(missing, ['Contents/MacOS/Merlin (SHELL)'])
+
+
+class SignAppTest(unittest.TestCase):
+    """The hardened runtime's entitlements go to the right bundles, signed innermost first (C02)."""
+
+    def test_order_and_entitlements(self):
+        import sign_app
+        with tempfile.TemporaryDirectory() as temp:
+            app = Path(temp) / 'Merlin.app'
+            helpers = app / 'Contents/Frameworks/Merlin Framework.framework/Versions/157/Helpers'
+            for name in ('Merlin Helper (Renderer).app', 'Merlin Helper (GPU).app', 'Merlin Helper.app',
+                         'Merlin Helper (Aperitif Renderer).app'):
+                (helpers / name / 'Contents/MacOS').mkdir(parents=True)
+            entitlements = Path('/chromium/chrome/app')
+            order = sign_app.sign_order(app)
+            self.assertEqual(order[-1], app)
+            self.assertLess(order.index(helpers / 'Merlin Helper.app'),
+                            order.index(app / 'Contents/Frameworks/Merlin Framework.framework'))
+            chosen = lambda name: sign_app.entitlements_for(helpers / name, app, entitlements)
+            self.assertEqual(sign_app.entitlements_for(app, app, entitlements).name, 'app-entitlements.plist')
+            self.assertEqual(chosen('Merlin Helper (Renderer).app').name, 'helper-renderer-entitlements.plist')
+            self.assertEqual(chosen('Merlin Helper (Aperitif Renderer).app').name,
+                             'helper-renderer-entitlements.plist')
+            self.assertEqual(chosen('Merlin Helper (GPU).app').name, 'helper-gpu-entitlements.plist')
+            self.assertIsNone(chosen('Merlin Helper.app'))
+            off = sign_app.with_library_validation_off(None, Path(temp))
+            self.assertTrue(plistlib.loads(off.read_bytes())[sign_app.LIBRARY_VALIDATION])
+
+    def test_executables_are_told_from_libraries(self):
+        import sign_app
+        for path, expected in ((Path('/bin/ls'), True), (Path('/usr/lib/libobjc.A.dylib'), False)):
+            if path.exists() and path.stat().st_size > 4096:
+                self.assertEqual(sign_app.is_executable(path), expected, path)
 
 
 class SourceStateTest(unittest.TestCase):

@@ -3,7 +3,9 @@ import AppKit
 // Merlin's app icons: the painted 'Wrapped' falcon-and-globe in nine colour
 // themes. Daylight ("default") is the bundle's own icon; the others are PNGs
 // in the app's Resources (MerlinAppIcon-<id>.png, from packages/shell/macos/
-// AppIcons). As in Ardia, the chosen icon is a preference: the Dock shows it
+// AppIcons). Partly adapted from Ardia's AppIcons (packages/shell/ios,
+// Apache License 2.0, Copyright 2026 Mantra Patel; see NOTICE). As in
+// Ardia, the chosen icon is a preference: the Dock shows it
 // while Merlin runs (NSApp.applicationIconImage) and, through the Dock tile
 // plug-in (packages/shell/docktile), after Merlin quits. The bundle itself is
 // never modified, so its signature stays intact.

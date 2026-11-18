@@ -31,6 +31,7 @@ const HERE = new URL(".", import.meta.url).pathname;
 const REPO = resolve(HERE, "..");
 const HOME = homedir();
 const CHROMIUM = process.env.CHROMIUM_DIR || `${HOME}/chromium`;
+const ASSEMBLED = join(REPO, "apps/browser/build/assembled/Merlin.app");
 
 const args = { skip: new Set(), extra: [] };
 for (let i = 2; i < process.argv.length; i++) {
@@ -46,9 +47,12 @@ for (let i = 2; i < process.argv.length; i++) {
 }
 
 const BROWSERS = {
-  "merlin-release": { kind: "cdp", app: `${CHROMIUM}/src/out/Release/Merlin.app`, bin: "Merlin", merlin: true },
-  "merlin-release-adblock": { kind: "cdp", app: `${CHROMIUM}/src/out/Release/Merlin.app`, bin: "Merlin", merlin: true, extra: ["--enable-features=MerlinAdblock"] },
-  "merlin-dev": { kind: "cdp", app: `${CHROMIUM}/src/out/Modal/Merlin.app`, bin: "Merlin", merlin: true },
+  // The shipping product: the assembled app (engine plus React host).
+  "merlin-release": { kind: "cdp", app: ASSEMBLED, bin: "Merlin", merlin: true },
+  "merlin-release-adblock": { kind: "cdp", app: ASSEMBLED, bin: "Merlin", merlin: true, extra: ["--enable-features=MerlinAdblock"] },
+  // Controls: the engine alone, with Chromium's windows and no Merlin interface.
+  "merlin-engine-only": { kind: "cdp", app: `${CHROMIUM}/src/out/Release/Merlin.app`, bin: "Merlin", merlin: true, engineOnly: true },
+  "merlin-dev": { kind: "cdp", app: `${CHROMIUM}/src/out/Modal/Merlin.app`, bin: "Merlin", merlin: true, engineOnly: true },
   brave: { kind: "cdp", app: "/Applications/Brave Browser.app", bin: "Brave Browser" },
   dia: { kind: "dia", app: "/Applications/Dia.app", bin: "Dia" },
   // Ardia ignores --user-data-dir and --remote-debugging-port; its data folder
@@ -384,7 +388,18 @@ class DiaDriver {
 }
 
 // ---------------------------------------------------------------- helpers
-const result = { browser: NAME, app: B.app, switches: B.extra, background: !!args.background, started: new Date().toISOString(), errors: [] };
+// Which build was measured: Mach-O UUIDs and, for Merlin, the assembly manifest.
+async function buildIdentity() {
+  const id = { engine_only: !!B.engineOnly };
+  try { id.uuids = (await run("dwarfdump", ["--uuid", BIN])).stdout.trim().split("\n").map((l) => l.split(" ")[1]); } catch { id.uuids = null; }
+  if (B.merlin) {
+    const fw = join(B.app, "Contents/Frameworks/Merlin Framework.framework/Merlin Framework");
+    try { id.framework_uuids = (await run("dwarfdump", ["--uuid", fw])).stdout.trim().split("\n").map((l) => l.split(" ")[1]); } catch { id.framework_uuids = null; }
+    id.manifest = JSON.parse(await readFile(join(B.app, "Contents/Resources/merlin-shell-build.json"), "utf8").catch(() => "null"));
+  }
+  return id;
+}
+const result = { browser: NAME, app: B.app, build: await buildIdentity(), switches: B.extra, background: !!args.background, started: new Date().toISOString(), errors: [] };
 const median = (a) => { const s = [...a].filter((x) => x != null).sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : null; };
 async function save() { await writeFile(join(args.out, `${NAME}.json`), JSON.stringify(result, null, 1)); }
 async function step(name, fn) {

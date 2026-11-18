@@ -84,6 +84,13 @@ class UpstreamCheckerTest(unittest.TestCase):
                 self.assertIsNone(json.loads(output)["rebase_due"])
                 self.assertIn("could not check", errors)
 
+    def test_another_pin_file_can_be_checked(self):
+        with tempfile.TemporaryDirectory() as temp:
+            other = Path(temp) / "PIN"
+            other.write_text(f"tag: 1.0.0.0\ncommit: {COMMIT}\n")
+            with mock.patch.object(sys, "argv", ["check_upstream.py", "--pin", str(other)]):
+                self.assertEqual(check_upstream.pinned(), ("1.0.0.0", COMMIT))
+
     def test_network_failure_is_not_a_successful_check(self):
         code, output, _ = self.run_check(json_output=True, failure=OSError("offline"))
         self.assertEqual(code, 2)

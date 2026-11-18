@@ -9,6 +9,7 @@ responsibility"). Exit codes: 0 exact current Stable version/commit, 1 behind,
 
     scripts/check_upstream.py            # human summary
     scripts/check_upstream.py --json     # for automation
+    scripts/check_upstream.py --pin FILE # another pin, e.g. the one a build used
 """
 import json
 import pathlib
@@ -27,9 +28,15 @@ def version_tuple(v):
     return tuple(int(p) for p in v.split("."))
 
 
+def pin_file():
+    if "--pin" in sys.argv:
+        return pathlib.Path(sys.argv[sys.argv.index("--pin") + 1])
+    return ROOT / "UPSTREAM_PIN"
+
+
 def pinned():
     fields = dict(line.split(":", 1) for line in
-                  (ROOT / "UPSTREAM_PIN").read_text().splitlines() if ":" in line)
+                  pin_file().read_text().splitlines() if ":" in line)
     tag = fields.get("tag", "").strip()
     commit = fields.get("commit", "").strip().lower()
     version_tuple(tag)

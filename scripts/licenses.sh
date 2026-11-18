@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Generates the third-party credits for the built browser with Chromium's
-# own tool, plus our Rust crates, into out/<dir>/credits.html.
+# own tool, plus our Rust crates and the React host's npm packages, Pods and
+# NOTICE, into out/<dir>/credits.html.
 #
 #   scripts/licenses.sh            # uses out/Modal
 #   OUT=out/Release scripts/licenses.sh
@@ -19,6 +20,12 @@ dest="$CHROMIUM_DIR/src/$OUT/credits.html"
 echo "Chromium credits: $dest"
 python3 scripts/adblock_notices.py --append-to "$dest"
 echo "Native blocker source provenance and notices added."
+# The React host's notices, once its Pods are installed (scripts/
+# build_react_shell.sh). scripts/package_mac.sh adds them again to the copy
+# it ships, from the host being packaged, and checks them.
+if [[ -f "apps/browser/macos/Pods/Target Support Files/Pods-MerlinShell-macOS/Pods-MerlinShell-macOS-acknowledgements.plist" ]]; then
+  python3 scripts/shell_notices.py --append-to "$dest"
+fi
 
 # Print the audited Rust graph as a second check. The native blocker's crates
 # are vendored by gnrt and included in Chromium's generated credits above.
