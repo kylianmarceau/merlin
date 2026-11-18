@@ -30,6 +30,9 @@
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/sessions/exit_type_service.h"
+#include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -1321,5 +1324,26 @@ void CancelShellPrompt(BrowserWindowInterface* browser, const std::string& id) {
   state->prompts.erase(it);
   if (!state->prompts.empty()) state->prompts.front().shown = base::TimeTicks::Now();
   state->Changed();
+}
+void ShowShellSessionCrashedPrompt(BrowserWindowInterface* browser) {
+  if (!browser || browser->GetProfile()->IsOffTheRecord()) return;
+  // As Chromium's bubble does: until this is answered, the last session stays
+  // marked as crashed, so it can still be restored.
+  std::unique_ptr<ExitTypeService::CrashedLock> lock;
+  if (auto* exit_type = ExitTypeService::GetInstanceForProfile(browser->GetProfile()))
+    lock = exit_type->CreateCrashedLock();
+  ShowShellPrompt(browser, Dict().Set("kind", "confirm").Set("origin", "Merlin")
+      .Set("title", "Restore your tabs?")
+      .Set("message", "Merlin quit unexpectedly. The windows and tabs you had open can open again.")
+      .Set("actions", List()
+          .Append(Dict().Set("id", "dismiss").Set("label", "Not now").Set("emphasis", "normal"))
+          .Append(Dict().Set("id", "restore").Set("label", "Restore tabs").Set("emphasis", "primary"))),
+      // A window that closes first answers with no action, before it goes.
+      base::BindOnce([](BrowserWindowInterface* browser, std::unique_ptr<ExitTypeService::CrashedLock>,
+                        ShellPromptReply reply) {
+        if (reply.action != "restore" || browser_shutdown::HasShutdownStarted() || browser->IsDeleteScheduled())
+          return;
+        SessionRestore::RestoreSessionAfterCrash(browser);
+      }, browser, std::move(lock)));
 }
 }  // namespace modal_browser

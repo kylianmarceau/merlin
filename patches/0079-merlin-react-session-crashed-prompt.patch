@@ -1,0 +1,39 @@
+--- a/chrome/browser/ui/views/session_crashed_bubble_view.cc
++++ b/chrome/browser/ui/views/session_crashed_bubble_view.cc
+@@ -59,6 +59,10 @@
+ #include "ui/views/layout/box_layout.h"
+ #include "ui/views/widget/widget.h"
+ 
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
++#endif
++
+ namespace {
+ 
+ views::BubbleDialogDelegate* g_instance_for_test = nullptr;
+@@ -282,6 +286,12 @@
+   // TODO(webium): WebUI browser does not use BrowserView. Make an WebUI anchor
+   // for the bubble.
+   if (!browser_view) {
++#if BUILDFLAG(IS_MAC)
++    // Merlin: a React window has no BrowserView; its shell asks instead.
++    if (modal_browser::ReactShellEnabled()) {
++      modal_browser::ShowShellSessionCrashedPrompt(browser);
++    }
++#endif
+     return nullptr;
+   }
+ 
+--- a/chrome/browser/ui/views/BUILD.gn
++++ b/chrome/browser/ui/views/BUILD.gn
+@@ -1613,6 +1613,10 @@
+     "//ui/base",
+     "//ui/views",
+   ]
++  if (is_mac) {
++    # Merlin: the shell's restore prompt for React windows.
++    deps += [ "//chrome/browser/ui/modal_browser:shell_headers" ]
++  }
+ }
+ 
+ source_set("intent_picker_bubble_view") {

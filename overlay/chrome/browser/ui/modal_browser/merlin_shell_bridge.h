@@ -57,5 +57,9 @@ using ShellCallDone = base::OnceCallback<void(bool ok, std::string json_or_error
 void RunShellCallForTesting(BrowserWindowInterface* browser, const std::string& method,
                             const std::string& args, ShellCallDone done);
 void CancelShellPrompt(BrowserWindowInterface* browser, const std::string& id);
+// After Merlin quit unexpectedly: asks whether to restore the last session,
+// in place of Chromium's crash bubble, which needs a BrowserView (patch 0079).
+// Nothing for a private window.
+void ShowShellSessionCrashedPrompt(BrowserWindowInterface* browser);
 }  // namespace modal_browser
 #endif
