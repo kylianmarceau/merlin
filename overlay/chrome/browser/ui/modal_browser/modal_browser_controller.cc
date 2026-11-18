@@ -51,6 +51,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_peek.h"
 #endif
 #include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
+#include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_groups.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
@@ -123,6 +124,20 @@
 namespace modal_browser {
 
 DEFINE_USER_DATA(ModalBrowserController);
+
+namespace {
+
+// browserctl shell-call drives the React shell's own API for end-to-end
+// tests (tests/e2e). Only an instance started for testing, with a throwaway
+// profile, accepts it; a person's browser never does. Such an instance also
+// leaves the system clipboard alone.
+bool ShellCallsAllowed() {
+  const base::CommandLine& line = *base::CommandLine::ForCurrentProcess();
+  return line.HasSwitch("merlin-test-shell-api") &&
+         line.HasSwitch(switches::kUserDataDir);
+}
+
+}  // namespace
 
 namespace {
 
@@ -321,6 +336,8 @@ class BrowserctlService {
 ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser)
     : browser_(browser),
       scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this) {
+  // Before any of this window's tabs are restored from the session.
+  RegisterWebKitSessionData();
   browser_->GetTabStripModel()->AddObserver(this);
   ObserveActiveContents();
   router_.SetWindow(browser_->GetProfile()->IsOffTheRecord());
@@ -553,11 +570,10 @@ std::vector<TabEntry> ModalBrowserController::GetTabs() {
     if (!contents) {
       continue;
     }
+    const VisiblePage page = GetVisiblePage(contents);
     out.push_back({tab->GetHandle().raw_value(),
-                   Bounded(base::UTF16ToUTF8(contents->GetTitle()),
-                           kMaxTabTextBytes),
-                   Bounded(MerlinDisplayUrl(contents->GetVisibleURL()),
-                           kMaxTabTextBytes),
+                   Bounded(base::UTF16ToUTF8(page.title), kMaxTabTextBytes),
+                   Bounded(MerlinDisplayUrl(page.url), kMaxTabTextBytes),
                    i == active});
   }
   return out;
@@ -603,7 +619,8 @@ void ModalBrowserController::NavigateUp(int count) {
   if (!contents) {
     return;
   }
-  GURL url = contents->GetLastCommittedURL();
+  GURL url = ShowsWebKit(contents) ? GetVisiblePage(contents).url
+                                   : contents->GetLastCommittedURL();
   if (!url.SchemeIsHTTPOrHTTPS() && !url.SchemeIsFile()) {
     ShowMessage(ffi::MessageLevel::Error, "This page has no parent");
     return;
@@ -628,7 +645,8 @@ void ModalBrowserController::NavigateRoot() {
   if (!contents) {
     return;
   }
-  const GURL url = contents->GetLastCommittedURL();
+  const GURL url = ShowsWebKit(contents) ? GetVisiblePage(contents).url
+                                         : contents->GetLastCommittedURL();
   if (!url.SchemeIsHTTPOrHTTPS()) {
     ShowMessage(ffi::MessageLevel::Error, "This page has no site root");
     return;
@@ -646,7 +664,7 @@ void ModalBrowserController::Scroll(ffi::ScrollKind scroll,
                                     int step_px,
                                     bool smooth) {
   content::WebContents* contents = ActiveContents();
-  if (!contents) {
+  if (!contents || RefuseInWebKit()) {
     return;
   }
   // Line steps stay instant so holding j feels direct; jumps glide.
@@ -693,15 +711,29 @@ void ModalBrowserController::ShowSiteInfo() {
 
 
 void ModalBrowserController::FindInPage() {
-  chrome::Find(browser_);
+  if (!RefuseInWebKit()) {
+    chrome::Find(browser_);
+  }
 }
 
 void ModalBrowserController::FindNext() {
-  chrome::FindNext(browser_);
+  if (!RefuseInWebKit()) {
+    chrome::FindNext(browser_);
+  }
 }
 
 void ModalBrowserController::FindPrevious() {
-  chrome::FindPrevious(browser_);
+  if (!RefuseInWebKit()) {
+    chrome::FindPrevious(browser_);
+  }
+}
+
+bool ModalBrowserController::RefuseInWebKit() {
+  if (!ShowsWebKit(ActiveContents())) {
+    return false;
+  }
+  ShowMessage(ffi::MessageLevel::Error, "Not available in WebKit tabs");
+  return true;
 }
 
 void ModalBrowserController::BlurFocusedElement() {
@@ -712,7 +744,11 @@ void ModalBrowserController::BlurFocusedElement() {
 
 void ModalBrowserController::WriteClipboard(const std::u16string& text,
                                             std::u16string_view what) {
-  ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste).WriteText(text);
+  // An end-to-end test instance says what it copies but leaves the
+  // clipboard of the person running the tests alone.
+  if (!ShellCallsAllowed()) {
+    ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste).WriteText(text);
+  }
   SetStatusMessage(u"Copied " + std::u16string(what) + u": " + Elide(text, 80),
                    /*is_error=*/false);
 }
@@ -722,13 +758,14 @@ void ModalBrowserController::Yank(ffi::YankKind kind) {
   if (!contents) {
     return;
   }
-  const GURL url = contents->GetVisibleURL();
+  const VisiblePage page = GetVisiblePage(contents);
+  const GURL& url = page.url;
   switch (kind) {
     case ffi::YankKind::Title:
-      WriteClipboard(contents->GetTitle(), u"title");
+      WriteClipboard(page.title, u"title");
       return;
     case ffi::YankKind::Markdown:
-      WriteClipboard(MarkdownLink(contents->GetTitle(), url), u"link");
+      WriteClipboard(MarkdownLink(page.title, url), u"link");
       return;
     case ffi::YankKind::Selection:
       ReadSelection(base::BindOnce(
@@ -790,8 +827,9 @@ content::RenderFrameHost* LocalRoot(content::RenderFrameHost* frame,
 void ModalBrowserController::CollectHints(uint32_t generation,
                                           ffi::HintTargets targets) {
   content::WebContents* contents = ActiveContents();
-  if (!contents) {
+  if (!contents || ShowsWebKit(contents)) {
     router_.OnHintsCollected(generation, {}, *this);
+    RefuseInWebKit();
     return;
   }
   // Every live frame of the page, main frame first, then iframes in tree
@@ -1422,15 +1460,16 @@ ModalBrowserController::CaptureWorkspace() {
         group_collapsed = visual->is_collapsed();
       }
     }
+    // The page the tab shows, in WebKit if the shell shows it there.
+    const VisiblePage page = GetVisiblePage(contents);
     tabs.push_back(ffi::WindowTab{
+        ::rust::String::lossy(Bounded(page.url.spec(), 8 * 1024)),
         ::rust::String::lossy(
-            Bounded(contents->GetVisibleURL().spec(), 8 * 1024)),
-        ::rust::String::lossy(
-            Bounded(base::UTF16ToUTF8(contents->GetTitle()), kMaxTabTextBytes)),
+            Bounded(base::UTF16ToUTF8(page.title), kMaxTabTextBytes)),
         strip->IsTabPinned(i), i == strip->active_index(), split, layout,
         split_ratio, group, ::rust::String::lossy(group_title),
         ::rust::String(group_color.data(), group_color.size()),
-        group_collapsed});
+        group_collapsed, page.webkit});
   }
   // The window's normal bounds, so a zoomed window comes back zoomed over
   // the same place it would return to.
@@ -2010,6 +2049,11 @@ void ModalBrowserController::ToggleDevTools() {
 }
 
 void ModalBrowserController::AddBookmark() {
+  // WebKit's page, not Chromium's hidden one.
+  if (BookmarkWebKitPage(ActiveContents())) {
+    ShowMessage(ffi::MessageLevel::Info, "Bookmarked");
+    return;
+  }
   if (!chrome::ExecuteCommand(browser_, IDC_BOOKMARK_THIS_TAB)) {
     ShowMessage(ffi::MessageLevel::Error, "This page cannot be bookmarked");
   }
@@ -2020,7 +2064,7 @@ void ModalBrowserController::AddBookmark() {
 
 void ModalBrowserController::CollectDocument(uint32_t generation) {
   content::WebContents* contents = ActiveContents();
-  if (!contents) {
+  if (!contents || RefuseInWebKit()) {
     return;
   }
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -2086,7 +2130,7 @@ void ModalBrowserController::JumpToBlock(ffi::BlockJump kind,
                                          bool forward,
                                          int count) {
   content::WebContents* contents = ActiveContents();
-  if (!contents) {
+  if (!contents || RefuseInWebKit()) {
     return;
   }
   contents->GetPrimaryMainFrame()->ExecuteJavaScriptInIsolatedWorld(
@@ -2111,7 +2155,9 @@ void ModalBrowserController::JumpToBlock(ffi::BlockJump kind,
 void ModalBrowserController::CopyText(std::string_view text,
                                       std::string_view what) {
   const std::u16string text16 = base::UTF8ToUTF16(text);
-  ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste).WriteText(text16);
+  if (!ShellCallsAllowed()) {
+    ui::ScopedClipboardWriter(ui::ClipboardBuffer::kCopyPaste).WriteText(text16);
+  }
   const size_t lines = std::count(text.begin(), text.end(), '\n');
   SetStatusMessage(u"Copied " + base::UTF8ToUTF16(what) + u" (" +
                        base::NumberToString16(std::max<size_t>(lines, 1)) +
@@ -2207,6 +2253,10 @@ void ModalBrowserController::CancelFieldEdit() {
 
 void ModalBrowserController::InspectField(bool force) {
   CancelFieldEdit();
+  if (RefuseInWebKit()) {
+    PageWorkDone();
+    return;
+  }
   if (browser_->GetProfile()->IsOffTheRecord()) {
     ShowMessage(ffi::MessageLevel::Error,
                 "External editing is disabled in private windows");
@@ -2367,6 +2417,9 @@ void ModalBrowserController::OnFieldEditDone(uint64_t generation,
 void ModalBrowserController::ExtendSelection(bool forward,
                                              ffi::SelectUnit unit,
                                              int count) {
+  if (RefuseInWebKit()) {
+    return;
+  }
   if (content::RenderFrameHost* frame = FocusedFrame()) {
     frame->ExecuteJavaScriptInIsolatedWorld(
         page_scripts::ExtendSelectionScript(forward, unit, count),
@@ -2391,7 +2444,7 @@ void ModalBrowserController::ClearSelection() {
 
 void ModalBrowserController::RecordMark(std::string_view letter) {
   content::WebContents* contents = ActiveContents();
-  if (!contents) {
+  if (!contents || RefuseInWebKit()) {
     return;
   }
   contents->GetPrimaryMainFrame()->ExecuteJavaScriptInIsolatedWorld(
@@ -2446,7 +2499,8 @@ void ModalBrowserController::GoToMark(std::string_view letter,
 
 void ModalBrowserController::ReadSelection(
     base::OnceCallback<void(std::string)> reply) {
-  content::RenderFrameHost* frame = FocusedFrame();
+  content::RenderFrameHost* frame =
+      ShowsWebKit(ActiveContents()) ? nullptr : FocusedFrame();
   if (!frame) {
     std::move(reply).Run(std::string());
     return;
@@ -2514,29 +2568,18 @@ ffi::IpcTab TabSummary(BrowserWindowInterface* browser,
                        uint32_t window) {
   TabStripModel* strip = browser->GetTabStripModel();
   tabs::TabInterface* tab = strip->GetTabAtIndex(index);
-  content::WebContents* contents = tab->GetContents();
+  const VisiblePage page = GetVisiblePage(tab->GetContents());
   return ffi::IpcTab{
       window,
       static_cast<uint32_t>(index + 1),
       tab->GetHandle().raw_value(),
       ::rust::String::lossy(
-          Bounded(base::UTF16ToUTF8(contents->GetTitle()), kMaxTabTextBytes)),
-      ::rust::String::lossy(Bounded(contents->GetVisibleURL().spec(), 8 * 1024)),
+          Bounded(base::UTF16ToUTF8(page.title), kMaxTabTextBytes)),
+      ::rust::String::lossy(Bounded(page.url.spec(), 8 * 1024)),
       index == strip->active_index(),
       strip->IsTabPinned(index),
       ::rust::String::lossy(Bounded(GroupTitle(strip, index), kMaxTabTextBytes))};
 }
-
-#if BUILDFLAG(IS_MAC)
-// browserctl shell-call drives the React shell's own API for end-to-end
-// tests (tests/e2e). Only an instance started for testing, with a throwaway
-// profile, accepts it; a person's browser never does.
-bool ShellCallsAllowed() {
-  const base::CommandLine& line = *base::CommandLine::ForCurrentProcess();
-  return line.HasSwitch("merlin-test-shell-api") &&
-         line.HasSwitch(switches::kUserDataDir);
-}
-#endif
 
 }  // namespace
 

@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { engineFor } from '../lib/engines';
 import type { Snapshot, Tab } from '../platform/protocol';
-import { backLeavesWebKit, decide, iconKey, leaveTimeoutMs, overlayCache, overlaySnapshot, overlayTab, type WebKitTab } from './webkitModel';
+import {
+  backLeavesWebKit, decide, engineOverlay, iconKey, leaveTimeoutMs, overlayCache, overlaySnapshot, overlayTab, type WebKitTab,
+} from './webkitModel';
 
 const engineOf = (url: string) => engineFor(url, { protectedVideoInWebKit: true, siteEngines: {} });
 const tab = (url: string, extra: Partial<Tab> = {}): Tab => ({ id: 't', title: 'Chromium', url, loading: false, pinned: false,
@@ -94,4 +96,21 @@ test('icon keys are stable and tell icons apart', () => {
   assert.equal(iconKey('data:image/png;base64,AAAA'), iconKey('data:image/png;base64,AAAA'));
   assert.notEqual(iconKey('data:image/png;base64,AAAA'), iconKey('data:image/png;base64,AAAB'));
   assert.ok(iconKey('data:x').startsWith('webkit:'));
+});
+
+test('a tab restored showing WebKit shows it again, unless its site now opens in Chromium', () => {
+  const restored = tab('https://www.google.com/search?q=netflix', { restoreInWebKit: { url: 'https://www.netflix.com/watch/1', title: 'Netflix' } });
+  assert.deepEqual(decide(restored, undefined, engineOf, 0), { kind: 'restore', url: 'https://www.netflix.com/watch/1', title: 'Netflix' });
+  const chromium = (url: string) => engineFor(url, { protectedVideoInWebKit: false, siteEngines: {} });
+  assert.deepEqual(decide(restored, undefined, chromium, 0), { kind: 'decline', url: 'https://www.netflix.com/watch/1' });
+  // Once shown, the hint left in the snapshot until native code hears changes nothing.
+  assert.deepEqual(decide(restored, wk({ base: restored.url }), engineOf, 0), { kind: 'none' });
+  assert.equal(overlayTab(restored, wk()).restoreInWebKit, undefined);
+});
+
+test('native code hears what a WebKit tab shows, once it shows a web page', () => {
+  assert.deepEqual(engineOverlay(wk({ url: 'https://www.netflix.com/watch/1', title: 'Netflix' })),
+    { engine: 'webkit', url: 'https://www.netflix.com/watch/1', title: 'Netflix' });
+  assert.equal(engineOverlay(wk({ url: '' })), null);
+  assert.equal(engineOverlay(undefined), null);
 });

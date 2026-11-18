@@ -22,11 +22,11 @@ final class WebKitPages {
 
   func page(_ tabId: String) -> WebKitPage? { pages[tabId] }
 
-  /// A folder of WebKit data of the tests' own (-MerlinWebKitTestFolder,
-  /// process-only): normal pages keep their cookies and site data in a store
-  /// of their own and their icons in a cache there, so a test never reads or
-  /// clears the person's.
-  static let testFolder: URL? = UserDefaults.standard.string(forKey: "MerlinWebKitTestFolder")
+  /// A folder of WebKit data of the tests' own ($MERLIN_WEBKIT_TEST_FOLDER):
+  /// normal pages keep their cookies and site data in a store of their own
+  /// and their icons in a cache there, so a test never reads or clears the
+  /// person's.
+  static let testFolder: URL? = ProcessInfo.processInfo.environment["MERLIN_WEBKIT_TEST_FOLDER"]
     .flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) }
 
   /// Normal pages' store: WebKit's default one for this app.

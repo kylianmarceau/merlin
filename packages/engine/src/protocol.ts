@@ -46,6 +46,12 @@ export type Tab = {
    * whose title, address and state then come from WebKit's page.
    */
   engine?: 'webkit';
+  /**
+   * The WebKit page the tab showed when Merlin last quit, restored with the
+   * session: the shell shows it in WebKit again (or, if its site now opens in
+   * Chromium, loads it there). Absent once claimed, and from older engines.
+   */
+  restoreInWebKit?: { url: string; title: string };
 };
 export type Download = {
   id: string; name: string; received: number; total: number;
@@ -171,6 +177,12 @@ export type Calls = {
   'omnibox.enter': { args: { queryId?: string; text: string; newTab: boolean }; result: null };
   'extensions.closePopup': { args: {}; result: null };
   'site.info': { args: {}; result: null };
+  /**
+   * The shell shows the tab in WebKit at this address and title, or (null)
+   * Chromium's page again. Native code then bookmarks, saves, lists and
+   * restores that page, not the hidden one.
+   */
+  'tabs.setEngineOverlay': { args: { tabId: string; overlay: { engine: 'webkit'; url: string; title: string } | null }; result: null };
 };
 export type Method = keyof Calls;
 
@@ -373,7 +385,8 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.color !== undefined && (typeof tab.color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.color))) ||
         (tab.surface !== undefined && (typeof tab.surface !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.surface))) ||
         (tab.group !== undefined && typeof tab.group !== 'string') ||
-        (tab.split !== undefined && (typeof tab.split !== 'string' || !tab.split))) {
+        (tab.split !== undefined && (typeof tab.split !== 'string' || !tab.split)) ||
+        (tab.restoreInWebKit !== undefined && !fields(tab.restoreInWebKit, { url: isString, title: isString }))) {
       throw new Error('Invalid tab snapshot');
     }
     ids.add(tab.id);

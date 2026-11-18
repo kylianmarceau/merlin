@@ -23,7 +23,8 @@
 //!   "tabs": [
 //!     {"url": "https://docs.rs", "title": "Docs.rs", "pinned": true},
 //!     {"url": "https://github.com", "title": "GitHub", "group": 0},
-//!     {"url": "https://crates.io", "title": "crates.io", "group": 0}
+//!     {"url": "https://crates.io", "title": "crates.io", "group": 0},
+//!     {"url": "https://www.netflix.com/browse", "title": "Netflix", "engine": "webkit"}
 //!   ],
 //!   "splits": [{"tabs": [1, 2], "layout": "side-by-side", "ratio": 0.5}],
 //!   "groups": [{"title": "Rust", "color": "blue", "collapsed": false}],
@@ -37,6 +38,9 @@
 //! `browserctl workspace here` in that folder (or below it) opens it.
 //! `groups`, `window` and a split's `ratio` are optional too: files written
 //! before they existed still open, with no groups and the default window.
+//! A tab's `"engine": "webkit"` says the shell showed it in WebKit, so its
+//! address is WebKit's page; reopening loads it and the engine its site uses
+//! then shows it.
 //!
 //! Newer versions are refused with a message rather than half-read, so a
 //! file written by a newer browser is never silently damaged by an older one.
@@ -154,6 +158,8 @@ pub struct WindowTab {
     /// The first tab's share of the split, from 0 to 1; `None` if unknown.
     pub split_ratio: Option<f64>,
     pub group: Option<WindowGroup>,
+    /// The shell shows the tab in WebKit; `url` and `title` are WebKit's page.
+    pub webkit: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -163,6 +169,9 @@ pub struct WorkspaceTab {
     pub pinned: bool,
     /// Index into `Workspace::groups`. Pinned tabs are never grouped.
     pub group: Option<usize>,
+    /// Shown in WebKit when saved (`"engine": "webkit"`). Reopening loads
+    /// the address, and the engine its site uses then shows it.
+    pub webkit: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -402,6 +411,7 @@ impl Workspace {
                 title: bounded(&tab.title, MAX_TITLE_LEN),
                 pinned: tab.pinned,
                 group,
+                webkit: tab.webkit,
             });
             if tab.active {
                 out.active = index;
@@ -445,6 +455,9 @@ impl Workspace {
                 }
                 if let Some(group) = t.group {
                     entries.push(("group", Value::from(group)));
+                }
+                if t.webkit {
+                    entries.push(("engine", Value::string("webkit")));
                 }
                 Value::object(entries)
             })
@@ -591,6 +604,7 @@ impl Workspace {
                 ),
                 pinned,
                 group,
+                webkit: t.get("engine").and_then(Value::as_str) == Some("webkit"),
             });
         }
         if tabs.is_empty() {

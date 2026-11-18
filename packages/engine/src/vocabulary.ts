@@ -47,6 +47,7 @@ export const callMethods = [
   'omnibox.enter',
   'extensions.closePopup',
   'site.info',
+  'tabs.setEngineOverlay',
 ] as const;
 export type CallMethod = typeof callMethods[number];
 export const requestMethods = [

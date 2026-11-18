@@ -754,9 +754,6 @@ class Merlin:
             # the person's saved preferences. These tests observe real tabs;
             # the React new-tab pop-up is covered by the shell's unit tests.
             "-MerlinShell.newTabPopup", "off",
-            # WebKit's cookies, site data and icon cache for normal pages go
-            # in a folder of this run's own, never the person's.
-            "-MerlinWebKitTestFolder", str(self.webkit_folder),
             f"--host-resolver-rules=MAP *.test 127.0.0.1, MAP pagead2.googlesyndication.com 127.0.0.1",
             "--window-size=1280,900",
             # A hidden window is occluded; keep its pages running at full speed.
@@ -768,7 +765,10 @@ class Merlin:
             "about:blank",
         ]
         env = {"XDG_CONFIG_HOME": str(self.config_home), "XDG_DATA_HOME": str(self.data_home),
-               "DYLD_INSERT_LIBRARIES": str(background_library(self.dir))}
+               "DYLD_INSERT_LIBRARIES": str(background_library(self.dir)),
+               # WebKit's cookies, site data and icon cache for normal pages
+               # go in a folder of this run's own, never the person's.
+               "MERLIN_WEBKIT_TEST_FOLDER": str(self.webkit_folder)}
         # -g: don't bring it forward; -j: launch it hidden, so its window never
         # takes the keyboard from whoever is using the Mac.
         command = ["open", "-g", "-j", "-n", "-a", str(self.app)]

@@ -55,7 +55,8 @@
       "omnibox.open",
       "omnibox.enter",
       "extensions.closePopup",
-      "site.info"
+      "site.info",
+      "tabs.setEngineOverlay"
     ],
     "requests": [
       "settings.get",

@@ -12,7 +12,9 @@ import {
 import { shellPrefs } from './shellPrefs';
 import { loadEnginePrefs, setSiteEngine } from './shellPrefsStorage';
 import { acceptSnapshot, pushToast, refreshOverlay, rememberFavicon, type BrowserStore } from './store';
-import { backLeavesWebKit, decide, iconKey, leaveTimeoutMs, overlayCache, overlaySnapshot, type WebKitTab } from './webkitModel';
+import {
+  backLeavesWebKit, decide, engineOverlay, iconKey, leaveTimeoutMs, overlayCache, overlaySnapshot, type WebKitTab,
+} from './webkitModel';
 
 export const webkitTabs = createStore<Record<string, WebKitTab>>()(() => ({}));
 
@@ -127,10 +129,64 @@ function reconcile(store: BrowserStore, engine: EngineClient) {
         void leave(store, engine, tab.id);
         break;
       case 'close': remove(tab.id); break;
+      case 'restore': restore(store, tab.id, tab.url, step.url, step.title, snapshot.private); break;
+      case 'decline':
+        if (declined.has(tab.id)) break;
+        declined.add(tab.id);
+        void engine.call('tabs.setEngineOverlay', { tabId: tab.id, overlay: null })
+          .then(() => engine.call('navigation.open', { tabId: tab.id, text: step.url })).catch(() => {})
+          .finally(() => declined.delete(tab.id));
+        break;
       default: break;
     }
   }
   pruneLater();
+}
+
+/** Restored tabs whose WebKit page now loads in Chromium, while that is under way. */
+const declined = new Set<string>();
+
+/**
+ * A tab the session restored showing `url` in WebKit: it shows there again,
+ * over the page Chromium restored behind it, which it needn't leave.
+ */
+function restore(store: BrowserStore, tabId: string, base: string, url: string, title: string, ephemeral: boolean) {
+  webkitTabs.setState({ [tabId]: {
+    url, title, loading: true, canGoBack: false, canGoForward: false, crashed: false,
+    windowId: store.windowId, base, leavingSince: Date.now(), leaveTries: 0,
+  } });
+  loadWebKitPage(tabId, url, ephemeral).catch(() => {
+    unavailable = true;
+    remove(tabId);
+  });
+}
+
+/** What native code was last told each WebKit tab shows, and that tab's window. */
+const told = new Map<string, { key: string; windowId: string }>();
+
+/**
+ * Tells native code what each WebKit tab shows, so its bookmarks, workspaces,
+ * browserctl and session restore use WebKit's page rather than Chromium's
+ * hidden one; and when a tab shows Chromium's page again.
+ */
+function tellNative() {
+  const all = pages();
+  for (const [tabId, wk] of Object.entries(all)) {
+    const overlay = engineOverlay(wk);
+    if (!overlay) continue;
+    const key = `${overlay.url}\n${overlay.title}\n${wk.windowId}`;
+    if (told.get(tabId)?.key === key) continue;
+    const window = windows.get(wk.windowId);
+    if (!window) continue;
+    told.set(tabId, { key, windowId: wk.windowId });
+    void window.engine.call('tabs.setEngineOverlay', { tabId, overlay }).catch(() => {});
+  }
+  for (const [tabId, { windowId }] of told) {
+    if (all[tabId]) continue;
+    told.delete(tabId);
+    // The tab may have closed; then there is nothing to tell.
+    void windows.get(windowId)?.engine.call('tabs.setEngineOverlay', { tabId, overlay: null }).catch(() => {});
+  }
 }
 
 function open(store: BrowserStore, engine: EngineClient, tabId: string, url: string, ephemeral: boolean) {
@@ -193,7 +249,12 @@ function showIcons(store: BrowserStore) {
     if (wk.windowId === store.windowId && wk.faviconKey && wk.favicon && !known[wk.faviconKey]) rememberFavicon(store, wk.faviconKey, wk.favicon);
 }
 
+let telling = false;
 function listenToPages() {
+  if (!telling) {
+    telling = true;
+    webkitTabs.subscribe(tellNative);
+  }
   if (stopListening) return;
   try {
     stopListening = subscribeWebKit(onPageEvent);

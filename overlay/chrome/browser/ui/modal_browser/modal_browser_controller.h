@@ -242,6 +242,10 @@ class ModalBrowserController : public BrowserOps,
 
  private:
   content::WebContents* ActiveContents();
+  // Says so and returns true when the active tab is shown in WebKit, whose
+  // page Chromium's page commands (hints, find, the outline, editing) can't
+  // reach; they would act on Chromium's hidden page.
+  bool RefuseInWebKit();
   PageFocus CurrentFocus();
   void ObserveActiveContents();
   void OnActiveTabChanged();

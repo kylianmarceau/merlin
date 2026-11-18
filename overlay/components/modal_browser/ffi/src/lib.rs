@@ -434,6 +434,8 @@ mod ffi {
         /// A Chromium group color name: grey, blue, red, ...
         group_color: String,
         group_collapsed: bool,
+        /// The shell shows the tab in WebKit; `url` and `title` are WebKit's.
+        webkit: bool,
     }
 
     /// A window's place on screen (its normal bounds); width 0 = unknown.
@@ -1214,6 +1216,7 @@ impl Session {
                     color: GroupColor::from_name(&t.group_color).unwrap_or_default(),
                     collapsed: t.group_collapsed,
                 }),
+                webkit: t.webkit,
             })
             .collect();
         self.inner

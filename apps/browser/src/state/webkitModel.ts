@@ -44,13 +44,24 @@ export type Step =
   /** Chromium went to another WebKit site (Forward, say): WebKit loads it, Chromium leaves again. */
   | { kind: 'follow'; url: string }
   /** Chromium went elsewhere by itself (Back, a bookmark, a command): its page shows again. */
-  | { kind: 'close' };
+  | { kind: 'close' }
+  /**
+   * The session restored a tab that showed `url` in WebKit; Chromium's tab is
+   * already on the page before it. Show it in WebKit again.
+   */
+  | { kind: 'restore'; url: string; title: string }
+  /** A restored WebKit page whose site now opens in Chromium: load it there. */
+  | { kind: 'decline'; url: string };
 
 const none: Step = { kind: 'none' };
 
 /** What to do about one of Chromium's tabs, given the shell's WebKit page for it, if any. */
 export function decide(tab: Tab, wk: WebKitTab | undefined, engineOf: (url: string) => PageEngine, now: number): Step {
   const wanted = engineOf(tab.url) === 'webkit';
+  if (!wk && tab.restoreInWebKit) {
+    const { url, title } = tab.restoreInWebKit;
+    return engineOf(url) === 'webkit' ? { kind: 'restore', url, title } : { kind: 'decline', url };
+  }
   if (!wk) return wanted && !tab.crashed ? { kind: 'open', url: tab.url } : none;
   if (wk.base === null) {
     if (!wanted) return { kind: 'settle', base: tab.url };
@@ -86,7 +97,7 @@ export function overlayTab(tab: Tab, wk: WebKitTab): Tab {
     // Chromium's tab behind is on another page, or the start page; none of its state shows.
     audible: false, start: false, color: wk.color, surface: wk.surface, favicon: wk.faviconKey ?? '', engine: 'webkit',
     // Nor its address formatting or security, which describe that other page.
-    displayUrl: undefined, displayHost: undefined, security: undefined,
+    displayUrl: undefined, displayHost: undefined, security: undefined, restoreInWebKit: undefined,
   };
 }
 
@@ -114,4 +125,10 @@ export function iconKey(dataUrl: string): string {
   let hash = 5381;
   for (let i = 0; i < dataUrl.length; i++) hash = ((hash * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
   return `webkit:${hash.toString(36)}:${dataUrl.length.toString(36)}`;
+}
+
+/** What native code is told a WebKit tab shows (tabs.setEngineOverlay); null when it shows nothing yet. */
+export function engineOverlay(wk: WebKitTab | undefined): { engine: 'webkit'; url: string; title: string } | null {
+  if (!wk || !/^https?:\/\//i.test(wk.url)) return null;
+  return { engine: 'webkit', url: wk.url, title: wk.title };
 }
