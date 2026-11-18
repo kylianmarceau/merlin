@@ -298,8 +298,11 @@ impl KeySequence {
                 // A lone '<' with no closing bracket is an error rather than a
                 // literal; write `<lt>` for the character.
                 let close = rest.find('>').ok_or(KeyParseError::Unterminated(offset))?;
-                // `<C->>` style: the key name itself is '>'.
-                let close = if rest[close + 1..].starts_with('>') && rest[..close].ends_with('-') {
+                // `<C->>` style: the key name itself is '>'. Only when the
+                // brackets so far hold nothing but modifiers: `<C-->>` is
+                // Control-minus, then '>'.
+                let close = if rest[close + 1..].starts_with('>') && only_modifiers(&rest[1..close])
+                {
                     close + 1
                 } else {
                     close
@@ -342,6 +345,19 @@ impl fmt::Display for KeySequence {
         }
         Ok(())
     }
+}
+
+/// `C-`, `C-S-` and so on: modifier prefixes with no key after them.
+fn only_modifiers(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    !bytes.is_empty()
+        && bytes.len().is_multiple_of(2)
+        && bytes.chunks(2).all(|pair| {
+            matches!(
+                pair[0].to_ascii_uppercase(),
+                b'C' | b'S' | b'A' | b'M' | b'D'
+            ) && pair[1] == b'-'
+        })
 }
 
 fn parse_bracketed(inner: &str) -> Result<Key, KeyParseError> {

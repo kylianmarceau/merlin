@@ -72,6 +72,22 @@ fn dash_and_bracket_keys() {
         vec![Key::new(KeyCode::Char('>'), Modifiers::CTRL)]
     );
     assert_eq!(seq("-"), vec![Key::char('-')]);
+    // Control-minus, then '>' (found by the fuzz target): not `<C-->` plus
+    // a key named "->".
+    assert_eq!(
+        seq("<C-->>"),
+        vec![
+            Key::new(KeyCode::Char('-'), Modifiers::CTRL),
+            Key::char('>')
+        ]
+    );
+    assert_eq!(
+        seq("<C-S->>"),
+        vec![Key::new(
+            KeyCode::Char('>'),
+            Modifiers::CTRL.union(Modifiers::SHIFT)
+        )]
+    );
 }
 
 #[test]

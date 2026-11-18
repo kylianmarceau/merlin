@@ -36,6 +36,8 @@ const KEYS: &[&str] = &[
     "<C->>",
     "<M-<>x<Space><CR><BS><Up><F12>",
     "é漢<S-Esc>",
+    // Found by the keys fuzz target: Control-minus, then '>'.
+    "<C-->>",
 ];
 
 const TARGETS: &[&str] = &[
