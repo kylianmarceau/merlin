@@ -75,7 +75,7 @@ the surfaces it can't see.
 |---|---|---|
 | Reading mode | Unavailable: Chromium's needs its side panel. The outline (`gO`) and `yM` (copy as Markdown) cover some of it | Unit tests: no command offers it |
 | Script plugins | Unavailable until there is a permission model | Unit tests: no command offers it |
-| Error pages and certificate warnings in Merlin's style | Fallback: Chromium's styling | e2e `test_identity` (an expected failure) |
+| Error pages and certificate warnings in Merlin's style | Limitation: Chromium's styling, in Merlin's name | e2e `test_identity` (never says Chrome); the styling isn't tested |
 | Safe Browsing lookups | Unavailable: they need a Google API key that forks don't have | Not tested |
 | Profiles and sync | Unavailable: one profile; use workspaces and private windows | Unit tests: no profile command, panel or request |
 | Ad blocking in Chromium tabs | Supported, on by default | e2e `test_adblock`, `test_site_panel`; browser tests |

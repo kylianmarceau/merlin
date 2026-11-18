@@ -281,8 +281,7 @@ the assembled app.
 * Site-specific bindings (GitHub's `j`/`k`) do not exist yet;
   `passthrough_sites` and `[unmap]` cover those sites today.
 * Error pages and certificate interstitials use Chromium's styling again
-  since the Views interface was deleted (`tests/e2e` keeps an expected failure
-  for it).
+  since the Views interface was deleted, a limitation listed in the README.
 * `modal_browser_controller.cc` (about 3,000 lines) and
   `merlin_shell_bridge_mac.mm` (about 1,300) hold too much; split the
   BrowserOps implementation, page scripts and shell snapshot code apart.

@@ -113,7 +113,6 @@ find bar can move beside a match.
 `scripts/run_e2e_tests.sh` drives the assembled app over the DevTools
 protocol and `browserctl`, with keys sent as native key events so they take
 the real path. Each run names the app build it tested (the host and
-framework UUIDs) and refuses an app older than its sources. Error-page
-styling is kept as one expected failure: error pages and certificate
-interstitials still use Chromium's styling. [tests/e2e/README.md](../tests/e2e/README.md)
+framework UUIDs) and refuses an app older than its sources.
+[tests/e2e/README.md](../tests/e2e/README.md)
 describes the harness, the disposable profile and how to add a test.

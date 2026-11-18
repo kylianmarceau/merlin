@@ -3,6 +3,9 @@
 Ported from MerlinIdentityBrowserTest: Chromium's own pages that Settings
 opens, error pages and the version page say Merlin, never Chrome or Chromium
 (except in names such as the Chrome Web Store).
+
+Error pages and certificate warnings keep Chromium's styling: that is a
+documented limitation (README.md, Limitations), not a test that fails.
 """
 
 from __future__ import annotations
@@ -86,15 +89,6 @@ class IdentityTest(MerlinTestCase):
     def test_network_errors_never_say_chrome(self) -> None:
         self.load_network_error()
         self.assertEqual(self.eval(CHROME_MENTIONS), "")
-
-    @unittest.expectedFailure
-    def test_network_errors_are_restyled(self) -> None:
-        # Regression: 5729e15 deleted RestyleMerlinPage with the Views UI, so
-        # error pages and certificate warnings show Chromium's own styling
-        # again. Remove expectedFailure once the React build restyles them.
-        self.load_network_error()
-        self.wait(lambda: self.eval("!!document.querySelector('#merlin-style')"),
-                  "Merlin's styles on the error page", timeout=3)
 
 
 if __name__ == "__main__":

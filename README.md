@@ -347,7 +347,8 @@ them all in one table, with how each is tested:
   `chrome.action.openPopup()` don't get them.
 - **Chrome Web Store installs may need extra steps.** Unpacked and `.crx`
   extensions work.
-- **Error pages look like Chromium's.**
+- **Error pages look like Chromium's.** Network errors and certificate
+  warnings use Chromium's own styling, in Merlin's name.
 - **Apple Silicon only.** No Intel, Windows or Linux builds.
 
 ## Build from source
