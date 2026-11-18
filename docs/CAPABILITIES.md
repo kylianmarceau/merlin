@@ -78,5 +78,11 @@ the surfaces it can't see.
 | Error pages and certificate warnings in Merlin's style | Limitation: Chromium's styling, in Merlin's name | e2e `test_identity` (never says Chrome); the styling isn't tested |
 | Safe Browsing lookups | Unavailable: they need a Google API key that forks don't have | Not tested |
 | Profiles and sync | Unavailable: one profile; use workspaces and private windows | Unit tests: no profile command, panel or request |
-| Ad blocking in Chromium tabs | Supported, on by default | e2e `test_adblock`, `test_site_panel`; browser tests |
+| Ad blocking in Chromium tabs | Supported, on by default | e2e `test_adblock`, `test_site_panel`, `test_adblock_states` (off, no lists, a broken list, rules still loading); browser tests, with a development build |
+| Lean defaults: Gemini, Lens, Help me write, Cast and the built-in AI APIs off, Memory Saver on, no field trials, no prewarmed or preloaded hidden pages | Supported | e2e `test_defaults` |
+| Private windows: no history or workspace, invisible to `browserctl` | Supported | e2e `test_private` |
+| Session restore after quitting, and after a crash once you choose Restore | Supported | e2e `test_session` |
+| Site permission prompts and page dialogs (`alert`, `confirm`, `prompt`) | Supported, answered in the shell | e2e `test_prompts` |
+| Input methods and dead keys, in fields and in Normal mode | Supported: their keys always reach the page | e2e `test_input`, with the keys an input method sends; no real input method |
+| Recovery from a renderer or GPU process crash | Supported | e2e `test_crash` |
 | Passkeys and security keys, client certificates, proxy authentication, enterprise policies | Inherited from Chromium | Not tested: needs hardware or a matching setup |
