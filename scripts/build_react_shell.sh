@@ -15,6 +15,10 @@ command -v node >/dev/null
 command -v pnpm >/dev/null
 command -v pod >/dev/null
 python3 scripts/sync_shell_headers.py --check
+# The host's sources as the build starts, for its stamp afterwards.
+snapshot="$(mktemp "${TMPDIR:-/tmp}/merlin-shell-sources.XXXXXX")"
+trap 'rm -f "$snapshot"' EXIT
+python3 scripts/stamp_build.py snapshot shell "$snapshot"
 pnpm install --frozen-lockfile
 pnpm ui:check
 pnpm ui:test
@@ -43,6 +47,6 @@ APP="$DERIVED_DATA/Build/Products/$CONFIGURATION/MerlinShell.app"
 # The Dock tile plug-in that keeps the chosen app icon after Merlin quits.
 packages/shell/docktile/build.sh "$APP"
 # What the host was built from, checked by assembly (scripts/lib/build_stamp.py).
-python3 scripts/stamp_build.py shell "$APP"
+python3 scripts/stamp_build.py shell "$APP" --since "$snapshot"
 echo "React host: $APP"
 echo "Next: assemble it with the rebuilt Chromium app using scripts/assemble_react_app.py."

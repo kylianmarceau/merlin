@@ -51,10 +51,17 @@ def binary(app: Path, product: str) -> Path:
     return app / 'Contents/MacOS' / info['CFBundleExecutable']
 
 
-def stamp(app: Path, product: str, repo: Path) -> dict:
-    """Records the checkout's state for `product` in the app's Info.plist and returns it."""
-    record = {'product': product, **source_state(repo, PRODUCTS[product]),
-              'uuids': macho_uuids(binary(app, product))}
+def stamp(app: Path, product: str, repo: Path, before: dict | None = None) -> dict:
+    """Records the checkout's state for `product` in the app's Info.plist and returns it.
+
+    `before` is the state captured when the build started; if the sources
+    changed while it ran, the build may mix the two, so nothing is stamped.
+    """
+    state = source_state(repo, PRODUCTS[product])
+    if before is not None and before != state:
+        raise ValueError(f'the {product} sources changed while it was building '
+                         f'({before["sourceCommit"][:12]} → {state["sourceCommit"][:12]}); build it again')
+    record = {'product': product, **state, 'uuids': macho_uuids(binary(app, product))}
     path = app / 'Contents/Info.plist'
     info = plistlib.loads(path.read_bytes())
     info[KEY] = {key: value for key, value in record.items() if value is not None}

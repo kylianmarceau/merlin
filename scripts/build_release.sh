@@ -52,13 +52,18 @@ mkdir -p "$SRC/$OUT"
 cp "$ROOT/build/args.release.gn" "$SRC/$OUT/args.gn"
 echo "wrote   $OUT/args.gn"
 
+# The engine's sources as the build starts, for its stamp afterwards.
+snapshot="$(mktemp "${TMPDIR:-/tmp}/merlin-engine-sources.XXXXXX")"
+trap 'rm -f "$snapshot"' EXIT
+python3 scripts/stamp_build.py snapshot engine "$snapshot"
+
 cd "$SRC"
 gn gen "$OUT"
 autoninja -C "$OUT" chrome
 
 cd "$ROOT"
 # What the engine was built from, checked by assembly (scripts/lib/build_stamp.py).
-python3 scripts/stamp_build.py engine "$SRC/$OUT/Merlin.app"
+python3 scripts/stamp_build.py engine "$SRC/$OUT/Merlin.app" --since "$snapshot"
 OUT="$OUT" scripts/licenses.sh
 echo
 echo "Built the engine: $SRC/$OUT/Merlin.app"
