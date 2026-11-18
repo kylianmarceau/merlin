@@ -18,11 +18,12 @@
 #   Merlin-<version>-arm64-dSYMs.zip    debug symbols; keep them, don't upload
 #
 # No Developer ID, notarization or stapling: the release policy excludes them
-# (docs/RELEASE.md). The app is ad-hoc signed instead. The linker already
-# signs each binary, but that leaves the bundle without sealed resources, and
-# macOS reports a downloaded copy as damaged. Signing every nested binary and
-# bundle, innermost first, gives a complete signature, so Gatekeeper offers
-# Open Anyway. No hardened runtime, so no entitlements are needed.
+# (docs/RELEASE.md). The app is ad-hoc signed instead (scripts/sign_app.py):
+# every nested binary and bundle, innermost first, so Gatekeeper offers Open
+# Anyway rather than calling a download damaged. It has the hardened runtime,
+# with Chromium's entitlement files for the app (camera, microphone,
+# location...) and its renderer and GPU helpers (JIT), and library
+# validation off, which ad-hoc code (no team ID) needs.
 #
 # Needs out/Release from scripts/build_release.sh (which also writes
 # credits.html), the React host from scripts/build_react_shell.sh, and the two
@@ -147,40 +148,12 @@ echo "==> release version"
 /usr/libexec/PlistBuddy -c "Delete :MerlinVersion" "$stage/Merlin.app/Contents/Info.plist" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :MerlinVersion string $VERSION" "$stage/Merlin.app/Contents/Info.plist"
 
-echo "==> ad-hoc signing, innermost first"
-# Every Mach-O file and code bundle, deepest path first, so each container
-# is signed after everything inside it. Symlinks are skipped.
-python3 - "$stage/Merlin.app" > "$stage/sign-order" <<'PY'
-import os, sys
-MAGIC = {b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe",
-         b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"}
-BUNDLES = (".app", ".framework", ".xpc", ".appex", ".bundle", ".plugin")
-found = []
-for top, dirs, files in os.walk(sys.argv[1]):
-    for d in dirs:
-        p = os.path.join(top, d)
-        if d.endswith(BUNDLES) and not os.path.islink(p):
-            found.append(p)
-    for f in files:
-        p = os.path.join(top, f)
-        if os.path.islink(p):
-            continue
-        with open(p, "rb") as fh:
-            if fh.read(4) in MAGIC:
-                found.append(p)
-found.append(sys.argv[1])
-for p in sorted(set(found), key=lambda p: -p.count(os.sep)):
-    sys.stdout.write(p + "\0")
-PY
-count=0
-while IFS= read -r -d '' path; do
-  codesign --force --sign - --timestamp=none "$path"
-  count=$((count + 1))
-done < "$stage/sign-order"
-rm "$stage/sign-order"
-echo "signed $count items"
+echo "==> signing with the hardened runtime, innermost first"
+# Chromium's own entitlement files, from the checkout the engine was built in.
+python3 scripts/sign_app.py "$stage/Merlin.app" --runtime --entitlements "$(dirname "$(dirname "$BUILD")")/chrome/app"
 codesign --verify --deep --strict --verbose=1 "$stage/Merlin.app"
-codesign -dv "$stage/Merlin.app" 2>&1 | grep -E '^(Identifier|Signature|Sealed Resources)'
+codesign -dv "$stage/Merlin.app" 2>&1 | grep -E '^(Identifier|Signature|Sealed Resources|CodeDirectory)'
+codesign -dv "$stage/Merlin.app" 2>&1 | grep -q 'flags=.*runtime' || die "the signed app has no hardened runtime"
 
 if [[ "$symbols_skipped" != 1 ]]; then
   echo "==> debug symbols: one dSYM per packaged binary, matched by UUID"
@@ -208,7 +181,7 @@ changes() { local c; c="$(field "$1.sourceChanges")"; [[ -z "$c" ]] || echo " + 
   echo "Bundle ID: $bundle_id"
   echo "Minimum macOS: $min_macos"
   echo "Architecture: arm64"
-  echo "Signature: ad-hoc (no Developer ID, not notarized)"
+  echo "Signature: ad-hoc, hardened runtime (no Developer ID, not notarized)"
   echo "UI: React Native macOS / Hermes (shell ABI 1)"
   echo "Lockfiles (SHA-256):"
   python3 -c 'import json, sys

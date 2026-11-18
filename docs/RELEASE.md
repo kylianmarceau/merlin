@@ -69,8 +69,13 @@ a Developer ID identity or Apple notarization.
 
    It stamps `MERLIN_VERSION` into the app's `Info.plist` as `MerlinVersion`,
    which Settings › General › Updates compares with GitHub Releases. Then it
-   ad-hoc signs the app (every binary and bundle, innermost first),
-   checks the signature, and writes the DMG, its SHA-256 checksum,
+   signs the app (`scripts/sign_app.py`: every binary and bundle, innermost
+   first) with the hardened runtime and Chromium's entitlement files: camera,
+   microphone, location, USB, Bluetooth, print and photos for the app, JIT
+   for the renderer and GPU helpers. Every executable also has library
+   validation turned off: it admits only code signed by the app's own team,
+   and ad-hoc code has no team ID, so the host could not load Hermes or the
+   framework without it. It checks the signature, and writes the DMG, its SHA-256 checksum,
    `build-info.txt` and a dSYM archive to `dist/<version>/`. Keep the dSYMs
    and build info for crash reports. Don't upload the dSYMs.
    To promote an unchanged beta, reuse that beta's compiled, assembled app

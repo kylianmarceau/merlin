@@ -183,6 +183,39 @@ class MatchDsymsTest(unittest.TestCase):
         self.assertEqual(missing, ['Contents/MacOS/Merlin (SHELL)'])
 
 
+class SignAppTest(unittest.TestCase):
+    """The hardened runtime's entitlements go to the right bundles, signed innermost first (C02)."""
+
+    def test_order_and_entitlements(self):
+        import sign_app
+        with tempfile.TemporaryDirectory() as temp:
+            app = Path(temp) / 'Merlin.app'
+            helpers = app / 'Contents/Frameworks/Merlin Framework.framework/Versions/157/Helpers'
+            for name in ('Merlin Helper (Renderer).app', 'Merlin Helper (GPU).app', 'Merlin Helper.app',
+                         'Merlin Helper (Aperitif Renderer).app'):
+                (helpers / name / 'Contents/MacOS').mkdir(parents=True)
+            entitlements = Path('/chromium/chrome/app')
+            order = sign_app.sign_order(app)
+            self.assertEqual(order[-1], app)
+            self.assertLess(order.index(helpers / 'Merlin Helper.app'),
+                            order.index(app / 'Contents/Frameworks/Merlin Framework.framework'))
+            chosen = lambda name: sign_app.entitlements_for(helpers / name, app, entitlements)
+            self.assertEqual(sign_app.entitlements_for(app, app, entitlements).name, 'app-entitlements.plist')
+            self.assertEqual(chosen('Merlin Helper (Renderer).app').name, 'helper-renderer-entitlements.plist')
+            self.assertEqual(chosen('Merlin Helper (Aperitif Renderer).app').name,
+                             'helper-renderer-entitlements.plist')
+            self.assertEqual(chosen('Merlin Helper (GPU).app').name, 'helper-gpu-entitlements.plist')
+            self.assertIsNone(chosen('Merlin Helper.app'))
+            off = sign_app.with_library_validation_off(None, Path(temp))
+            self.assertTrue(plistlib.loads(off.read_bytes())[sign_app.LIBRARY_VALIDATION])
+
+    def test_executables_are_told_from_libraries(self):
+        import sign_app
+        for path, expected in ((Path('/bin/ls'), True), (Path('/usr/lib/libobjc.A.dylib'), False)):
+            if path.exists() and path.stat().st_size > 4096:
+                self.assertEqual(sign_app.is_executable(path), expected, path)
+
+
 class SourceStateTest(unittest.TestCase):
     """The record e2e runs compare: commit plus a digest of uncommitted product changes."""
 
