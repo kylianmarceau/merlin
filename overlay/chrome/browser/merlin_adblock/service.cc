@@ -11,6 +11,7 @@
 #include "base/command_line.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
+#include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/json/json_reader.h"
 #include "base/no_destructor.h"
@@ -22,6 +23,7 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/popup_creation_policy.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -33,11 +35,35 @@ namespace merlin_adblock {
 namespace {
 // End-to-end tests hold the rules back to see the panel's not-ready state.
 // Only an instance started for testing, with a throwaway profile, does.
-bool HoldRulesForTesting() {
+bool StartedForTesting() {
   const base::CommandLine& line = *base::CommandLine::ForCurrentProcess();
-  return line.HasSwitch("merlin-test-adblock-hold") &&
-         line.HasSwitch("merlin-test-shell-api") &&
+  return line.HasSwitch("merlin-test-shell-api") &&
          line.HasSwitch("user-data-dir");
+}
+bool HoldRulesForTesting() {
+  return StartedForTesting() &&
+         base::CommandLine::ForCurrentProcess()->HasSwitch(
+             "merlin-test-adblock-hold");
+}
+// End-to-end tests also start with rules of their own, from a file, instead
+// of the bundled lists and their updates, to see blocking off, a list that
+// fails to load, and what pages get before the rules are ready.
+base::FilePath TestRulesPath() {
+  return StartedForTesting()
+             ? base::CommandLine::ForCurrentProcess()->GetSwitchValuePath(
+                   "merlin-test-adblock-rules")
+             : base::FilePath();
+}
+// How long the test rules take to load, each time the engine starts.
+base::TimeDelta TestRulesDelay() {
+  int ms = 0;
+  if (!base::StringToInt(
+          base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+              "merlin-test-adblock-rules-delay-ms"),
+          &ms) ||
+      ms < 0)
+    ms = 0;
+  return base::Milliseconds(std::min(ms, 60000));
 }
 class CacheInvalidation {
  public:
@@ -133,7 +159,8 @@ void Service::InvalidateResourceCaches(base::OnceClosure done) {
 Service::Service(Profile* profile)
     : profile_(profile),
       gate_(base::MakeRefCounted<RequestGate>()),
-      hold_rules_for_testing_(HoldRulesForTesting()) {
+      hold_rules_for_testing_(HoldRulesForTesting()),
+      test_rules_path_(TestRulesPath()) {
   pref_changes_.Init(profile_->GetPrefs());
   for (const char* pref : {kEnabledPref, kExceptionsPref})
     pref_changes_.Add(pref, base::BindRepeating(
@@ -155,7 +182,7 @@ Service::Service(Profile* profile)
         profile_, base::BindRepeating(&CheckHandshake,
                                       weak_factory_.GetWeakPtr(), uint8_t{12}));
     Initialize();
-    if (!profile_->IsOffTheRecord())
+    if (!profile_->IsOffTheRecord() && test_rules_path_.empty())
       updater_ = std::make_unique<Updater>(
           profile_,
           base::BindRepeating(&Service::Install, weak_factory_.GetWeakPtr()));
@@ -199,6 +226,10 @@ void Service::Initialize() {
                              weak_factory_.GetWeakPtr()));
   }
   PublishGate();
+  if (!test_rules_path_.empty()) {
+    LoadTestRules(configuration);
+    return;
+  }
   auto read_cache = profile_->GetOriginalProfile()
                         ->GetPath()
                         .AppendASCII("MerlinAdblock")
@@ -507,6 +538,34 @@ void Service::Generic(const GURL& top,
   }
   evaluator_->Generic(std::move(classes), std::move(ids), std::move(exceptions),
                       std::move(done));
+}
+void Service::LoadTestRules(uint64_t configuration) {
+  content::GetUIThreadTaskRunner({})->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(
+          [](base::WeakPtr<Service> self, uint64_t configuration) {
+            if (!self || self->configuration_ != configuration)
+              return;
+            base::ThreadPool::PostTaskAndReplyWithResult(
+                FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_BLOCKING},
+                base::BindOnce(
+                    [](base::FilePath path) {
+                      std::string text;
+                      base::ReadFileToString(path, &text);
+                      return text;
+                    },
+                    self->test_rules_path_),
+                base::BindOnce(
+                    [](base::WeakPtr<Service> self, uint64_t configuration,
+                       std::string rules) {
+                      // A list change meanwhile starts again.
+                      if (self && self->configuration_ == configuration)
+                        self->SetRulesForTesting(std::move(rules), "[]", {});
+                    },
+                    self, configuration));
+          },
+          weak_factory_.GetWeakPtr(), configuration),
+      TestRulesDelay());
 }
 void Service::SetRulesForTesting(std::string rules,
                                  std::string resources,

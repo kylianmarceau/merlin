@@ -6,6 +6,7 @@
 #include <string>
 
 #include "base/containers/flat_set.h"
+#include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -137,6 +138,9 @@ class Service : public KeyedService {
 
  private:
   void Initialize();
+  // --merlin-test-adblock-rules: installs the file's rules after
+  // --merlin-test-adblock-rules-delay-ms, unless the lists change meanwhile.
+  void LoadTestRules(uint64_t configuration);
   void InvalidateResourceCaches(base::OnceClosure done = {});
   void Install(Bundle bundle, base::OnceCallback<void(bool)> done);
   void InstallIdentified(Bundle bundle,
@@ -177,6 +181,9 @@ class Service : public KeyedService {
   // --merlin-test-adblock-hold (end-to-end tests only): rules never load, so
   // the service stays initializing and pages load unblocked.
   const bool hold_rules_for_testing_;
+  // --merlin-test-adblock-rules (end-to-end tests only): the only rules, in
+  // place of the bundled lists; no updates. Empty otherwise.
+  const base::FilePath test_rules_path_;
   PrefChangeRegistrar pref_changes_;
   base::WeakPtrFactory<Service> weak_factory_{this};
 };
