@@ -44,7 +44,11 @@ for target in "${targets[@]}"; do
   grep -E '^#[0-9]+[[:space:]]+DONE|^stat::number_of_executed_units|panicked|SUMMARY|Test unit written' "$log" || true
   if [[ $status -ne 0 ]]; then
     tail -40 "$log" >&2
-    echo "FAIL: $target found an input (exit $status); see fuzz/artifacts/" >&2
+    if ls fuzz/artifacts/"$target"-* >/dev/null 2>&1; then
+      echo "FAIL: $target found an input (exit $status); see fuzz/artifacts/" >&2
+    else
+      echo "FAIL: $target stopped with exit $status before fuzzing; see $log" >&2
+    fi
     exit 1
   fi
 done
