@@ -5,9 +5,10 @@ import { errorText, type ActionResult } from '../../lib/result';
 import type { BookmarkItem, BookmarkView, HistoryItem } from '../../state/types';
 import { useAction, useActions, useBrowser, useRequest, useSnapshot } from '../../state/window';
 import {
-  Box, Button, Dialog, EmptyState, Field, Icon, IconButton, ListRow, Notice, Sheet, Spinner, Text, duration, geometry, radius, space,
-  useTheme, type SheetSection,
+  Box, Button, Dialog, EmptyState, Field, Icon, IconButton, ListRow, Notice, Sheet, Spinner, Text, duration, geometry, keyGlyphs, radius,
+  space, useTheme, type SheetSection,
 } from '../ui';
+import { bookmarkKeys, bookmarkRowActions } from './bookmarkActions';
 import { DownloadRow } from './DownloadRow';
 
 const sections = [
@@ -16,6 +17,10 @@ const sections = [
   { id: 'downloads', label: 'Downloads', icon: 'arrow.down.to.line' },
 ] as const satisfies readonly SheetSection<string>[];
 export type LibrarySection = typeof sections[number]['id'];
+
+/** So the keys can be found: they work once Tab reaches a bookmark. */
+const bookmarkKeysNote = `On a bookmark: ${keyGlyphs(bookmarkKeys.up)} ${keyGlyphs(bookmarkKeys.down)} moves it, ` +
+  `${keyGlyphs(bookmarkKeys.remove)} deletes it.`;
 
 export function Library({ open }: { open: boolean }) {
   const actions = useActions();
@@ -31,7 +36,8 @@ export function Library({ open }: { open: boolean }) {
   return <Sheet<LibrarySection> open={open} title="Library" nav="segments" sections={tabs} section={section} onSection={setSection}
     onClose={actions.closePanel}
     footer={section === 'history' ? <Footer note="History stays on this Mac." link="Clear browsing data…"
-      onPress={() => void action.run('settings.openPage', { key: 'clear-data' })} /> : undefined}>
+      onPress={() => void action.run('settings.openPage', { key: 'clear-data' })} />
+      : section === 'bookmarks' ? <Footer note={bookmarkKeysNote} /> : undefined}>
     {section === 'history' && <History onOpen={openUrl} />}
     {section === 'bookmarks' && <Bookmarks onOpen={openUrl} />}
     {section === 'downloads' && <Downloads />}
@@ -51,14 +57,14 @@ function Header({ query, onQuery, placeholder, children }: React.PropsWithChildr
   </View>;
 }
 
-function Footer({ note, link, onPress }: { note: string; link: string; onPress(): void }) {
+function Footer({ note, link, onPress }: { note: string; link?: string; onPress?(): void }) {
   const { colors } = useTheme();
   return <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.lg + space.xs,
     paddingVertical: space.md, borderTopWidth: geometry.hairline, borderTopColor: colors.borderSubtle }}>
     <Text variant="label" weight="regular" tone="textSecondary">{note}</Text>
-    <Pressable accessibilityRole="button" accessibilityLabel={link} onPress={onPress}>
+    {!!link && <Pressable accessibilityRole="button" accessibilityLabel={link} onPress={onPress}>
       <Text variant="label" tone="textLink">{link}</Text>
-    </Pressable>
+    </Pressable>}
   </View>;
 }
 
@@ -207,6 +213,10 @@ function Bookmarks({ onOpen }: { onOpen(url: string): void }) {
         detail={item.folder ? `${item.count ?? 0} items` : [item.domain, item.where].filter(Boolean).join(' · ')}
         leading={<Icon name={item.folder ? 'folder' : 'bookmark'} tone={item.folder ? 'accent' : 'iconSecondary'} size="small" />}
         onPress={() => { if (item.folder) { setQuery(''); setFolderId(item.id); } else if (item.url) onOpen(item.url); }}
+        actions={bookmarkRowActions(item, { index, count: view.items.length, searching: !!text }, {
+          move: delta => move(item, delta), edit: () => setEditing(item),
+          remove: () => void mutate(() => action.run('bookmarks.remove', { id: item.id })),
+        })}
         hoverTrailing={item.editable ? <View style={{ flexDirection: 'row' }}>
           {!text && <IconButton label="Move up" icon="arrow.up" size="small" disabled={index === 0} onPress={() => move(item, -1)} />}
           {!text && <IconButton label="Move down" icon="arrow.down" size="small" disabled={index === view.items.length - 1} onPress={() => move(item, 1)} />}

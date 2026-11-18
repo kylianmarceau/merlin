@@ -12,6 +12,7 @@ export { Toggle } from './Toggle';
 export { Segmented } from './Segmented';
 export { Checkbox } from './Checkbox';
 export { ListRow } from './ListRow';
+export { keyGlyphs, type RowAction, type RowKey } from './rowActions';
 export { MenuFooter, MenuRow, MenuSection, MenuSeparator, MenuTextButton, PopoverBody, PopoverRow, RowFill, popoverInset, rowState } from './Menu';
 export { GlassFill } from './GlassFill';
 export { KeyCap } from './KeyCap';
