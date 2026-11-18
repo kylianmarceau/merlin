@@ -46,3 +46,6 @@ claude_code_chromium_browser_prompt.md
 /branding/start-page/
 /branding/*.png
 /branding/*.icns
+
+# Local build logs
+.build-*.log
