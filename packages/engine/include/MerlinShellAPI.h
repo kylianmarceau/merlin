@@ -17,6 +17,13 @@ typedef struct MerlinShellAPI {
   // Added within ABI 1: present when struct_size covers it. Starts the React
   // bridge and bundle load early, before the first window asks for a root.
   void (*prewarm)(void);
+  // Added within ABI 1. Removes WebKit pages' data for Clear Browsing Data.
+  // `json` is {"since": seconds since the epoch (0: all time), "types": any of
+  // "cookies" (cookies and site data) and "cache", "site": a registrable
+  // domain (optional; all time), "private": the private session's data, not
+  // the normal store's}. `done` runs once on the UI thread, possibly before
+  // this returns, with NULL or an error that is valid only during the call.
+  void (*clear_webkit_data)(const char* json, void (*done)(const char* error, void* context), void* context);
 } MerlinShellAPI;
 typedef const MerlinShellAPI* (*MerlinShellGetAPIFn)(uint32_t abi_version);
 const MerlinShellAPI* MerlinShellGetAPI(uint32_t abi_version);

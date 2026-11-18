@@ -99,6 +99,11 @@ void MerlinStartupTrace(const char* event) {
 }
 @end
 
+// What MerlinWebKit's WebKitData class answers (it is Swift, in its own pod).
+@protocol MerlinWebKitData
++ (void)clear:(NSString*)json completion:(void (^)(NSString* _Nullable error))completion;
+@end
+
 namespace {
 MerlinShellRuntime* runtime;
 MerlinShellRuntime* Runtime() {
@@ -129,7 +134,21 @@ void Prewarm() {
   if (!on || strcmp(on, "1")) return;
   if (NSThread.isMainThread) [Runtime() prewarm];
 }
-const MerlinShellAPI api = {1, sizeof(MerlinShellAPI), CreateRoot, ReleaseRoot, Shutdown, Prewarm};
+void ClearWebKitData(const char* json, void (*done)(const char*, void*), void* context) {
+  NSCAssert(NSThread.isMainThread, @"Clear WebKit's data on the browser UI thread");
+  if (!done) return;
+  // MerlinWebKit's WebKitData (WebKitPages.swift). A host built without the
+  // module shows no WebKit pages, so it has no WebKit data to clear.
+  Class data = NSClassFromString(@"MerlinWebKitData");
+  if (!json || !data) {
+    done(json ? nullptr : "Invalid request", context);
+    return;
+  }
+  [(id<MerlinWebKitData>)data clear:@(json) completion:^(NSString* error) {
+    done(error.length ? error.UTF8String : nullptr, context);
+  }];
+}
+const MerlinShellAPI api = {1, sizeof(MerlinShellAPI), CreateRoot, ReleaseRoot, Shutdown, Prewarm, ClearWebKitData};
 }
 extern "C" __attribute__((visibility("default"), used))
 const MerlinShellAPI* MerlinShellGetAPI(uint32_t version) {

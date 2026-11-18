@@ -439,6 +439,10 @@ class PageServer:
         with self.lock:
             return [r for r in self.sent if r.path.startswith(path_prefix) and (host is None or r.host == host)]
 
+    def chromium_requests(self, path_prefix: str, host: Optional[str] = None) -> list[Request]:
+        """Requests Chromium's pages made."""
+        return [r for r in self.requests_to(path_prefix, host) if "Chrome/" in r.user_agent]
+
     def webkit_requests(self, path_prefix: str, host: Optional[str] = None) -> list[Request]:
         """Requests WebKit made (Chromium's say Chrome in their user agent)."""
         with self.lock:
@@ -770,12 +774,27 @@ class Merlin:
         command = ["open", "-g", "-j", "-n", "-a", str(self.app)]
         for key, value in env.items():
             command += ["--env", f"{key}={value}"]
-        subprocess.run(command + ["--args", *args], check=True)
+        self._launch_command = command + ["--args", *args]
+        self._launch()
+
+    def _launch(self) -> None:
+        subprocess.run(self._launch_command, check=True)
         try:
             self._connect()
         except BaseException:
             self.close()
             raise
+
+    def restart(self) -> None:
+        """Quits Merlin as Command-Q does and starts it again with the same profile, config and data."""
+        with contextlib.suppress(Exception):
+            self.cdp.call("Browser.close", timeout=10)
+        self.cdp.close()
+        marker = f"--user-data-dir={self.profile}"
+        wait_until(lambda: subprocess.run(["pgrep", "-f", marker], capture_output=True).returncode != 0,
+                   timeout=30, message="Merlin to quit")
+        (self.profile / "DevToolsActivePort").unlink(missing_ok=True)
+        self._launch()
 
     def _connect(self) -> None:
         port_file = self.profile / "DevToolsActivePort"

@@ -40,6 +40,13 @@ engines, with no cookies or credentials: normal pages' icons are cached in
 `~/Library/Caches/io.github.kylianmarceau.merlin/WebKitIcons`, private
 pages' only in memory for their session.
 
+Settings › Privacy › Clear browsing data clears Chromium's data and WebKit
+pages' together (history, cookies and site data, cache, over a time range),
+and says if either engine failed. "Forget this site" in the site panel
+removes one site's cookies, site data and cache from both engines; its
+history and bookmarks stay. Passwords and autofill data are cleared from
+Chromium's own page, linked from the same place.
+
 When the native ad blocker is enabled, normal profiles can automatically
 refresh selected filter sources with Chromium's networking. The fixed catalog
 uses **easylist.to** and **raw.githubusercontent.com** over HTTPS. Requests omit

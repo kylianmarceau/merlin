@@ -43,6 +43,54 @@ final class WebKitPages {
 
   func icons(ephemeral: Bool) -> IconFetcher { ephemeral ? openPrivateSession().icons : normalIcons }
 
+  /// WebKit's part of Clear Browsing Data: "cookies" (cookies and site
+  /// data) and "cache" since `since` (seconds since the epoch), or all of a
+  /// site's (a registrable domain, as WebKit's records name them). Private
+  /// windows clear their own session. Icons' cache goes with either.
+  func clear(since: Double, types: Set<String>, site: String?, privateSession isPrivate: Bool,
+             completion: @escaping () -> Void) {
+    var kinds = Set<String>()
+    if types.contains("cookies") { kinds.formUnion(WKWebsiteDataStore.allWebsiteDataTypes().subtracting(Self.cacheTypes)) }
+    if types.contains("cache") { kinds.formUnion(Self.cacheTypes) }
+    // History: WebKit pages keep none of their own, beyond their tabs' Back lists.
+    let session = isPrivate ? privateSession : nil
+    guard !kinds.isEmpty, !isPrivate || session != nil else { return completion() }
+    let store = session?.store ?? normalStore
+    (session?.icons ?? normalIcons).clearCache(since: site == nil ? since : 0)
+    if let site {
+      // Cookies by their own domain, exactly; other data by WebKit's records,
+      // which name the registrable domain (and may group hosts it doesn't
+      // know the registry of, such as *.localhost).
+      let cookies = store.httpCookieStore
+      let matches = { (domain: String) -> Bool in
+        let domain = domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        return domain == site || domain.hasSuffix("." + site)
+      }
+      let records = { (done: @escaping () -> Void) in
+        store.fetchDataRecords(ofTypes: kinds.subtracting([WKWebsiteDataTypeCookies])) { records in
+          store.removeData(ofTypes: kinds.subtracting([WKWebsiteDataTypeCookies]),
+                           for: records.filter { $0.displayName.lowercased() == site }, completionHandler: done)
+        }
+      }
+      guard kinds.contains(WKWebsiteDataTypeCookies) else { return records(completion) }
+      cookies.getAllCookies { all in
+        let group = DispatchGroup()
+        for cookie in all where matches(cookie.domain) {
+          group.enter()
+          cookies.delete(cookie) { group.leave() }
+        }
+        group.notify(queue: .main) { records(completion) }
+      }
+    } else {
+      store.removeData(ofTypes: kinds, modifiedSince: Date(timeIntervalSince1970: since), completionHandler: completion)
+    }
+  }
+
+  private static let cacheTypes: Set<String> = [
+    WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache, WKWebsiteDataTypeOfflineWebApplicationCache,
+    WKWebsiteDataTypeFetchCache,
+  ]
+
   /// The test folder's store, named in the folder so the tests can remove it.
   private static func storeIdentifier(in folder: URL) -> UUID {
     let file = folder.appendingPathComponent("webkit-store-id")
@@ -157,6 +205,19 @@ final class WebKitPages {
     configuration.preferences.isFraudulentWebsiteWarningEnabled = false
     configuration.defaultWebpagePreferences.preferredContentMode = .desktop
     return configuration
+  }
+}
+
+/// Clear Browsing Data's way into WebKit, for the shell host (AppDelegate.mm's
+/// clear_webkit_data), which Chromium calls: the request is the JSON that
+/// MerlinShellAPI.h describes. The completion gets nil or an error.
+@objc(MerlinWebKitData) public final class WebKitData: NSObject {
+  @objc public static func clear(_ json: String, completion: @escaping (String?) -> Void) {
+    guard let data = json.data(using: .utf8), let request = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+      let types = request["types"] as? [String] else { return completion("Invalid request") }
+    let site = (request["site"] as? String).flatMap { $0.isEmpty ? nil : $0.lowercased() }
+    WebKitPages.shared.clear(since: (request["since"] as? NSNumber)?.doubleValue ?? 0, types: Set(types), site: site,
+                             privateSession: request["private"] as? Bool == true) { completion(nil) }
   }
 }
 
@@ -475,6 +536,12 @@ final class IconFetcher: NSObject, URLSessionDataDelegate {
     done[task.taskIdentifier] = completion
     task.resume()
     return task
+  }
+
+  /// Forgets cached icons stored since `since` (seconds since the epoch; 0: all).
+  func clearCache(since: Double) {
+    guard let cache = session.configuration.urlCache else { return }
+    if since > 0 { cache.removeCachedResponses(since: Date(timeIntervalSince1970: since)) } else { cache.removeAllCachedResponses() }
   }
 
   /// Cancels every fetch and releases the session (and its memory cache).

@@ -179,6 +179,7 @@ source_set("modal_browser") {
     "//chrome/browser:icon_manager",
     "//chrome/browser/autocomplete",
     "//chrome/browser/bookmarks",
+    "//chrome/browser/browsing_data:constants",
     "//chrome/browser/favicon",
     "//chrome/browser/history",
     "//chrome/browser/media/webrtc",

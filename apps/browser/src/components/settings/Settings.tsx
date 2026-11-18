@@ -7,6 +7,7 @@ import {
   type SheetSection,
 } from '../ui';
 import { AppearancePane } from './AppearancePane';
+import { ClearData } from './ClearData';
 import { GeneralPane } from './GeneralPane';
 
 // Merlin's own icons for each section: a window with its sidebar, a switch, a
@@ -63,7 +64,8 @@ export function Settings({ open }: { open: boolean }) {
           </FormGroup>
           <PageLinks openPage={openPage} links={[['passwords', 'Saved passwords'], ['password-checkup', 'Password checkup'],
             ['site-permissions', 'Site permissions'], ['cookies', 'Cookies and site data'], ['security', 'Safe browsing and security'],
-            ['clear-data', 'Clear browsing data'], ['addresses', 'Addresses'], ['payments', 'Payment methods'], ['certificates', 'Certificates']]} />
+            ['addresses', 'Addresses'], ['payments', 'Payment methods'], ['certificates', 'Certificates']]} />
+          <ClearData openPage={openPage} />
         </>}
         {p && section === 'blocking' && <Blocking p={p} set={set} />}
         {p && section === 'performance' && <>

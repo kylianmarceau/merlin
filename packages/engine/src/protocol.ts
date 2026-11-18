@@ -1,6 +1,6 @@
 import {
   appearanceAccents, appearanceModes, groupColors, panels, protections, securities,
-  type AppearanceAccent, type AppearanceMode, type BooleanOption, type CallMethod, type DownloadAction, type GroupColor,
+  type AppearanceAccent, type AppearanceMode, type BooleanOption, type CallMethod, type ClearDataType, type DownloadAction, type GroupColor,
   type PaletteKey, type Panel, type PreferenceKey, type Protection, type RequestMethod, type Security, type SplitSide, type StringOption,
 } from './vocabulary';
 // Method names and argument values come from merlin_shell_vocabulary.json, shared with native code.
@@ -223,6 +223,13 @@ export type Requests = {
   'extensions.run': { args: { id: string }; result: null };
   'extensions.manage': { args: { id?: string }; result: null };
   'downloads.list': { args: {}; result: Download[] };
+  /**
+   * Clears Chromium's data and WebKit pages' together, with one result: an
+   * error says what failed. `since` is seconds since the Unix epoch (0: all
+   * time). `site`, a host, limits it to that site's cookies, site data and
+   * cache, for all time; history can't be cleared per site.
+   */
+  'privacy.clearData': { args: { since: number; types: ClearDataType[]; site?: string }; result: null };
 };
 export type Request = keyof Requests;
 export type PanelName = Panel;

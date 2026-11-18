@@ -80,7 +80,8 @@
       "extensions.setEnabled",
       "extensions.run",
       "extensions.manage",
-      "downloads.list"
+      "downloads.list",
+      "privacy.clearData"
     ],
     "nativeOnly": [
       "application.windows",
@@ -171,6 +172,11 @@
       "dangerous",
       "internal",
       "pending"
+    ],
+    "clearDataType": [
+      "history",
+      "cookies",
+      "cache"
     ],
     "protection": [
       "enabled",

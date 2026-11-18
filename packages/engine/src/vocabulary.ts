@@ -73,6 +73,7 @@ export const requestMethods = [
   'extensions.run',
   'extensions.manage',
   'downloads.list',
+  'privacy.clearData',
 ] as const;
 export type RequestMethod = typeof requestMethods[number];
 export const nativeOnlyMethods = ['application.windows', 'page.focus'] as const;
@@ -117,6 +118,8 @@ export const panels = ['settings', 'history', 'bookmarks', 'downloads', 'extensi
 export type Panel = typeof panels[number];
 export const securities = ['secure', 'insecure', 'dangerous', 'internal', 'pending'] as const;
 export type Security = typeof securities[number];
+export const clearDataTypes = ['history', 'cookies', 'cache'] as const;
+export type ClearDataType = typeof clearDataTypes[number];
 export const protections = [
   'enabled',
   'disabledGlobally',
