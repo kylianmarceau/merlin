@@ -949,8 +949,10 @@ class Merlin:
         url = self.server.url(path, host)
         reply = self.browserctl("open", url=url, where="current")
         assert reply.get("ok"), reply
+        # The tab shows the new address before its document commits; until
+        # then the old document answers, complete, so check it is the new one.
         wait_until(lambda: self.active_tab()["url"] == url and
-                   self.eval("document.readyState") == "complete",
+                   self.eval("location.href + ' ' + document.readyState") == f"{url} complete",
                    message=f"{url} to load")
         return url
 
