@@ -21,12 +21,12 @@ export function ExtensionsPopover() {
         onPress={ext.enabled && ext.hasAction ? () => void actions.runExtension(ext.id) : undefined}
         trailing={<View>
           <Toggle label={`${ext.name} enabled`} value={ext.enabled} disabled={!ext.canToggle || action.busy} onChange={async enabled => {
-            if ((await action.run('extensions.setEnabled', { id: ext.id, enabled })) !== undefined) list.reload();
+            if ((await action.run('extensions.setEnabled', { id: ext.id, enabled })).ok) list.reload();
           }} />
         </View>} />)}
     </ScrollView>
     <MenuSeparator />
     <MenuFooter label="Manage extensions"
-      onPress={() => void action.run('extensions.manage', {}).then(v => { if (v !== undefined) actions.closePopover(); })} />
+      onPress={() => void action.run('extensions.manage', {}).then(v => { if (v.ok) actions.closePopover(); })} />
   </>;
 }
