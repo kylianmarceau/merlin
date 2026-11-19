@@ -69,12 +69,70 @@ export const curve = {
   linear: Easing.linear,
 } as const;
 
+/** A spring from its response (seconds per swing) and damping ratio, as Core Animation and SwiftUI describe them. */
+function responseSpring(response: number, ratio: number) {
+  const omega = (2 * Math.PI) / response;
+  return { stiffness: omega * omega, damping: 2 * ratio * omega, mass: 1 };
+}
+
 export const spring = {
   snappy: { stiffness: 520, damping: 40, mass: 1 },
   gentle: { stiffness: 260, damping: 28, mass: 1 },
   /** The sidebar hiding, showing and peeking: Dia's response 0.215 s, damping 0.79. */
   sidebar: { stiffness: 854, damping: 46, mass: 1 },
+  /** A tab's hover card growing in (response 0.25 s, ratio 0.75) and shrinking away (0.2 s, 0.6), from Dia's binary. */
+  hoverCardIn: responseSpring(0.25, 0.75),
+  hoverCardOut: responseSpring(0.2, 0.6),
+  /** A control dipping under a press and coming back: quick, and never past its rest (response 0.2 s, ratio 0.9). */
+  press: responseSpring(0.2, 0.9),
 } as const;
+
+/** How far a pressed control dips: an icon button's glyph, a pill or field, a round button or tile. */
+export const pressScale = { icon: 0.96, control: 0.985, tile: 0.94 } as const;
+
+/**
+ * A scale that dips while `pressed` and springs back, on the press spring
+ * (no overshoot). Steady at 1 with reduced motion. Pass to a transform.
+ */
+export function usePressScale(pressed: boolean, depth: number, reduce: boolean) {
+  const value = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (reduce) { value.setValue(1); return; }
+    const run = Animated.spring(value, { toValue: pressed ? depth : 1, ...spring.press, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
+  }, [pressed, depth, reduce, value]);
+  return value;
+}
+
+/** Dia's hover card: it fades over 0.1 s on this curve while its scale springs between 0.92 and 1. */
+const hoverCardMotion = { fade: 100, scaleFrom: 0.92, curve: Easing.bezier(0.25, 0.46, 0.45, 0.94) } as const;
+
+/**
+ * A tab's hover card appearing and leaving as in Dia: opacity over 0.1 s,
+ * scale springing from 0.92 (grow it from the corner nearest the tab with
+ * transformOrigin). `mounted` turns false once it has gone. Reduced motion
+ * only fades.
+ */
+export function useHoverCardMotion(open: boolean, reduce: boolean) {
+  const opacity = useRef(new Animated.Value(open ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(open || reduce ? 1 : hoverCardMotion.scaleFrom)).current;
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) setMounted(true);
+    const fade = Animated.timing(opacity, { toValue: open ? 1 : 0, duration: hoverCardMotion.fade, easing: hoverCardMotion.curve,
+      useNativeDriver: true });
+    const size = reduce
+      ? Animated.timing(scale, { toValue: 1, duration: duration.instant, useNativeDriver: true })
+      : Animated.spring(scale, { toValue: open ? 1 : hoverCardMotion.scaleFrom, ...(open ? spring.hoverCardIn : spring.hoverCardOut),
+        useNativeDriver: true, restDisplacementThreshold: 0.001, restSpeedThreshold: 0.001 });
+    // It leaves once it has faded; the spring needn't finish under a card no one sees.
+    fade.start(({ finished }) => { if (finished && !open) setMounted(false); });
+    size.start();
+    return () => { fade.stop(); size.stop(); };
+  }, [open, reduce, opacity, scale]);
+  return { mounted: mounted || open, opacity, scale };
+}
 
 /**
  * The next layout change animates as a list's rows do in Dia: a new row

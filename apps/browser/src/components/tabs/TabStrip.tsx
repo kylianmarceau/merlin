@@ -49,7 +49,6 @@ export function TabStrip({ floating = false }: {
   const { colors } = useTheme();
   const chrome = useSiteChrome();
   const [room, setRoom] = useState(0);
-  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const activeId = snapshot.activeTabId;
   // Downloads shows only while there are some, as in Dia; the Library keeps them all.
@@ -111,8 +110,6 @@ export function TabStrip({ floating = false }: {
     onDrag: (dx, x, y) => dragTo(key, tabId, dx, x, y),
     onDrop: (dx, cancelled) => release(key, dx, cancelled),
   });
-  const hover = (key: string) => (on: boolean) => setHoveredKey(current => (on ? key : current === key ? null : current));
-  const quiet = (item: StripItem | undefined) => !!item && item.tabs.length === 1 && !holdsActive(item) && item.key !== hoveredKey;
 
   const plusX = layout.end + (layout.hidden.length ? geometry.overflowButton : 0) + space.xs;
   return <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: geometry.strip, flexDirection: 'row',
@@ -142,19 +139,15 @@ export function TabStrip({ floating = false }: {
           const icon = item.pinned || layout.compact;
           const roles = active && !floating ? chrome.roles : null;
           if (item.tabs.length > 1) return <StripSplit key={item.key} tabs={item.tabs} slot={slot} activeId={activeId} icon={icon}
-            pinned={item.pinned} roles={roles} dragging={dragging} onHover={hover(item.key)} handlers={tabId => handlers(item.key, tabId)}
+            pinned={item.pinned} roles={roles} dragging={dragging} handlers={tabId => handlers(item.key, tabId)}
             liftedId={drag?.out && drag.key === item.key ? drag.tabId : null} />;
-          const lane = laneOf(item);
           const tab = item.tabs[0];
           return <StripTab key={item.key} tab={tab} slot={slot} active={active} icon={icon} roles={roles} dragging={dragging} pill={floating && active}
-            lifted={item === lifted} divider={!item.pinned && !drag && quiet(lane[lane.indexOf(item) - 1]) && quiet(item)}
-            onHover={hover(item.key)} {...handlers(item.key, tab.id)} />;
+            lifted={item === lifted} {...handlers(item.key, tab.id)} />;
         })}
         {!!layout.hidden.length && <OverflowButton x={layout.end + space.xs} count={layout.hidden.length}
           onPress={() => void actions.hiddenTabsMenu(layout.hidden)} />}
-        <View style={{ position: 'absolute', left: plusX, top: tabTop, height: geometry.joinedTab, justifyContent: 'center' }}>
-          <IconButton label="New tab" icon="plus" onPress={() => void actions.openNewTab()} />
-        </View>
+        <PlusButton x={plusX} onPress={() => void actions.openNewTab()} />
       </>}
     </View>
     <View style={{ height: geometry.strip, flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
@@ -216,17 +209,16 @@ function useTabPan({ onDrag, onDrop }: DragHandlers) {
 const tabTitle = (tab: Tab) => rowTitle(tab);
 
 type StripTabProps = DragHandlers & {
-  tab: Tab; slot: Slot; active: boolean; icon: boolean; divider: boolean; dragging: boolean;
+  tab: Tab; slot: Slot; active: boolean; icon: boolean; dragging: boolean;
   /** The active tab drawn as a white pill, when there is no toolbar for it to join. */
   pill?: boolean;
   /** Pulled out of the tabs: it fades while the page shows where it can go. */
   lifted: boolean;
   /** The site's colours, for the active tab, which sits on the joined shape. */
   roles: Partial<Palette> | null;
-  onHover(on: boolean): void;
 };
 
-const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider, dragging, lifted, roles, pill = false, onHover, onDrag, onDrop }: StripTabProps) {
+const StripTab = React.memo(function StripTab({ tab, slot, active, icon, dragging, lifted, roles, pill = false, onDrag, onDrop }: StripTabProps) {
   const actions = useActions();
   const { colors, reduceMotion } = useTheme();
   const { focused, handlers } = useInteraction();
@@ -240,7 +232,6 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider
   const sound = tab.audible || tab.muted;
   const hover = (on: boolean) => {
     setHovered(on);
-    onHover(on);
     if (!on) { actions.leaveTab(); return; }
     ref.current?.measureInWindow((x0, y0, w, h) => actions.hoverTab(tab.id, { x: x0, y: y0, width: w, height: h }, 'below'));
   };
@@ -249,8 +240,6 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider
   const body = <Animated.View ref={ref} {...pan.panHandlers} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}
     style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined }}>
     <Animated.View style={{ flex: 1, opacity: there.progress }}>
-      {divider && <View pointerEvents="none" style={{ position: 'absolute', left: -gap, top: (geometry.joinedTab - geometry.iconSmall) / 2,
-        width: geometry.hairline, height: geometry.iconSmall, backgroundColor: colors.tabDivider }} />}
       {pill && <Panel fill="tabActive" radius="control" elevation="tab" border="tabActiveBorder" style={{ position: 'absolute', top: space.xs,
         bottom: space.xs, left: space.hair, right: space.hair }} />}
       <Animated.View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs,
@@ -301,7 +290,6 @@ type StripSplitProps = {
   /** The side pulled out of the tabs, which fades until it lands. */
   liftedId: string | null;
   roles: Partial<Palette> | null;
-  onHover(on: boolean): void;
   handlers(tabId: string): DragHandlers;
 };
 
@@ -313,11 +301,11 @@ type StripSplitProps = {
  * stronger. Press a side to focus it; drag either to move the split; pull
  * one down onto the page to take it out of the split.
  */
-const StripSplit = React.memo(function StripSplit({ tabs, slot, activeId, icon, pinned, dragging, liftedId, roles, onHover, handlers }: StripSplitProps) {
+const StripSplit = React.memo(function StripSplit({ tabs, slot, activeId, icon, pinned, dragging, liftedId, roles, handlers }: StripSplitProps) {
   const { colors, reduceMotion } = useTheme();
   const { x, width } = useSlide(slot, reduceMotion, dragging);
   const active = tabs.some(t => t.id === activeId);
-  const body = <Animated.View onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}
+  const body = <Animated.View
     style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined }}>
     {!active && !pinned && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs, left: space.hair,
       right: space.hair, borderRadius: radius.field, backgroundColor: colors.splitChip }} />}
@@ -386,4 +374,13 @@ function OverflowButton({ x, count, onPress }: { x: number; count: number; onPre
       <Icon name="chevron.down" tone="iconSecondary" size="tiny" />
     </Pressable>
   </View>;
+}
+
+/** New Tab after the last tab; it glides with the tabs as they open and close, rather than jumping ahead of them. */
+function PlusButton({ x, onPress }: { x: number; onPress(): void }) {
+  const { reduceMotion } = useTheme();
+  const slide = useSlide({ x, width: 0 }, reduceMotion);
+  return <Animated.View style={{ position: 'absolute', left: slide.x, top: tabTop, height: geometry.joinedTab, justifyContent: 'center' }}>
+    <IconButton label="New tab" icon="plus" onPress={onPress} />
+  </Animated.View>;
 }

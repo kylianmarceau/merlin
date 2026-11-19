@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Animated, View } from 'react-native';
 import { awayFromHome } from '../../state/pinned';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
-import { IconButton, Panel, Text, geometry, presenceStyle, space, useLatest, usePresence, useTheme } from '../ui';
+import { IconButton, Panel, Text, geometry, space, useHoverCardMotion, useLatest, useTheme } from '../ui';
 import { tabTitle } from './TabRow';
 
 /**
@@ -10,7 +10,9 @@ import { tabTitle } from './TabRow';
  * title, its address, and what can be done to it in one press (pin,
  * bookmark, split, mute; for a pinned tile that has wandered off, the way
  * back). Beside a sidebar row it opens to the right; under a tab across the
- * top or a pinned tile, below. It stays while the pointer is on it.
+ * top or a pinned tile, below. It stays while the pointer is on it. It
+ * arrives as Dia's does, fading in while it grows from 0.92 out of its
+ * corner nearest the tab; moving to the next tab moves it there at once.
  */
 export function HoverCardOverlay() {
   const card = useBrowser(s => s.hoverCard);
@@ -20,10 +22,10 @@ export function HoverCardOverlay() {
   const homes = useBrowser(s => s.pinnedHomes);
   const { reduceMotion } = useTheme();
   const kept = useLatest(card);
-  const presence = usePresence(!!card, 'fade', reduceMotion);
+  const motion = useHoverCardMotion(!!card, reduceMotion);
   const [height, setHeight] = useState(0);
   const tab = kept ? snapshot.tabs.find(t => t.id === kept.tabId) : undefined;
-  if (!kept || !tab || !presence.mounted) return null;
+  if (!kept || !tab || !motion.mounted) return null;
   const { anchor } = kept;
   const width = geometry.hoverCard;
   const margin = space.sm;
@@ -40,7 +42,8 @@ export function HoverCardOverlay() {
   const act = (fn: () => unknown) => () => { actions.closeHoverCard(); void fn(); };
   return <Animated.View onMouseEnter={actions.holdHoverCard} onMouseLeave={actions.leaveTab}
     onLayout={e => setHeight(e.nativeEvent.layout.height)}
-    style={[{ position: 'absolute', left, top, width }, presenceStyle(presence.progress, 'fade')]}>
+    style={{ position: 'absolute', left, top, width, opacity: motion.opacity, transformOrigin: 'left top',
+      transform: [{ scale: motion.scale }] }}>
     <Panel fill="surfacePopoverSolid" radius="card" elevation="menu" accessibilityLabel={`${title}, ${address}`}
       style={{ paddingHorizontal: space.md, paddingTop: space.sm + space.hair, paddingBottom: space.xs + space.hair, gap: space.hair }}>
       <Text variant="bodyStrong" lines={2}>{title}</Text>

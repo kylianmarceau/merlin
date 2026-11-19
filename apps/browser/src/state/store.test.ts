@@ -116,6 +116,24 @@ test('a hover card goes with its tab, and a peek with the tabs shown again', () 
   assert.equal(store.getState().peeking, false);
 });
 
+test('a hover card goes when the keyboard moves on: a new tab, another tab or the find bar', () => {
+  const tab = (id: string) => ({ id, title: id, url: `https://${id}.test/`, loading: false, pinned: false, audible: false, canGoBack: false,
+    canGoForward: false });
+  const modal = { mode: 'Normal', pending: '', message: '' };
+  const card = { tabId: 'a', anchor: { x: 0, y: 0, width: 10, height: 10 }, side: 'right' as const };
+  const store = createBrowserStore('w');
+  acceptSnapshot(store, { ...snapshot(1), tabs: [tab('a'), tab('b')], activeTabId: 'b', modal });
+  store.setState({ hoverCard: card });
+  acceptSnapshot(store, { ...snapshot(2), tabs: [tab('a'), tab('b'), tab('c')], activeTabId: 'c', modal });
+  assert.equal(store.getState().hoverCard, null, 'Command-T');
+  store.setState({ hoverCard: card });
+  acceptSnapshot(store, { ...snapshot(3), tabs: [tab('a'), tab('b'), tab('c')], activeTabId: 'b', modal });
+  assert.equal(store.getState().hoverCard, null, 'switching tabs');
+  store.setState({ hoverCard: card });
+  acceptSnapshot(store, { ...snapshot(4), tabs: [tab('a'), tab('b'), tab('c')], activeTabId: 'b', modal, find: { visible: true, text: '', matches: 0, ordinal: 0, focus: 0 } });
+  assert.equal(store.getState().hoverCard, null, 'the find bar');
+});
+
 test('tabs say whether they are muted, bookmarked or asleep, and nothing else is accepted there', () => {
   const tab = { id: '1', title: 'A', url: 'https://a.test/', loading: false, pinned: false, audible: true, canGoBack: false, canGoForward: false };
   const store = createBrowserStore('w');

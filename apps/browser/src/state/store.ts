@@ -97,7 +97,12 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
   const state = store.getState();
   const pinnedHomes = rememberPinnedHomes(state.pinnedHomes, snapshot.tabs);
   // A card for a tab that closed, or a peek with the tabs shown again, goes.
-  const hoverCard = state.hoverCard && snapshot.tabs.some(t => t.id === state.hoverCard?.tabId) ? state.hoverCard : null;
+  // So does a card the keyboard moved on from, as Dia's goes on any key: a
+  // tab opened, closed or switched to, the find bar opened, or keys typed.
+  const before = state.snapshot;
+  const keyed = !!before && (before.activeTabId !== snapshot.activeTabId || before.tabs.length !== snapshot.tabs.length ||
+    (!before.find?.visible && !!snapshot.find?.visible) || before.modal.pending !== snapshot.modal.pending);
+  const hoverCard = state.hoverCard && !keyed && snapshot.tabs.some(t => t.id === state.hoverCard?.tabId) ? state.hoverCard : null;
   const peeking = state.peeking && !!snapshot.modal.sidebarHidden;
   store.setState({ engineSnapshot, snapshot, connectionError: null, recentTabs, pinnedHomes, hoverCard, peeking });
 }

@@ -24,12 +24,16 @@ The stored accent names predate Tide and stay as the browser saves them:
   `tabs = "side"`): the top 40 pt row holds the traffic lights, hide-sidebar,
   back, forward and reload. Under it, the address as a white pill
   (`fillShellControl`) showing the site, a waiting-request chip and the
-  site-controls button; pinned tabs as favourite tiles (four across, 44 pt,
-  the chosen one tinted with its site's colour, `pinnedTileTint`); the
+  site-controls button; pinned tabs as favourite tiles (four across, 44 pt;
+  lit almost white on hover and deeper while pressed, as in Dia; the chosen
+  one tinted with its site's colour, `pinnedTileTint`, and ringed with it,
+  `pinnedTileRing`, neutral for a near-black or near-white colour); the
   Bookmarks section (the Bookmarks Bar folder, six rows, folding at its
-  heading); then "Tabs" with New Tab and the open tabs (34 pt rows, the
-  active one a white card with `shadow.tab`). A hairline fades in under the
-  heading once the list scrolls; a "Current tab" pill points to the active
+  heading); then, under Dia's hairline, the open tabs with New Tab after
+  the last (34 pt rows 3 pt apart, Dia's 37 pt pitch; the active one a
+  white card with `shadow.tab`; a row is chosen as the button goes down and
+  shows Dia's deeper pressed fill). With nothing above the tabs, the
+  hairline fades in only once the list scrolls; a "Current tab" pill points to the active
   row when it is out of sight; double-clicking the empty space under the
   rows opens a tab. Rows fade their titles (`Fade`, no ellipsis), show a
   speaker that mutes the tab while it plays, a Safari badge on WebKit tabs,
@@ -48,7 +52,7 @@ The stored accent names predate Tide and stay as the browser saves them:
   newly active tab over 340 ms (`curve.slide`) and its colour cross-fades
   over 380 ms. Inactive tabs have no fill: a favicon, the title at body size
   fading out at its end (`Fade`, no ellipsis), a soft inset pill on hover
-  and hairline dividers between quiet tabs; the close button shows on hover
+  and, as in Dia, no dividers between tabs; the close button shows on hover
   and on the active tab. Tabs share the width up to 148 pt, become icons
   below 96 pt and, past 40 pt, the rest collect behind a "+N" native menu
   (the active tab always stays in the strip). Pinned tabs are icons in a
@@ -113,7 +117,9 @@ The stored accent names predate Tide and stay as the browser saves them:
   tile shows its card (`HoverCardOverlay`): the whole title, the address and
   one-press actions (pin, bookmark, split, mute, copy link; for a pinned tile
   that has left its page, back to it). Moving on to the next tab shows its
-  card at once; the card stays while the pointer is on it.
+  card at once; the card stays while the pointer is on it. As Dia's does, it
+  goes when the keyboard moves on: a tab opened, closed or switched to, the
+  find bar opened, or keys typed.
 - **Tooltips** (`TooltipLayer`, `IconButton`'s `tip` and `keys`): every icon
   button names itself after the same half-second rest, with its shortcut as
   keycaps and Merlin's Normal-mode keys on a second line; they too follow
@@ -273,7 +279,14 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
   as in Dia; a row's close button fades over 100 ms. Switches use the
   `snappy` spring; the sidebar hiding, showing and peeking, the `sidebar` one.
 - Tooltips and hover cards wait 500 ms, then follow the pointer at once for
-  300 ms after one closes.
+  300 ms after one closes. A hover card arrives as Dia's: it fades over
+  100 ms while its scale springs from 92% (response 0.25 s, damping 0.75)
+  out of its corner nearest the tab, and leaves on a quicker spring
+  (`useHoverCardMotion`). Nothing anywhere scales up from zero.
+- Presses: an icon button's glyph dips to 96%, a labelled button's contents
+  to 98.5% and a round button to 94%, on the `press` spring, which never
+  overshoots (`usePressScale`). Rows and tiles, used all day, hold still and
+  show a deeper fill instead, as in Dia.
 - "Reduce motion" in Settings makes every transition instant.
 
 ## Icons

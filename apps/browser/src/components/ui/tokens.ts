@@ -30,6 +30,8 @@ export const geometry = {
   sidebar: 252, sidebarCollapsedInset: 84, stripTab: 148, stripTabMin: 96, stripTabIcon: 40, titlebar: 40, strip: 48, toolbar: 46,
   joinedTab: 38, joinedEar: 10, overflowButton: 44,
   control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, stripTabHeight: 32, address: 36, favourite: 44, favouriteSmall: 28,
+  /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
+  tabRowGap: 3, tileRing: 2.5,
   rowTall: 44, popoverRow: 32, icon: 16, iconSmall: 13, iconLarge: 20, favicon: 16, tile: 28, round: 20, roundGlyph: 9, keycap: 18,
   toggleWidth: 28, toggleHeight: 16, toggleThumb: 12, progress: 4, focusRing: 2, hairline: 1, splitGap: 6, dot: 7,
   popover: 300, popoverWide: 340, menu: 240, dialog: 380, dialogWide: 520, palette: 620, paletteInput: 60, paletteRow: 42,
@@ -235,6 +237,11 @@ function roles(mode: Mode, accentName: AccentName) {
     tabTextActive: pick(ink[900], ink[25]),
     tabLoading: a.base,
     tilePinned: pick('rgba(255, 255, 255, 0.40)', 'rgba(255, 255, 255, 0.06)'),
+    // A pinned tile lights almost to white under the pointer and a little more while pressed, as Dia's do.
+    tilePinnedHover: pick('rgba(255, 255, 255, 0.78)', 'rgba(255, 255, 255, 0.15)'),
+    tilePinnedPressed: pick('rgba(255, 255, 255, 0.92)', 'rgba(255, 255, 255, 0.24)'),
+    // A sidebar row under a press: Dia's pressed fill, deeper than the hover wash.
+    tabPressed: pick('rgba(255, 255, 255, 0.70)', 'rgba(255, 255, 255, 0.14)'),
     // The disc behind a WebKit tab's Safari badge, and the line where a dragged tab will land.
     engineBadge: pick(ink[0], ink[800]),
     tabDropLine: a.base,
@@ -368,6 +375,20 @@ const withAlpha = (hex: string, alpha: number) => {
 export function pinnedTileTint(site: string | undefined, dark: boolean) {
   return site && /^#[0-9A-Fa-f]{6}$/.test(site) ? withAlpha(site, dark ? 0.3 : 0.2) : null;
 }
+/**
+ * The ring around the selected pinned tile, in its site's colour as Dia
+ * draws it. A near-black colour would vanish on the dark shell and a
+ * near-white one on the light shell, so those get a neutral ring instead,
+ * as Dia does for ChatGPT's black and Notion's white. Null without a colour.
+ */
+export function pinnedTileRing(site: string | undefined, dark: boolean) {
+  if (!site || !/^#[0-9A-Fa-f]{6}$/.test(site)) return null;
+  const l = luminance(site);
+  if (dark && l < tileRingLimits.nearBlack) return 'rgba(255, 255, 255, 0.3)';
+  if (!dark && l > tileRingLimits.nearWhite) return 'rgba(0, 0, 0, 0.18)';
+  return withAlpha(site, dark ? 0.85 : 0.7);
+}
+const tileRingLimits = { nearBlack: 0.02, nearWhite: 0.88 } as const;
 function luminance(hex: string) {
   const [r, g, b] = channels(hex).map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;

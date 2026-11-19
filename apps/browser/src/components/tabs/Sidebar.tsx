@@ -77,19 +77,14 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
     </View>}
     {bookmarks && <SidebarBookmarks />}
     <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.sm + space.hair, paddingTop: space.xs,
-        paddingBottom: space.xs }}>
-        <View style={{ flex: 1 }}><Text variant="group">Tabs</Text></View>
-        {open.length > 1 && <Text variant="caption" tone="textTertiary">{String(open.length)}</Text>}
-      </View>
-      {/* A hairline under the heading once the list has scrolled under it, as in Dia. */}
-      <ScrollEdge shown={list.scrolled} />
+      {/* As in Dia, a hairline divides the pinned tiles and bookmarks from the open tabs; with nothing above, it
+          fades in only once the list has scrolled under it. */}
+      <ScrollEdge shown={!!pinned.length || bookmarks || list.scrolled} />
       <View ref={list.frame} style={{ flex: 1 }} onLayout={list.check}>
         <ScrollView ref={list.scroll} style={{ flex: 1 }} onScroll={list.onScroll} scrollEventThrottle={32}
           onContentSizeChange={list.check}
           onScrollBeginDrag={actions.closeHoverCard}
-          contentContainerStyle={{ gap: geometry.hairline, paddingBottom: space.md, flexGrow: 1 }}>
-          <NewTabRow pending={pending} onPress={actions.openNewTab} keys={newTab.keys} />
+          contentContainerStyle={{ gap: geometry.tabRowGap, paddingBottom: space.md, flexGrow: 1 }}>
           {tabBlocks(open, snapshot.groups).map(block => {
             const rows = tabUnits(block.tabs).map(unit => {
               const unitRows = unit.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} onReorder={reorder}
@@ -101,6 +96,8 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
                 active={block.tabs.some(t => t.id === snapshot.activeTabId)}>{rows}</SidebarGroup>
               : rows;
           })}
+          {/* New Tab follows the last tab, as in Dia. */}
+          <NewTabRow pending={pending} onPress={actions.openNewTab} keys={newTab.keys} />
           {/* Double-clicking the empty space under the tabs opens a new one, as in Arc. */}
           <View style={{ flex: 1, minHeight: space.xl }} onDoubleClick={() => actions.openNewTab()} />
         </ScrollView>
@@ -156,8 +153,8 @@ function useActiveRowPointer(activeId: string | null) {
 function ScrollEdge({ shown }: { shown: boolean }) {
   const { colors, reduceMotion } = useTheme();
   const value = useEased(shown, reduceMotion);
-  return <Animated.View pointerEvents="none" style={{ height: geometry.hairline, marginHorizontal: space.sm, opacity: value,
-    backgroundColor: colors.sidebarRule }} />;
+  return <Animated.View pointerEvents="none" style={{ height: geometry.hairline, marginHorizontal: space.xs, marginBottom: space.xs,
+    opacity: value, backgroundColor: colors.sidebarRule }} />;
 }
 
 /** A small pill at the list's top or bottom edge pointing to the active tab when it is scrolled out of sight. */
@@ -206,13 +203,17 @@ function SidebarSplit({ children }: { children: React.ReactNode }) {
 function NewTabRow({ onPress, pending, keys }: { onPress(): void; pending: boolean; keys: string[] }) {
   const { colors, reduceMotion } = useTheme();
   const { hovered, handlers } = useInteraction();
+  const [pressed, setPressed] = useState(false);
   const wash = useHoverFade(hovered || pending, reduceMotion);
   return <Pressable accessibilityRole="button" accessibilityLabel="New tab" onPress={onPress} {...handlers}
+    onPressIn={() => setPressed(true)} onPressOut={() => setPressed(false)}
     style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm + space.hair, minHeight: geometry.tabRow,
       paddingLeft: space.sm + space.hair, paddingRight: space.sm, borderRadius: radius.row,
       borderWidth: geometry.hairline, borderColor: colors[pending ? 'focusRing' : 'fillTransparent'] }}>
     <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius.row,
       backgroundColor: colors.tabHover, opacity: wash }} />
+    {pressed && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius.row,
+      backgroundColor: colors.tabPressed }} />}
     <Icon name="plus" tone={pending ? 'accentSoftText' : 'iconSecondary'} size="small" />
     <Text tone={pending ? 'accentSoftText' : 'textSecondary'} flex={1}>{pending ? 'New tab…' : 'New Tab'}</Text>
     {hovered && <Text variant="caption" tone="textTertiary">{keys.join('')}</Text>}

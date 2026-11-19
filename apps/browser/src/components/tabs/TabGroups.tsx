@@ -37,7 +37,7 @@ export function SidebarGroup({ group, count, active, children }: {
   const name = groupTitle(group);
   // A collapsed group never hides the active tab; Chromium opens it again.
   const open = !group.collapsed || active;
-  return <View style={{ gap: geometry.hairline }}>
+  return <View style={{ gap: geometry.tabRowGap }}>
     <ContextMenu onOpen={() => void actions.groupMenu(group.id)}>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }}
         accessibilityLabel={`${name}, ${count} ${count === 1 ? 'tab' : 'tabs'}`} onPress={() => void actions.toggleGroup(group.id)}
@@ -51,7 +51,7 @@ export function SidebarGroup({ group, count, active, children }: {
         <Icon name={open ? 'chevron.down' : 'chevron.right'} tone="iconSecondary" size="chevron" weight="semibold" />
       </Pressable>
     </ContextMenu>
-    {open && <View style={{ gap: geometry.hairline, paddingLeft: space.sm }}>
+    {open && <View style={{ gap: geometry.tabRowGap, paddingLeft: space.sm }}>
       <View pointerEvents="none" style={{ position: 'absolute', left: space.xs, top: space.xs, bottom: space.xs,
         width: geometry.groupLine, borderRadius: radius.pill, backgroundColor: colors[groupColorRoles[group.color]] }} />
       {children}
