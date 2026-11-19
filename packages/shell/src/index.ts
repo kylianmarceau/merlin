@@ -23,7 +23,11 @@ export type SymbolName = 'arrow.left' | 'arrow.right' | 'arrow.up' | 'arrow.down
   'magnifyingglass.circle.fill' | 'pause.circle.fill' | 'play.circle.fill' | 'xmark.circle.fill' | 'arrow.clockwise.circle.fill' |
   'doc' | 'folder.fill' | 'chevron.up.chevron.down' | 'checkmark.seal.fill' | 'sparkles.rectangle.stack' | 'link.circle' |
   // Tabs' sound, pinned tiles and the bookmarks section.
-  'speaker.wave.2.fill' | 'speaker.slash.fill' | 'pin.slash' | 'doc.on.doc' | 'arrow.up.to.line';
+  'speaker.wave.2.fill' | 'speaker.slash.fill' | 'pin.slash' | 'doc.on.doc' | 'arrow.up.to.line' |
+  // The tab menu (Ardia gives every item a symbol), and the icons a tab can take instead of its page's.
+  'rectangle.stack.badge.plus' | 'rectangle.stack.badge.minus' | 'xmark.square' | 'face.smiling' | 'arrow.counterclockwise' |
+  'star' | 'heart' | 'flag' | 'book' | 'briefcase' | 'cart' | 'envelope' | 'music.note' | 'gamecontroller' | 'house' |
+  'graduationcap' | 'paintpalette' | 'chart.bar' | 'calendar' | 'film' | 'newspaper' | 'bubble.left' | 'leaf' | 'airplane';
 
 // Each view is its own native module (MerlinShell<Name>); see MerlinShellModule.swift.
 function view<P>(name: string) {

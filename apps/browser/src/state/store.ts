@@ -10,6 +10,7 @@ import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, typ
 import { acceptResults, type Omnibox } from './omnibox';
 import { rememberActive, type TabDrag } from './tabDrag';
 import type { GridZone } from './favouriteGrid';
+import { dressSnapshot, type TabLooks } from './tabLooks';
 
 /** `location` is ⌘L's centred field for the current tab (Settings › Appearance › ⌘L opens the command bar: In the centre). */
 export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | 'location' | null;
@@ -20,7 +21,7 @@ export type Rect = { x: number; y: number; width: number; height: number };
 /** A tab's hover card: which tab, where its row or tile is in the window, and which side the card opens on. */
 export type HoverCard = { tabId: string; anchor: Rect; side: 'right' | 'below' };
 /** Naming a tab group: a new one for `tabId`, or renaming `groupId`. */
-export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string };
+export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string } | { kind: 'renameTab'; tabId: string };
 /**
  * A short confirmation over the page ("Link copied", a command's message),
  * gone on its own after a moment; `action` adds one button ("Edit").
@@ -72,6 +73,8 @@ export type BrowserState = {
   windowKey: boolean;
   /** Which of the window's edges meet the screen's: there the pointer stops, so the peek strip can stay thin. */
   screenEdges: { left: boolean; top: boolean };
+  /** Names and icons the user gave tabs in Merlin (Rename Tab, Change Icon), by tab. */
+  tabLooks: TabLooks;
   /** Where each pinned tab started, by tab: its tile offers to go back there once it has navigated away. */
   pinnedHomes: Record<string, { url: string; title: string }>;
   /** Tests only: the window's interface fails as it next draws, to show its error boundary. */
@@ -82,7 +85,7 @@ export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [], hud: null,
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, pinnedHomes: {},
+    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, tabLooks: {}, pinnedHomes: {},
     failInRender: false,
   };
 }
@@ -111,7 +114,7 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
   const engineSnapshot = current ? shareUnchanged(current, next) : next;
   const recentTabs = rememberActive(store.getState().recentTabs, next.activeTabId, next.tabs.map(t => t.id));
   if (timing) snapshotAccepted.set(store, { revision: next.revision, at, tabs: next.tabs.length });
-  const snapshot = store.overlay(engineSnapshot);
+  const snapshot = dressSnapshot(store.overlay(engineSnapshot), store.getState().tabLooks);
   const state = store.getState();
   const pinnedHomes = rememberPinnedHomes(state.pinnedHomes, snapshot.tabs);
   // A card for a tab that closed, or a peek with the tabs shown again, goes.
@@ -149,7 +152,7 @@ const isBlank = (url: string) => url === 'about:blank' || /^(chrome|merlin):\/\/
 export function refreshOverlay(store: BrowserStore) {
   const { engineSnapshot, snapshot } = store.getState();
   if (!engineSnapshot) return;
-  const next = store.overlay(engineSnapshot);
+  const next = dressSnapshot(store.overlay(engineSnapshot), store.getState().tabLooks);
   if (next !== snapshot) store.setState({ snapshot: next });
 }
 

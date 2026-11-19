@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dropCandidates, dropOutcome, paneRects, rememberActive, reorderTarget, splitPartner, zoneHit, zoneRect } from './tabDrag';
+import { dropCandidates, dropOutcome, paneRects, rememberActive, reorderTarget, rowShift, splitPartner, zoneHit, zoneRect } from './tabDrag';
 
 const window = { width: 1000, height: 700 };
 const page = { x: 260, y: 50, width: 730, height: 640 };
@@ -89,4 +89,13 @@ test('reordering moves a tab before the one now at its place', () => {
   assert.deepEqual(reorderTarget(ids, 'b', 9), { index: 3, beforeId: null });
   assert.equal(reorderTarget(ids, 'b', 0), null);
   assert.equal(reorderTarget(ids, 'x', 1), null);
+});
+
+test('rows between a dragged row and its landing place slide towards its start; the rest hold still', () => {
+  const down = { tabId: 'b', from: 1, steps: 2 };
+  assert.deepEqual([0, 1, 2, 3, 4].map(place => rowShift(down, place)), [0, 0, -1, -1, 0]);
+  const up = { tabId: 'd', from: 3, steps: -2 };
+  assert.deepEqual([0, 1, 2, 3, 4].map(place => rowShift(up, place)), [0, 1, 1, 0, 0]);
+  assert.equal(rowShift(null, 2), 0);
+  assert.equal(rowShift(down, -1), 0);
 });

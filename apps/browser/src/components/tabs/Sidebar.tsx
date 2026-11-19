@@ -3,18 +3,18 @@ import { Animated, PanResponder, ScrollView, View, type NativeScrollEvent, type 
 import { SIDEBAR_WIDTH, useShellPrefs } from '../../state/shellPrefs';
 import { previewShellPref, setShellPref } from '../../state/shellPrefsStorage';
 import { tabUnits } from '../../state/splits';
-import { reorderTarget } from '../../state/tabDrag';
+import { reorderTarget, rowShift, type ListDrag } from '../../state/tabDrag';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import {
-  DashedRule, DragRegion, Icon, IconButton, Pressable, Text, animateListChange, geometry, radius, space, useEased, useHoverFade, useInteraction,
-  useTheme,
+  DashedRule, DragRegion, Icon, IconButton, Pressable, Text, animateListChange, duration, geometry, radius, space, tick, useEased, useHoverFade,
+  useInteraction, useTheme, useTimeout,
 } from '../ui';
 import { SidebarBookmarks } from '../bookmarks/SidebarBookmarks';
 import { AddressField } from '../omnibox/AddressField';
 import { NavigationButtons } from '../window/Toolbar';
 import { useShortcut } from '../window/shortcuts';
 import { FavouriteGrid } from './FavouriteGrid';
-import { TabRow } from './TabRow';
+import { TabRow, rowStep } from './TabRow';
 import { SidebarGroup, tabBlocks } from './TabGroups';
 import { SidebarFooter } from './WindowButtons';
 
@@ -39,10 +39,34 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
   // Rows in a collapsed group aren't on screen, so they don't count as places.
   const collapsed = new Set((snapshot.groups ?? []).filter(g => g.collapsed).map(g => g.id));
   openIds.current = open.filter(t => !t.group || !collapsed.has(t.group) || t.id === snapshot.activeTabId).map(t => t.id);
-  const reorder = useCallback((id: string, steps: number) => {
-    const target = reorderTarget(openIds.current, id, steps);
-    if (target) void actions.moveTab(id, target.beforeId);
+  // A row being dragged within the list, so the rows it passes slide aside; after it is let go it holds
+  // its new place (`settling`) until the engine's order catches up, so nothing jumps back first.
+  const [listDrag, setListDrag] = useState<(ListDrag & { order: string; settling: boolean }) | null>(null);
+  const order = openIds.current.join(' ');
+  const steps = useCallback((id: string, moved: number | null) => setListDrag(old => {
+    if (moved === null) return null;
+    const from = openIds.current.indexOf(id);
+    if (from < 0) return null;
+    const clamped = Math.max(-from, Math.min(openIds.current.length - 1 - from, moved));
+    if (old && old.tabId === id && old.steps === clamped && !old.settling) return old;
+    if (old && old.steps !== clamped) tick('alignment');
+    return { tabId: id, from, steps: clamped, order: openIds.current.join(' '), settling: false };
+  }), []);
+  const reorder = useCallback((id: string, moved: number) => {
+    const target = reorderTarget(openIds.current, id, moved);
+    if (!target) { setListDrag(null); return; }
+    setListDrag(old => old && { ...old, settling: true });
+    void actions.moveTab(id, target.beforeId);
   }, [actions]);
+  // Once the list has the new order, the rows show it by layout and the shifts go, at once.
+  const caughtUp = !!listDrag && listDrag.order !== order;
+  useEffect(() => { if (caughtUp) setListDrag(null); }, [caughtUp]);
+  useTimeout(() => setListDrag(old => (old?.settling ? null : old)), duration.dropSettle, [listDrag?.settling]);
+  const shiftFor = (id: string) => {
+    if (!listDrag || caughtUp) return 0;
+    if (id === listDrag.tabId) return listDrag.settling ? listDrag.steps * rowStep : 0;
+    return rowShift(listDrag, openIds.current.indexOf(id)) * rowStep;
+  };
   // A tab opening or closing, or a group folding: the rows around it slide, as in Dia.
   const shape = `${snapshot.tabs.length}|${snapshot.tabs.filter(t => t.pinned).length}|${[...collapsed].sort().join(' ')}`;
   const lastShape = useRef(shape);
@@ -89,7 +113,7 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
           {tabBlocks(open, snapshot.groups).map(block => {
             const rows = tabUnits(block.tabs).map(unit => {
               const unitRows = unit.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} onReorder={reorder}
-                onActive={list.onActive} />);
+                onSteps={steps} shift={shiftFor(tab.id)} instant={caughtUp} onActive={list.onActive} />);
               return unit.length > 1 ? <SidebarSplit key={`split:${unit[0].split}`}>{unitRows}</SidebarSplit> : unitRows[0];
             });
             return block.group

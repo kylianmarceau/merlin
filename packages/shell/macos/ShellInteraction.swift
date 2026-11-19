@@ -170,6 +170,8 @@ final class MenuChoice: NSObject {
       entry.state = item["checked"] as? Bool == true ? .on : .off
       if let symbol = item["symbol"] as? String {
         entry.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        // macOS 27 hides menu images unless asked; Merlin's menus carry a symbol on every item, as Ardia's do.
+        if #available(macOS 27.0, *) { entry.preferredImageVisibility = .visible }
       }
       if item["destructive"] as? Bool == true {
         entry.attributedTitle = NSAttributedString(string: title, attributes: [.foregroundColor: NSColor.systemRed])

@@ -9,13 +9,15 @@ import { useTheme } from './theme';
 import { pressScale, usePressScale } from './motion';
 import { geometry, opacity, radius, space, type ColorRole } from './tokens';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerGhost';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'plate' | 'danger' | 'dangerGhost';
 type Look = { fill: ColorRole; hover: ColorRole; pressed: ColorRole; text: ColorRole; icon: ColorRole };
 // Primary buttons are dark ink pills; secondary ones a soft wash of the same ink.
 const looks: Record<ButtonVariant, Look> = {
   primary: { fill: 'buttonPrimary', hover: 'buttonPrimaryHover', pressed: 'buttonPrimaryPressed', text: 'textOnPrimary', icon: 'textOnPrimary' },
   secondary: { fill: 'fillControl', hover: 'fillControlHover', pressed: 'fillControlPressed', text: 'textPrimary', icon: 'iconPrimary' },
   ghost: { fill: 'fillTransparent', hover: 'fillHover', pressed: 'fillPressed', text: 'textPrimary', icon: 'iconPrimary' },
+  /** Nothing at rest, a clear soft plate under the pointer: actions on a card, as Dia's hover card has them. */
+  plate: { fill: 'fillTransparent', hover: 'fillControl', pressed: 'fillControlHover', text: 'textPrimary', icon: 'iconPrimary' },
   danger: { fill: 'danger', hover: 'dangerHover', pressed: 'dangerHover', text: 'textOnAccent', icon: 'textOnAccent' },
   dangerGhost: { fill: 'fillTransparent', hover: 'dangerSoft', pressed: 'dangerSoft', text: 'textDanger', icon: 'textDanger' },
 };
@@ -54,8 +56,9 @@ export function Button({ label, variant = 'secondary', icon, trailingIcon, size 
 }
 
 export type IconButtonProps = Omit<PressableProps, 'style' | 'children'> & {
-  label: string; icon: SymbolName; variant?: 'ghost' | 'secondary' | 'primary'; selected?: boolean;
-  size?: 'small' | 'regular' | 'compact'; tone?: ColorRole;
+  label: string; icon: SymbolName; variant?: 'ghost' | 'plate' | 'secondary' | 'primary'; selected?: boolean;
+  /** `small` is the 22 pt square every × and row button shares; `card` a hover card's action. */
+  size?: 'small' | 'card' | 'regular' | 'compact'; tone?: ColorRole;
   /** The fill while selected; on the tinted shell this is a white wash. */
   selectedFill?: ColorRole;
   /** Reports the button's frame in the window, for anchoring a popover. */
@@ -77,7 +80,7 @@ export function IconButton({ label, icon, variant = 'ghost', selected, size = 'r
   const ref = React.useRef<View>(null);
   const spec: TooltipSpec | null = tip === false ? null : { text: tip ?? label, keys, detail: tipDetail };
   const tooltip = useTooltip(spec, ref);
-  const side = size === 'small' ? geometry.control - space.sm : size === 'compact' ? geometry.controlCompact : geometry.control;
+  const side = { small: geometry.iconButton, card: geometry.cardButton, compact: geometry.controlCompact, regular: geometry.control }[size];
   const report = () => ref.current?.measureInWindow((x, y, width, height) => onFrame?.({ x, y, width, height }));
   // Buttons look the same with Glass as with Classic: no glass plate around them.
   return <Pressable ref={ref} onLayout={onFrame ? report : undefined} accessibilityRole="button" accessibilityLabel={label}
@@ -95,7 +98,7 @@ export function IconButton({ label, icon, variant = 'ghost', selected, size = 'r
     })}>
     {/* The glyph dips under a press while its plate holds still. */}
     <Animated.View style={{ transform: [{ scale }] }}>
-      <Icon name={icon} tone={tone ?? (disabled ? 'iconDisabled' : look.icon)} size={size === 'small' ? 'small' : 'regular'} />
+      <Icon name={icon} tone={tone ?? (disabled ? 'iconDisabled' : look.icon)} size={size === 'small' ? 'small' : size === 'card' ? 'medium' : 'regular'} />
     </Animated.View>
   </Pressable>;
 }

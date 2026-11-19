@@ -154,3 +154,19 @@ export function reorderTarget(ids: string[], id: string, steps: number): { index
   const rest = ids.filter(other => other !== id);
   return { index, beforeId: rest[index] ?? null };
 }
+
+/** A row being dragged within the sidebar's list: where it started among the rows and how many places it has moved. */
+export type ListDrag = { tabId: string; from: number; steps: number };
+
+/**
+ * How many rows the row at `place` slides while another is dragged, as in
+ * Ardia: the rows between the dragged row's start and where it would land
+ * move one place towards its start, making room; the rest hold still.
+ */
+export function rowShift(drag: ListDrag | null, place: number): number {
+  if (!drag || place < 0 || place === drag.from) return 0;
+  const to = drag.from + drag.steps;
+  if (drag.steps > 0 && place > drag.from && place <= to) return -1;
+  if (drag.steps < 0 && place >= to && place < drag.from) return 1;
+  return 0;
+}

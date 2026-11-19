@@ -28,6 +28,19 @@ export const Favicon = React.memo(function Favicon({ tab, large = false, busy = 
 });
 
 function FaviconImage({ tab, large }: { tab: Tab; large: boolean }) {
+  // A symbol the user chose for the tab (Change Icon) stands in for the page's icon.
+  if (tab.symbol) return <SymbolSlot large={large} name={tab.symbol as SymbolName} />;
+  return <PageIcon tab={tab} large={large} />;
+}
+
+function SymbolSlot({ large, name }: { large: boolean; name: SymbolName }) {
+  const side = large ? geometry.iconLarge : geometry.favicon;
+  return <View style={{ width: side, height: side, alignItems: 'center', justifyContent: 'center' }}>
+    <Icon name={name} tone="iconPrimary" size={large ? 'regular' : 'small'} />
+  </View>;
+}
+
+function PageIcon({ tab, large }: { tab: Tab; large: boolean }) {
   const actions = useActions();
   const key = tab.favicon ?? '';
   const url = useBrowser(s => (key ? s.favicons[key] : undefined));

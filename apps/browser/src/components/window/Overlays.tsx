@@ -28,6 +28,7 @@ export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
   const actions = useActions();
   const shown = useOverlays();
   const toasts = useBrowser(s => s.toasts);
+  const naming = useBrowser(s => !!s.groupDialog);
   const anchors = useBrowser(s => s.anchors);
   const bounds = useBrowser(s => s.windowSize);
   const { reduceMotion } = useTheme();
@@ -53,7 +54,7 @@ export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
     </Layer>
     <Layer level="popover">
       <TabDropOverlay />
-      {!shown.panel && !shown.palette && <HoverCardOverlay />}
+      {!shown.panel && !shown.palette && !naming && <HoverCardOverlay />}
       <PromptOverlay shown={shown.prompt} />
       <Suggestions />
       <Popover open={shown.popover === 'extensions'} anchor={anchors.extensions} bounds={bounds} placement={place(anchors.extensions)}

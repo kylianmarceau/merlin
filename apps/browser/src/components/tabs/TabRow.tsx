@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, View } from 'react-native';
 import { displayAddress, isStartUrl, leftToRight, pageTitle } from '../../lib/format';
 import type { Tab } from '../../state/types';
@@ -6,7 +6,7 @@ import { awayFromHome } from '../../state/pinned';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useBrowser } from '../../state/window';
 import {
-  ContextMenu, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, opacity, pinnedTileRing, pinnedTileTint, radius, space, useEased, useHoverFade,
+  ContextMenu, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, opacity, pinnedTileRing, spring, pinnedTileTint, radius, space, useEased, useHoverFade,
   useInteraction, useTheme, type ShadowName,
 } from '../ui';
 import { Favicon } from '../favicon/Favicon';
@@ -17,26 +17,32 @@ const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as 
 
 /** One row's height in the list, for turning a drag into a number of places. */
 export const rowStep = geometry.tabRow + geometry.tabRowGap;
-/** The drop line's offset inside the gap between two rows, so it sits centred in it. */
-const lineInGap = (geometry.tabRowGap - geometry.focusRing) / 2;
 
-/** A tab's title, or its address as Chromium formats it, never the raw URL (which can carry a user name). */
+/** The name the user gave a tab, else its title, else its address as Chromium formats it, never the raw URL (which can carry a user name). */
 export function tabTitle(tab: Tab, fallback = 'New Tab') {
-  return isStartUrl(tab.url) ? 'New Tab' : pageTitle(tab.title) || leftToRight(tab.displayUrl ?? displayAddress(tab.url)) || fallback;
+  return tab.name || (isStartUrl(tab.url) ? 'New Tab' : pageTitle(tab.title)) || leftToRight(tab.displayUrl ?? displayAddress(tab.url)) || fallback;
 }
 
 /**
  * A tab in the sidebar list. The active tab is lifted off the shell as a white
  * card; the others wash white on hover, in at once and out slowly, as in Dia.
  * Resting on a row brings up its hover card. Right-click opens its native
- * menu. Drag it up or down to reorder (`onReorder` gets the number of places;
- * a line shows where it lands), to the right onto the page to split it beside
- * the current tab, or out of the window to give it a window of its own.
+ * menu. Drag it up or down to reorder, as in Ardia: it lifts into a card
+ * that follows the pointer while the rows it passes slide aside (`shift`,
+ * from the sidebar, which hears each new place through `onSteps`), and
+ * springs into its place when let go (`onReorder` gets the number of
+ * places). Drag it up over the favourites to pin it, to the right onto the
+ * page to split it beside the current tab, or out of the window to give it
+ * a window of its own.
  */
-export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onActive }: {
+export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSteps, onActive, shift = 0, instant = false }: {
   tab: Tab; active: boolean; onReorder?(tabId: string, steps: number): void;
+  /** The places the dragged row would move if let go now; null once the drag ends without a move. */
+  onSteps?(tabId: string, steps: number | null): void;
   /** The active row's view, so the sidebar can point to it when it is scrolled out of sight. */
   onActive?(view: View | null): void;
+  /** How far this row is pushed aside (or, once dropped, carried) by a drag, in pt; `instant` once the list has caught up. */
+  shift?: number; instant?: boolean;
 }) {
   const actions = useActions();
   const { colors, reduceMotion } = useTheme();
@@ -46,8 +52,16 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
   const [pinning, setPinning] = useState(false);
   const sidebarWidth = useShellPrefs(p => p.sidebarWidth);
   const ref = useRef<View>(null);
-  const latest = useRef({ onReorder, id: tab.id, sidebarWidth });
-  latest.current = { onReorder, id: tab.id, sidebarWidth };
+  const latest = useRef({ onReorder, onSteps, id: tab.id, sidebarWidth });
+  latest.current = { onReorder, onSteps, id: tab.id, sidebarWidth };
+  // The row's place while others are dragged past it, or after it was dropped, on the snappy spring.
+  const offset = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (instant || reduceMotion) { offset.setValue(shift); return; }
+    const run = Animated.spring(offset, { toValue: shift, ...spring.snappy, useNativeDriver: false });
+    run.start();
+    return () => run.stop();
+  }, [shift, instant, reduceMotion, offset]);
   const pan = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponderCapture: (_, g) => Math.hypot(g.dx, g.dy) > space.xs,
     onPanResponderGrant: () => actions.closeHoverCard(),
@@ -57,14 +71,18 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
       const pinning = !out && actions.pinDragOver(latest.current.id, g.moveX, g.moveY);
       setPinning(pinning);
       setDy(out ? 0 : g.dy);
+      latest.current.onSteps?.(latest.current.id, out || pinning ? 0 : Math.round(g.dy / rowStep));
     },
     onPanResponderRelease: (_, g) => {
+      // The lifted row springs on from where it was let go.
+      offset.setValue(g.dy);
       setDy(null);
       setPinning(false);
-      if (actions.pinDragEnd()) return;
+      if (actions.pinDragEnd()) { latest.current.onSteps?.(latest.current.id, null); return; }
       if (actions.tabDragEnd() === 'reorder') latest.current.onReorder?.(latest.current.id, Math.round(g.dy / rowStep));
+      else latest.current.onSteps?.(latest.current.id, null);
     },
-    onPanResponderTerminate: () => { setDy(null); setPinning(false); actions.tabDragCancel(); },
+    onPanResponderTerminate: () => { offset.setValue(0); setDy(null); setPinning(false); actions.tabDragCancel(); latest.current.onSteps?.(latest.current.id, null); },
     onPanResponderTerminationRequest: () => false,
   }), [actions]);
   const glow = useShellPrefs(p => p.selectedTabGlow);
@@ -72,7 +90,6 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
   const closeShown = useEased(hovered || active, reduceMotion);
   const title = tabTitle(tab);
   const sound = tab.audible || tab.muted;
-  const steps = dy === null || pinning ? 0 : Math.round(dy / rowStep);
   const hover = (on: boolean) => {
     setHovered(on);
     if (!on) { actions.leaveTab(); return; }
@@ -82,7 +99,7 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
     <Animated.View ref={(view: View | null) => { ref.current = view; if (active) onActive?.(view); }} {...pan.panHandlers}
       onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}
       style={{ flexDirection: 'row', alignItems: 'center', minHeight: geometry.tabRow, borderRadius: radius.row,
-        zIndex: dy !== null ? 1 : undefined, transform: [{ translateY: dy ?? 0 }],
+        zIndex: dy !== null || shift !== 0 ? 1 : undefined, transform: [{ translateY: dy ?? offset }],
         // Over the favourites the row fades: its tile stands in for it there.
         opacity: pinning ? opacity.dim : 1 }}>
       <Animated.View pointerEvents="none" style={[cover, { borderRadius: radius.row, backgroundColor: colors.tabHover, opacity: wash }]} />
@@ -90,10 +107,8 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
       {pressed && !active && <View pointerEvents="none" style={[cover, { borderRadius: radius.row, backgroundColor: colors.tabPressed }]} />}
       {/* The active card sits behind the row rather than around it, so a tab becoming active or not keeps its views. */}
       {active && <Panel fill="tabActive" radius="row" elevation={glowElevation[glow]} border="tabActiveBorder" style={cover} />}
-      {/* Where the dragged row lands: a line between the rows it goes between. */}
-      {steps !== 0 && <View pointerEvents="none" style={{ position: 'absolute', left: space.sm, right: space.sm, height: geometry.focusRing,
-        borderRadius: radius.pill, backgroundColor: colors.tabDropLine,
-        top: steps * rowStep - (dy ?? 0) + (steps > 0 ? geometry.tabRow : -geometry.tabRowGap) + lineInGap }} />}
+      {/* Lifted while dragged: a card with a shadow over the rows, as in Ardia; like the rows, it holds its size. */}
+      {dy !== null && !active && !pinning && <Panel fill="tabActive" radius="row" elevation="menu" border="tabActiveBorder" style={cover} />}
       <Pressable accessibilityRole="button" accessibilityState={{ selected: active }}
         accessibilityLabel={`${title}${tab.loading ? ', loading' : ''}${tab.muted ? ', muted' : tab.audible ? ', playing audio' : ''}${
           tab.engine === 'webkit' ? ', in WebKit' : ''}${tab.discarded ? ', asleep' : ''}`}

@@ -53,6 +53,14 @@ export type Tab = {
    */
   engine?: 'webkit';
   /**
+   * Never sent by Chromium: the name the user gave the tab (Rename Tab),
+   * which the shell shows in place of the page's title. The page's own
+   * title is then in `title` still.
+   */
+  name?: string;
+  /** Never sent by Chromium: the SF Symbol the user chose to show in place of the page's icon (Change Icon). */
+  symbol?: string;
+  /**
    * The WebKit page the tab showed when Merlin last quit, restored with the
    * session: the shell shows it in WebKit again (or, if its site now opens in
    * Chromium, loads it there). Absent once claimed, and from older engines.

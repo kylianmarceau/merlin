@@ -50,17 +50,17 @@ export function HoverCardOverlay() {
       {!!address && page && <Text variant="caption" tone="textSecondary" lines={1}>{address}</Text>}
       {away && home && <Text variant="caption" tone="textTertiary" lines={1}>{`Pinned on ${home.title || home.url}`}</Text>}
       {tab.discarded && <Text variant="caption" tone="textTertiary">Asleep to save memory; it reloads when you open it</Text>}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.hair, marginTop: space.xs, marginLeft: -space.xs }}>
-        {away && <IconButton label="Back to pinned page" icon="arrow.uturn.backward" size="small" onPress={act(() => actions.returnToPinnedPage(tab.id))} />}
-        <IconButton label={tab.pinned ? 'Unpin tab' : 'Pin tab'} icon={tab.pinned ? 'pin.slash' : 'pin'} size="small"
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs, marginTop: space.xs, marginLeft: -space.xs }}>
+        {away && <IconButton label="Back to pinned page" icon="arrow.uturn.backward" size="card" variant="plate" onPress={act(() => actions.returnToPinnedPage(tab.id))} />}
+        <IconButton label={tab.pinned ? 'Unpin tab' : 'Pin tab'} icon={tab.pinned ? 'pin.slash' : 'pin'} size="card" variant="plate"
           onPress={act(() => actions.pinTab(tab.id, !tab.pinned))} />
         {page && <IconButton label={tab.bookmarked ? 'Remove bookmark' : 'Add to Bookmarks bar'} icon={tab.bookmarked ? 'bookmark.fill' : 'bookmark'}
-          size="small" onPress={act(() => actions.bookmarkTab(tab.id))} />}
-        {tab.id !== snapshot.activeTabId && !tab.split && <IconButton label="Open in split view" icon="rectangle.split.2x1" size="small"
+          size="card" variant="plate" onPress={act(() => actions.bookmarkTab(tab.id))} />}
+        {tab.id !== snapshot.activeTabId && !tab.split && <IconButton label="Open in split view" icon="rectangle.split.2x1" size="card" variant="plate"
           onPress={act(() => actions.splitTab(tab.id))} />}
         {(tab.audible || tab.muted) && <IconButton label={tab.muted ? 'Unmute tab' : 'Mute tab'}
-          icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" onPress={act(() => actions.muteTab(tab.id, !tab.muted))} />}
-        {page && <IconButton label="Copy link" icon="link" size="small" onPress={act(() => actions.copyTabLink(tab.id))} />}
+          icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="card" variant="plate" onPress={act(() => actions.muteTab(tab.id, !tab.muted))} />}
+        {page && <IconButton label="Copy link" icon="link" size="card" variant="plate" onPress={act(() => actions.copyTabLink(tab.id))} />}
       </View>
     </Panel>
   </Animated.View>;

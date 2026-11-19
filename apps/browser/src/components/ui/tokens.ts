@@ -34,7 +34,9 @@ export const geometry = {
   tabRowGap: 3, tileRing: 2.5,
   /** A dashed rule's dashes and the gaps between them (under the favourite tiles, as in Ardia). */
   ruleDash: 3, ruleGap: 3,
-  rowTall: 44, popoverRow: 32, icon: 16, iconSmall: 13, iconLarge: 20, favicon: 16, tile: 28, round: 20, roundGlyph: 9, keycap: 18,
+  rowTall: 44, popoverRow: 32, icon: 16, iconSmall: 13, iconMedium: 15, iconLarge: 20,
+  /** Every small icon button's hover square (each ×, a row's mute), and a hover card's action plates. */
+  iconButton: 22, cardButton: 24, favicon: 16, tile: 28, round: 20, roundGlyph: 9, keycap: 18,
   toggleWidth: 28, toggleHeight: 16, toggleThumb: 12, progress: 4, focusRing: 2, hairline: 1, splitGap: 6, dot: 7,
   popover: 300, popoverWide: 340, menu: 240, dialog: 380, dialogWide: 520, palette: 620, paletteInput: 60, paletteRow: 42,
   /** Every centred pop-up (commands, new tab, Ctrl-Tab): the most rows its list shows, and its full height. */

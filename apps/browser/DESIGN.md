@@ -46,8 +46,11 @@ The stored accent names predate Tide and stay as the browser saves them:
   rows opens a tab. Rows fade their titles (`Fade`, no ellipsis), show a
   speaker that mutes the tab while it plays, a Safari badge on WebKit tabs,
   and dim while asleep. Rows joining or leaving the list, and groups
-  folding, animate as in Dia (`animateListChange`). Dragging a row shows a
-  line where it will land. The footer is quiet: downloads on the left only
+  folding, animate as in Dia (`animateListChange`). A dragged row lifts
+  into a white card with a shadow (no scale) and follows the pointer, while
+  the rows it passes slide aside on the `snappy` spring with a trackpad tick
+  at each place, as in Ardia (`rowShift`); let go, it springs into the gap
+  and holds there until Chromium's order catches up. The footer is quiet: downloads on the left only
   while there are some; workspaces, extensions, the command menu, the
   Library and Settings on the right. The page card has **no toolbar** in
   this layout.
@@ -84,9 +87,11 @@ The stored accent names predate Tide and stay as the browser saves them:
   The card gets one 46 pt toolbar (32 pt when compact), as calm as Dia's:
   hide tabs, back, forward, reload, the address and extensions. Holding Back
   or Forward (or right-clicking it) lists the pages that way.
-- **Site colour** (tabs on top, Settings > Appearance): the joined tab and
-  toolbar take the site's colour, from the engine (`Tab.color`: the page's
-  theme-color, else its icon's main colour). *Soft* (default) mixes it with
+- **Site colour** (Settings > Appearance), in either layout as in Ardia:
+  with tabs on top the joined tab and toolbar take the site's colour; in
+  the sidebar layout the toolbar does whenever the card has one (tabs
+  hidden, or the address in the toolbar). The colour comes from the engine
+  (`Tab.color`: the page's theme-color, else its icon's main colour). *Soft* (default) mixes it with
   86% white and draws ink from the same hue; *Vivid* darkens it until white
   text reaches 4.5:1; *White* ignores it. New tab and crashed pages are
   always white. "Tint the window with the site colour" replaces the
@@ -131,8 +136,10 @@ The stored accent names predate Tide and stay as the browser saves them:
   pointer left meanwhile they slide away once the menu closes.
 - **Hover cards**: half a second's rest on a tab, a strip tab or a pinned
   tile shows its card (`HoverCardOverlay`): the whole title, the address and
-  one-press actions (pin, bookmark, split, mute, copy link; for a pinned tile
-  that has left its page, back to it). Moving on to the next tab shows its
+  one-press actions in Dia's row of glyphs (pin, bookmark, split, mute, copy
+  link; for a pinned tile that has left its page, back to it): 15 pt
+  symbols on 24 pt squares that show a soft plate under the pointer
+  (`IconButton` `card` size, `plate` look). Moving on to the next tab shows its
   card at once; the card stays while the pointer is on it, and no tooltip
   shows on top of it. As Dia's does, it
   goes when the keyboard moves on: a tab opened, closed or switched to, the
@@ -233,6 +240,12 @@ a file in Finder (`FileDragArea`), to the desktop, Mail or a page.
   the pointer; over the toolbar or sidebar nothing happens. Sidebar rows
   also reorder by dragging up or down. The tab menu has Open in Split View
   (or Separate Split View for a tab in one) and Move to New Window.
+- **Tab menu**: as in Ardia, every item carries an SF Symbol (macOS 27
+  hides menu images unless an item asks, so Merlin's do). Rename Tab… gives
+  the tab a name of its own, shown wherever its title would be, and Change
+  Icon puts one of a set of symbols in place of the page's icon; both last
+  as long as the window (`tabLooks`), and the menu offers the page's title
+  and icon back.
 Buttons are pills: `primary` is dark ink, `secondary` a soft wash.
 
 Settings is a tall sheet (780 pt, shorter on a small screen) with its
@@ -339,7 +352,8 @@ SF Symbols only, tinted with a colour role (`iconPrimary`, `iconSecondary`,
 for navigation, `shippingbox` for extensions, `arrow.down.to.line` for
 downloads. Settings uses Merlin's own set: a window with its sidebar, a
 switch, a closed eye, a no-entry sign, a speedometer, a box, stacked cards,
-⌘, braces and the M. Native menus carry words only. Page favicons are
+⌘, braces and the M. Native menus give each item a symbol, as Ardia's do. Every
+small icon button (each ×, a row's mute) has the same 22 pt hover square. Page favicons are
 fetched from Chromium as 2x PNGs into a fixed 16 pt slot (20 pt large) that
 shows the globe until the image arrives, which then fades in over 100 ms, so
 titles never shift. An icon that is all dark is drawn in `iconPrimary` in

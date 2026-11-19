@@ -1,24 +1,33 @@
 // Everything a window's components can ask for. Components never hold the
 // engine or call getState(); they call these, and failures become notices.
-import { copyText, haptic, imageTone, showMenu, type MenuItem } from '../platform/shell';
+import { copyText, haptic, imageTone, showMenu, type MenuItem, type SymbolName } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
 import { pageLabel } from '../lib/format';
 import { dropOutcome, type DropTarget, type SplitSide } from './tabDrag';
 import { beforeIdFor, overZone, placeAt, slotAt, type GridZone } from './favouriteGrid';
+import { withLook, type TabLook } from './tabLooks';
 import { tabUnits } from './splits';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
 import { groupColors, type Appearance, type Calls, type DownloadAction, type EngineClient, type GroupColor, type Method, type Request,
   type Requests } from '../platform/protocol';
 import { currentSuggestions, moveSelection, startQuery, suggestionChoice } from './omnibox';
 import {
-  dismissHud, dismissToast, pushToast, rememberFavicon, showHud, type Hud, type AnchorName, type BrowserStore, type HoverCard, type Panel, type PopoverName, type Rect,
+  dismissHud, dismissToast, pushToast, refreshOverlay, rememberFavicon, showHud, type Hud, type AnchorName, type BrowserStore, type GroupDialog, type HoverCard, type Panel, type PopoverName, type Rect,
   type SearchOwner,
 } from './store';
 import type { BookmarkItem } from '../platform/protocol';
 import { awayFromHome } from './pinned';
 
 let queryCounter = 0;
+/** The symbols a tab can show in place of its page's icon (Change Icon), with their names in the menu. */
+const symbolTitles = {
+  star: 'Star', heart: 'Heart', bolt: 'Bolt', flag: 'Flag', bookmark: 'Bookmark', book: 'Book', briefcase: 'Briefcase', cart: 'Cart',
+  envelope: 'Envelope', 'bubble.left': 'Chat', calendar: 'Calendar', 'chart.bar': 'Chart', newspaper: 'News', film: 'Film',
+  'music.note': 'Music', gamecontroller: 'Game', house: 'House', graduationcap: 'School', paintpalette: 'Palette', leaf: 'Leaf',
+  airplane: 'Travel',
+} as const satisfies Partial<Record<SymbolName, string>>;
+const tabSymbols = Object.keys(symbolTitles) as (keyof typeof symbolTitles)[];
 const groupColorTitle = (color: GroupColor) => color[0].toUpperCase() + color.slice(1);
 /** How soon after an outside press closes a popover its own button is ignored. */
 const reopenGuardMs = 400;
@@ -213,7 +222,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     ungroupGroup: (groupId: string) => run('groups.ungroup', { groupId }),
     closeGroup: (groupId: string) => run('groups.close', { groupId }),
     /** Opens the field that names a new group for the tab, or renames a group. */
-    nameGroup: (dialog: { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string }) =>
+    nameGroup: (dialog: GroupDialog) =>
       store.setState({ groupDialog: dialog, panel: null, popover: null }),
     closeGroupDialog: () => store.setState({ groupDialog: null }),
     /** The group dialog's answer: names the new group, or renames the group. Empty names are allowed. */
@@ -221,9 +230,16 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const dialog = store.getState().groupDialog;
       if (!dialog) return;
       const name = title.trim();
+      if (dialog.kind === 'renameTab') { actions.setTabLook(dialog.tabId, { name }); store.setState({ groupDialog: null }); return; }
       const ok = dialog.kind === 'new' ? await actions.groupTab(dialog.tabId, null, name)
         : await actions.updateGroup(dialog.groupId, { title: name });
       if (ok) store.setState({ groupDialog: null });
+    },
+    /** A tab's own name or icon in Merlin (empty puts the page's back). */
+    setTabLook(tabId: string, change: TabLook) {
+      const s = store.getState();
+      store.setState({ tabLooks: withLook(s.tabLooks, tabId, change, (s.engineSnapshot?.tabs ?? []).map(t => t.id)) });
+      refreshOverlay(store);
     },
     async groupMenu(groupId: string) {
       const snap = store.getState().snapshot;
@@ -436,43 +452,55 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const home = tab.pinned ? store.getState().pinnedHomes[tabId] : undefined;
       const page = !!tab.url && !/^(about|chrome|merlin):/.test(tab.url);
       const groups = (store.getState().snapshot?.groups ?? []).filter(g => g.id !== tab.group);
-      // Plain words, like the rest of the menu bar; the tab's own title says which tab.
+      // As in Ardia, every item carries a symbol; the tab's own title says which tab.
+      const look = store.getState().tabLooks[tabId];
       const items: MenuItem[] = [
-        { id: 'pin', title: tab.pinned ? 'Unpin Tab' : 'Pin Tab' },
+        { id: 'pin', title: tab.pinned ? 'Unpin Tab' : 'Pin Tab', symbol: tab.pinned ? 'pin.slash' : 'pin' },
         ...(home && awayFromHome(tab, home) ? [{ id: 'home', title: 'Back to Pinned Page', symbol: 'arrow.uturn.backward' as const }] : []),
-        { id: 'duplicate', title: 'Duplicate Tab', enabled: !!tab.url },
-        { id: 'reload', title: 'Reload Tab' },
+        { id: 'duplicate', title: 'Duplicate Tab', enabled: !!tab.url, symbol: 'doc.on.doc' },
+        { id: 'reload', title: 'Reload Tab', symbol: 'arrow.clockwise' },
         ...(tab.audible || tab.muted ? [{ id: 'mute', title: tab.muted ? 'Unmute Tab' : 'Mute Tab',
           symbol: (tab.muted ? 'speaker.wave.2' : 'speaker.slash') as 'speaker.wave.2' | 'speaker.slash' }] : []),
+        { separator: true },
+        { id: 'rename', title: 'Rename Tab…', symbol: 'pencil' },
+        { title: 'Change Icon', symbol: 'face.smiling', children: [
+          ...tabSymbols.map(name => ({ id: `icon:${name}`, title: symbolTitles[name], symbol: name, checked: look?.symbol === name })),
+          { separator: true },
+          { id: 'icon:', title: 'Use the Site’s Icon', symbol: 'globe', enabled: !!look?.symbol },
+        ] },
+        ...(look?.name ? [{ id: 'unname', title: 'Use the Page’s Title', symbol: 'arrow.counterclockwise' as const }] : []),
         { separator: true },
         { id: 'bookmark', title: tab.bookmarked ? 'Remove Bookmark' : 'Add to Bookmarks Bar', enabled: page,
           symbol: (tab.bookmarked ? 'bookmark.fill' : 'bookmark') as 'bookmark' | 'bookmark.fill' },
         { id: 'copy', title: 'Copy Link', enabled: page, symbol: 'link' },
         // Sites Chromium can't play open in WebKit; either can show any site.
         ...(canUseWebKit(tab.url) ? [tab.engine === 'webkit'
-          ? { id: 'chromium', title: 'Open Site in Chromium' } : { id: 'webkit', title: 'Open Site in WebKit' }] : []),
+          ? { id: 'chromium', title: 'Open Site in Chromium', symbol: 'globe' as const }
+          : { id: 'webkit', title: 'Open Site in WebKit', symbol: 'safari' as const }] : []),
         { separator: true },
         tab.split ? { id: 'unsplit', title: 'Separate Split View', symbol: 'rectangle.portrait.and.arrow.right' }
           : { id: 'split', title: 'Open in Split View', enabled: tab.id !== snap?.activeTabId && !shownTogether, symbol: 'rectangle.split.2x1' },
         { id: 'window', title: 'Move to New Window', enabled: tabs.length > 1, symbol: 'arrow.up.forward.app' },
         { separator: true },
         // Chromium keeps pinned tabs out of groups.
-        { id: 'group-new', title: 'Add to New Group…', enabled: !tab.pinned },
-        ...(groups.length ? [{ title: 'Add to Group', enabled: !tab.pinned,
+        { id: 'group-new', title: 'Add to New Group…', enabled: !tab.pinned, symbol: 'rectangle.stack.badge.plus' },
+        ...(groups.length ? [{ title: 'Add to Group', enabled: !tab.pinned, symbol: 'rectangle.stack' as const,
           children: groups.map(g => ({ id: `group:${g.id}`, title: g.title || 'Unnamed Group' })) }] : []),
-        ...(tab.group ? [{ id: 'ungroup', title: 'Remove from Group' }] : []),
+        ...(tab.group ? [{ id: 'ungroup', title: 'Remove from Group', symbol: 'rectangle.stack.badge.minus' as const }] : []),
         { separator: true },
-        { id: 'up', title: 'Move Up', enabled: !!previous && previous.pinned === tab.pinned },
-        { id: 'down', title: 'Move Down', enabled: !!next && next.pinned === tab.pinned },
+        { id: 'up', title: 'Move Up', enabled: !!previous && previous.pinned === tab.pinned, symbol: 'arrow.up' },
+        { id: 'down', title: 'Move Down', enabled: !!next && next.pinned === tab.pinned, symbol: 'arrow.down' },
         { separator: true },
-        { id: 'close', title: 'Close Tab' },
-        { id: 'others', title: 'Close Other Tabs', enabled: others.length > 0 },
-        { id: 'below', title: 'Close Tabs Below', enabled: below.length > 0 },
+        { id: 'close', title: 'Close Tab', symbol: 'xmark' },
+        { id: 'others', title: 'Close Other Tabs', enabled: others.length > 0, symbol: 'xmark.square' },
+        { id: 'below', title: 'Close Tabs Below', enabled: below.length > 0, symbol: 'arrow.down.to.line' },
       ];
       let choice: string | null;
       try { choice = await menu(items); } catch (e) { fail(e); return; }
       switch (choice) {
         case 'pin': await actions.pinTab(tabId, !tab.pinned); break;
+        case 'rename': actions.nameGroup({ kind: 'renameTab', tabId }); break;
+        case 'unname': actions.setTabLook(tabId, { name: '' }); break;
         case 'duplicate': await actions.newTab(tab.url); break;
         case 'bookmark': await actions.bookmarkTab(tabId); break;
         case 'home': await actions.returnToPinnedPage(tabId); break;
@@ -492,7 +520,10 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         case 'down': await actions.moveTab(tabId, units[unit + 2]?.[0].id ?? null); break;
         case 'close': await actions.closeTab(tabId); break;
         case 'others': for (const t of others) if (!(await actions.closeTab(t.id))) break; break;
-        default: if (choice?.startsWith('group:')) await actions.groupTab(tabId, choice.slice('group:'.length)); break;
+        default:
+          if (choice?.startsWith('group:')) await actions.groupTab(tabId, choice.slice('group:'.length));
+          else if (choice?.startsWith('icon:')) actions.setTabLook(tabId, { symbol: choice.slice('icon:'.length) });
+          break;
       }
     },
 
