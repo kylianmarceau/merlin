@@ -6,6 +6,7 @@
 
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/location.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/supports_user_data.h"
 #include "base/values.h"
@@ -190,6 +191,13 @@ void PageIdentity::Record() {
     return;
   }
   entry->SetUserData(kSessionKey, std::make_unique<WebKitEntry>(url_, title_));
+  // A WebKit page over Chromium's blank page lends that page its title, so
+  // the Tab menu, Window menu and History › Recently Closed name the site
+  // rather than "about:blank". A real page underneath keeps its own title:
+  // the history saves it under that page's address.
+  if (entry->GetURL().IsAboutBlank() && !title_.empty() && entry->GetTitle() != title_) {
+    web_contents()->UpdateTitleForEntry(entry, title_);
+  }
   // The session service writes an entry again when it hears it changed.
   controller.NotifyEntryChanged(entry);
 }
@@ -219,6 +227,51 @@ bool BookmarkWebKitPage(content::WebContents* contents) {
   bookmarks::AddIfNotBookmarked(
       model, page.url, page.title.empty() ? base::UTF8ToUTF16(page.url.host())
                                           : page.title);
+  return true;
+}
+
+namespace {
+// Web pages and files; never a start page or an internal page.
+bool Bookmarkable(const GURL& url) {
+  return url.is_valid() && (url.SchemeIsHTTPOrHTTPS() || url.SchemeIsFile());
+}
+bookmarks::BookmarkModel* LoadedBookmarks(content::WebContents* contents) {
+  bookmarks::BookmarkModel* model =
+      BookmarkModelFactory::GetForBrowserContext(contents->GetBrowserContext());
+  return model && model->loaded() ? model : nullptr;
+}
+}  // namespace
+
+bool IsPageBookmarked(content::WebContents* contents) {
+  if (!contents) {
+    return false;
+  }
+  bookmarks::BookmarkModel* model = LoadedBookmarks(contents);
+  const GURL url = GetVisiblePage(contents).url;
+  return model && Bookmarkable(url) && model->IsBookmarked(url);
+}
+
+bool SetPageBookmarked(content::WebContents* contents, bool bookmarked) {
+  if (!contents) {
+    return false;
+  }
+  bookmarks::BookmarkModel* model = LoadedBookmarks(contents);
+  const VisiblePage page = GetVisiblePage(contents);
+  if (!model || !Bookmarkable(page.url)) {
+    return false;
+  }
+  if (!bookmarked) {
+    bookmarks::RemoveAllBookmarks(model, page.url, FROM_HERE);
+    return true;
+  }
+  if (model->IsBookmarked(page.url)) {
+    return true;
+  }
+  const bookmarks::BookmarkNode* bar = model->bookmark_bar_node();
+  model->AddNewURL(bar, bar->children().size(),
+                   page.title.empty() ? base::UTF8ToUTF16(page.url.host())
+                                      : page.title,
+                   page.url);
   return true;
 }
 

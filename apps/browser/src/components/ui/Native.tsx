@@ -12,9 +12,12 @@ export function ContextMenu({ onOpen, children, style }: React.PropsWithChildren
   return <NativeContextMenuArea onContextMenu={onOpen} style={style}>{children}</NativeContextMenuArea>;
 }
 
-/** Reports whether the window is in macOS full screen (not a page's own fullscreen). */
-export function FullScreenWatch({ onChange }: { onChange(fullScreen: boolean): void }) {
-  return <WindowState pointerEvents="none" style={{ position: 'absolute', width: 0, height: 0 }}
+/**
+ * Reports whether the window is in macOS full screen (not a page's own
+ * fullscreen), and shows or hides its traffic lights (`windowButtons`).
+ */
+export function FullScreenWatch({ onChange, windowButtons = true }: { onChange(fullScreen: boolean): void; windowButtons?: boolean }) {
+  return <WindowState pointerEvents="none" style={{ position: 'absolute', width: 0, height: 0 }} windowButtons={windowButtons}
     onFullScreen={e => onChange(e.nativeEvent.fullScreen)} />;
 }
 

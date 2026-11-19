@@ -44,6 +44,10 @@ export const geometry = {
   groupChip: 22, groupChipMax: 132, groupChipChar: 7, groupLine: 2,
   /** Peek's card over the page: its header. */
   peekHeader: 44,
+  /** A tooltip's widest; a tab's hover card; the strip at the window's edge that brings hidden tabs in, and the room they keep around them. */
+  tooltip: 280, hoverCard: 260, edgeStrip: 3, peekSlack: 40, resizeHandle: 6, engineBadge: 11,
+  /** A title's run before it fades: wider than any row, so the fade, not the text layout, ends it. */
+  titleRun: 640,
   /** The downloads button's progress ring, the page-loading bar under the address, and the icon that flies to the button. */
   ringStroke: 2, loadingBar: 2, flyingIcon: 40,
   /** A dragged tab leaves the tabs for the page once it is this far outside them. */
@@ -231,6 +235,11 @@ function roles(mode: Mode, accentName: AccentName) {
     tabTextActive: pick(ink[900], ink[25]),
     tabLoading: a.base,
     tilePinned: pick('rgba(255, 255, 255, 0.40)', 'rgba(255, 255, 255, 0.06)'),
+    // The disc behind a WebKit tab's Safari badge, and the line where a dragged tab will land.
+    engineBadge: pick(ink[0], ink[800]),
+    tabDropLine: a.base,
+    // The address pill's edge in Insert mode, with modal browsing on.
+    modeInsert: a.ring,
     tilePinnedActive: pick(ink[0], 'rgba(255, 255, 255, 0.14)'),
     sectionLabel: pick('#7F8681', ink[400]),
     groupLabel: pick('#565C58', ink[300]),
@@ -319,7 +328,7 @@ export const shadow = {
 export type ShadowName = keyof typeof shadow;
 
 /** Opacity for disabled and pressed controls. */
-export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, paintDark: 0.82, groupWash: 0.16 } as const;
+export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, paintDark: 0.82, groupWash: 0.16, sleeping: 0.5 } as const;
 
 // Site colours. In the tabs-on-top layout the active tab joins the toolbar,
 // and both take a colour from the site. Four treatments, chosen in Settings:
@@ -352,6 +361,13 @@ const withAlpha = (hex: string, alpha: number) => {
   const [r, g, b] = channels(hex);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
+/**
+ * The selected pinned tile, tinted with its site's colour (the icon's main
+ * colour, "#RRGGBB"), as Dia does; null without one, for the plain white card.
+ */
+export function pinnedTileTint(site: string | undefined, dark: boolean) {
+  return site && /^#[0-9A-Fa-f]{6}$/.test(site) ? withAlpha(site, dark ? 0.3 : 0.2) : null;
+}
 function luminance(hex: string) {
   const [r, g, b] = channels(hex).map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Animated, Pressable, View } from 'react-native';
+import { Animated, View } from 'react-native';
+import { Pressable } from './Pressable';
 import { duration, presenceStyle, usePresence, useTimeout } from './motion';
 import { Panel } from './Panel';
 import { Text } from './Text';

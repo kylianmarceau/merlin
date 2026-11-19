@@ -44,6 +44,7 @@ public final class MerlinShellModule: Module {
     // The menu bar exists by the time a window's React root asks for this.
     AsyncFunction("installQuitGuard") { QuitGuard.shared.install() }.runOnQueue(.main)
     AsyncFunction("setBookmarksMenuHidden") { (hidden: Bool) in BookmarksMenu.setHidden(hidden) }.runOnQueue(.main)
+    AsyncFunction("tidyMenuBar") { MenuTidy.install() }.runOnQueue(.main)
     AsyncFunction("appIcons") { (size: Double) in AppIcons.choices(size: size) }.runOnQueue(.main)
     AsyncFunction("appIcon") { AppIcons.current }
     // MERLIN_STARTUP_TRACE=<file>: the shell's own timing lines join the
@@ -211,6 +212,7 @@ public final class MerlinShellWindowStateModule: Module {
     Name("MerlinShellWindowState")
     View(MerlinWindowState.self) {
       Events("onFullScreen")
+      Prop("windowButtons") { (view, value: Bool) in view.windowButtons = value }
     }
   }
 }

@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 import { promptChipLabel, promptIcon } from '../../lib/prompts';
-import { addressParts, displayHost, isStartUrl, leftToRight } from '../../lib/format';
+import { addressParts, displayHost, isStartUrl, leftToRight, pageTitle } from '../../lib/format';
 import { securityBadge } from '../../lib/security';
 import { currentSuggestions } from '../../state/store';
+import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
-import { Icon, IconButton, LoadingBar, Text, duration, useEscape, useTheme, font, geometry, radius, space } from '../ui';
+import { Icon, IconButton, LoadingBar, Text, duration, useEscape, useTheme, font, geometry, radius, space, Pressable } from '../ui';
 
 /**
  * The address and search field. Chromium's address-bar engine suggests as the
@@ -13,9 +14,16 @@ import { Icon, IconButton, LoadingBar, Text, duration, useEscape, useTheme, font
  * the field still shows its completion, exactly as Chromium's own field does.
  *
  * "shell" is the white pill at the top of the sidebar, showing just the site;
- * "toolbar" sits in the page card's toolbar and shows the path too.
+ * "toolbar" sits in the page card's toolbar. At rest it reads as Dia's
+ * breadcrumb, the site then the page's title; with the pointer on it, the
+ * whole address and the page's actions (bookmark, copy link) show. A filled
+ * bookmark says the page is already saved. With modal browsing, Insert mode
+ * rings it in the accent. `listens` is false for a second field on screen
+ * (the sidebar peeking over the page), which leaves focus requests alone.
  */
-export function AddressField({ variant = 'toolbar', compact = false }: { variant?: 'toolbar' | 'shell'; compact?: boolean }) {
+export function AddressField({ variant = 'toolbar', compact = false, listens = true }: {
+  variant?: 'toolbar' | 'shell'; compact?: boolean; listens?: boolean;
+}) {
   const { colors } = useTheme();
   const snapshot = useSnapshot();
   const actions = useActions();
@@ -41,6 +49,8 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
   const editingNow = useRef(false);
   const startEditing = (value: string) => { editingNow.current = true; setEditing(true); setText(value); };
   const begin = () => {
+    // Suggestions hang from whichever field is being typed in.
+    measure();
     if (blurTimer.current) clearTimeout(blurTimer.current);
     blurTimer.current = null;
     if (editingNow.current && text !== (start ? '' : url)) return;
@@ -62,8 +72,19 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
   // A new-tab pop-up takes the focus request instead.
   const popupOpen = useBrowser(s => s.panel === 'newTab' || s.panel === 'location');
   // So does the start page's own field, on a start page.
-  useEffect(() => { if (focusRequest && !popupOpen && !start) input.current?.focus(); }, [focusRequest]);  // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (revertRequest) { editingNow.current = false; setEditing(false); input.current?.blur(); } }, [revertRequest]);
+  // Only requests made after it appeared: a field that mounts later (the peeking sidebar's) must not take the focus.
+  const seenFocus = useRef(focusRequest);
+  useEffect(() => {
+    if (focusRequest === seenFocus.current) return;
+    seenFocus.current = focusRequest;
+    if (listens && !popupOpen && !start) input.current?.focus();
+  }, [focusRequest]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const seenRevert = useRef(revertRequest);
+  useEffect(() => {
+    if (revertRequest === seenRevert.current) return;
+    seenRevert.current = revertRequest;
+    editingNow.current = false; setEditing(false); input.current?.blur();
+  }, [revertRequest]);
   useEffect(() => () => { if (blurTimer.current) clearTimeout(blurTimer.current); }, []);
 
   // Escape leaves the field: AppKit gives up the focus itself, and the
@@ -92,6 +113,13 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
   // While not editing, the site reads first and the rest of the address
   // stays quiet, as Chromium formats it: no user name, spoofed hosts in punycode.
   const { host: label, rest } = addressParts(tab ?? { url });
+  // Dia's breadcrumb: "site / page title", until the pointer asks for the whole address.
+  const title = pageTitle(tab?.title);
+  const crumbTitle = title && title !== label && title !== tab?.displayUrl ? title : '';
+  const crumb = !shell && !hovered && !!crumbTitle;
+  const page = !!tab && !start && /^(https?|file):/i.test(url);
+  const bookmarks = useShellPrefs(p => p.showBookmarks);
+  const insert = snapshot.modal.modalBrowsing !== false && snapshot.modal.mode === 'Insert';
 
   // The field looks the same with Glass as with Classic.
   const fill = shell
@@ -101,7 +129,7 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
     style={{ flex: shell ? undefined : 1, flexDirection: 'row', alignItems: 'center', gap: space.xs,
       height: shell ? geometry.address : compact ? geometry.controlCompact : geometry.controlLarge, paddingLeft: space.md, paddingRight: space.xs,
       borderRadius: radius.field, backgroundColor: fill,
-      borderWidth: geometry.hairline, borderColor: colors[editing && !shell ? 'borderDefault' : 'fillTransparent'] }}>
+      borderWidth: geometry.hairline, borderColor: colors[insert && !editing ? 'modeInsert' : editing && !shell ? 'borderDefault' : 'fillTransparent'] }}>
     {/* The page loading runs along the field's bottom edge; a new tab starts its own. */}
     <LoadingBar key={tab?.id ?? ''} loading={!!tab?.loading && !start} inset={radius.field} />
     {start && !editing && <Icon name="magnifyingglass" tone="iconSecondary" size="small" />}
@@ -132,7 +160,9 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
       {!editing && !start && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
         flexDirection: 'row', alignItems: 'center' }}>
         <Text weight="medium" lines={1} style={{ flexShrink: 0, maxWidth: '100%' }}>{leftToRight(label)}</Text>
-        {!shell && !!rest && <Text tone="textSecondary" lines={1} style={{ flexShrink: 1 }}>{leftToRight(rest)}</Text>}
+        {crumb && <Text tone="textTertiary">{'  /  '}</Text>}
+        {crumb && <Text tone="textSecondary" lines={1} style={{ flexShrink: 1 }}>{crumbTitle}</Text>}
+        {!shell && !crumb && !!rest && <Text tone="textSecondary" lines={1} style={{ flexShrink: 1 }}>{leftToRight(rest)}</Text>}
       </View>}
     </View>
     {!!completion && top && <Text variant="caption" tone="omniboxCompletion" lines={1}>{`→ ${displayHost(top.url) || top.title}`}</Text>}
@@ -144,9 +174,15 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
       <Icon name={promptIcon(waiting)} tone="accentSoftText" size="small" />
       <Text variant="caption" weight="semibold" tone="accentSoftText">{promptChipLabel(waiting)}</Text>
     </Pressable>}
+    {/* The page's actions, as in Dia: shown with the pointer on the field; a saved page keeps its filled bookmark. */}
+    {!editing && page && bookmarks && (hovered || tab?.bookmarked) && <IconButton
+      label={tab?.bookmarked ? 'Remove bookmark' : 'Add to Bookmarks bar'} keys={['⌘', 'D']} icon={tab?.bookmarked ? 'bookmark.fill' : 'bookmark'}
+      tone={tab?.bookmarked ? 'textAccent' : undefined} size="small" onPress={() => { if (tab) void actions.bookmarkTab(tab.id); }} />}
+    {!editing && page && hovered && <IconButton label="Copy link" keys={['⇧', '⌘', 'C']} icon="link" size="small"
+      onPress={() => { if (tab) void actions.copyAddress(tab.url); }} />}
     {!editing && !start && tab?.engine === 'webkit' && <IconButton label="Shown in WebKit. Show engine options" icon="safari"
       tone="siteSecure" size="small" onFrame={f => actions.setAnchor('site', f)} onPress={() => void actions.engineMenu()} />}
-    {!editing && !start && tab?.engine !== 'webkit' && <IconButton label={`${badge.label}. Show site controls`}
+    {!editing && !start && tab?.engine !== 'webkit' && <IconButton label={`${badge.label}. Show site controls`} tip={`${badge.label} · Site settings`}
       icon={badge.icon} tone={badge.tone} size="small"
       onFrame={f => actions.setAnchor('site', f)} onPress={() => void actions.siteInfo()} />}
   </View>;

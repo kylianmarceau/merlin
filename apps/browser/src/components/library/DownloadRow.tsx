@@ -1,9 +1,9 @@
 import React from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { downloadLine, percent } from '../../lib/format';
 import { useFileIcon } from '../../state/fileIcons';
 import type { Download, DownloadAction } from '../../state/types';
-import { FileDragArea, Icon, MenuTextButton, PopoverRow, ProgressTrack, RowFill, geometry, opacity, rowState, space, useInteraction, type SymbolName } from '../ui';
+import { FileDragArea, Icon, MenuTextButton, PopoverRow, ProgressTrack, RowFill, geometry, opacity, rowState, space, useInteraction, type SymbolName, Pressable } from '../ui';
 
 export function downloadStatus(d: Download) {
   return d.status ?? (d.state === 'complete' ? 'done' : d.state === 'interrupted' ? 'failed' : d.state);

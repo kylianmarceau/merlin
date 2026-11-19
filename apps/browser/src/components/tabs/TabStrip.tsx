@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, Pressable, View } from 'react-native';
-import { isStartUrl } from '../../lib/format';
+import { Animated, PanResponder, View } from 'react-native';
 import type { Tab } from '../../state/types';
-import { useActions, useSnapshot } from '../../state/window';
+import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import {
   ContextMenu, DragRegion, Fade, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
-  groupColorRoles, opacity, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, type Palette,
+  groupColorRoles, opacity, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
 } from '../ui';
 import { StripGroupChip, chipWidth } from './TabGroups';
 import { Favicon } from '../favicon/Favicon';
+import { tabTitle as rowTitle } from './TabRow';
 import { useSiteChrome } from './siteChrome';
 import { DownloadsButton, LibraryButtons } from './WindowButtons';
 import { dropBefore, dropPlace, itemSlot, layoutStrip, reflow, type Slot, type StripItem, type StripMetrics } from './stripLayout';
@@ -40,7 +40,10 @@ type DragHandlers = { onDrag(dx: number, x: number, y: number): void; onDrop(dx:
  * show it in a split view, or out of the window to give it a window of its
  * own. Empty space moves the window.
  */
-export function TabStrip() {
+export function TabStrip({ floating = false }: {
+  /** Peeking in over the page while the tabs are hidden: no toolbar to join, so the active tab is a white pill. */
+  floating?: boolean;
+} = {}) {
   const snapshot = useSnapshot();
   const actions = useActions();
   const { colors } = useTheme();
@@ -49,6 +52,8 @@ export function TabStrip() {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const activeId = snapshot.activeTabId;
+  // Downloads shows only while there are some, as in Dia; the Library keeps them all.
+  const popoverOpen = useBrowser(s => s.popover === 'downloads');
   const groups = snapshot.groups ?? [];
   const full = useMemo(() => layoutStrip(snapshot.tabs, groups, activeId, room, metrics),
     [snapshot.tabs, snapshot.groups, activeId, room]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -127,21 +132,21 @@ export function TabStrip() {
             borderRadius: radius.field, backgroundColor: colors[groupColorRoles[chip.group.color]], opacity: opacity.groupWash }} />)}
         {layout.chips.map(chip => <StripGroupChip key={`chip:${chip.group.id}`} group={chip.group} x={chip.x} width={chip.width}
           top={tabTop} height={geometry.joinedTab} />)}
-        <JoinedShape slot={activeItem ? slotOf(activeItem) : null} color={chrome.bar} hidden={!!activeItem && activeItem === lifted}
-          following={following && activeItem?.key === drag?.key} />
+        {!floating && <JoinedShape slot={activeItem ? slotOf(activeItem) : null} color={chrome.bar} hidden={!!activeItem && activeItem === lifted}
+          following={following && activeItem?.key === drag?.key} />}
         {[...shown, ...(lifted ? [lifted] : [])].map(item => {
           const slot = slotOf(item);
           if (!slot) return null;
           const active = holdsActive(item);
           const dragging = following && item.key === drag?.key;
           const icon = item.pinned || layout.compact;
-          const roles = active ? chrome.roles : null;
+          const roles = active && !floating ? chrome.roles : null;
           if (item.tabs.length > 1) return <StripSplit key={item.key} tabs={item.tabs} slot={slot} activeId={activeId} icon={icon}
             pinned={item.pinned} roles={roles} dragging={dragging} onHover={hover(item.key)} handlers={tabId => handlers(item.key, tabId)}
             liftedId={drag?.out && drag.key === item.key ? drag.tabId : null} />;
           const lane = laneOf(item);
           const tab = item.tabs[0];
-          return <StripTab key={item.key} tab={tab} slot={slot} active={active} icon={icon} roles={roles} dragging={dragging}
+          return <StripTab key={item.key} tab={tab} slot={slot} active={active} icon={icon} roles={roles} dragging={dragging} pill={floating && active}
             lifted={item === lifted} divider={!item.pinned && !drag && quiet(lane[lane.indexOf(item) - 1]) && quiet(item)}
             onHover={hover(item.key)} {...handlers(item.key, tab.id)} />;
         })}
@@ -155,7 +160,7 @@ export function TabStrip() {
     <View style={{ height: geometry.strip, flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
       <LibraryButtons />
       {/* Last, so its popover hangs at the window's right edge, as in Ardia. */}
-      <DownloadsButton />
+      {(!!snapshot.downloads.length || popoverOpen) && <DownloadsButton />}
     </View>
   </View>;
 }
@@ -208,10 +213,12 @@ function useTabPan({ onDrag, onDrop }: DragHandlers) {
   }), []);
 }
 
-const tabTitle = (tab: Tab) => (isStartUrl(tab.url) ? 'New Tab' : tab.title || tab.url || 'New Tab');
+const tabTitle = (tab: Tab) => rowTitle(tab);
 
 type StripTabProps = DragHandlers & {
   tab: Tab; slot: Slot; active: boolean; icon: boolean; divider: boolean; dragging: boolean;
+  /** The active tab drawn as a white pill, when there is no toolbar for it to join. */
+  pill?: boolean;
   /** Pulled out of the tabs: it fades while the page shows where it can go. */
   lifted: boolean;
   /** The site's colours, for the active tab, which sits on the joined shape. */
@@ -219,45 +226,69 @@ type StripTabProps = DragHandlers & {
   onHover(on: boolean): void;
 };
 
-const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider, dragging, lifted, roles, onHover, onDrag, onDrop }: StripTabProps) {
+const StripTab = React.memo(function StripTab({ tab, slot, active, icon, divider, dragging, lifted, roles, pill = false, onHover, onDrag, onDrop }: StripTabProps) {
   const actions = useActions();
   const { colors, reduceMotion } = useTheme();
   const { focused, handlers } = useInteraction();
   const [hovered, setHovered] = useState(false);
   const { x, width } = useSlide(slot, reduceMotion, dragging);
   const there = usePresence(!lifted, 'fade', reduceMotion);
+  const wash = useHoverFade(!active && hovered && !dragging, reduceMotion);
   const pan = useTabPan({ onDrag, onDrop });
+  const ref = useRef<View>(null);
   const title = tabTitle(tab);
-  const hover = (on: boolean) => { setHovered(on); onHover(on); };
-  const label = `${tab.pinned ? 'Pinned: ' : ''}${title}${tab.loading ? ', loading' : ''}${tab.audible ? ', playing audio' : ''}`;
-  const body = <Animated.View {...pan.panHandlers} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}
+  const sound = tab.audible || tab.muted;
+  const hover = (on: boolean) => {
+    setHovered(on);
+    onHover(on);
+    if (!on) { actions.leaveTab(); return; }
+    ref.current?.measureInWindow((x0, y0, w, h) => actions.hoverTab(tab.id, { x: x0, y: y0, width: w, height: h }, 'below'));
+  };
+  const label = `${tab.pinned ? 'Pinned: ' : ''}${title}${tab.loading ? ', loading' : ''}${tab.muted ? ', muted' : tab.audible ? ', playing audio' : ''}${
+    tab.engine === 'webkit' ? ', in WebKit' : ''}`;
+  const body = <Animated.View ref={ref} {...pan.panHandlers} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}
     style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined }}>
     <Animated.View style={{ flex: 1, opacity: there.progress }}>
       {divider && <View pointerEvents="none" style={{ position: 'absolute', left: -gap, top: (geometry.joinedTab - geometry.iconSmall) / 2,
         width: geometry.hairline, height: geometry.iconSmall, backgroundColor: colors.tabDivider }} />}
-      {(focused || (!active && hovered)) && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs,
-        left: space.hair, right: space.hair, borderRadius: radius.control, backgroundColor: colors[active ? 'fillTransparent' : 'tabHoverInset'],
-        borderWidth: geometry.focusRing, borderColor: colors[focused ? 'focusRing' : 'fillTransparent'] }} />}
-      <ContextMenu onOpen={() => void actions.tabMenu(tab.id)} style={{ flex: 1 }}>
+      {pill && <Panel fill="tabActive" radius="control" elevation="tab" border="tabActiveBorder" style={{ position: 'absolute', top: space.xs,
+        bottom: space.xs, left: space.hair, right: space.hair }} />}
+      <Animated.View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs,
+        left: space.hair, right: space.hair, borderRadius: radius.control, backgroundColor: colors.tabHoverInset, opacity: wash }} />
+      {focused && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs,
+        left: space.hair, right: space.hair, borderRadius: radius.control, borderWidth: geometry.focusRing, borderColor: colors.focusRing }} />}
+      <ContextMenu onOpen={() => { actions.closeHoverCard(); void actions.tabMenu(tab.id); }} style={{ flex: 1 }}>
         <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={label}
           focusable {...handlers}
           keyDownEvents={[{ key: 'Enter' }, { key: ' ' }]} onKeyDown={e => {
             if (e.nativeEvent.key === 'Enter' || e.nativeEvent.key === ' ') void actions.activateTab(tab.id);
           }}
           // Like a folder tab: it comes forward as soon as it is pressed.
-          onPressIn={() => { if (!active) void actions.activateTab(tab.id); }}
+          onPressIn={() => { actions.closeHoverCard(); if (!active) void actions.activateTab(tab.id); }}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.sm, justifyContent: icon ? 'center' : 'flex-start',
-            paddingLeft: icon ? 0 : space.md, paddingRight: icon ? 0 : geometry.control }}>
+            paddingLeft: icon ? 0 : space.md, paddingRight: icon ? 0 : geometry.control + (sound ? geometry.control - space.sm : 0) }}>
           <View style={{ width: geometry.favicon, height: geometry.favicon, alignItems: 'center', justifyContent: 'center' }}>
-            <Favicon tab={tab} busy={tab.loading && !active} />
+            <Favicon tab={tab} busy={tab.loading && !active} badges />
           </View>
+          {/* Wider than the tab, so the fade, not the text layout, ends the title (which otherwise stopped a letter short). */}
           {!icon && <Fade style={{ flex: 1 }}>
-            <Text lines={1} ellipsizeMode="clip" tone={active ? 'tabTextActive' : 'tabText'} weight={active ? 'medium' : undefined}>{title}</Text>
+            <Text lines={1} ellipsizeMode="clip" style={{ width: geometry.titleRun }}
+              tone={active ? 'tabTextActive' : tab.discarded ? 'textTertiary' : 'tabText'} weight={active ? 'medium' : undefined}>{title}</Text>
           </Fade>}
         </Pressable>
       </ContextMenu>
-      {!icon && (hovered || active) && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: 0, justifyContent: 'center' }}>
-        <IconButton label={`Close ${title}`} icon="xmark" size="small" onPress={() => void actions.closeTab(tab.id)} />
+      {!icon && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center' }}>
+        {sound && <IconButton label={tab.muted ? `Unmute ${title}` : `Mute ${title}`} tip={tab.muted ? 'Unmute tab' : 'Mute tab'}
+          icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" tone="iconSecondary"
+          onPress={() => void actions.muteTab(tab.id, !tab.muted)} />}
+        {(hovered || active) && <IconButton label={`Close ${title}`} tip="Close tab" keys={['⌘', 'W']} icon="xmark" size="small"
+          onPress={() => { actions.closeHoverCard(); void actions.closeTab(tab.id); }} />}
+      </View>}
+      {/* An icon-only tab (pinned, or crowded) shows its sound as a small badge you can press. */}
+      {icon && sound && <View style={{ position: 'absolute', right: -space.xs, top: -space.hair }}>
+        <IconButton label={tab.muted ? `Unmute ${title}` : `Mute ${title}`} tip={tab.muted ? 'Unmute tab' : 'Mute tab'}
+          icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" tone="iconSecondary"
+          onPress={() => void actions.muteTab(tab.id, !tab.muted)} />
       </View>}
     </Animated.View>
   </Animated.View>;
@@ -328,10 +359,10 @@ function SplitSide({ tab, first, focused, inActive, icon, lifted, onDrag, onDrop
           paddingLeft: icon ? 0 : first ? space.md : space.sm, paddingRight: icon ? 0 : closing ? geometry.control : space.sm }}>
         {first && !icon && <Icon name="rectangle.split.2x1" size="small" tone="iconSecondary" />}
         <View style={{ width: geometry.favicon, height: geometry.favicon, alignItems: 'center', justifyContent: 'center' }}>
-          <Favicon tab={tab} busy={tab.loading && !focused} />
+          <Favicon tab={tab} busy={tab.loading && !focused} badges />
         </View>
         {!icon && <Fade style={{ flex: 1 }}>
-          <Text lines={1} ellipsizeMode="clip" tone={focused ? 'tabTextActive' : inActive ? 'textSecondary' : 'tabText'}
+          <Text lines={1} ellipsizeMode="clip" style={{ width: geometry.titleRun }} tone={focused ? 'tabTextActive' : inActive ? 'textSecondary' : 'tabText'}
             weight={focused ? 'medium' : undefined}>{title}</Text>
         </Fade>}
       </Pressable>

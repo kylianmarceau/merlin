@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Animated, View } from 'react-native';
-import { isStartUrl } from '../../lib/format';
+import { tabTitle } from './TabRow';
 import { contains, dropCandidates, dropOutcome, splitPartner, zoneHit, zoneRect } from '../../state/tabDrag';
 import type { Rect, SplitSide, ZoneStage } from '../../state/types';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
@@ -69,7 +69,7 @@ function DragCard({ tabId, x, y, progress, outcome }: {
     <Panel elevation="menu" radius="control" style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm,
       maxWidth: geometry.stripTab + geometry.stripTabIcon, paddingHorizontal: space.md, height: geometry.control + space.xs }}>
       <Favicon tab={tab} />
-      <Text lines={1} weight="medium" style={{ flexShrink: 1 }}>{isStartUrl(tab.url) ? 'New Tab' : tab.title || tab.url || 'New Tab'}</Text>
+      <Text lines={1} weight="medium" style={{ flexShrink: 1 }}>{tabTitle(tab)}</Text>
       {outcome && <Icon name={outcome === 'split' ? 'rectangle.split.2x1' : 'arrow.up.forward.app'} size="small"
         tone={outcome === 'split' ? 'dropZoneActiveText' : 'iconSecondary'} />}
     </Panel>

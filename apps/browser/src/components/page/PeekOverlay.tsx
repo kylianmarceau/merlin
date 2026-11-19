@@ -1,8 +1,8 @@
 import React from 'react';
-import { Animated, Pressable, View } from 'react-native';
+import { Animated, View } from 'react-native';
 import { displayHost } from '../../lib/format';
 import { useActions, useSnapshot } from '../../state/window';
-import { Button, Icon, IconButton, Panel, Spinner, Text, geometry, presenceStyle, space, useLatest, usePresence, useTheme } from '../ui';
+import { Button, Icon, IconButton, Panel, Spinner, Text, geometry, presenceStyle, space, useLatest, usePresence, useTheme, Pressable } from '../ui';
 import { Page } from './Page';
 
 const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable } from 'react-native';
+import { Animated } from 'react-native';
+import { Pressable } from './Pressable';
 import { spring } from './motion';
 import { useTheme } from './theme';
 import { geometry, opacity, radius, space } from './tokens';

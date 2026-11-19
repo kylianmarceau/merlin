@@ -65,6 +65,11 @@
 #include "chrome/browser/ui/modal_browser/merlin_suggestions.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_switcher.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_muted_utils.h"
+#include "components/bookmarks/browser/base_bookmark_model_observer.h"
+#include "components/bookmarks/browser/bookmark_model.h"
 #include "base/base64.h"
 #include "base/hash/hash.h"
 #include "content/public/browser/favicon_status.h"
@@ -199,7 +204,8 @@ struct ShellPrompt {
   base::TimeTicks shown;
 };
 class WindowState : public TabStripModelObserver, public content::WebContentsObserver,
-                    public download::AllDownloadItemNotifier::Observer, public ui::NativeThemeObserver {
+                    public download::AllDownloadItemNotifier::Observer, public ui::NativeThemeObserver,
+                    public bookmarks::BaseBookmarkModelObserver {
  public:
   explicit WindowState(BrowserWindowInterface* browser) : browser_(browser) {
     browser_->GetTabStripModel()->AddObserver(this);
@@ -218,6 +224,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     // changes colour as the page scrolls is read once the scroll ends.
     scrolls_.Watch(web_contents());
     theme_.Observe(ui::NativeTheme::GetInstanceForNativeUi());
+    // Each tab says whether its page is bookmarked (the address field's star).
+    if (auto* model = BookmarkModelFactory::GetForBrowserContext(browser_->GetProfile())) bookmarks_.Observe(model);
   }
   ~WindowState() override {
     browser_->GetTabStripModel()->RemoveObserver(this);
@@ -250,6 +258,9 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
                               const TabStripSelectionChange&) override;
   void OnTabChangedAt(tabs::TabInterface*, TabChangeType) override { Changed(); }
+  // Pinning a tab that keeps its place (the first, or the only one) moves
+  // nothing, so OnTabStripModelChanged never hears of it.
+  void OnTabPinnedStateChanged(tabs::TabInterface*, int) override { Changed(); }
   void OnTabGroupChanged(const TabGroupChange&) override { Changed(); }
   void TabGroupedStateChanged(TabStripModel*, std::optional<tab_groups::TabGroupId>,
                               std::optional<tab_groups::TabGroupId>, tabs::TabInterface*, int) override { Changed(); }
@@ -279,6 +290,9 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void DidChangeVisibleSecurityState() override { Changed(); }
   // The shell shows a crashed page's own view (no sad tab: BrowserView draws it).
   void PrimaryMainFrameRenderProcessGone(base::TerminationStatus) override { Changed(); }
+  // Bookmarks added, removed or moved anywhere (the Library, another window, sync).
+  void BookmarkModelChanged() override { Changed(); }
+  void BookmarkModelBeingDeleted() override { bookmarks_.Reset(); }
   void OnDownloadCreated(content::DownloadManager*, download::DownloadItem*) override { Changed(); }
   void OnDownloadUpdated(content::DownloadManager*, download::DownloadItem*) override { Changed(); }
   void OnDownloadRemoved(content::DownloadManager*, download::DownloadItem*) override { Changed(); }
@@ -335,6 +349,7 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   };
   ScrollWatcher scrolls_{this};
   base::ScopedObservation<ui::NativeTheme, ui::NativeThemeObserver> theme_{this};
+  base::ScopedObservation<bookmarks::BookmarkModel, bookmarks::BookmarkModelObserver> bookmarks_{this};
   // A navigation that started on the start page, and then the page it
   // committed to, which is drawing its first content: the shell keeps the
   // start page up meanwhile instead of an empty page.
@@ -463,8 +478,35 @@ void WindowState::StopHoldingStartPage() {
   painting_.reset();
   Changed();
 }
-void WindowState::OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
+// Settings › Appearance › Tabs › New tabs open "At the top": a new blank tab
+// (Command-T, the New Tab buttons) goes before the other open tabs, as in
+// Arc and Dia, instead of after them. Tabs opened from links keep their place.
+bool NewTabsAtTop() {
+  // The shell keeps this setting in AppKit's defaults (packages/shell).
+  NSString* value = [NSUserDefaults.standardUserDefaults stringForKey:@"MerlinShell.newTabPosition"];
+  return [value isEqualToString:@"top"];
+}
+void WindowState::OnTabStripModelChanged(TabStripModel* model, const TabStripModelChange& change,
                                         const TabStripSelectionChange& selection) {
+  // Restored tabs keep the order they were saved in.
+  if (change.type() == TabStripModelChange::kInserted && NewTabsAtTop() &&
+      !SessionRestore::IsRestoring(browser_->GetProfile())) {
+    for (const auto& inserted : change.GetInsert()->contents) {
+      auto* contents = inserted.contents.get();
+      if (!contents || !modal_browser::IsShellStartUrl(contents->GetVisibleURL()) ||
+          contents->GetController().GetEntryCount() > 1 || contents->GetController().NeedsReload()) continue;
+      // Not while the strip is still notifying its observers.
+      content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+          [](base::WeakPtr<WindowState> state, base::WeakPtr<content::WebContents> moving) {
+            if (!state || !moving) return;
+            auto* strip = state->browser()->GetTabStripModel();
+            const int at = strip->GetIndexOfWebContents(moving.get());
+            const int first = strip->IndexOfFirstNonPinnedTab();
+            if (at > first && !strip->IsTabPinned(at) && !strip->GetTabGroupForTab(at) && !strip->GetSplitForTab(at))
+              strip->MoveWebContentsAt(at, first, /*select_after_move=*/false);
+          }, weak_factory_.GetWeakPtr(), contents->GetWeakPtr()));
+    }
+  }
   Observe(browser_->GetTabStripModel()->GetActiveWebContents());
   scrolls_.Watch(web_contents());
   // The hold belongs to the tab it started in.
@@ -519,6 +561,8 @@ Dict WindowState::Snapshot() {
       .Set("security", modal_browser::ShellSecurityState(contents))
       .Set("loading", contents->IsLoading()).Set("crashed", contents->IsCrashed())
       .Set("pinned", strip->IsTabPinned(i)).Set("audible", contents->IsCurrentlyAudible())
+      .Set("muted", contents->IsAudioMuted()).Set("bookmarked", modal_browser::IsPageBookmarked(contents))
+      .Set("discarded", contents->WasDiscarded())
       .Set("canGoBack", contents->GetController().CanGoBack())
       .Set("canGoForward", contents->GetController().CanGoForward())
       .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
@@ -982,12 +1026,36 @@ char* Call(const char* window, const char* method, const char* json) {
     controller->OnUserChangedFindText(value);
     find_in_page::FindTabHelper::FromWebContents(contents)->StartFinding(value, *forward, false, true);
   } else if (name == shell::method::kTabsBookmark) {
-    if (index != strip->active_index()) return Error("This tab cannot be bookmarked");
-    // A tab shown in WebKit saves WebKit's page, not Chromium's hidden one.
-    if (!modal_browser::BookmarkWebKitPage(contents)) {
-      if (!chrome::CanBookmarkCurrentTab(browser)) return Error("This tab cannot be bookmarked");
-      chrome::BookmarkCurrentTab(browser);
+    // The page the tab shows (WebKit's, not Chromium's hidden one) goes into
+    // the Bookmarks Bar folder, which the bar and the sidebar show; without
+    // `bookmarked` the star toggles.
+    const auto bookmarked = args->FindBool("bookmarked");
+    if (!modal_browser::SetPageBookmarked(contents, bookmarked.value_or(!modal_browser::IsPageBookmarked(contents))))
+      return Error("This page cannot be bookmarked");
+  } else if (name == shell::method::kTabsMute) {
+    const auto muted = args->FindBool("muted");
+    if (!muted) return Error("Missing muted state");
+    SetTabAudioMuted(contents, *muted, TabMutedReason::kAudioIndicator, std::string());
+    state->Changed();
+  } else if (name == shell::method::kNavigationHistory) {
+    // The back and forward lists, for the menu a held or right-clicked
+    // Back or Forward button shows. At most 50 entries each way.
+    auto& controller = contents->GetController();
+    const int current = controller.GetCurrentEntryIndex();
+    const int first = std::max(0, current - 50);
+    const int last = std::min(controller.GetEntryCount() - 1, current + 50);
+    List entries;
+    for (int i = first; i <= last; ++i) {
+      auto* entry = controller.GetEntryAtIndex(i);
+      entries.Append(Dict().Set("index", i).Set("title", base::UTF16ToUTF8(entry->GetTitleForDisplay()))
+          .Set("url", entry->GetVirtualURL().spec()));
     }
+    return Ok(base::Value(Dict().Set("current", current).Set("entries", std::move(entries))));
+  } else if (name == shell::method::kNavigationGo) {
+    const auto at = args->FindInt("index");
+    auto& controller = contents->GetController();
+    if (!at || *at < 0 || *at >= controller.GetEntryCount()) return Error("That page is no longer in this tab's history");
+    if (*at != controller.GetCurrentEntryIndex()) controller.GoToIndex(*at);
   } else if (name == shell::method::kTabsSetEngineOverlay) {
     const auto* overlay = args->Find("overlay");
     if (!overlay || (!overlay->is_none() && !overlay->is_dict())) return Error("Invalid engine overlay");

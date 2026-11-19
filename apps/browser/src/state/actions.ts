@@ -3,6 +3,7 @@
 import { copyText, showMenu, type MenuItem } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
+import { pageLabel } from '../lib/format';
 import { dropOutcome, type DropTarget, type SplitSide } from './tabDrag';
 import { tabUnits } from './splits';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
@@ -10,14 +11,26 @@ import { groupColors, type Appearance, type Calls, type DownloadAction, type Eng
   type Requests } from '../platform/protocol';
 import { currentSuggestions, moveSelection, startQuery, suggestionChoice } from './omnibox';
 import {
-  dismissToast, pushToast, rememberFavicon, type AnchorName, type BrowserStore, type Panel, type PopoverName, type Rect,
+  dismissToast, pushToast, rememberFavicon, type AnchorName, type BrowserStore, type HoverCard, type Panel, type PopoverName, type Rect,
   type SearchOwner,
 } from './store';
+import type { BookmarkItem } from '../platform/protocol';
+import { awayFromHome } from './pinned';
 
 let queryCounter = 0;
 const groupColorTitle = (color: GroupColor) => color[0].toUpperCase() + color.slice(1);
 /** How soon after an outside press closes a popover its own button is ignored. */
 const reopenGuardMs = 400;
+/**
+ * Hover cards and tooltips, as in Dia: half a second under a still pointer,
+ * then at once for the next one while the pointer moves on; a card stays a
+ * moment after the pointer leaves so it can be reached. Peeking tabs stay as
+ * long after the pointer leaves them. In milliseconds (state can't import
+ * motion.ts); the tooltips' delay there is the same half second.
+ */
+const hoverTiming = { open: 500, warm: 300, close: 200, peekClose: 200 } as const;
+
+
 
 export function createActions(store: BrowserStore, engine: EngineClient) {
   const fail = (e: unknown) => { pushToast(store, e instanceof Error ? e.message : String(e)); };
@@ -40,6 +53,17 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     return !newTab && t?.engine === 'webkit' && navigateWebKitTab(t.id, url, isPrivate());
   };
   const faviconLoads = new Set<string>();
+  // Hover cards: the timer that opens the next one, the one that closes the
+  // shown one, and until when the next opens at once.
+  let cardOpen: ReturnType<typeof setTimeout> | null = null;
+  let cardClose: ReturnType<typeof setTimeout> | null = null;
+  let cardWarmUntil = 0;
+  const clearCardTimers = () => {
+    if (cardOpen) clearTimeout(cardOpen);
+    if (cardClose) clearTimeout(cardClose);
+    cardOpen = cardClose = null;
+  };
+  let peekClose: ReturnType<typeof setTimeout> | null = null;
   let lastClosed: { name: PopoverName | null; at: number } = { name: null, at: 0 };
 
   const actions = {
@@ -61,7 +85,87 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     closeTab: (tabId: string) => run('tabs.close', { tabId }),
     pinTab: (tabId: string, pinned: boolean) => run('tabs.pin', { tabId, pinned }),
     moveTab: (tabId: string, beforeId: string | null) => run('tabs.move', { tabId, beforeId }),
-    bookmarkTab: (tabId: string) => run('tabs.bookmark', { tabId }),
+    /**
+     * The star: saves the tab's page into the Bookmarks Bar folder, or removes
+     * it when it is already bookmarked. Says which, as the star is small.
+     */
+    async bookmarkTab(tabId: string, bookmarked?: boolean) {
+      const tab = store.getState().snapshot?.tabs.find(t => t.id === tabId);
+      const on = bookmarked ?? !tab?.bookmarked;
+      if (!(await run('tabs.bookmark', { tabId, bookmarked: on }))) return false;
+      // Edit opens the Library's bookmarks, to rename it or move it to another folder.
+      if (on) pushToast(store, 'Added to the Bookmarks bar', 'info', { label: 'Edit', run: () => actions.openPanel('bookmarks') });
+      else pushToast(store, 'Bookmark removed', 'info');
+      return true;
+    },
+    muteTab: (tabId: string, muted: boolean) => run('tabs.mute', { tabId, muted }),
+    /** A pinned tab goes back to the page it was pinned on. */
+    returnToPinnedPage(tabId: string) {
+      const home = store.getState().pinnedHomes[tabId];
+      if (!home) return Promise.resolve(false);
+      const tab = store.getState().snapshot?.tabs.find(t => t.id === tabId);
+      if (tab?.engine === 'webkit' && navigateWebKitTab(tabId, home.url, isPrivate())) return Promise.resolve(true);
+      return run('navigation.open', { tabId, text: home.url });
+    },
+    copyTabLink(tabId: string) {
+      const tab = store.getState().snapshot?.tabs.find(t => t.id === tabId);
+      return tab?.url ? actions.copyAddress(tab.url) : Promise.resolve();
+    },
+    /** Closes the open tabs after this one in the list, as Chrome's Close Tabs Below. */
+    async closeTabsBelow(tabId: string) {
+      const tabs = store.getState().snapshot?.tabs ?? [];
+      const below = tabs.slice(tabs.findIndex(t => t.id === tabId) + 1).filter(t => !t.pinned);
+      for (const t of below) if (!(await actions.closeTab(t.id))) break;
+    },
+
+    // Hover cards over tabs and pinned tiles.
+    /** The pointer came to a tab; its card opens after a rest, or at once if one was just showing. */
+    hoverTab(tabId: string, anchor: Rect, side: HoverCard['side']) {
+      clearCardTimers();
+      const shown = store.getState().hoverCard;
+      const show = () => { cardOpen = null; store.setState({ hoverCard: { tabId, anchor, side } }); };
+      if (shown || Date.now() < cardWarmUntil) show();
+      else cardOpen = setTimeout(show, hoverTiming.open);
+    },
+    /** The pointer left a tab, or the card: the card closes shortly unless the pointer comes back. */
+    leaveTab() {
+      if (cardOpen) { clearTimeout(cardOpen); cardOpen = null; }
+      if (cardClose || !store.getState().hoverCard) return;
+      cardClose = setTimeout(() => {
+        cardClose = null;
+        cardWarmUntil = Date.now() + hoverTiming.warm;
+        store.setState({ hoverCard: null });
+      }, hoverTiming.close);
+    },
+    /** The pointer is on the card itself: it stays. */
+    holdHoverCard() { if (cardClose) { clearTimeout(cardClose); cardClose = null; } },
+    /** A press, a drag or a scroll: the card goes at once, and the next one waits again. */
+    closeHoverCard() {
+      clearCardTimers();
+      cardWarmUntil = 0;
+      if (store.getState().hoverCard) store.setState({ hoverCard: null });
+    },
+
+    // The hidden tabs peeking in from the window's edge.
+    /** The pointer reached the edge, or came back to the peeking tabs. */
+    peek() {
+      if (peekClose) { clearTimeout(peekClose); peekClose = null; }
+      const s = store.getState();
+      if (!s.peeking && s.snapshot?.modal.sidebarHidden && !s.snapshot.fullscreen) store.setState({ peeking: true });
+    },
+    /** The pointer left the peeking tabs: they slide away shortly, unless the address is being typed in. */
+    unpeek() {
+      if (peekClose || !store.getState().peeking) return;
+      peekClose = setTimeout(() => {
+        peekClose = null;
+        if (store.getState().omnibox) return;
+        store.setState({ peeking: false });
+      }, hoverTiming.peekClose);
+    },
+    endPeek() {
+      if (peekClose) { clearTimeout(peekClose); peekClose = null; }
+      if (store.getState().peeking) store.setState({ peeking: false });
+    },
     /** Shows the tab in a split view beside `beside`, or the current tab, and focuses it. */
     splitTab: (tabId: string, side: SplitSide = 'right', beside?: string) =>
       run('tabs.split', beside ? { tabId, side, beside } : { tabId, side }),
@@ -174,11 +278,27 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       if (ids.length === Object.keys(old).length && ids.every(id => same(old[id], panes[id]))) return;
       store.setState({ panes });
     },
-    /** The bookmarks bar's contents: the first of Chromium's permanent folders. */
-    async bookmarksBar() {
+    /**
+     * The bookmarks bar's contents: Chromium's Bookmarks Bar folder, then
+     * Other Bookmarks as one folder when it holds anything, as Chrome's bar
+     * ends with it. Bookmarks saved before Merlin saved into the bar are there.
+     */
+    async bookmarksBar(): Promise<BookmarkItem[]> {
       const root = await engine.request('bookmarks.folder', {});
-      const bar = root.items.find(item => item.folder);
-      return bar ? (await engine.request('bookmarks.folder', { folderId: bar.id })).items : [];
+      const [bar, ...rest] = root.items.filter(item => item.folder);
+      const items = bar ? (await engine.request('bookmarks.folder', { folderId: bar.id })).items : [];
+      const other = rest.find(item => (item.count ?? 0) > 0);
+      return other ? [...items, other] : items;
+    },
+    /** A page's icon (a bookmark, a history row), fetched once per address. */
+    loadPageFavicon(url: string) {
+      const key = `page:${url}`;
+      if (!/^(https?|file):/i.test(url) || key in store.getState().favicons || faviconLoads.has(key)) return;
+      faviconLoads.add(key);
+      engine.request('favicons.page', { url }).then(icon => {
+        // Remembered even when there is none, so the row isn't asked again; '' draws the fallback.
+        rememberFavicon(store, key, icon ?? '');
+      }, () => {}).finally(() => faviconLoads.delete(key));
     },
     openBookmark(url: string, newTab: boolean) {
       const t = active();
@@ -233,12 +353,22 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const next = units[unit + 1]?.[0];
       const shownTogether = !!tab.split && tabs.some(t => t.id === snap?.activeTabId && t.split === tab.split);
       const others = tabs.filter(t => t.id !== tabId && !t.pinned);
+      const below = tabs.slice(tabs.findIndex(t => t.id === tabId) + 1).filter(t => !t.pinned);
+      const home = tab.pinned ? store.getState().pinnedHomes[tabId] : undefined;
+      const page = !!tab.url && !/^(about|chrome|merlin):/.test(tab.url);
       const groups = (store.getState().snapshot?.groups ?? []).filter(g => g.id !== tab.group);
       // Plain words, like the rest of the menu bar; the tab's own title says which tab.
       const items: MenuItem[] = [
         { id: 'pin', title: tab.pinned ? 'Unpin Tab' : 'Pin Tab' },
+        ...(home && awayFromHome(tab, home) ? [{ id: 'home', title: 'Back to Pinned Page', symbol: 'arrow.uturn.backward' as const }] : []),
         { id: 'duplicate', title: 'Duplicate Tab', enabled: !!tab.url },
-        { id: 'bookmark', title: 'Bookmark Page…', enabled: tab.id === store.getState().snapshot?.activeTabId },
+        { id: 'reload', title: 'Reload Tab' },
+        ...(tab.audible || tab.muted ? [{ id: 'mute', title: tab.muted ? 'Unmute Tab' : 'Mute Tab',
+          symbol: (tab.muted ? 'speaker.wave.2' : 'speaker.slash') as 'speaker.wave.2' | 'speaker.slash' }] : []),
+        { separator: true },
+        { id: 'bookmark', title: tab.bookmarked ? 'Remove Bookmark' : 'Add to Bookmarks Bar', enabled: page,
+          symbol: (tab.bookmarked ? 'bookmark.fill' : 'bookmark') as 'bookmark' | 'bookmark.fill' },
+        { id: 'copy', title: 'Copy Link', enabled: page, symbol: 'link' },
         // Sites Chromium can't play open in WebKit; either can show any site.
         ...(canUseWebKit(tab.url) ? [tab.engine === 'webkit'
           ? { id: 'chromium', title: 'Open Site in Chromium' } : { id: 'webkit', title: 'Open Site in WebKit' }] : []),
@@ -258,6 +388,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         { separator: true },
         { id: 'close', title: 'Close Tab' },
         { id: 'others', title: 'Close Other Tabs', enabled: others.length > 0 },
+        { id: 'below', title: 'Close Tabs Below', enabled: below.length > 0 },
       ];
       let choice: string | null;
       try { choice = await showMenu(items); } catch (e) { fail(e); return; }
@@ -265,6 +396,11 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         case 'pin': await actions.pinTab(tabId, !tab.pinned); break;
         case 'duplicate': await actions.newTab(tab.url); break;
         case 'bookmark': await actions.bookmarkTab(tabId); break;
+        case 'home': await actions.returnToPinnedPage(tabId); break;
+        case 'reload': await actions.reloadTab(tabId); break;
+        case 'mute': await actions.muteTab(tabId, !tab.muted); break;
+        case 'copy': await actions.copyTabLink(tabId); break;
+        case 'below': await actions.closeTabsBelow(tabId); break;
         case 'webkit': case 'chromium':
           try { await moveSite(tab.url, choice); } catch (e) { fail(e); }
           break;
@@ -303,7 +439,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const tabs = store.getState().snapshot?.tabs ?? [];
       const items: MenuItem[] = tabIds.flatMap(id => {
         const tab = tabs.find(t => t.id === id);
-        return tab ? [{ id: tab.id, title: tab.title || tab.url || 'New Tab' }] : [];
+        return tab ? [{ id: tab.id, title: pageLabel(tab.title, tab.url) }] : [];
       });
       if (!items.length) return;
       let choice: string | null;
@@ -322,6 +458,25 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const t = active();
       if (!t) return Promise.resolve(false);
       return runPageCommand(t.id, 'forward') ? Promise.resolve(true) : run('navigation.forward', { tabId: t.id });
+    },
+    /**
+     * Back or Forward held, or right-clicked: the pages that way, nearest
+     * first, as a native menu, as in Safari and Dia. Choosing one goes there.
+     * A WebKit tab's history is WebKit's own; it has no list here.
+     */
+    async historyMenu(direction: 'back' | 'forward') {
+      const t = active();
+      if (!t || t.engine === 'webkit') return;
+      let history;
+      try { history = await engine.call('navigation.history', { tabId: t.id }); } catch (e) { fail(e); return; }
+      const entries = direction === 'back'
+        ? history.entries.filter(e => e.index < history.current).reverse()
+        : history.entries.filter(e => e.index > history.current);
+      if (!entries.length) return;
+      const items: MenuItem[] = entries.slice(0, 20).map(e => ({ id: String(e.index), title: pageLabel(e.title, e.url) }));
+      let choice: string | null;
+      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      if (choice !== null) await run('navigation.go', { tabId: t.id, index: Number(choice) });
     },
     reloadTab: (tabId: string) => (runPageCommand(tabId, 'reload') ? Promise.resolve(true) : run('navigation.reload', { tabId })),
     reloadOrStop: () => {

@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ScrollView, TextInput, View } from 'react-native';
 import { displayHost, isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
-import { Button, Icon, Panel, PopupRow, Text, font, geometry, opacity, radius, space, useEscape, useInteraction, useTheme } from '../ui';
+import { Button, Icon, Panel, PopupRow, Text, font, geometry, opacity, radius, space, useEscape, useInteraction, useTheme, Pressable } from '../ui';
 import { Favicon } from '../favicon/Favicon';
 import { suggestionDetail, suggestionIcons, useSearch } from '../omnibox/useSearch';
 import { PaintMark } from './PaintMark';

@@ -4,9 +4,9 @@
 // MerlinShell.warnBeforeClosingWindow itself.
 import { parseSiteEngines, type PageEngine } from '../lib/engines';
 import {
-  installQuitGuard, onPreferenceChanged, preference, setBookmarksMenuHidden, setPreference, setThinScrollBars,
+  installQuitGuard, onPreferenceChanged, preference, setBookmarksMenuHidden, setPreference, setThinScrollBars, tidyMenuBar,
 } from '../platform/shell';
-import { defaultShellPrefs, PAGE_FRAME, shellPrefs, type ShellPrefs } from './shellPrefs';
+import { defaultShellPrefs, PAGE_FRAME, SIDEBAR_WIDTH, shellPrefs, type ShellPrefs } from './shellPrefs';
 
 type Codec<T> = { read(raw: string | null): T; write(value: T): string | null };
 
@@ -43,7 +43,15 @@ const codecs: { [K in Exclude<keyof ShellPrefs, 'siteEngines' | 'protectedVideoI
   commandBarPlacement: oneOf(['field', 'centred'], d.commandBarPlacement),
   compactToolbar: flag(d.compactToolbar),
   showBookmarks: flag(d.showBookmarks),
-  bookmarksBar: flag(d.bookmarksBar),
+  // Saved as "on"/"off" before it had three choices.
+  bookmarksBar: {
+    read: raw => (raw === 'on' ? 'always' : raw === 'off' ? 'never' : raw === 'always' || raw === 'newTab' || raw === 'never' ? raw : d.bookmarksBar),
+    write: value => (value === d.bookmarksBar ? null : value),
+  },
+  sidebarBookmarks: flag(d.sidebarBookmarks),
+  sidebarBookmarksFolded: flag(d.sidebarBookmarksFolded),
+  sidebarWidth: amount(d.sidebarWidth, SIDEBAR_WIDTH.min, SIDEBAR_WIDTH.max),
+  newTabPosition: oneOf(['end', 'top'], d.newTabPosition),
   bookmarksBarSize: oneOf(['default', 'large'], d.bookmarksBarSize),
   borderlessMode: flag(d.borderlessMode),
   pageFrame: amount(d.pageFrame, PAGE_FRAME.min, PAGE_FRAME.max),
@@ -77,6 +85,7 @@ export function loadShellPrefs() {
     }, () => {});
   }
   void installQuitGuard().catch(() => {});
+  void tidyMenuBar().catch(() => {});
   try {
     // "Don't ask again" on the quit question clears the preference natively.
     onPreferenceChanged((key, raw) => {
@@ -84,6 +93,11 @@ export function loadShellPrefs() {
     });
   } catch { /* An older host without the event. */ }
   void loadEnginePrefs();
+}
+
+/** Shows a value in every window without saving it, while it is being dragged (the sidebar's width); setShellPref saves it. */
+export function previewShellPref<K extends SimpleKey>(key: K, value: ShellPrefs[K]) {
+  shellPrefs.setState({ [key]: value } as Partial<ShellPrefs>);
 }
 
 /** Changes one preference in every window and saves it. */

@@ -81,6 +81,16 @@ class PageIdentity : public content::WebContentsUserData<PageIdentity>,
 // own bookmarking would save the hidden page). Returns whether it did.
 bool BookmarkWebKitPage(content::WebContents* contents);
 
+// Whether the page a tab shows (GetVisiblePage) is bookmarked: the filled
+// star in the shell's address field.
+bool IsPageBookmarked(content::WebContents* contents);
+
+// Saves the page a tab shows into the Bookmarks Bar folder, the one the
+// shell's bookmarks bar and the sidebar's Bookmarks show, or with
+// `bookmarked` false removes every bookmark of it. False when the page can't
+// be bookmarked (a start page, an internal page) or bookmarks aren't loaded.
+bool SetPageBookmarked(content::WebContents* contents, bool bookmarked);
+
 // Saves and restores a tab's WebKit page with Chromium's session, as extended
 // info on its navigation entries. Call before any session is restored, and
 // after Chrome has installed its navigation driver (ChromeBrowserMainParts

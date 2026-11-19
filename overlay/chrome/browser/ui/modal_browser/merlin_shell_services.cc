@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/barrier_callback.h"
+#include "base/base64.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/json/json_writer.h"
@@ -27,6 +28,7 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_constants.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
+#include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -51,6 +53,8 @@
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/bookmarks/common/bookmark_metrics.h"
+#include "components/favicon/core/favicon_service.h"
+#include "components/favicon_base/favicon_types.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/keyed_service/core/service_access_type.h"
@@ -335,6 +339,50 @@ bool RunSettings(BrowserWindowInterface* browser,
 base::CancelableTaskTracker& HistoryTracker() {
   static base::NoDestructor<base::CancelableTaskTracker> tracker;
   return *tracker;
+}
+
+// A page's icon from the history's favicon database, for rows that show a
+// page rather than a tab: bookmarks in the bar, the sidebar and the Library,
+// and history. A PNG data URL at 32 pixels (sharp at 16 points), the site's
+// icon when the page has none of its own, or null.
+bool RunFavicons(BrowserWindowInterface* browser,
+                 const std::string& method,
+                 const base::DictValue& args,
+                 ShellServiceReply& reply) {
+  if (method != shell::method::kFaviconsPage) {
+    return false;
+  }
+  const std::string* spec = args.FindString("url");
+  const GURL url(spec ? *spec : std::string());
+  if (!spec || spec->size() > 8192 || !url.is_valid() ||
+      !(url.SchemeIsHTTPOrHTTPS() || url.SchemeIsFile())) {
+    Fail(std::move(reply), "Invalid page address");
+    return true;
+  }
+  favicon::FaviconService* service = FaviconServiceFactory::GetForProfile(
+      browser->GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
+  if (!service) {
+    Reply(std::move(reply), base::Value());
+    return true;
+  }
+  service->GetRawFaviconForPageURL(
+      url, {favicon_base::IconType::kFavicon}, /*desired_size_in_pixel=*/32,
+      /*fallback_to_host=*/true,
+      base::BindOnce(
+          [](ShellServiceReply reply,
+             const favicon_base::FaviconRawBitmapResult& result) {
+            if (!result.is_valid() || !result.bitmap_data ||
+                !result.bitmap_data->size()) {
+              Reply(std::move(reply), base::Value());
+              return;
+            }
+            Reply(std::move(reply),
+                  base::Value("data:image/png;base64," +
+                              base::Base64Encode(base::span<const uint8_t>(*result.bitmap_data))));
+          },
+          std::move(reply)),
+      &HistoryTracker());
+  return true;
 }
 
 bool RunHistory(BrowserWindowInterface* browser,
@@ -882,6 +930,7 @@ bool RunShellService(BrowserWindowInterface* browser,
   }
   return RunSettings(browser, method, args, reply) ||
          RunHistory(browser, method, args, reply) ||
+         RunFavicons(browser, method, args, reply) ||
          RunBookmarks(browser, method, args, reply) ||
          RunExtensions(browser, method, args, reply) ||
          RunDownloads(browser, method, args, reply) ||

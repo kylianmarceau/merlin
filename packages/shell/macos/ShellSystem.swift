@@ -153,6 +153,72 @@ final class QuitGuard: NSObject, NSMenuItemValidation {
   }
 }
 
+// Menu bar items Chromium adds that do nothing in Merlin or read as Chrome:
+// the address bar's Lens, AI Mode and search-tools toggles (Merlin's address
+// field has none of them), vertical tabs (Merlin has its own sidebar), Cast
+// (off), Name Window and the Window menu's Extensions page. Chromium's main
+// menu items carry their command IDs as tags. They are hidden again whenever
+// the menu bar opens, as Chromium updates its menus as they open.
+enum MenuTidy {
+  private static let hiddenTags: Set<Int> = [
+    40282,  // IDC_SHOW_GOOGLE_LENS_SHORTCUT
+    40299,  // IDC_SHOW_AI_MODE_OMNIBOX_BUTTON
+    40296,  // IDC_SHOW_SEARCH_TOOLS
+    34058,  // IDC_TOGGLE_VERTICAL_TABS
+    34061,  // IDC_TOGGLE_VERTICAL_TABS_COLLAPSE
+    35011,  // IDC_ROUTE_MEDIA
+    34049,  // IDC_NAME_WINDOW
+    40022,  // IDC_MANAGE_EXTENSIONS
+  ]
+  private static let fullScreenTag = 34030  // IDC_FULLSCREEN
+  private static var observer: NSObjectProtocol?
+
+  static func install() {
+    tidy()
+    guard observer == nil else { return }
+    observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { _ in
+      tidy()
+    }
+  }
+
+  private static func tidy() {
+    guard let menu = NSApp.mainMenu else { return }
+    for item in menu.items { if let submenu = item.submenu { tidy(submenu) } }
+  }
+
+  private static func tidy(_ menu: NSMenu) {
+    var touched = false
+    // AppKit adds its own Enter Full Screen to a View menu that already has Chromium's.
+    let chromiumFullScreen = menu.items.contains { $0.tag == fullScreenTag }
+    for item in menu.items {
+      let appKitFullScreen = chromiumFullScreen && item.tag != fullScreenTag
+        && item.action == #selector(NSWindow.toggleFullScreen(_:))
+      if hiddenTags.contains(item.tag) || appKitFullScreen {
+        if !item.isHidden { item.isHidden = true }
+        touched = true
+      }
+      if let submenu = item.submenu { tidy(submenu) }
+    }
+    guard touched else { return }
+    // A separator with nothing left between it and the previous one, the
+    // start or the end of the menu goes too. Only in menus we took items
+    // from, so one that fills in later (History) keeps its separators.
+    var previousWasSeparator = true
+    var trailing: NSMenuItem?
+    for item in menu.items where !item.isHidden {
+      if item.isSeparatorItem {
+        if previousWasSeparator { item.isHidden = true; continue }
+        previousWasSeparator = true
+        trailing = item
+      } else {
+        previousWasSeparator = false
+        trailing = nil
+      }
+    }
+    trailing?.isHidden = true
+  }
+}
+
 enum BookmarksMenu {
   static func setHidden(_ hidden: Bool) {
     NSApp.mainMenu?.items.first { $0.submenu?.title == "Bookmarks" || $0.title == "Bookmarks" }?.isHidden = hidden
@@ -164,6 +230,18 @@ enum BookmarksMenu {
 final class MerlinWindowState: ExpoView {
   let onFullScreen = EventDispatcher()
   private var observers: [NSObjectProtocol] = []
+  // The traffic lights. Hidden while the tabs are, as in Dia, and shown again
+  // when the tabs peek in from the edge. Never hidden in macOS full screen,
+  // where they live in the menu bar's drop-down title bar.
+  var windowButtons = true { didSet { applyButtons() } }
+
+  private func applyButtons() {
+    guard let window else { return }
+    let hide = !windowButtons && !window.styleMask.contains(.fullScreen)
+    for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+      if let button = window.standardWindowButton(kind), button.isHidden != hide { button.isHidden = hide }
+    }
+  }
 
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
@@ -171,9 +249,13 @@ final class MerlinWindowState: ExpoView {
     observers = []
     guard let window else { return }
     for name in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
-      observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in self?.report() })
+      observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+        self?.report()
+        self?.applyButtons()
+      })
     }
     report()
+    applyButtons()
   }
 
   private func report() {

@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { formatDay, formatTime } from '../../lib/format';
 import { errorText, type ActionResult } from '../../lib/result';
 import type { BookmarkItem, BookmarkView, HistoryItem } from '../../state/types';
 import { useAction, useActions, useBrowser, useRequest, useSnapshot } from '../../state/window';
 import {
   Box, Button, Dialog, EmptyState, Field, Icon, IconButton, ListRow, Notice, Sheet, Spinner, Text, duration, geometry, keyGlyphs, radius,
-  space, useTheme, type SheetSection,
+  space, useTheme, Pressable, type SheetSection,
 } from '../ui';
 import { bookmarkKeys, bookmarkRowActions } from './bookmarkActions';
+import { PageFavicon } from '../favicon/Favicon';
 import { DownloadRow } from './DownloadRow';
 
 const sections = [
@@ -86,6 +87,7 @@ function HistoryRow({ item, onOpen, onRemove }: { item: HistoryItem; onOpen(): v
       style={{ flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.sm + space.hair }}>
       <Text variant="label" weight="regular" tone="textSecondary" style={{ width: geometry.timeColumn, fontVariant: ['tabular-nums'] }}>
         {formatTime(item.time)}</Text>
+      <PageFavicon url={item.url} />
       <Text lines={1} flex={1} tone="tabText">{title}</Text>
       <Text variant="label" weight="regular" tone="textSecondary" lines={1} style={{ width: geometry.historyHost }}>{item.domain}</Text>
     </Pressable>
@@ -211,7 +213,7 @@ function Bookmarks({ onOpen }: { onOpen(url: string): void }) {
       {view && !view.items.length && <EmptyState icon="bookmark" title={text ? 'No bookmarks match' : 'This folder is empty'} />}
       {view?.items.map((item, index) => <ListRow key={item.id} title={item.title || item.url || 'Untitled'}
         detail={item.folder ? `${item.count ?? 0} items` : [item.domain, item.where].filter(Boolean).join(' · ')}
-        leading={<Icon name={item.folder ? 'folder' : 'bookmark'} tone={item.folder ? 'accent' : 'iconSecondary'} size="small" />}
+        leading={item.folder ? <Icon name="folder" tone="accent" size="small" /> : <PageFavicon url={item.url} />}
         onPress={() => { if (item.folder) { setQuery(''); setFolderId(item.id); } else if (item.url) onOpen(item.url); }}
         actions={bookmarkRowActions(item, { index, count: view.items.length, searching: !!text }, {
           move: delta => move(item, delta), edit: () => setEditing(item),

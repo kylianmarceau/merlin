@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EngineClient, type EngineEvent, type Snapshot } from '../platform/protocol';
 import { acceptSnapshot, attachEngine, createBrowserStore, openNativePanel, pushToast } from './store';
+import { awayFromHome } from './pinned';
 
 function snapshot(revision: number): Snapshot {
   return { session: 's', windowId: 'w', revision, private: false, tabs: [], activeTabId: null, downloads: [], prompt: null,
@@ -81,4 +82,46 @@ test('unchanged tabs and downloads keep their objects, so their rows skip render
   const moved = store.getState().snapshot!;
   assert.equal(moved.tabs[0], after.tabs[1]);
   assert.deepEqual(moved.downloads, []);
+});
+
+test('a pinned tab remembers the page it was pinned on until it is unpinned or closes', () => {
+  const tab = (id: string, url: string, pinned: boolean) => ({ id, title: url, url, loading: false, pinned, audible: false,
+    canGoBack: false, canGoForward: false });
+  const store = createBrowserStore('w');
+  acceptSnapshot(store, { ...snapshot(1), tabs: [tab('1', 'merlin://newtab', true), tab('2', 'https://b.test/', false)] });
+  // A start page is no home; the first real page is.
+  assert.deepEqual(store.getState().pinnedHomes, {});
+  acceptSnapshot(store, { ...snapshot(2), tabs: [tab('1', 'https://a.test/', true), tab('2', 'https://b.test/', true)] });
+  const homes = store.getState().pinnedHomes;
+  assert.equal(homes['1'].url, 'https://a.test/');
+  assert.equal(homes['2'].url, 'https://b.test/');
+  acceptSnapshot(store, { ...snapshot(3), tabs: [tab('1', 'https://a.test/elsewhere', true), tab('2', 'https://b.test/', true)] });
+  assert.equal(store.getState().pinnedHomes, homes, 'navigating keeps the home and the object');
+  assert.ok(awayFromHome(store.getState().snapshot!.tabs[0], homes['1']));
+  assert.ok(!awayFromHome({ ...tab('2', 'https://b.test/#top', true) }, homes['2']), 'a fragment is the same page');
+  acceptSnapshot(store, { ...snapshot(4), tabs: [tab('1', 'https://a.test/elsewhere', false)] });
+  assert.deepEqual(store.getState().pinnedHomes, {});
+});
+
+test('a hover card goes with its tab, and a peek with the tabs shown again', () => {
+  const tab = { id: '1', title: 'A', url: 'https://a.test/', loading: false, pinned: false, audible: false, canGoBack: false, canGoForward: false };
+  const store = createBrowserStore('w');
+  acceptSnapshot(store, { ...snapshot(1), tabs: [tab], modal: { mode: 'Normal', pending: '', message: '', sidebarHidden: true } });
+  store.setState({ hoverCard: { tabId: '1', anchor: { x: 0, y: 0, width: 10, height: 10 }, side: 'right' }, peeking: true });
+  acceptSnapshot(store, { ...snapshot(2), tabs: [tab], modal: { mode: 'Normal', pending: '', message: '', sidebarHidden: true } });
+  assert.ok(store.getState().hoverCard);
+  assert.equal(store.getState().peeking, true);
+  acceptSnapshot(store, { ...snapshot(3), tabs: [], modal: { mode: 'Normal', pending: '', message: '', sidebarHidden: false } });
+  assert.equal(store.getState().hoverCard, null);
+  assert.equal(store.getState().peeking, false);
+});
+
+test('tabs say whether they are muted, bookmarked or asleep, and nothing else is accepted there', () => {
+  const tab = { id: '1', title: 'A', url: 'https://a.test/', loading: false, pinned: false, audible: true, canGoBack: false, canGoForward: false };
+  const store = createBrowserStore('w');
+  acceptSnapshot(store, { ...snapshot(1), tabs: [{ ...tab, muted: true, bookmarked: true, discarded: false }] });
+  const shown = store.getState().snapshot!.tabs[0];
+  assert.equal(shown.muted, true);
+  assert.equal(shown.bookmarked, true);
+  assert.throws(() => acceptSnapshot(store, { ...snapshot(2), tabs: [{ ...tab, muted: 'yes' }] }));
 });

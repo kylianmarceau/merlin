@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { Pressable } from './Pressable';
 import { GlassFill } from './GlassFill';
 import { ContextMenu } from './Native';
 import { Icon, type SymbolName } from './Icon';

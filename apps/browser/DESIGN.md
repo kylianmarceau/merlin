@@ -19,15 +19,26 @@ The stored accent names predate Tide and stay as the browser saves them:
 
 - **Shell**: vibrancy under `shellTint` fills the window whenever tabs show;
   its empty space drags the window.
-- **Sidebar** (252 pt, Settings > Appearance > Tabs, or `tabs = "side"`):
-  the top 40 pt row holds the traffic lights, hide-sidebar, back, forward and
-  reload. Under it, the address as a white pill (`fillShellControl`) showing
-  the site, a waiting-request chip and the site-controls button; pinned tabs
-  as favourite tiles (four across, 44 pt); then "Tabs" with New Tab and the
-  open tabs (34 pt rows, the active one a white card with `shadow.tab`). The
-  footer holds profiles and downloads on the left; extensions, the command
-  menu, the Library and Settings on the right. The page card has **no
-  toolbar** in this layout.
+- **Sidebar** (252 pt by default, 200–400 pt by dragging its right edge;
+  double-click the edge to reset. Settings > Appearance > Tabs, or
+  `tabs = "side"`): the top 40 pt row holds the traffic lights, hide-sidebar,
+  back, forward and reload. Under it, the address as a white pill
+  (`fillShellControl`) showing the site, a waiting-request chip and the
+  site-controls button; pinned tabs as favourite tiles (four across, 44 pt,
+  the chosen one tinted with its site's colour, `pinnedTileTint`); the
+  Bookmarks section (the Bookmarks Bar folder, six rows, folding at its
+  heading); then "Tabs" with New Tab and the open tabs (34 pt rows, the
+  active one a white card with `shadow.tab`). A hairline fades in under the
+  heading once the list scrolls; a "Current tab" pill points to the active
+  row when it is out of sight; double-clicking the empty space under the
+  rows opens a tab. Rows fade their titles (`Fade`, no ellipsis), show a
+  speaker that mutes the tab while it plays, a Safari badge on WebKit tabs,
+  and dim while asleep. Rows joining or leaving the list, and groups
+  folding, animate as in Dia (`animateListChange`). Dragging a row shows a
+  line where it will land. The footer is quiet: downloads on the left only
+  while there are some; workspaces, extensions, the command menu, the
+  Library and Settings on the right. The page card has **no toolbar** in
+  this layout.
 - **Tabs on top** (`tabs = "top"`): the "Joined" strip, 48 pt after 84 pt
   for the traffic lights, drawn over the card so the active tab can overlap
   its edge. Tabs sit on the bottom of the strip. The active one is a 38 pt
@@ -52,11 +63,13 @@ The stored accent names predate Tide and stay as the browser saves them:
   cell at a time and never into a split, the joined shape following it
   (`stripLayout.ts`); pulled down past the strip it leaves the tabs, fading
   while the others close up (see Tab drops).
-  The command menu, Library, Settings, profiles and, last, Downloads sit at
-  the right, so the downloads panel hangs at the window's right edge.
-  The card gets one 46 pt toolbar (32 pt when compact): hide tabs, back, forward, reload,
-  the address (site in medium weight, the rest of the path quiet), bookmark
-  and extensions.
+  The command menu, Library, Settings and, last, Downloads (only while
+  there are downloads) sit at the right, so the downloads panel hangs at the
+  window's right edge. A tab that plays sound shows a speaker that mutes it;
+  WebKit tabs carry a Safari badge on their icon.
+  The card gets one 46 pt toolbar (32 pt when compact), as calm as Dia's:
+  hide tabs, back, forward, reload, the address and extensions. Holding Back
+  or Forward (or right-clicking it) lists the pages that way.
 - **Site colour** (tabs on top, Settings > Appearance): the joined tab and
   toolbar take the site's colour, from the engine (`Tab.color`: the page's
   theme-color, else its icon's main colour). *Soft* (default) mixes it with
@@ -77,8 +90,34 @@ The stored accent names predate Tide and stay as the browser saves them:
   Tab row reads "New tab…" meanwhile. Before typing it offers the window's
   other pages, then Chromium's suggestions; the tab opens only once a place
   is chosen. A blank tab Chromium opens itself gives way to the pop-up.
-- **Command-S** hides the tabs in either layout; the card then fills the
-  window, keeps the toolbar and leaves 84 pt for the traffic lights.
+- **Address field**: at rest Dia's breadcrumb, the site in medium weight,
+  then " / " and the page's title, quiet. With the pointer on it, the whole
+  address and the page's actions (bookmark, copy link) show; a saved page
+  keeps its filled bookmark in the accent. The bookmark saves into the
+  Bookmarks Bar folder, so the page appears in the bar and the sidebar. With
+  modal browsing on, Insert mode rings the field in `modeInsert`.
+- **Bookmarks bar** (Settings > Appearance > Bookmarks: Always, New Tab only
+  (the default) or Never): under the toolbar, or at the top of the card when
+  there is none. The Bookmarks Bar folder with each page's icon, then Other
+  Bookmarks as a folder.
+- **Command-S** hides the tabs in either layout; the sidebar slides away on
+  Dia's spring (`spring.sidebar`: response 0.215 s, damping 0.79) and the
+  traffic lights hide with it (`FullScreenWatch windowButtons`), so the
+  card's toolbar starts at the edge. The pointer at the window's left edge
+  (the top edge with tabs on top), a 3 pt strip that lets clicks through,
+  slides the tabs in over the page as a floating card in the shell's glass
+  (`SidebarPeek`, `StripPeek`); they stay while the pointer is within 40 pt
+  of them and slide away 200 ms after it leaves, unless the address is
+  being typed in.
+- **Hover cards**: half a second's rest on a tab, a strip tab or a pinned
+  tile shows its card (`HoverCardOverlay`): the whole title, the address and
+  one-press actions (pin, bookmark, split, mute, copy link; for a pinned tile
+  that has left its page, back to it). Moving on to the next tab shows its
+  card at once; the card stays while the pointer is on it.
+- **Tooltips** (`TooltipLayer`, `IconButton`'s `tip` and `keys`): every icon
+  button names itself after the same half-second rest, with its shortcut as
+  keycaps and Merlin's Normal-mode keys on a second line; they too follow
+  the pointer at once from one button to the next.
 - **Content card**: `contentBackground`, `radius.window`, `contentBorder`,
   `shadow.card`, inset 8 pt from the window edge (0 on the sidebar side).
 - **Status line** under the page, only outside Normal mode or with
@@ -169,7 +208,7 @@ sheets < dialogs < popovers < toasts. `Modal` is not used. **(tested)**
 
 - **Popover**: anything tied to a control. Popovers open downwards from
   controls in the top half of the window and upwards from the sidebar footer. Extensions, an extension's own
-  popup, profiles, recent downloads, address suggestions, and browser
+  popup, recent downloads, address suggestions, and browser
   questions about the site: permissions, passwords, addresses and cards,
   translation, opening in an app, bookmarks and site information. Popovers
   close on a press anywhere outside them (including on the page), on Escape
@@ -230,7 +269,11 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
 - Dialogs and sheets: 220 ms in, 150 ms out, from 97–98.5% and 8–12 pt below,
   with the scrim fading alongside.
 - Toasts rise 12 pt over 220 ms.
-- Row hover highlights ease over 100 ms; switches use the `snappy` spring.
+- Row hover washes come in over 50 ms and leave over 200 ms (`useHoverFade`),
+  as in Dia; a row's close button fades over 100 ms. Switches use the
+  `snappy` spring; the sidebar hiding, showing and peeking, the `sidebar` one.
+- Tooltips and hover cards wait 500 ms, then follow the pointer at once for
+  300 ms after one closes.
 - "Reduce motion" in Settings makes every transition instant.
 
 ## Icons
@@ -241,7 +284,9 @@ for navigation, `shippingbox` for extensions, `arrow.down.to.line` for
 downloads. Settings uses Merlin's own set: a window with its sidebar, a
 switch, a closed eye, a no-entry sign, a speedometer, a box, stacked cards,
 ⌘, braces and the M. Native menus carry words only. Page favicons are
-fetched from Chromium as 2x PNGs and fall back to a globe.
+fetched from Chromium as 2x PNGs and fall back to a globe; bookmarks and
+history rows ask for a page's icon by its address (`favicons.page`,
+`PageFavicon`).
 
 ## Code layout
 
@@ -252,6 +297,10 @@ src/state/        the window store, actions, hooks and surface rules
 src/components/ui/        tokens, motion and the component library
 src/components/<feature>/ tabs, omnibox, site, settings, library, …
 ```
+
+Controls press with `Pressable` from `components/ui`, never React Native's
+own: React Native macOS answers VoiceOver's press (VO-Space) only on views
+with `onAccessibilityTap`, which the shell's `Pressable` always sets.
 
 Imports go downwards only. Features build from `components/ui` (through its
 index), `state` and `lib`; they never import `platform/`, the engine or the

@@ -21,6 +21,12 @@ export type Tab = {
   /** The page's security from Chromium's security state, not the scheme. Absent from older engines and on WebKit tabs. */
   security?: Security;
   audible: boolean; canGoBack: boolean; canGoForward: boolean;
+  /** Its sound is muted (tabs.mute). Absent from older engines. */
+  muted?: boolean;
+  /** The page it shows (WebKit's, on a WebKit tab) is bookmarked. Absent from older engines. */
+  bookmarked?: boolean;
+  /** Memory Saver put it to sleep; it reloads when shown. Absent from older engines. */
+  discarded?: boolean;
   /** Changes when the page's icon does; empty when it has none. Fetch with favicons.get. */
   favicon?: string;
   /** The page's renderer has gone; the shell shows a reload view instead. */
@@ -135,7 +141,9 @@ export type Calls = {
   'tabs.activate': { args: { tabId: string }; result: null };
   'tabs.close': { args: { tabId: string }; result: null };
   'tabs.pin': { args: { tabId: string; pinned: boolean }; result: null };
-  'tabs.bookmark': { args: { tabId: string }; result: null };
+  /** Saves the page into the Bookmarks Bar folder, or with `bookmarked` false removes its bookmarks; without it, toggles. */
+  'tabs.bookmark': { args: { tabId: string; bookmarked?: boolean }; result: null };
+  'tabs.mute': { args: { tabId: string; muted: boolean }; result: null };
   /** Moves the tab before `beforeId` (null: the end). A tab in a split view moves with the tab beside it. */
   'tabs.move': { args: { tabId: string; beforeId: string | null }; result: null };
   /** Adds the tab to a group, or to a new one (titled `title`) when `groupId` is null. Pinned tabs aren't grouped. */
@@ -165,6 +173,10 @@ export type Calls = {
   'navigation.forward': { args: { tabId: string }; result: null };
   'navigation.reload': { args: { tabId: string }; result: null };
   'navigation.stop': { args: { tabId: string }; result: null };
+  /** The tab's back and forward list, for Back and Forward's menus. */
+  'navigation.history': { args: { tabId: string }; result: NavigationHistory };
+  /** Goes to entry `index` of navigation.history's list. */
+  'navigation.go': { args: { tabId: string; index: number }; result: null };
   'downloads.open': { args: { downloadId: string }; result: null };
   'downloads.cancel': { args: { downloadId: string }; result: null };
   'downloads.act': { args: { downloadId: string; action: DownloadAction }; result: null };
@@ -225,6 +237,7 @@ export type ConfigSave = { error: string; revision: string };
 export type Workspace = { name: string; modified: number };
 export type HistoryItem = { url: string; title: string; domain: string; time: number };
 export type HistoryPage = { items: HistoryItem[]; done: boolean };
+export type NavigationHistory = { current: number; entries: { index: number; title: string; url: string }[] };
 export type BookmarkItem = { id: string; title: string; folder: boolean; editable: boolean; count?: number; url?: string; domain?: string; where?: string };
 export type BookmarkView = { path: { id: string; title: string }[]; items: BookmarkItem[]; folderId: string };
 export type Requests = {
@@ -249,6 +262,8 @@ export type Requests = {
   'bookmarks.export': { args: { path: string }; result: null };
   'bookmarks.createFolder': { args: { parentId: string; title: string }; result: null };
   'bookmarks.move': { args: { id: string; parentId: string; index: number }; result: null };
+  /** A page's icon from the history (bookmarks, history rows) as a PNG data URL, or null. */
+  'favicons.page': { args: { url: string }; result: string | null };
   'extensions.list': { args: {}; result: ExtensionInfo[] };
   'extensions.setEnabled': { args: { id: string; enabled: boolean }; result: null };
   'extensions.run': { args: { id: string }; result: null };
@@ -325,6 +340,13 @@ export class EngineClient {
       if (reply.value !== null && !fields(reply.value, { key: isString, url: v => isString(v) && v.startsWith('data:image/png;base64,') }))
         throw new Error('Invalid icon from the browser');
       return reply.value as Calls[M]['result'];
+    }
+    if (method === 'navigation.history') {
+      const v = reply.value as NavigationHistory;
+      if (!v || !Number.isSafeInteger(v.current) || !Array.isArray(v.entries) ||
+          v.entries.some(e => !fields(e, { index: n => Number.isSafeInteger(n), title: isString, url: isString })))
+        throw new Error('Invalid history from the browser');
+      return v as Calls[M]['result'];
     }
     if (method === 'tabs.thumbnail') {
       if (reply.value !== null && !(isString(reply.value) && reply.value.startsWith('data:image/jpeg;base64,')))
@@ -411,7 +433,8 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.group !== undefined && typeof tab.group !== 'string') ||
         (tab.split !== undefined && (typeof tab.split !== 'string' || !tab.split)) ||
         (tab.restoreInWebKit !== undefined && !fields(tab.restoreInWebKit, { url: isString, title: isString })) ||
-        (tab.userInitiated !== undefined && typeof tab.userInitiated !== 'boolean')) {
+        (tab.userInitiated !== undefined && typeof tab.userInitiated !== 'boolean') ||
+        [tab.muted, tab.bookmarked, tab.discarded].some(x => x !== undefined && typeof x !== 'boolean')) {
       throw new Error('Invalid tab snapshot');
     }
     ids.add(tab.id);
@@ -507,6 +530,7 @@ export function validateResult<R extends Request>(method: R, value: unknown): Re
     case 'bookmarks.folder': case 'bookmarks.search': check(bookmarkView(value), 'bookmarks'); break;
     case 'extensions.list': check(listOf(extension)(value), 'extensions'); break;
     case 'downloads.list': check(listOf(isDownload)(value), 'downloads'); break;
+    case 'favicons.page': check(value === null || (isString(value) && value.startsWith('data:image/png;base64,')), 'icon'); break;
     default: check(value === null || value === undefined, 'acknowledgement'); return null as Requests[R]['result'];
   }
   return value as Requests[R]['result'];

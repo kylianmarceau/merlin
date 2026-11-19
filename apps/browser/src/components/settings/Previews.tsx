@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import type { Appearance } from '../../state/types';
-import { Text, accentLabels, accentSwatch, geometry, opacity, radius, space, themePreview, useTheme, type AccentName } from '../ui';
+import { Text, accentLabels, accentSwatch, geometry, opacity, radius, space, themePreview, useTheme, type AccentName, Pressable } from '../ui';
 
 /** A colour-scheme choice drawn as a small Merlin window. */
 export function ThemeChoice({ mode, accent, selected, onPress }: {

@@ -154,6 +154,14 @@ class ReactNativeWidget : public views::NativeWidgetMac {
     // Command-T and File > New Tab: the shell's pop-up when new tabs are
     // pop-ups, so no blank tab opens and closes again behind it.
     if (command == IDC_NEW_TAB && OpenNewTabPopup(browser_)) return true;
+    // Command-D and Bookmarks > Bookmark This Tab: into the Bookmarks Bar
+    // folder, as the shell's star does, with no Chromium bubble.
+    if (command == IDC_BOOKMARK_THIS_TAB) {
+      if (auto* controller = modal_browser::ModalBrowserController::From(browser_)) {
+        controller->AddBookmark();
+        return true;
+      }
+    }
     // Ctrl-Tab: Merlin's switcher, which walks through every recent tab
     // while Control is held (Chromium's only toggles between two).
     if ((command == IDC_CYCLE_TO_NEXT_TAB || command == IDC_CYCLE_TO_PREV_TAB) &&
