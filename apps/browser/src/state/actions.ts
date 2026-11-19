@@ -3,6 +3,7 @@
 import { copyText, showMenu, type MenuItem } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
+import { pageLabel } from '../lib/format';
 import { dropOutcome, type DropTarget, type SplitSide } from './tabDrag';
 import { tabUnits } from './splits';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
@@ -438,7 +439,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const tabs = store.getState().snapshot?.tabs ?? [];
       const items: MenuItem[] = tabIds.flatMap(id => {
         const tab = tabs.find(t => t.id === id);
-        return tab ? [{ id: tab.id, title: tab.title || tab.url || 'New Tab' }] : [];
+        return tab ? [{ id: tab.id, title: pageLabel(tab.title, tab.url) }] : [];
       });
       if (!items.length) return;
       let choice: string | null;
@@ -472,7 +473,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         ? history.entries.filter(e => e.index < history.current).reverse()
         : history.entries.filter(e => e.index > history.current);
       if (!entries.length) return;
-      const items: MenuItem[] = entries.slice(0, 20).map(e => ({ id: String(e.index), title: e.title || e.url || 'Untitled' }));
+      const items: MenuItem[] = entries.slice(0, 20).map(e => ({ id: String(e.index), title: pageLabel(e.title, e.url) }));
       let choice: string | null;
       try { choice = await showMenu(items); } catch (e) { fail(e); return; }
       if (choice !== null) await run('navigation.go', { tabId: t.id, index: Number(choice) });

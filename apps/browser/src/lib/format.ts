@@ -107,6 +107,11 @@ export function pageTitle(title: string | undefined) {
   return title && !internalTitle.test(title) ? title : '';
 }
 
+/** A page as a menu or list names it: "New Tab" for the start page, else its title, else its address. */
+export function pageLabel(title: string | undefined, url: string | undefined) {
+  return isStartUrl(url) ? 'New Tab' : pageTitle(title) || displayAddress(url ?? '') || 'Untitled';
+}
+
 const startPattern = /^(chrome|merlin):\/\/(newtab|new-tab-page|merlin-start|start)\/?$/;
 /** New tabs show the shell's start page instead of a web page. */
 export function isStartUrl(url: string | undefined) {

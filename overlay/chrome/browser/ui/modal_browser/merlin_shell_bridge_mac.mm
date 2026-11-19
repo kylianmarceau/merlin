@@ -258,6 +258,9 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   void OnTabStripModelChanged(TabStripModel*, const TabStripModelChange&,
                               const TabStripSelectionChange&) override;
   void OnTabChangedAt(tabs::TabInterface*, TabChangeType) override { Changed(); }
+  // Pinning a tab that keeps its place (the first, or the only one) moves
+  // nothing, so OnTabStripModelChanged never hears of it.
+  void OnTabPinnedStateChanged(tabs::TabInterface*, int) override { Changed(); }
   void OnTabGroupChanged(const TabGroupChange&) override { Changed(); }
   void TabGroupedStateChanged(TabStripModel*, std::optional<tab_groups::TabGroupId>,
                               std::optional<tab_groups::TabGroupId>, tabs::TabInterface*, int) override { Changed(); }
