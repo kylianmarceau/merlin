@@ -21,7 +21,9 @@ export type SymbolName = 'arrow.left' | 'arrow.right' | 'arrow.up' | 'arrow.down
   'square.dashed' | 'safari' |
   // Ardia's downloads panel and the bookmarks bar.
   'magnifyingglass.circle.fill' | 'pause.circle.fill' | 'play.circle.fill' | 'xmark.circle.fill' | 'arrow.clockwise.circle.fill' |
-  'doc' | 'folder.fill' | 'chevron.up.chevron.down' | 'checkmark.seal.fill' | 'sparkles.rectangle.stack' | 'link.circle';
+  'doc' | 'folder.fill' | 'chevron.up.chevron.down' | 'checkmark.seal.fill' | 'sparkles.rectangle.stack' | 'link.circle' |
+  // Tabs' sound, pinned tiles and the bookmarks section.
+  'speaker.wave.2.fill' | 'speaker.slash.fill' | 'pin.slash' | 'doc.on.doc' | 'arrow.up.to.line';
 
 // Each view is its own native module (MerlinShell<Name>); see MerlinShellModule.swift.
 function view<P>(name: string) {
@@ -93,7 +95,7 @@ export const PopoverBubble = view<PopoverBubbleProps>('PopoverBubble');
 
 export type FullScreenEvent = NativeSyntheticEvent<{ fullScreen: boolean }>;
 /** Reports whether its window is in macOS full screen. */
-export const WindowState = view<ViewProps & { onFullScreen(event: FullScreenEvent): void }>('WindowState');
+export const WindowState = view<ViewProps & { onFullScreen(event: FullScreenEvent): void; windowButtons?: boolean }>('WindowState');
 
 export type MenuItem =
   | { id: string; title: string; enabled?: boolean; checked?: boolean; destructive?: boolean; symbol?: SymbolName }
@@ -114,6 +116,7 @@ type NativeShell = {
   setThinScrollBars(thin: boolean): Promise<void>;
   installQuitGuard(): Promise<void>;
   setBookmarksMenuHidden(hidden: boolean): Promise<void>;
+  tidyMenuBar(): Promise<void>;
   appIcons(size: number): Promise<AppIconChoice[]>;
   appIcon(): Promise<string>;
   setAppIcon(id: string): Promise<void>;
@@ -142,6 +145,7 @@ export const setThinScrollBars = (thin: boolean) => native().setThinScrollBars(t
 /** Routes ⌘Q through the "Warn before quitting" question. */
 export const installQuitGuard = () => native().installQuitGuard();
 export const setBookmarksMenuHidden = (hidden: boolean) => native().setBookmarksMenuHidden(hidden);
+export const tidyMenuBar = () => native().tidyMenuBar();
 export const appIcons = (size: number) => native().appIcons(size);
 export const appIcon = () => native().appIcon();
 export const setAppIcon = (id: string) => native().setAppIcon(id);
