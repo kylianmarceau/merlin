@@ -2087,14 +2087,13 @@ void ModalBrowserController::ToggleDevTools() {
 }
 
 void ModalBrowserController::AddBookmark() {
-  // WebKit's page, not Chromium's hidden one.
-  if (BookmarkWebKitPage(ActiveContents())) {
-    ShowMessage(ffi::MessageLevel::Info, "Bookmarked");
+  // The page the tab shows (WebKit's, not Chromium's hidden one), into the
+  // Bookmarks Bar folder, which the shell's bookmarks bar and sidebar show.
+  if (SetPageBookmarked(ActiveContents(), true)) {
+    ShowMessage(ffi::MessageLevel::Info, "Added to the Bookmarks bar");
     return;
   }
-  if (!chrome::ExecuteCommand(browser_, IDC_BOOKMARK_THIS_TAB)) {
-    ShowMessage(ffi::MessageLevel::Error, "This page cannot be bookmarked");
-  }
+  ShowMessage(ffi::MessageLevel::Error, "This page cannot be bookmarked");
 }
 
 // -- BrowserOps: page structure and selection

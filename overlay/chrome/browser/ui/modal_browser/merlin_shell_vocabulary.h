@@ -24,6 +24,7 @@ inline constexpr char kTabsActivate[] = "tabs.activate";
 inline constexpr char kTabsClose[] = "tabs.close";
 inline constexpr char kTabsPin[] = "tabs.pin";
 inline constexpr char kTabsBookmark[] = "tabs.bookmark";
+inline constexpr char kTabsMute[] = "tabs.mute";
 inline constexpr char kTabsMove[] = "tabs.move";
 inline constexpr char kTabsGroup[] = "tabs.group";
 inline constexpr char kTabsUngroup[] = "tabs.ungroup";
@@ -40,6 +41,8 @@ inline constexpr char kNavigationBack[] = "navigation.back";
 inline constexpr char kNavigationForward[] = "navigation.forward";
 inline constexpr char kNavigationReload[] = "navigation.reload";
 inline constexpr char kNavigationStop[] = "navigation.stop";
+inline constexpr char kNavigationHistory[] = "navigation.history";
+inline constexpr char kNavigationGo[] = "navigation.go";
 inline constexpr char kDownloadsOpen[] = "downloads.open";
 inline constexpr char kDownloadsCancel[] = "downloads.cancel";
 inline constexpr char kDownloadsAct[] = "downloads.act";
@@ -83,6 +86,7 @@ inline constexpr char kBookmarksRemove[] = "bookmarks.remove";
 inline constexpr char kBookmarksExport[] = "bookmarks.export";
 inline constexpr char kBookmarksCreateFolder[] = "bookmarks.createFolder";
 inline constexpr char kBookmarksMove[] = "bookmarks.move";
+inline constexpr char kFaviconsPage[] = "favicons.page";
 inline constexpr char kExtensionsList[] = "extensions.list";
 inline constexpr char kExtensionsSetEnabled[] = "extensions.setEnabled";
 inline constexpr char kExtensionsRun[] = "extensions.run";
@@ -92,7 +96,7 @@ inline constexpr char kPrivacyClearData[] = "privacy.clearData";
 // nativeOnly
 inline constexpr char kApplicationWindows[] = "application.windows";
 inline constexpr char kTestShell[] = "test.shell";
-inline constexpr std::array<std::string_view, 50> kCalls = {
+inline constexpr std::array<std::string_view, 53> kCalls = {
     kWindowSnapshot,
     kFindQuery,
     kFindClose,
@@ -103,6 +107,7 @@ inline constexpr std::array<std::string_view, 50> kCalls = {
     kTabsClose,
     kTabsPin,
     kTabsBookmark,
+    kTabsMute,
     kTabsMove,
     kTabsGroup,
     kTabsUngroup,
@@ -119,6 +124,8 @@ inline constexpr std::array<std::string_view, 50> kCalls = {
     kNavigationForward,
     kNavigationReload,
     kNavigationStop,
+    kNavigationHistory,
+    kNavigationGo,
     kDownloadsOpen,
     kDownloadsCancel,
     kDownloadsAct,
@@ -144,7 +151,7 @@ inline constexpr std::array<std::string_view, 50> kCalls = {
     kShellReport,
     kShellReloadWindow,
 };
-inline constexpr std::array<std::string_view, 24> kRequests = {
+inline constexpr std::array<std::string_view, 25> kRequests = {
     kSettingsGet,
     kSettingsSet,
     kSettingsChooseDownloadDir,
@@ -163,6 +170,7 @@ inline constexpr std::array<std::string_view, 24> kRequests = {
     kBookmarksExport,
     kBookmarksCreateFolder,
     kBookmarksMove,
+    kFaviconsPage,
     kExtensionsList,
     kExtensionsSetEnabled,
     kExtensionsRun,
