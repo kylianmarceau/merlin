@@ -92,7 +92,9 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const tab = store.getState().snapshot?.tabs.find(t => t.id === tabId);
       const on = bookmarked ?? !tab?.bookmarked;
       if (!(await run('tabs.bookmark', { tabId, bookmarked: on }))) return false;
-      pushToast(store, on ? 'Added to the Bookmarks bar' : 'Bookmark removed', 'info');
+      // Edit opens the Library's bookmarks, to rename it or move it to another folder.
+      if (on) pushToast(store, 'Added to the Bookmarks bar', 'info', { label: 'Edit', run: () => actions.openPanel('bookmarks') });
+      else pushToast(store, 'Bookmark removed', 'info');
       return true;
     },
     muteTab: (tabId: string, muted: boolean) => run('tabs.mute', { tabId, muted }),
