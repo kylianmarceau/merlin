@@ -1,0 +1,137 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, PanResponder, View } from 'react-native';
+import { columnsFor, gridHeight, placeAt, slotAt, slotOrigin, tileWidth } from '../../state/favouriteGrid';
+import type { Tab } from '../../state/types';
+import { useActions, useBrowser } from '../../state/window';
+import { Panel, duration, geometry, radius, space, tick, useSpringRect, useTheme, useTimeout } from '../ui';
+import { Favicon } from '../favicon/Favicon';
+import { FavouriteTile } from './TabRow';
+
+/** The gap between favourite tiles. */
+export const tileGap = space.xs + space.hair;
+/** Stands in the order for a tab being dragged in from the list. */
+const incomingSlot = '\u0000incoming';
+
+/** A tile being dragged within the grid: where it started, the slot it is over, and how far the pointer has gone. */
+type TileMove = { id: string; from: number; index: number; dx: number; dy: number };
+
+/**
+ * The favourite tiles, as in Ardia and Dia: they share the sidebar's width,
+ * so one fills the row and two take half each, up to four across. Drag a
+ * tile to reorder it: it lifts and follows the pointer while the others
+ * spring aside, and settles into its slot when let go. Drag a tab in from
+ * the list to pin it: the tiles make room where it would land, outlined
+ * with its icon. With no favourites yet, dragging a row up past the top of
+ * the list (`list`) opens that first slot. A tick marks each new slot.
+ */
+export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
+  pinned: Tab[]; tabs: Tab[]; activeId: string | null; width: number; list: React.RefObject<View | null>;
+}) {
+  const actions = useActions();
+  const { reduceMotion } = useTheme();
+  const pinDrop = useBrowser(s => s.pinDrop);
+  // A tab row being dragged within the list (not yet out over the page).
+  const rowDrag = useBrowser(s => !!s.tabDrag && !s.tabDrag.out);
+  const [move, setMoveState] = useState<TileMove | null>(null);
+  const moving = useRef<TileMove | null>(null);
+  const setMove = (next: TileMove | null) => { moving.current = next; setMoveState(next); };
+  // Where a dropped tile went, held until the engine's order catches up so it doesn't jump back first.
+  const [held, setHeld] = useState<{ id: string; index: number } | null>(null);
+  const ids = pinned.map(t => t.id);
+  const key = ids.join(' ');
+  useEffect(() => setHeld(null), [key]);
+  useTimeout(() => setHeld(null), duration.dropSettle, [held]);
+  const incoming = pinDrop && !ids.includes(pinDrop.tabId) ? tabs.find(t => t.id === pinDrop.tabId) ?? null : null;
+  let order = move ? placeAt(ids, move.id, move.index) : held ? placeAt(ids, held.id, held.index) : ids;
+  if (incoming && pinDrop) order = placeAt(order, incomingSlot, pinDrop.index);
+  const count = Math.max(1, order.length);
+  const columns = columnsFor(count);
+  const tile = { width: tileWidth(width, columns, tileGap), height: geometry.favourite };
+  const ref = useRef<View>(null);
+  const empty = !order.length;
+  const measure = useCallback(() => {
+    if (!empty) {
+      ref.current?.measureInWindow((x, y, w, h) =>
+        actions.setFavouriteZone({ x, y, width: w, height: h, gap: tileGap, tileHeight: geometry.favourite }));
+      return;
+    }
+    // No tiles: the first one's place is the band just above the list.
+    list.current?.measureInWindow((x, y, w) => actions.setFavouriteZone({ x, y: y - geometry.favourite - tileGap, width: w,
+      height: geometry.favourite, gap: tileGap, tileHeight: geometry.favourite }));
+  }, [actions, empty, list]);
+  // Measured afresh as a row drag starts, since the sidebar may have slid or the window moved since.
+  useEffect(() => { if (rowDrag) measure(); }, [rowDrag, measure]);
+  useEffect(() => () => actions.setFavouriteZone(null), [actions]);
+  if (empty) return null;
+  const latest = { ids, width };
+  return <View ref={ref} onLayout={measure} style={{ height: gridHeight(count, tile.height, tileGap) }}>
+    {order.map((id, index) => {
+      if (id === incomingSlot) return incoming && <Cell key={incomingSlot} index={index} columns={columns} tile={tile} reduce={reduceMotion}>
+        <IncomingTile tab={incoming} />
+      </Cell>;
+      const tab = pinned.find(t => t.id === id);
+      if (!tab) return null;
+      const dragged = move?.id === id;
+      return <Cell key={id} index={dragged ? move.from : index} offset={dragged ? move : undefined} columns={columns} tile={tile}
+        reduce={reduceMotion} lifted={dragged}
+        drag={{
+          start: () => { actions.closeHoverCard(); setMove({ id, from: latest.ids.indexOf(id), index: latest.ids.indexOf(id), dx: 0, dy: 0 }); },
+          move: (dx, dy) => {
+            const old = moving.current;
+            if (!old) return;
+            const origin = slotOrigin(old.from, columns, tile, tileGap);
+            const next = slotAt(origin.x + tile.width / 2 + dx, origin.y + tile.height / 2 + dy, latest.ids.length, latest.width,
+              tile.height, tileGap);
+            if (next !== old.index) tick('alignment');
+            setMove({ ...old, index: next, dx, dy });
+          },
+          end: () => {
+            const old = moving.current;
+            setMove(null);
+            if (old && old.index !== old.from) { setHeld({ id: old.id, index: old.index }); void actions.moveFavourite(old.id, old.index); }
+          },
+        }}>
+        <FavouriteTile tab={tab} width="100%" active={tab.id === activeId} />
+      </Cell>;
+    })}
+  </View>;
+}
+
+/**
+ * One slot of the grid. Its tile springs to the slot when the tiles reflow,
+ * and follows the pointer, lifted, while it is dragged.
+ */
+function Cell({ index, columns, tile, reduce, offset, lifted, drag, children }: React.PropsWithChildren<{
+  index: number; columns: number; tile: { width: number; height: number }; reduce: boolean;
+  offset?: { dx: number; dy: number }; lifted?: boolean;
+  drag?: { start(): void; move(dx: number, dy: number): void; end(): void };
+}>) {
+  const origin = slotOrigin(index, columns, tile, tileGap);
+  const rect = useSpringRect({ x: origin.x + (offset?.dx ?? 0), y: origin.y + (offset?.dy ?? 0), width: tile.width, height: tile.height },
+    reduce, !!offset);
+  const latest = useRef(drag);
+  latest.current = drag;
+  const pan = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponderCapture: (_, g) => !!latest.current && Math.hypot(g.dx, g.dy) > space.xs,
+    onPanResponderGrant: () => latest.current?.start(),
+    onPanResponderMove: (_, g) => latest.current?.move(g.dx, g.dy),
+    onPanResponderRelease: () => latest.current?.end(),
+    onPanResponderTerminate: () => latest.current?.end(),
+    onPanResponderTerminationRequest: () => false,
+  }), []);
+  return <Animated.View {...pan.panHandlers} style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height,
+    zIndex: lifted ? 1 : undefined }}>
+    {/* A lifted tile casts a shadow; like a row, it holds its size rather than scaling. */}
+    {lifted && <Panel fill="tilePinnedHover" radius="tile" elevation="menu" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
+    {children}
+  </Animated.View>;
+}
+
+/** Where a tab dragged in from the list will be pinned: an outlined tile with its icon. */
+function IncomingTile({ tab }: { tab: Tab }) {
+  const { colors } = useTheme();
+  return <View style={{ flex: 1, borderRadius: radius.tile, borderWidth: geometry.dropZoneDash, borderStyle: 'dashed',
+    borderColor: colors.dropZoneDash, backgroundColor: colors.tilePinned, alignItems: 'center', justifyContent: 'center' }}>
+    <Favicon tab={tab} large />
+  </View>;
+}

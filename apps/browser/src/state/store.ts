@@ -9,6 +9,7 @@ import type { IconTone, SymbolName } from '../platform/shell';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
 import { acceptResults, type Omnibox } from './omnibox';
 import { rememberActive, type TabDrag } from './tabDrag';
+import type { GridZone } from './favouriteGrid';
 
 /** `location` is ⌘L's centred field for the current tab (Settings › Appearance › ⌘L opens the command bar: In the centre). */
 export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | 'location' | null;
@@ -56,6 +57,10 @@ export type BrowserState = {
   tabDrag: TabDrag | null;
   /** Where each page on screen is, in the window, by tab: both sides of a split view, else the active tab's. */
   panes: Record<string, Rect>;
+  /** Where the favourite tiles are, so a tab dragged from the list can be dropped among them to pin it. */
+  favouriteZone: GridZone | null;
+  /** A tab dragged from the list over the favourites, and the slot it would be pinned into. */
+  pinDrop: { tabId: string; index: number } | null;
   /** Tabs most recently active first, for the tab a dragged tab splits with when it is the only one on screen. */
   recentTabs: string[];
   groupDialog: GroupDialog | null;
@@ -77,7 +82,7 @@ export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [], hud: null,
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, panes: {}, recentTabs: [], groupDialog: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, pinnedHomes: {},
+    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, pinnedHomes: {},
     failInRender: false,
   };
 }

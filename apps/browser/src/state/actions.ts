@@ -1,10 +1,11 @@
 // Everything a window's components can ask for. Components never hold the
 // engine or call getState(); they call these, and failures become notices.
-import { copyText, imageTone, showMenu, type MenuItem } from '../platform/shell';
+import { copyText, haptic, imageTone, showMenu, type MenuItem } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
 import { pageLabel } from '../lib/format';
 import { dropOutcome, type DropTarget, type SplitSide } from './tabDrag';
+import { beforeIdFor, overZone, placeAt, slotAt, type GridZone } from './favouriteGrid';
 import { tabUnits } from './splits';
 import { moveSite, navigateWebKitTab, runPageCommand } from './webkit';
 import { groupColors, type Appearance, type Calls, type DownloadAction, type EngineClient, type GroupColor, type Method, type Request,
@@ -280,6 +281,55 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     /** A tab drag that ended without being let go (the gesture was taken away). */
     tabDragCancel() {
       if (store.getState().tabDrag) store.setState({ tabDrag: null });
+      if (store.getState().pinDrop) store.setState({ pinDrop: null });
+    },
+    /** Where the favourite tiles are in the window, as the sidebar lays them out (null while there are none to show). */
+    setFavouriteZone(zone: GridZone | null) {
+      const old = store.getState().favouriteZone;
+      if (old === zone || (old && zone && (Object.keys(zone) as (keyof GridZone)[]).every(k => old[k] === zone[k]))) return;
+      store.setState({ favouriteZone: zone });
+    },
+    /**
+     * A tab dragged from the list, the pointer at (x, y) in the window: over
+     * the favourites it would be pinned into the slot under the pointer, and
+     * the tiles make room for it. A tick as it reaches them and at each new
+     * slot. Returns whether it is over them.
+     */
+    pinDragOver(tabId: string, x: number, y: number) {
+      const s = store.getState();
+      const zone = s.favouriteZone;
+      const pinned = (s.snapshot?.tabs ?? []).filter(t => t.pinned && t.id !== tabId);
+      const over = !!zone && overZone(zone, x, y, zone.gap * 2);
+      const index = over && zone ? slotAt(x - zone.x, y - zone.y, pinned.length + 1, zone.width, zone.tileHeight, zone.gap) : -1;
+      const old = s.pinDrop;
+      if (!over) { if (old) store.setState({ pinDrop: null }); return false; }
+      if (old?.tabId === tabId && old.index === index) return true;
+      haptic(old ? 'alignment' : 'level');
+      store.setState({ pinDrop: { tabId, index } });
+      return true;
+    },
+    /** The dragged tab was let go: over the favourites it is pinned into its slot. Returns whether it was. */
+    pinDragEnd() {
+      const s = store.getState();
+      const drop = s.pinDrop;
+      if (!drop) return false;
+      store.setState({ pinDrop: null, tabDrag: null });
+      const tabs = s.snapshot?.tabs ?? [];
+      const order = placeAt(tabs.filter(t => t.pinned).map(t => t.id), drop.tabId, drop.index);
+      void (async () => {
+        await actions.pinTab(drop.tabId, true);
+        const firstOpen = tabs.find(t => !t.pinned && t.id !== drop.tabId)?.id ?? null;
+        if (drop.index < order.length - 1) await actions.moveTab(drop.tabId, beforeIdFor(order, drop.index, firstOpen));
+      })();
+      return true;
+    },
+    /** A favourite tile dragged to slot `index` among the tiles. */
+    async moveFavourite(tabId: string, index: number) {
+      const tabs = store.getState().snapshot?.tabs ?? [];
+      const ids = tabs.filter(t => t.pinned).map(t => t.id);
+      if (ids.indexOf(tabId) === index) return;
+      const order = placeAt(ids, tabId, index);
+      await actions.moveTab(tabId, beforeIdFor(order, index, tabs.find(t => !t.pinned)?.id ?? null));
     },
     /**
      * The dragged tab was let go. Among the tabs it is theirs to reorder

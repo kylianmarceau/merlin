@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Animated, View } from 'react-native';
 import type { BookmarkItem } from '../../state/types';
 import { useShellPrefs } from '../../state/shellPrefs';
@@ -16,11 +16,14 @@ const shownRows = 6;
  * where the star saves, then Other Bookmarks as a folder. Its heading folds
  * it away and opens the rest in the Library. Hidden when there are none.
  */
-export function SidebarBookmarks() {
+export function SidebarBookmarks({ onShown }: { onShown?(shown: boolean): void }) {
   const actions = useActions();
   const folded = useShellPrefs(p => p.sidebarBookmarksFolded);
   const { items, reload } = useBarBookmarks();
-  if (!items?.length) return null;
+  const shown = !!items?.length;
+  useEffect(() => { onShown?.(shown); }, [shown, onShown]);
+  useEffect(() => () => onShown?.(false), [onShown]);
+  if (!shown) return null;
   const more = items.length - shownRows;
   return <View onMouseEnter={reload}>
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: space.sm + space.hair, paddingBottom: space.xs }}>

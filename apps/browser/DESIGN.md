@@ -24,10 +24,18 @@ The stored accent names predate Tide and stay as the browser saves them:
   `tabs = "side"`): the top 40 pt row holds the traffic lights, hide-sidebar,
   back, forward and reload. Under it, the address as a white pill
   (`fillShellControl`) showing the site, a waiting-request chip and the
-  site-controls button; pinned tabs as favourite tiles (four across, 44 pt;
-  lit almost white on hover and deeper while pressed, as in Dia; the chosen
-  one tinted with its site's colour, `pinnedTileTint`, and ringed with it,
-  `pinnedTileRing`, neutral for a near-black or near-white colour); the
+  site-controls button; pinned tabs as favourite tiles (`FavouriteGrid`,
+  44 pt tall, sharing the width as in Ardia: one tile fills the row, two take
+  half each, up to four across, then rows of four; lit almost white on hover
+  and deeper while pressed, as in Dia; the chosen one tinted with its site's
+  colour, `pinnedTileTint`, and ringed with it, `pinnedTileRing`, neutral
+  for a near-black or near-white colour). A tile drags to a new slot: it
+  lifts with a shadow, without scaling, and follows the pointer while the
+  others spring aside, then settles into its slot on the `snappy` spring. A
+  row dragged up over the tiles (or, with none yet, past the top of the
+  list) is pinned where it is let go: the tiles make room for an outlined
+  tile with its icon, and the row fades meanwhile. A trackpad tick marks
+  each new slot (`tick`). A dashed rule closes the tiles (`DashedRule`); the
   Bookmarks section (the Bookmarks Bar folder, six rows, folding at its
   heading); then, under Dia's hairline, the open tabs with New Tab after
   the last (34 pt rows 3 pt apart, Dia's 37 pt pitch; the active one a

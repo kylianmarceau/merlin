@@ -6,19 +6,18 @@ import { tabUnits } from '../../state/splits';
 import { reorderTarget } from '../../state/tabDrag';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import {
-  DragRegion, Icon, IconButton, Pressable, Text, animateListChange, geometry, radius, space, useEased, useHoverFade, useInteraction,
+  DashedRule, DragRegion, Icon, IconButton, Pressable, Text, animateListChange, geometry, radius, space, useEased, useHoverFade, useInteraction,
   useTheme,
 } from '../ui';
 import { SidebarBookmarks } from '../bookmarks/SidebarBookmarks';
 import { AddressField } from '../omnibox/AddressField';
 import { NavigationButtons } from '../window/Toolbar';
 import { useShortcut } from '../window/shortcuts';
-import { FavouriteTile, TabRow } from './TabRow';
+import { FavouriteGrid } from './FavouriteGrid';
+import { TabRow } from './TabRow';
 import { SidebarGroup, tabBlocks } from './TabGroups';
 import { SidebarFooter } from './WindowButtons';
 
-const columns = 4;
-const tileGap = space.xs + space.hair;
 const sidePadding = space.md + space.sm + space.hair;
 
 /**
@@ -35,7 +34,6 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
   const pending = useBrowser(s => s.panel === 'newTab');
   const pinned = snapshot.tabs.filter(t => t.pinned);
   const open = snapshot.tabs.filter(t => !t.pinned);
-  const tile = Math.floor((width - sidePadding - tileGap * (columns - 1)) / columns);
   // A row dragged up or down moves among the open tabs; read when it drops, so rows keep their memo.
   const openIds = useRef<string[]>([]);
   // Rows in a collapsed group aren't on screen, so they don't count as places.
@@ -55,6 +53,8 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
   // Settings › Appearance › Address bar: in the toolbar, the page card carries navigation and the address.
   const addressHere = useShellPrefs(p => p.addressBar !== 'toolbar');
   const bookmarks = useShellPrefs(p => p.showBookmarks && p.sidebarBookmarks);
+  // Whether the bookmarks section has anything to show, so an empty one draws no rule under it.
+  const [bookmarksShown, setBookmarksShown] = useState(false);
   const hide = useShortcut('Hide sidebar', ['⌘', 'S'], 'gs');
   const newTab = useShortcut('New tab', ['⌘', 'T'], 't');
   const list = useActiveRowPointer(snapshot.activeTabId);
@@ -72,14 +72,15 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
       <Icon name="eye.slash" tone="iconSecondary" size="small" />
       <Text variant="label" tone="textSecondary">Private window</Text>
     </View>}
-    {!!pinned.length && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: tileGap }}>
-      {pinned.map(tab => <FavouriteTile key={tab.id} tab={tab} width={tile} active={tab.id === snapshot.activeTabId} />)}
-    </View>}
-    {bookmarks && <SidebarBookmarks />}
+    <FavouriteGrid pinned={pinned} tabs={snapshot.tabs} activeId={snapshot.activeTabId} width={width - sidePadding}
+      list={list.frame} />
+    {/* As in Ardia, a dashed rule closes the favourites. */}
+    {!!pinned.length && <DashedRule inset="xs" />}
+    {bookmarks && <SidebarBookmarks onShown={setBookmarksShown} />}
     <View style={{ flex: 1 }}>
-      {/* As in Dia, a hairline divides the pinned tiles and bookmarks from the open tabs; with nothing above, it
-          fades in only once the list has scrolled under it. */}
-      <ScrollEdge shown={!!pinned.length || bookmarks || list.scrolled} />
+      {/* As in Dia, a hairline divides the bookmarks from the open tabs; with nothing above (or only the
+          favourites' own rule), it fades in only once the list has scrolled under it. */}
+      <ScrollEdge shown={(bookmarks && bookmarksShown) || list.scrolled} />
       <View ref={list.frame} style={{ flex: 1 }} onLayout={list.check}>
         <ScrollView ref={list.scroll} style={{ flex: 1 }} onScroll={list.onScroll} scrollEventThrottle={32}
           onContentSizeChange={list.check}

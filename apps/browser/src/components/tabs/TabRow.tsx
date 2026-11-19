@@ -6,7 +6,7 @@ import { awayFromHome } from '../../state/pinned';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useBrowser } from '../../state/window';
 import {
-  ContextMenu, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, pinnedTileRing, pinnedTileTint, radius, space, useEased, useHoverFade,
+  ContextMenu, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, opacity, pinnedTileRing, pinnedTileTint, radius, space, useEased, useHoverFade,
   useInteraction, useTheme, type ShadowName,
 } from '../ui';
 import { Favicon } from '../favicon/Favicon';
@@ -43,6 +43,7 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [dy, setDy] = useState<number | null>(null);
+  const [pinning, setPinning] = useState(false);
   const sidebarWidth = useShellPrefs(p => p.sidebarWidth);
   const ref = useRef<View>(null);
   const latest = useRef({ onReorder, id: tab.id, sidebarWidth });
@@ -52,13 +53,18 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
     onPanResponderGrant: () => actions.closeHoverCard(),
     onPanResponderMove: (_, g) => {
       const out = actions.tabDragMove(latest.current.id, g.moveX, g.moveY, g.moveX > latest.current.sidebarWidth + geometry.tearOff);
+      // Up over the favourites, the row would be pinned there instead of moving in the list.
+      const pinning = !out && actions.pinDragOver(latest.current.id, g.moveX, g.moveY);
+      setPinning(pinning);
       setDy(out ? 0 : g.dy);
     },
     onPanResponderRelease: (_, g) => {
       setDy(null);
+      setPinning(false);
+      if (actions.pinDragEnd()) return;
       if (actions.tabDragEnd() === 'reorder') latest.current.onReorder?.(latest.current.id, Math.round(g.dy / rowStep));
     },
-    onPanResponderTerminate: () => { setDy(null); actions.tabDragCancel(); },
+    onPanResponderTerminate: () => { setDy(null); setPinning(false); actions.tabDragCancel(); },
     onPanResponderTerminationRequest: () => false,
   }), [actions]);
   const glow = useShellPrefs(p => p.selectedTabGlow);
@@ -66,7 +72,7 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
   const closeShown = useEased(hovered || active, reduceMotion);
   const title = tabTitle(tab);
   const sound = tab.audible || tab.muted;
-  const steps = dy === null ? 0 : Math.round(dy / rowStep);
+  const steps = dy === null || pinning ? 0 : Math.round(dy / rowStep);
   const hover = (on: boolean) => {
     setHovered(on);
     if (!on) { actions.leaveTab(); return; }
@@ -76,7 +82,9 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
     <Animated.View ref={(view: View | null) => { ref.current = view; if (active) onActive?.(view); }} {...pan.panHandlers}
       onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}
       style={{ flexDirection: 'row', alignItems: 'center', minHeight: geometry.tabRow, borderRadius: radius.row,
-        zIndex: dy !== null ? 1 : undefined, transform: [{ translateY: dy ?? 0 }] }}>
+        zIndex: dy !== null ? 1 : undefined, transform: [{ translateY: dy ?? 0 }],
+        // Over the favourites the row fades: its tile stands in for it there.
+        opacity: pinning ? opacity.dim : 1 }}>
       <Animated.View pointerEvents="none" style={[cover, { borderRadius: radius.row, backgroundColor: colors.tabHover, opacity: wash }]} />
       {/* Dia's pressed fill, deeper than the wash; the selected row has none. */}
       {pressed && !active && <View pointerEvents="none" style={[cover, { borderRadius: radius.row, backgroundColor: colors.tabPressed }]} />}
@@ -119,7 +127,7 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onAct
  * the chosen one takes its site's colour with a ring of it; resting on one
  * shows its card below it.
  */
-export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, width }: { tab: Tab; active: boolean; width: number }) {
+export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, width }: { tab: Tab; active: boolean; width: number | '100%' }) {
   const { colors, glass, dark } = useTheme();
   const glow = useShellPrefs(p => p.selectedTabGlow);
   const actions = useActions();

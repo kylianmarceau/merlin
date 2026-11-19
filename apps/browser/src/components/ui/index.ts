@@ -17,7 +17,7 @@ export { MenuFooter, MenuRow, MenuSection, MenuSeparator, MenuTextButton, Popove
 export { GlassFill } from './GlassFill';
 export { KeyCap } from './KeyCap';
 export { TooltipLayer, useTooltip, type TooltipSpec } from './Tooltip';
-export { Divider } from './Divider';
+export { DashedRule, Divider } from './Divider';
 export { Panel } from './Panel';
 export { Glass } from './Glass';
 export { Layer } from './Layer';
@@ -28,7 +28,7 @@ export { Sheet, SheetBody, useSheetScroll, type SheetSection } from './Sheet';
 export { ToastStack, type ToastItem } from './Toast';
 export { Badge, EmptyState, IconTile, LoadingBar, Notice, ProgressRing, ProgressTrack, Spinner } from './Feedback';
 export { FormGroup, FormHighlight, FormRow, SectionHeader, useLit } from './Form';
-export { ContextMenu, DragRegion, FileDragArea, FullScreenWatch, type WindowFacts } from './Native';
+export { ContextMenu, DragRegion, FileDragArea, FullScreenWatch, tick, type WindowFacts } from './Native';
 export { accessibilityPress, useInteraction } from './interaction';
 export { useEscape } from './keys';
 export { Fade } from './Fade';

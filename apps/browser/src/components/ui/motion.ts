@@ -367,18 +367,20 @@ export function useSlide(to: { x: number; width: number } | null, reduce: boolea
 
 /**
  * Springs to `to` (a rectangle), as a drop zone moves between its sizes and
- * leans towards the pointer. The first position is immediate.
+ * leans towards the pointer, or a favourite tile makes room and settles into
+ * its slot. The first position is immediate, and so is every one while
+ * `follow` (a tile under the pointer).
  */
-export function useSpringRect(to: { x: number; y: number; width: number; height: number }, reduce: boolean) {
+export function useSpringRect(to: { x: number; y: number; width: number; height: number }, reduce: boolean, follow = false) {
   const values = useRef({ x: new Animated.Value(to.x), y: new Animated.Value(to.y), width: new Animated.Value(to.width),
     height: new Animated.Value(to.height) }).current;
   useEffect(() => {
     const keys = ['x', 'y', 'width', 'height'] as const;
-    if (reduce) { keys.forEach(k => values[k].setValue(to[k])); return; }
+    if (reduce || follow) { keys.forEach(k => values[k].setValue(to[k])); return; }
     const run = Animated.parallel(keys.map(k => Animated.spring(values[k], { toValue: to[k], ...spring.snappy, useNativeDriver: false })));
     run.start();
     return () => run.stop();
-  }, [to.x, to.y, to.width, to.height, reduce, values]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [to.x, to.y, to.width, to.height, reduce, follow, values]);  // eslint-disable-line react-hooks/exhaustive-deps
   return values;
 }
 

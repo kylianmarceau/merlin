@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ViewProps } from 'react-native';
-import { ContextMenuArea as NativeContextMenuArea, FileDrag as NativeFileDrag, WindowDragRegion, WindowState } from '../../platform/shell';
+import { ContextMenuArea as NativeContextMenuArea, FileDrag as NativeFileDrag, WindowDragRegion, WindowState, haptic, type HapticKind } from '../../platform/shell';
 
 /** Empty space that moves the window when dragged and zooms it on a double click. */
 export function DragRegion(props: ViewProps) {
@@ -34,4 +34,13 @@ export function FullScreenWatch({ onChange, onState, windowButtons = true, title
  */
 export function FileDragArea({ path, children, style }: React.PropsWithChildren<{ path?: string; style?: ViewProps['style'] }>) {
   return <NativeFileDrag filePath={path ?? ''} style={style}>{children}</NativeFileDrag>;
+}
+
+/**
+ * A trackpad tick, as AppKit gives one when something snaps into place: a
+ * dragged tab reaching a new slot or a drop target, a resize meeting its
+ * limit. Silent on a mouse, and harmless where the host has no haptics.
+ */
+export function tick(kind: HapticKind = 'alignment') {
+  haptic(kind);
 }

@@ -32,6 +32,8 @@ export const geometry = {
   control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, stripTabHeight: 32, address: 36, favourite: 44, favouriteSmall: 28,
   /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
   tabRowGap: 3, tileRing: 2.5,
+  /** A dashed rule's dashes and the gaps between them (under the favourite tiles, as in Ardia). */
+  ruleDash: 3, ruleGap: 3,
   rowTall: 44, popoverRow: 32, icon: 16, iconSmall: 13, iconLarge: 20, favicon: 16, tile: 28, round: 20, roundGlyph: 9, keycap: 18,
   toggleWidth: 28, toggleHeight: 16, toggleThumb: 12, progress: 4, focusRing: 2, hairline: 1, splitGap: 6, dot: 7,
   popover: 300, popoverWide: 340, menu: 240, dialog: 380, dialogWide: 520, palette: 620, paletteInput: 60, paletteRow: 42,
