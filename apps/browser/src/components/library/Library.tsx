@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { formatDay, formatTime } from '../../lib/format';
 import { errorText, type ActionResult } from '../../lib/result';
 import type { BookmarkItem, BookmarkView, HistoryItem } from '../../state/types';
+import { foldRepeats } from './historyItems';
 import { useAction, useActions, useBrowser, useRequest, useSnapshot } from '../../state/window';
 import {
   Box, Button, Dialog, EmptyState, Field, Icon, IconButton, ListRow, Notice, Sheet, Spinner, Text, duration, geometry, keyGlyphs, radius,
@@ -135,7 +136,7 @@ function History({ onOpen }: { onOpen(url: string): void }) {
   };
   const days = useMemo(() => {
     const groups: { day: string; items: HistoryItem[] }[] = [];
-    for (const item of items) {
+    for (const item of foldRepeats(items)) {
       const day = formatDay(item.time);
       if (groups[groups.length - 1]?.day !== day) groups.push({ day, items: [] });
       groups[groups.length - 1].items.push(item);
