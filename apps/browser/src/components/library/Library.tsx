@@ -34,7 +34,7 @@ export function Library({ open }: { open: boolean }) {
   const tabs = sections.map(s => (s.id === 'downloads' && running ? { ...s, badge: String(running) } : s));
   const openUrl = (url: string) => { void actions.newTab(url); actions.closePanel(); };
   return <Sheet<LibrarySection> open={open} title="Library" nav="segments" sections={tabs} section={section} onSection={setSection}
-    onClose={actions.closePanel}
+    onClose={actions.closePanel} onClosed={actions.focusPage}
     footer={section === 'history' ? <Footer note="History stays on this Mac." link="Clear browsing data…"
       onPress={() => void action.run('settings.openPage', { key: 'clear-data' })} />
       : section === 'bookmarks' ? <Footer note={bookmarkKeysNote} /> : undefined}>

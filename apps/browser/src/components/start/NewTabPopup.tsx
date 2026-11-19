@@ -60,11 +60,11 @@ function Body({ onClose, location }: { onClose(): void; location: boolean }) {
       </View>} />
     {count > 0 && <View style={{ padding: space.sm, gap: space.hair }}>
       {typing
-        ? search.suggestions.map((item, index) => <PopupRow key={`${index}:${item.url}`} title={item.title || item.url}
+        ? search.suggestions.map((item, index) => <PopupRow key={index} title={item.title || item.url}
           detail={suggestionDetail(item, displayHost(item.url))}
           leading={<Icon name={suggestionIcons[item.kind]} tone={search.selected === index ? 'paletteSelectedText' : 'iconSecondary'} size="small" />}
           selected={search.selected === index} disabled={search.stale}
-          onPress={() => { search.open(index, !location); actions.closePanel(); }} />)
+          onPress={() => { if (search.open(index, !location)) actions.closePanel(); }} />)
         : pages.map((tab, index) => <PopupRow key={tab.id} title={tab.title || tab.url} detail="Switch to tab"
           leading={<Favicon tab={tab} />} selected={picked === index} onPress={() => openPage(tab)} />)}
     </View>}

@@ -67,8 +67,9 @@ export function AddressField({ variant = 'toolbar', compact = false }: { variant
   useEffect(() => () => { if (blurTimer.current) clearTimeout(blurTimer.current); }, []);
 
   // Escape leaves the field: AppKit gives up the focus itself, and the
-  // suggestions close and the site shows again.
+  // suggestions close and the site shows again. An open popover closes too.
   const escape = useEscape(() => {
+    actions.escapePopover();
     if (blurTimer.current) { clearTimeout(blurTimer.current); blurTimer.current = null; }
     editingNow.current = false; setEditing(false);
     actions.stopSuggesting();

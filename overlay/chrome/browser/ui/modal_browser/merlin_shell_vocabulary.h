@@ -18,6 +18,7 @@ inline constexpr char kWindowSnapshot[] = "window.snapshot";
 inline constexpr char kFindQuery[] = "find.query";
 inline constexpr char kFindClose[] = "find.close";
 inline constexpr char kFindFocus[] = "find.focus";
+inline constexpr char kPageFocus[] = "page.focus";
 inline constexpr char kTabsCreate[] = "tabs.create";
 inline constexpr char kTabsActivate[] = "tabs.activate";
 inline constexpr char kTabsClose[] = "tabs.close";
@@ -90,13 +91,13 @@ inline constexpr char kDownloadsList[] = "downloads.list";
 inline constexpr char kPrivacyClearData[] = "privacy.clearData";
 // nativeOnly
 inline constexpr char kApplicationWindows[] = "application.windows";
-inline constexpr char kPageFocus[] = "page.focus";
 inline constexpr char kTestShell[] = "test.shell";
-inline constexpr std::array<std::string_view, 49> kCalls = {
+inline constexpr std::array<std::string_view, 50> kCalls = {
     kWindowSnapshot,
     kFindQuery,
     kFindClose,
     kFindFocus,
+    kPageFocus,
     kTabsCreate,
     kTabsActivate,
     kTabsClose,
@@ -169,9 +170,8 @@ inline constexpr std::array<std::string_view, 24> kRequests = {
     kDownloadsList,
     kPrivacyClearData,
 };
-inline constexpr std::array<std::string_view, 3> kNativeOnly = {
+inline constexpr std::array<std::string_view, 2> kNativeOnly = {
     kApplicationWindows,
-    kPageFocus,
     kTestShell,
 };
 }  // namespace method

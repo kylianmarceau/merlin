@@ -8,27 +8,27 @@ import { useInteraction } from './interaction';
 import { useEscape } from './keys';
 import { duration } from './motion';
 import { useTheme } from './theme';
-import { font, geometry, opacity, radius, space } from './tokens';
+import { font, geometry, legibleGlass, opacity, radius, space } from './tokens';
 
 /**
  * The one place every centred pop-up sits: the command menu (`:` and
  * Command-K), the new-tab pop-up (Command-T) and Run a Command. Same width,
- * same scrim, same spot: its top is where a full pop-up would be centred in
- * the window, so the field never jumps as the list fills. It appears at once,
- * without a fade.
+ * same spot: its top is where a full pop-up would be centred in the window,
+ * so the field never jumps as the list fills. It appears at once, without a
+ * fade, and leaves the window undimmed: its shadow sets it apart, and a press
+ * anywhere outside it closes it.
  */
 export function CenteredPopup({ label, onDismiss, width = geometry.palette, children }: React.PropsWithChildren<{
   label: string; onDismiss(): void; width?: number;
 }>) {
-  const { colors } = useTheme();
   const [height, setHeight] = useState(0);
   const top = Math.max(space.huge, (height - geometry.popupHeight) / 2);
   return <View pointerEvents="box-none" onLayout={e => setHeight(e.nativeEvent.layout.height)}
     style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', paddingTop: top }}>
-    <Pressable accessible={false} onPress={onDismiss}
-      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.scrim }} />
+    <Pressable accessible={false} onPress={onDismiss} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
     <View style={{ width, maxWidth: '90%' }}>
-      <Panel glass fill="surfacePalette" radius="popover" elevation="dialog" accessibilityLabel={label} accessibilityViewIsModal>
+      <Panel glass glassFloor={legibleGlass} fill="surfacePalette" radius="popover" elevation="dialog" accessibilityLabel={label}
+        accessibilityViewIsModal>
         <View style={{ borderRadius: radius.popover, overflow: 'hidden' }}>{children}</View>
       </Panel>
     </View>

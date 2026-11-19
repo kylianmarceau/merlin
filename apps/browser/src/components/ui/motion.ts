@@ -20,6 +20,12 @@ export const duration = {
   refocus: 50,
   /** Debounce for search fields that ask the browser. */
   search: 180,
+  /**
+   * How long the last query's suggestions may wait for the next query's
+   * before they grey out. Chromium usually answers well within it, so
+   * typing doesn't flash the list on every keystroke.
+   */
+  staleRows: 250,
   /** Native prompts ignore answers for their first half second. */
   promptArm: 550,
   /** The loading bar: its first quick reach, the slow creep after it, the finish and the fade once loaded. */
@@ -136,6 +142,17 @@ export function useTimeout(fn: () => void, ms: number, deps: unknown[]) {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
+}
+
+/** True once `flag` has stayed true for `ms`; false as soon as it turns false. */
+export function useHeld(flag: boolean, ms: number) {
+  const [held, setHeld] = useState(false);
+  useEffect(() => {
+    if (!flag) { setHeld(false); return; }
+    const timer = setTimeout(() => setHeld(true), ms);
+    return () => clearTimeout(timer);
+  }, [flag, ms]);
+  return flag && held;
 }
 
 /**

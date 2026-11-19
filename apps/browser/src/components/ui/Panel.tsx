@@ -9,6 +9,8 @@ export type PanelProps = {
   fill?: ColorRole; radius?: Radius; border?: ColorRole | null; elevation?: ShadowName; style?: ViewStyle | ViewStyle[];
   /** Liquid Glass, or a solid panel in Classic; `fill` then only applies to non-glass panels. */
   glass?: boolean;
+  /** With `glass`, the least colour layer over it (see PopoverSurface). */
+  glassFloor?: number;
   children?: React.ReactNode; accessibilityLabel?: string; accessibilityViewIsModal?: boolean;
 };
 
@@ -19,12 +21,12 @@ export type PanelProps = {
  * an opaque panel with an edge and a shadow when it chooses Classic.
  */
 export function Panel({ fill = 'surfacePopover', radius = 'popover', border = 'surfaceBorder', elevation = 'popover', glass = false,
-  style, children, ...rest }: PanelProps) {
+  glassFloor, style, children, ...rest }: PanelProps) {
   const { colors, dark } = useTheme();
   const drop = shadow[elevation];
   const r = radii[radius];
   if (glass) return <View {...rest} style={style}>
-    <PopoverSurface radius={r} elevation={elevation} />
+    <PopoverSurface radius={r} elevation={elevation} glassFloor={glassFloor} />
     {children}
   </View>;
   return <Surface {...rest} style={style} surfaceFill={colors[fill]} surfaceRadius={r}

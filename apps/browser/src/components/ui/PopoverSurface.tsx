@@ -10,12 +10,14 @@ import { geometry, panelGlass, radius as radii, shadow, type ColorRole, type Sha
  * shadow. The arrow, when there is one, is part of the same outline.
  */
 export function PopoverSurface({ arrow = 'none', arrowX = 0, radius = radii.bubble, fill = 'surfacePopoverSolid', elevation = 'popover',
-  style }: {
-  arrow?: 'top' | 'bottom' | 'none'; arrowX?: number; radius?: number; fill?: ColorRole; elevation?: ShadowName; style?: ViewStyle;
+  glassFloor = 0, style }: {
+  arrow?: 'top' | 'bottom' | 'none'; arrowX?: number; radius?: number; fill?: ColorRole; elevation?: ShadowName;
+  /** The least colour layer over the glass, 0 to 1 (`legibleGlass` for text-heavy pop-ups). */
+  glassFloor?: number; style?: ViewStyle;
 }) {
   const { colors, dark, accent, glass } = useTheme();
   const drop = shadow[elevation];
-  const tinted = panelGlass(dark ? 'dark' : 'light', accent, glass);
+  const tinted = panelGlass(dark ? 'dark' : 'light', accent, glass, glassFloor);
   return <PopoverBubble pointerEvents="none" style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }, style ?? {}]}
     glass={glass.on} glassFade={tinted.fade} glassTint={tinted.tint} bubbleRadius={radius} arrowEdge={arrow} arrowX={arrowX}
     arrowWidth={geometry.arrowWidth} arrowHeight={geometry.arrowHeight}

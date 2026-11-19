@@ -14,7 +14,7 @@ export function DownloadsPopover() {
   const clearable = downloads.some(d => d.state !== 'progress');
   return <>
     <MenuSection title="Recent downloads" trailing={clearable ? <MenuTextButton label="Clear" onPress={() => void actions.clearDownloads()} /> : undefined} />
-    {!recent.length && <PopoverBody><Text variant="row" tone="textSecondary">No downloads yet</Text></PopoverBody>}
+    {!recent.length && <PopoverBody><Text variant="row" tone="textSecondary">No recent downloads</Text></PopoverBody>}
     {recent.map(d => <DownloadRow key={d.id} download={d} onAction={a => void actions.downloadAction(d.id, a)}
       onMenu={() => void actions.downloadMenu(d.id)} />)}
     <MenuSeparator />

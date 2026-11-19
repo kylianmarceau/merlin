@@ -119,8 +119,6 @@ function roles(mode: Mode, accentName: AccentName) {
     toolbarDivider: pick('rgba(20, 40, 30, 0.07)', 'rgba(255, 255, 255, 0.06)'),
     titlebarBackground: pick(ink[75], ink[925]),
     startBackground: pick(ink[25], ink[900]),
-    // The page under a new-tab pop-up stays visible, only quieter.
-    newTabVeil: pick('rgba(252, 253, 252, 0.45)', 'rgba(18, 21, 19, 0.45)'),
 
     // Text.
     textPrimary: pick(ink[900], ink[50]),
@@ -207,7 +205,7 @@ function roles(mode: Mode, accentName: AccentName) {
     surfaceCardHover: pick(ink[75], 'rgba(255, 255, 255, 0.07)'),
     surfaceInset: pick('rgba(255, 255, 255, 0.55)', 'rgba(255, 255, 255, 0.05)'),
     surfaceBorder: pick('rgba(20, 40, 30, 0.13)', 'rgba(255, 255, 255, 0.10)'),
-    scrim: pick('rgba(20, 40, 30, 0.26)', 'rgba(0, 0, 0, 0.50)'),
+    scrim: pick('rgba(0, 0, 0, 0.18)', 'rgba(0, 0, 0, 0.50)'),
     textOnToast: pick(ink[50], ink[900]),
 
     // Status.
@@ -474,6 +472,12 @@ export type GlassLook = {
 export const classicLook: GlassLook = { on: false, translucent: true, tint: 0, transparency: 0.5 };
 
 const glassCurve = { solid: 0.95, middle: 0.5, tintAlpha: 0.25, accentShare: 0.55 } as const;
+/**
+ * The least colour layer a centred pop-up's glass takes, whatever the
+ * Transparency: it sits over the page undimmed, and plain glass over a white
+ * page in dark mode (or a dark page in light mode) left its text grey on grey.
+ */
+export const legibleGlass = 0.72;
 const glassBase = { light: ink[0], dark: ink[850] } as const;
 const controlAlpha = { rest: 0, lit: 0.05, pressed: 0.1, active: 0.22 } as const;
 export type GlassState = keyof typeof controlAlpha;
@@ -489,10 +493,10 @@ const thousandths = (v: number) => Math.round(v * 1000) / 1000;
  * `fade` how far the regular glass has faded into clear (0 to 1), and `tint`
  * the workspace colour the glass itself takes, if any.
  */
-export function panelGlass(mode: Mode, accent: AccentName, look: GlassLook) {
+export function panelGlass(mode: Mode, accent: AccentName, look: GlassLook, floor = 0) {
   const t = Math.min(1, Math.max(0, look.transparency));
   const { middle } = glassCurve;
-  const solid = t < middle ? glassCurve.solid * (middle - t) / middle : 0;
+  const solid = Math.max(floor, t < middle ? glassCurve.solid * (middle - t) / middle : 0);
   const fade = t > middle ? (t - middle) / (1 - middle) : 0;
   return {
     fill: withAlpha(glassHue(mode, accent, look.tint), thousandths(solid)),
