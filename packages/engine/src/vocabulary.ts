@@ -5,6 +5,7 @@ export const callMethods = [
   'find.query',
   'find.close',
   'find.focus',
+  'page.focus',
   'tabs.create',
   'tabs.activate',
   'tabs.close',
@@ -79,7 +80,7 @@ export const requestMethods = [
   'privacy.clearData',
 ] as const;
 export type RequestMethod = typeof requestMethods[number];
-export const nativeOnlyMethods = ['application.windows', 'page.focus', 'test.shell'] as const;
+export const nativeOnlyMethods = ['application.windows', 'test.shell'] as const;
 export type NativeOnlyMethod = typeof nativeOnlyMethods[number];
 export const downloadActions = ['open', 'show', 'cancel', 'pause', 'retry', 'discard', 'forget'] as const;
 export type DownloadAction = typeof downloadActions[number];

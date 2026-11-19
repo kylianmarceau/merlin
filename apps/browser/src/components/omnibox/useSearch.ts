@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { currentSuggestions } from '../../state/store';
 import type { Suggestion } from '../../state/types';
 import { useActions, useBrowser } from '../../state/window';
+import { duration, useHeld } from '../ui';
 
 /**
  * A search-or-address field with Chromium's suggestions, as the toolbar's
@@ -17,10 +18,15 @@ export function useSearch(initial = '') {
   const edited = text !== initial;
   const mine = typing && omnibox?.owner === 'search' && omnibox.text === text ? omnibox : null;
   const suggestions: Suggestion[] = mine?.items ?? [];
-  // Rows of an older query, shown greyed until this text's arrive; they can't be chosen.
-  const stale = !!mine && !currentSuggestions(mine).length;
+  // Rows of an older query stay until this text's arrive; they can't be chosen.
+  const pending = !!mine && !currentSuggestions(mine).length;
+  // They look as they did unless the answer is slow, when they grey out:
+  // greying them at once flashed the list on every keystroke.
+  const stale = useHeld(pending, duration.staleRows);
   // -1 is what was typed; Enter then opens the top suggestion when it is Chromium's default, as the address field does.
-  const selected = mine && !stale ? (mine.selected >= 0 ? mine.selected : suggestions[0]?.default ? 0 : -1) : -1;
+  const chosen = mine && !pending ? (mine.selected >= 0 ? mine.selected : suggestions[0]?.default ? 0 : -1) : -1;
+  // While the older rows still look current, so does their highlight.
+  const selected = pending && !stale ? (suggestions[0]?.default ? 0 : -1) : chosen;
   return {
     text, typing, edited, suggestions, stale, selected,
     change(next: string) {
@@ -37,11 +43,16 @@ export function useSearch(initial = '') {
      */
     submit(newTab: boolean) {
       if (!typing) return false;
-      if (selected >= 0) void actions.openSuggestion(selected, newTab);
+      if (chosen >= 0) void actions.openSuggestion(chosen, newTab);
       else void actions.submitAddress(text, newTab);
       return true;
     },
-    open(index: number, newTab: boolean) { void actions.openSuggestion(index, newTab); },
+    /** Opens row `index`; false for a row of an older query, which opens nothing. */
+    open(index: number, newTab: boolean) {
+      if (pending) return false;
+      void actions.openSuggestion(index, newTab);
+      return true;
+    },
     reset() { setText(''); actions.stopSuggesting(); },
   };
 }

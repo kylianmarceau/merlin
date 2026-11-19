@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classicLook, controlGlass, panelGlass, shellTintFor, type GlassLook } from './tokens';
+import { classicLook, controlGlass, legibleGlass, panelGlass, shellTintFor, type GlassLook } from './tokens';
 
 const look = (transparency: number, tint = 0): GlassLook => ({ on: true, translucent: true, tint, transparency });
 const alpha = (rgba: string) => Number(/,\s*([\d.]+)\)$/.exec(rgba)![1]);
@@ -34,6 +34,15 @@ test('the workspace tint colours the glass only when chosen', () => {
   assert.notEqual(tinted.fill, neutral.fill);
   // Above the middle there is no colour layer, so the glass's own tint carries it.
   assert.ok(alpha(panelGlass('light', 'iris', look(0.8, 1)).tint!) > 0);
+});
+
+test('a centred pop-up keeps a legible colour layer at any transparency', () => {
+  for (let i = 0; i <= 10; i++) {
+    const g = panelGlass('dark', 'fern', look(i / 10), legibleGlass);
+    assert.ok(alpha(g.fill) >= legibleGlass, `transparency ${i / 10} thins it below the floor`);
+  }
+  // Fully frosted is still thicker than the floor.
+  assert.ok(alpha(panelGlass('light', 'fern', look(0), legibleGlass).fill) > legibleGlass);
 });
 
 test('controls rest clear and light up with state', () => {

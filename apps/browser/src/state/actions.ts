@@ -412,6 +412,17 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       if (s.snapshot?.extensionPopup) void engine.call('extensions.closePopup', {}).catch(fail);
       store.setState({ popover: null });
     },
+    /**
+     * Escape in a text field outside an open popover closes the popover
+     * first: a click on a popover's button leaves the keyboard in the field,
+     * so the popover's own Escape never ran. True when it closed one.
+     */
+    escapePopover() {
+      const s = store.getState();
+      if (!s.popover && !s.snapshot?.extensionPopup) return false;
+      actions.closePopover();
+      return true;
+    },
     revealPrompt: (promptId: string) => store.setState({ revealedPromptId: promptId, popover: null }),
     setAnchor(name: AnchorName, rect: Rect) {
       const old = store.getState().anchors[name];
@@ -441,11 +452,21 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     openDownloadsFolder: () => run('downloads.openFolder', {}),
     /** A new download's icon reached the downloads button. */
     downloadLanded: () => store.setState(s => ({ downloadLandings: s.downloadLandings + 1 })),
-    /** The downloads panel's Clear: forgets every download that is no longer arriving. */
-    clearDownloads() {
-      const done = (store.getState().snapshot?.downloads ?? []).filter(d => d.state !== 'progress');
+    /**
+     * The downloads panel's Clear: forgets every download that is no longer
+     * arriving. The snapshot carries only the most recent ones, so the full
+     * list is asked for first: forgetting only those let the next older ones
+     * take their place, and Clear seemed to do nothing.
+     */
+    async clearDownloads() {
       store.setState({ popover: null });
-      return Promise.all(done.map(d => run('downloads.act', { downloadId: d.id, action: 'forget' })));
+      let all = store.getState().snapshot?.downloads ?? [];
+      try { all = await engine.request('downloads.list', {}); } catch { /* the recent ones, at least */ }
+      const done = all.filter(d => d.state !== 'progress');
+      const results = await Promise.allSettled(done.map(d => engine.call('downloads.act', { downloadId: d.id, action: 'forget' })));
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (failed) fail(failed.reason);
+      return !failed;
     },
     /** A download's right-click menu: what its row buttons do, and what the panel leaves out. */
     async downloadMenu(downloadId: string) {
@@ -488,6 +509,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     // Find in page.
     findQuery: (tabId: string, text: string, forward: boolean) => run('find.query', { tabId, text, forward }),
     findClose: () => run('find.close', {}),
+    /** Gives the keyboard back to the active page; quiet, as nothing asked for it. */
+    focusPage() { void engine.call('page.focus', {}).catch(() => {}); },
     findFocus: (tabId: string, focused: boolean) => run('find.focus', { tabId, focused }),
 
     // Extensions: the popup appears in the snapshot once the extension opens one.

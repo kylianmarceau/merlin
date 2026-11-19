@@ -25,7 +25,7 @@ export function StartPage({ tab }: { tab: Tab }) {
   const others = snapshot.tabs.filter(t => t.id !== tab.id && !isStartUrl(t.url)).slice(0, 3);
   const ready = search.typing;
   const go = () => { search.submit(false); };
-  const escape = useEscape(() => { search.reset(); input.current?.blur(); });
+  const escape = useEscape(() => { if (actions.escapePopover()) return; search.reset(); input.current?.blur(); });
   return <View style={{ flex: 1, backgroundColor: colors.startBackground }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: geometry.newTabTop,
       paddingBottom: space.huge, paddingHorizontal: space.huge }}>
@@ -50,7 +50,7 @@ export function StartPage({ tab }: { tab: Tab }) {
                 style={{ flex: 1, color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.input }} />
             </View>
             {search.suggestions.length > 0 && <View style={{ gap: space.hair, paddingBottom: space.sm }}>
-              {search.suggestions.map((item, index) => <PopupRow key={`${index}:${item.url}`} title={item.title || item.url}
+              {search.suggestions.map((item, index) => <PopupRow key={index} title={item.title || item.url}
                 detail={suggestionDetail(item, displayHost(item.url))}
                 leading={<Icon name={suggestionIcons[item.kind]} tone={search.selected === index ? 'paletteSelectedText' : 'iconSecondary'} size="small" />}
                 selected={search.selected === index} disabled={search.stale} onPress={() => search.open(index, false)} />)}

@@ -114,8 +114,7 @@ so the desktop still shows faintly through the tinted shell.
 | Popover (with arrow) | glass panel | `bubble` 12 | `popover` | No |
 | Suggestions | glass panel, no arrow | `bubble` 12 | `menu` | No |
 | Find bar | glass panel | pill | `popover` | No |
-| Command bar | glass panel | 18 | `dialog` | Light `scrim`; a press on it cancels |
-| New-tab and ⌘L pop-ups | glass panel | 18 | `dialog` | `newTabVeil` over the page card only |
+| Command bar, new-tab and ⌘L pop-ups | glass panel | 18 | `dialog` | No dimming; a press outside cancels |
 | Dialog | glass, `surfaceDialog` | 18 | `dialog` | Yes, with `scrim` |
 | Sheet (Settings, Library) | `surfaceSheetBody` / `surfaceSheet` | 16 | `dialog` | Yes, with `scrim` |
 | Toast | `surfaceToast` capsule | pill | `toast` | No |

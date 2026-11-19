@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import type { PreferenceKey, Preferences } from '../../state/types';
+import { useUpdates } from '../../state/updates';
 import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
 import {
   Box, Button, Field, FormGroup, FormRow, ListRow, Notice, SectionHeader, Sheet, SheetBody, Text, Toggle, geometry,
@@ -46,8 +47,10 @@ export function Settings({ open }: { open: boolean }) {
   };
   const openPage = (key: string) => void action.run('settings.openPage', { key });
   const p = prefs.data;
+  // Merlin's own version, stamped into a packaged release; Chromium reports its engine's.
+  const release = useUpdates(s => s.version);
   return <Sheet<SettingsSection> open={open} title="Settings" sections={sections} section={section} onSection={setSection}
-    onClose={actions.closePanel}>
+    onClose={actions.closePanel} onClosed={actions.focusPage}>
     <SheetBody>
       {action.error && <Box marginBottom="lg"><Notice tone="error">{action.error}</Notice></Box>}
       {prefs.error && !p ? <Notice tone="error">{prefs.error}</Notice> : !p && section !== 'appearance' ? <Text tone="textSecondary">Loading settings…</Text> : <>
@@ -101,8 +104,9 @@ export function Settings({ open }: { open: boolean }) {
         {p && section === 'about' && <>
           <SectionHeader title="About Merlin" />
           <FormGroup>
-            <FormRow title="Version"><Text tone="textSecondary">{p.about.version}</Text></FormRow>
-            <FormRow title="System"><Text tone="textSecondary">{p.about.os}</Text></FormRow>
+            <FormRow title="Version"><Text tone="textSecondary">{release ?? 'Development build'}</Text></FormRow>
+            <FormRow title="Engine"><Text tone="textSecondary">{`Chromium ${p.about.version}`}</Text></FormRow>
+            <FormRow title="System"><Text tone="textSecondary">{p.about.os.replace(/^Mac OS X$/, 'macOS')}</Text></FormRow>
           </FormGroup>
           <Box row gap="sm">
             <Button label="Build details" onPress={() => openPage('version')} />

@@ -56,7 +56,8 @@ function Menu({ palette }: { palette: CommandPalette }) {
         <PopupRow title={row.title} detail={row.detail} keys={row.keys} selected={index === palette.selected}
           onPress={() => void actions.paletteSelect(index)} />
       </View>)}
-      {!palette.rows.length && <View style={{ padding: space.md }}>
+      {/* The error already says why the list is empty; the same words twice read as a glitch. */}
+      {!palette.rows.length && (palette.status || 'No matching commands') !== palette.error && <View style={{ padding: space.md }}>
         <Text tone="textSecondary">{palette.status || 'No matching commands'}</Text>
       </View>}
     </ScrollView>

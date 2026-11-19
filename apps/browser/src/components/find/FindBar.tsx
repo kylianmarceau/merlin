@@ -16,7 +16,7 @@ export function FindBar({ find, tabId }: { find: FindState; tabId: string }) {
     const timer = setTimeout(() => field.current?.setNativeProps({ selection: { start: 0, end: find.text.length } }), duration.fast);
     return () => clearTimeout(timer);
   }, [find.focus]);  // eslint-disable-line react-hooks/exhaustive-deps
-  const escape = useEscape(() => void actions.findClose());
+  const escape = useEscape(() => { if (!actions.escapePopover()) void actions.findClose(); });
   const query = (value: string, forward = true) => void actions.findQuery(tabId, value, forward);
   return <View pointerEvents="box-none" style={{ position: 'absolute', top: space.md, right: space.lg, width: geometry.findBar }}>
     <Panel glass radius="pill" elevation="popover" accessibilityLabel="Find in page">

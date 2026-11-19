@@ -129,6 +129,8 @@ export type Calls = {
   'find.query': { args: { tabId: string; text: string; forward: boolean }; result: null };
   'find.close': { args: {}; result: null };
   'find.focus': { args: { tabId: string; focused: boolean }; result: null };
+  /** Gives the keyboard back to the active page, after a sheet that took it closes. */
+  'page.focus': { args: {}; result: null };
   'tabs.create': { args: { url?: string }; result: null };
   'tabs.activate': { args: { tabId: string }; result: null };
   'tabs.close': { args: { tabId: string }; result: null };
