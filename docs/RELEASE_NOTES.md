@@ -1,8 +1,30 @@
-Merlin 0.3.2, a keyboard-driven browser for macOS built on
+Merlin 0.3.3, a keyboard-driven browser for macOS built on
 Chromium 157.0.8103.26.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.3.3
+
+* **Typing in the new-tab pop-up no longer flickers.** The suggestions
+  under the new-tab pop-up, the start page and the address field used to
+  grey out and lose their highlight for a moment on every key. They now
+  stay put until the new ones arrive.
+* **No more green shade behind pop-ups.** The command bar (`:` and ⌘K),
+  the new-tab pop-up and ⌘L in the centre no longer darken the window
+  with a green tint; a click outside them still closes them. Settings and
+  the Library dim it in neutral grey. In dark mode, those pop-ups stay
+  readable over white pages.
+* **Clear in the downloads panel works.** It removed only the ten most
+  recent downloads, so with a longer history the next ten took their place
+  and nothing seemed to happen. It now clears every finished download.
+* **Escape closes Settings and the Library**, however they were opened,
+  and the keyboard goes back to the page afterwards. Escape in the address
+  field or the start page's search box also closes an open popover first.
+* **About shows Merlin's version.** Settings › About showed Chromium's
+  version and "Mac OS X"; it now shows Merlin's version, the Chromium
+  engine on its own line, and macOS.
+* The Merlin menu no longer says "Nothing matches" twice.
 
 ## What's new in 0.3.2
 
