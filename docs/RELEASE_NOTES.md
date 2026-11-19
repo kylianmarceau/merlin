@@ -1,8 +1,49 @@
-Merlin 0.3.3, a keyboard-driven browser for macOS built on
+Merlin 0.4.0, a keyboard-driven browser for macOS built on
 Chromium 157.0.8103.26.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.4.0
+
+A pass over the whole interface to make it calmer and more finished, in
+the spirit of Dia.
+
+* **A cleaner sidebar.** Your Bookmarks bar folder now sits in the sidebar
+  under your pinned tabs (fold it with its heading, or turn it off in
+  Settings › Appearance › Bookmarks). Drag the sidebar's right edge to
+  resize it; double-click the edge to reset it. A "Current tab" button
+  appears when the active tab is scrolled out of sight. Double-clicking the
+  empty space under your tabs opens a new one.
+* **Hover cards.** Resting on a tab shows its full title and address with
+  one-click actions: pin, bookmark, split, mute and copy link. A pinned tab
+  that has wandered off its page shows a dot, and a way back to the page it
+  was pinned on.
+* **Tooltips with shortcuts** on the window's buttons, and holding (or
+  right-clicking) Back or Forward lists the pages that way.
+* **A quieter address field.** At rest it reads "site / page title"; with
+  the pointer on it, the full address appears with bookmark and copy-link
+  buttons. The star left the toolbar for the address field.
+* **⌘S slides the tabs away**, and the traffic lights go with them. Move
+  the pointer to the window's left edge (or top, with tabs on top) and the
+  tabs float in over the page until the pointer leaves.
+* **Bookmarks.** ⌘D and the bookmark button save straight into the
+  Bookmarks bar, with an Edit button in the confirmation. The Bookmarks bar
+  can show always, only on new tabs (the new default) or never.
+* **Tabs.** New tabs can open at the top of the list (Settings ›
+  Appearance › Tabs). Tabs playing sound get a mute button; sleeping tabs
+  are dimmed. The tab menu gains Reload, Mute, Add to Bookmarks bar, Copy
+  Link, Close Tabs Below and, for pinned tabs, Back to Pinned Page. Long
+  titles fade out instead of running under the close button.
+* **Fewer Chrome leftovers.** The menu bar no longer offers Chrome's Lens,
+  AI Mode, Cast, vertical tabs, Name Window or Extensions items, or a
+  second Enter Full Screen. The start page is called New Tab everywhere,
+  never chrome://newtab.
+* Pinning the first or only tab now shows at once; before, the tabs kept
+  showing it unpinned until something else changed.
+
+Known issue: after the pointer leaves the address field upwards or out of
+the window, its copy-link button can stay hidden until the next click.
 
 ## What's new in 0.3.3
 
