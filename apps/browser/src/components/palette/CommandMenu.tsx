@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import type { CommandPalette } from '../../state/types';
 import { useActions } from '../../state/window';
-import { CenteredPopup, KeyCap, PopupField, PopupFooter, PopupRow, Text, geometry, space } from '../ui';
+import { CenteredPopup, KeyCap, PopupField, PopupFooter, PopupRow, Text, geometry, space, useRefusal } from '../ui';
 
 /**
  * Merlin's command bar (`:` and Command-K): tabs, workspaces and commands
@@ -11,8 +11,10 @@ import { CenteredPopup, KeyCap, PopupField, PopupFooter, PopupRow, Text, geometr
  */
 export function CommandMenu({ palette, open }: { palette: CommandPalette | null; open: boolean }) {
   const actions = useActions();
+  // A command it doesn't know, or one that failed, shakes the bar.
+  const refused = useRefusal(open ? palette?.error : null);
   if (!open || !palette) return null;
-  return <CenteredPopup label={palette.prompt || 'Commands'} onDismiss={() => void actions.paletteKey('cancel')}>
+  return <CenteredPopup label={palette.prompt || 'Commands'} onDismiss={() => void actions.paletteKey('cancel')} shake={refused.count}>
     <Menu palette={palette} />
   </CenteredPopup>;
 }

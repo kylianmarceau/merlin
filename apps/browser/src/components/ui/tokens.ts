@@ -340,6 +340,9 @@ export const shadow = {
 } as const;
 export type ShadowName = keyof typeof shadow;
 
+/** How strongly refused input flashes red when motion is reduced (instead of shaking). */
+export const flashOpacity = 0.22;
+
 /** Opacity for disabled and pressed controls. */
 export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, paintDark: 0.82, groupWash: 0.16, sleeping: 0.5 } as const;
 

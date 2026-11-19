@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Animated, TextInput, View } from 'react-native';
 import { Pressable } from './Pressable';
 import { Icon, type SymbolName } from './Icon';
 import { KeyCap } from './KeyCap';
@@ -7,7 +7,8 @@ import { Panel } from './Panel';
 import { Text } from './Text';
 import { useInteraction } from './interaction';
 import { useEscape } from './keys';
-import { duration } from './motion';
+import { duration, useEntrance } from './motion';
+import { Shake } from './Shake';
 import { useTheme } from './theme';
 import { font, geometry, legibleGlass, opacity, radius, space } from './tokens';
 
@@ -15,24 +16,29 @@ import { font, geometry, legibleGlass, opacity, radius, space } from './tokens';
  * The one place every centred pop-up sits: the command menu (`:` and
  * Command-K), the new-tab pop-up (Command-T) and Run a Command. Same width,
  * same spot: its top is where a full pop-up would be centred in the window,
- * so the field never jumps as the list fills. It appears at once, without a
- * fade, and leaves the window undimmed: its shadow sets it apart, and a press
- * anywhere outside it closes it.
+ * so the field never jumps as the list fills. It grows in from 92% on a
+ * spring while it fades in over 100 ms (`useEntrance`), and leaves the window
+ * undimmed: its shadow sets it apart, and a press anywhere outside it closes
+ * it. Input it refuses shakes it (`shake` changes).
  */
-export function CenteredPopup({ label, onDismiss, width = geometry.palette, children }: React.PropsWithChildren<{
-  label: string; onDismiss(): void; width?: number;
+export function CenteredPopup({ label, onDismiss, width = geometry.palette, shake = 0, children }: React.PropsWithChildren<{
+  label: string; onDismiss(): void; width?: number; shake?: number;
 }>) {
+  const { reduceMotion } = useTheme();
+  const entrance = useEntrance(reduceMotion);
   const [height, setHeight] = useState(0);
   const top = Math.max(space.huge, (height - geometry.popupHeight) / 2);
   return <View pointerEvents="box-none" onLayout={e => setHeight(e.nativeEvent.layout.height)}
     style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', paddingTop: top }}>
     <Pressable accessible={false} onPress={onDismiss} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-    <View style={{ width, maxWidth: '90%' }}>
-      <Panel glass glassFloor={legibleGlass} fill="surfacePalette" radius="popover" elevation="dialog" accessibilityLabel={label}
-        accessibilityViewIsModal>
-        <View style={{ borderRadius: radius.popover, overflow: 'hidden' }}>{children}</View>
-      </Panel>
-    </View>
+    <Animated.View style={{ width, maxWidth: '90%', opacity: entrance.opacity, transform: [{ scale: entrance.scale }] }}>
+      <Shake count={shake} radius={radius.popover}>
+        <Panel glass glassFloor={legibleGlass} fill="surfacePalette" radius="popover" elevation="dialog" accessibilityLabel={label}
+          accessibilityViewIsModal>
+          <View style={{ borderRadius: radius.popover, overflow: 'hidden' }}>{children}</View>
+        </Panel>
+      </Shake>
+    </Animated.View>
   </View>;
 }
 

@@ -284,6 +284,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const outside = out || x < 0 || y < 0 || x > width || y > height;
       const old = s.tabDrag;
       const target = old?.tabId === tabId && outside ? old.target : null;
+      // A tick as the tab leaves the tabs for the page or another window.
+      if (old?.tabId === tabId && outside && !old.out) haptic('alignment');
       if (!(old && old.tabId === tabId && old.x === x && old.y === y && old.out === outside && old.target === target))
         store.setState({ tabDrag: { tabId, x, y, out: outside, target } });
       return outside;
@@ -292,6 +294,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     setTabDropTarget(target: DropTarget | null) {
       const drag = store.getState().tabDrag;
       if (!drag || (drag.target?.tabId === target?.tabId && drag.target?.side === target?.side)) return;
+      // A tick as it reaches a drop zone.
+      if (drag.out && target) haptic('alignment');
       store.setState({ tabDrag: { ...drag, target: drag.out ? target : null } });
     },
     /** A tab drag that ended without being let go (the gesture was taken away). */

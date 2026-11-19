@@ -6,8 +6,8 @@ import { tabUnits } from '../../state/splits';
 import { reorderTarget, rowShift, type ListDrag } from '../../state/tabDrag';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import {
-  DashedRule, DragRegion, Icon, IconButton, Pressable, Text, animateListChange, duration, geometry, radius, space, tick, useEased, useHoverFade,
-  useInteraction, useTheme, useTimeout,
+  DashedRule, DragRegion, Icon, IconButton, Pressable, Text, animateListChange, duration, geometry, radius, rubberBand, snapDistance, space,
+  springBack, tick, useEased, useHoverFade, useInteraction, useTheme, useTimeout,
 } from '../ui';
 import { SidebarBookmarks } from '../bookmarks/SidebarBookmarks';
 import { AddressField } from '../omnibox/AddressField';
@@ -198,18 +198,42 @@ function ActiveTabPill({ direction, onPress }: { direction: 'up' | 'down'; onPre
   </View>;
 }
 
-/** The sidebar's right edge: drag it to make the sidebar wider or narrower; double-click to reset. */
+/**
+ * The sidebar's right edge: drag it to make the sidebar wider or narrower;
+ * double-click to reset. Past its limits it rubber-bands and, let go,
+ * springs back carrying the drag's speed; near the default width it snaps
+ * there. A trackpad tick marks the snap and each limit reached.
+ */
 function ResizeEdge({ width }: { width: number }) {
+  const { reduceMotion } = useTheme();
   const start = useRef(width);
   const latest = useRef(width);
   latest.current = width;
+  const reduce = useRef(reduceMotion);
+  reduce.current = reduceMotion;
+  // Where the edge last was, so a tick sounds once as it reaches a limit or the default.
+  const place = useRef<'in' | 'limit' | 'default'>('in');
+  const stopSpring = useRef<() => void>(() => {});
+  const follow = (raw: number) => {
+    const snapped = Math.abs(raw - SIDEBAR_WIDTH.default) <= snapDistance;
+    const past = raw < SIDEBAR_WIDTH.min || raw > SIDEBAR_WIDTH.max;
+    const now = snapped ? 'default' : past ? 'limit' : 'in';
+    if (now !== place.current && now !== 'in') tick(now === 'limit' ? 'level' : 'alignment');
+    place.current = now;
+    return snapped ? SIDEBAR_WIDTH.default : rubberBand(raw, SIDEBAR_WIDTH.min, SIDEBAR_WIDTH.max);
+  };
   const pan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => { start.current = latest.current; },
-    onPanResponderMove: (_, g) => previewShellPref('sidebarWidth', clampWidth(start.current + g.dx)),
-    onPanResponderRelease: (_, g) => void setShellPref('sidebarWidth', clampWidth(start.current + g.dx)),
-    onPanResponderTerminate: () => void setShellPref('sidebarWidth', latest.current),
-  }), []);
+    onPanResponderGrant: () => { stopSpring.current(); start.current = latest.current; place.current = 'in'; },
+    onPanResponderMove: (_, g) => previewShellPref('sidebarWidth', follow(start.current + g.dx)),
+    onPanResponderRelease: (_, g) => {
+      const shown = follow(start.current + g.dx);
+      const settled = clampWidth(shown);
+      stopSpring.current = springBack(shown, settled, g.vx, reduce.current, w => previewShellPref('sidebarWidth', w),
+        () => void setShellPref('sidebarWidth', settled));
+    },
+    onPanResponderTerminate: () => void setShellPref('sidebarWidth', clampWidth(latest.current)),
+  }), []);  // eslint-disable-line react-hooks/exhaustive-deps
   return <View {...pan.panHandlers} accessibilityLabel="Resize sidebar" onDoubleClick={() => void setShellPref('sidebarWidth', SIDEBAR_WIDTH.default)}
     style={{ position: 'absolute', top: geometry.titlebar, bottom: 0, right: -geometry.resizeHandle / 2, width: geometry.resizeHandle,
       cursor: 'col-resize' }} />;

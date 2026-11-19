@@ -60,7 +60,8 @@ The stored accent names predate Tide and stay as the browser saves them:
   shape with 10 pt top corners in the toolbar's colour, joined to the
   toolbar by a concave 10 pt ear at each bottom corner (rings clipped to a
   square, so nothing paints over the translucent shell); it slides to a
-  newly active tab over 340 ms (`curve.slide`) and its colour cross-fades
+  newly active tab on the `slide` spring (response 0.34 s, damping 0.9),
+  which carries its speed into a new slide that interrupts it, and its colour cross-fades
   over 380 ms. Inactive tabs have no fill: a favicon, the title at body size
   fading out at its end (`Fade`, no ellipsis), a soft inset pill on hover
   and, as in Dia, no dividers between tabs; the close button shows on hover
@@ -131,7 +132,7 @@ The stored accent names predate Tide and stay as the browser saves them:
   where the pointer does not stop by itself),
   slides the tabs in over the page as a floating card in the shell's glass
   (`SidebarPeek`, `StripPeek`); they stay while the pointer is within 40 pt
-  of them and slide away 200 ms after it leaves, unless the address is
+  of them and spring away 200 ms after it leaves, unless the address is
   being typed in. A tab's right-click menu holds them in place; if the
   pointer left meanwhile they slide away once the menu closes.
 - **Hover cards**: half a second's rest on a tab, a strip tab or a pinned
@@ -326,9 +327,24 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
 - Popovers: 150 ms in with `curve.enter`, 100 ms out with `curve.exit`, from
   96% scale and 4 pt above.
 - Menus and suggestions: 100 ms, from 98%.
-- Dialogs and sheets: 220 ms in, 150 ms out, from 97–98.5% and 8–12 pt below,
-  with the scrim fading alongside.
-- Toasts rise 12 pt over 220 ms.
+- Things in the middle of the window grow in from 92% on the `appear`
+  spring while they fade in, and fade out in 150 ms: dialogs, sheets and
+  toasts (`presence` with `springIn`), and the centred pop-ups (command
+  menu, new-tab and ⌘L pop-ups, naming dialogs; `useEntrance`). Toasts rise
+  8 pt as they come.
+- Refused input shakes, as a wrong macOS password does: three swings of
+  ±6 pt dying away over 0.35 s (`useShake`, `Shake`). The find bar shakes
+  when a search finds nothing (its text turns red), and again on Return;
+  the command menu shakes on a command it can't run; the group dialog on an
+  empty or taken name. With reduced motion it flashes red instead.
+- Drags that pass a limit rubber-band: the sidebar's edge past its minimum
+  or maximum width gives less and less, and springs back carrying the
+  drag's speed when let go (`rubberBand`, `springBack`); near the default
+  width it snaps there. Peeking tabs spring out as they sprang in.
+- Trackpad ticks (`tick`, NSHapticFeedbackManager; only Force Touch
+  trackpads feel them): a dragged tab or tile reaching a new place, a tab
+  leaving the tabs or reaching a drop zone, a favourite pinned by drag, the
+  sidebar's edge snapping to its default width or reaching a limit.
 - Row hover washes come in over 50 ms and leave over 200 ms (`useHoverFade`),
   as in Dia; a row's close button fades over 100 ms. Switches use the
   `snappy` spring; the sidebar hiding, showing and peeking, the `sidebar` one.
@@ -343,7 +359,8 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
   to 98.5% and a round button to 94%, on the `press` spring, which never
   overshoots (`usePressScale`). Rows and tiles, used all day, hold still and
   show a deeper fill instead, as in Dia.
-- "Reduce motion" in Settings makes every transition instant.
+- "Reduce motion" in Settings makes every transition instant: springs,
+  slides and growth become cuts and fades, and shakes become a red flash.
 
 ## Icons
 

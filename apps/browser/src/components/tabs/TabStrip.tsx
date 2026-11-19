@@ -4,7 +4,7 @@ import type { Tab } from '../../state/types';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import {
   ContextMenu, DragRegion, Fade, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
-  groupColorRoles, opacity, useEased, useHeld, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
+  groupColorRoles, opacity, tick, useEased, useHeld, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
 } from '../ui';
 import { StripGroupChip, chipWidth } from './TabGroups';
 import { Favicon } from '../favicon/Favicon';
@@ -75,6 +75,12 @@ export function TabStrip({ floating = false }: {
   const place = drag && moving ? dropPlace(laneOf(moving), layout.slots, drag.key, drag.dx, gap) : -1;
   const slots = drag && moving && place >= 0 ? reflow(laneOf(moving), layout.slots, drag.key, place) : layout.slots;
   const following = !!drag && !drag.released && !drag.out;
+  // A tick at each new place, as in Ardia.
+  const lastPlace = useRef(place);
+  useEffect(() => {
+    if (following && place >= 0 && lastPlace.current >= 0 && place !== lastPlace.current) tick('alignment');
+    lastPlace.current = following ? place : -1;
+  }, [place, following]);
   /** Where an item is drawn: under the pointer while it is dragged, else in its place. */
   const slotOf = (item: StripItem): Slot | null => {
     if (item === lifted) return itemSlot(item, full.slots);

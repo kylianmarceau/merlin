@@ -59,7 +59,44 @@ export const duration = {
   ringHold: 900,
   /** A dragged tab's drop zones sliding in from the page's edges, and growing once they have. */
   dropZone: 110,
+  /** Refused input shaking (three swings dying away), or flashing red with reduced motion. */
+  shake: 350,
 } as const;
+
+/** How far refused input swings each way at first, in pt. */
+export const shakeReach = 6;
+
+/** Past a limit a dragged edge gives less and less, never more than about this far (pt). */
+export const rubberReach = 120;
+/** How close a dragged sidebar edge comes to its default width before it snaps there, in pt. */
+export const snapDistance = 4;
+
+/**
+ * A dragged edge past its limits, as a scroll view's rubber band (Apple's
+ * 0.55 constant): inside `min`..`max` it follows the pointer; past them it
+ * moves less and less the further it is pulled.
+ */
+export function rubberBand(value: number, min: number, max: number, reach = rubberReach) {
+  const pull = (distance: number) => (1 - 1 / ((distance * 0.55) / reach + 1)) * reach;
+  if (value < min) return min - pull(min - value);
+  if (value > max) return max + pull(value - max);
+  return value;
+}
+
+/**
+ * Springs a number back from where a drag left it (a rubber-banded edge) to
+ * `to`, carrying the drag's speed (pt per ms, as gestures report it), calling
+ * `on` each frame and `done` at rest. Immediate with reduced motion.
+ */
+export function springBack(from: number, to: number, velocity: number, reduce: boolean, on: (value: number) => void, done: () => void) {
+  if (reduce || from === to) { on(to); done(); return () => {}; }
+  const value = new Animated.Value(from);
+  const id = value.addListener(({ value: now }) => on(now));
+  const run = Animated.spring(value, { toValue: to, ...spring.sidebar, velocity: velocity * 1000, useNativeDriver: false,
+    restDisplacementThreshold: 0.5, restSpeedThreshold: 0.5 });
+  run.start(() => { value.removeListener(id); on(to); done(); });
+  return () => run.stop();
+}
 
 export const curve = {
   /** Things arriving: quick start, soft landing. */
@@ -91,6 +128,12 @@ export const spring = {
   press: responseSpring(0.2, 0.9),
   /** Something appearing in the middle of the window (a HUD, the command menu, a sheet): from 92%, barely past its size (response 0.3 s, ratio 0.82). */
   appear: responseSpring(0.3, 0.82),
+  /**
+   * The joined tab sliding to the newly active tab: about as long as the old
+   * 340 ms curve, settling without a bounce; a slide that is redirected
+   * midway carries on from its speed rather than starting over.
+   */
+  slide: responseSpring(0.34, 0.9),
 } as const;
 
 /** How far a pressed control dips: an icon button's glyph, a pill or field, a round button or tile. */
@@ -170,6 +213,55 @@ export function useAppear(open: boolean, reduce: boolean) {
 }
 
 /**
+ * Something mid-screen arriving (a centred pop-up): it fades in over 100 ms
+ * while its scale springs from 92%, never from nothing. For things mounted
+ * only while shown; reduced motion only fades.
+ */
+export function useEntrance(reduce: boolean) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(reduce ? 1 : appearFrom)).current;
+  useEffect(() => {
+    const fade = Animated.timing(opacity, { toValue: 1, duration: duration.fast, easing: curve.enter, useNativeDriver: true });
+    const size = Animated.spring(scale, { toValue: 1, ...spring.appear, useNativeDriver: true, restDisplacementThreshold: 0.001,
+      restSpeedThreshold: 0.001 });
+    fade.start();
+    if (!reduce) size.start();
+    return () => { fade.stop(); size.stop(); };
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  return { opacity, scale };
+}
+
+/**
+ * Input that was refused (no matches, an unknown command, a name already
+ * taken) shakes as a refused macOS password does: three swings of ±6 pt
+ * dying away over 0.35 s. With reduced motion it flashes red instead
+ * (`flash`, 0 → 1 → 0). Runs each time `count` changes after the first.
+ */
+export function useShake(count: number, reduce: boolean) {
+  const x = useRef(new Animated.Value(0)).current;
+  const flash = useRef(new Animated.Value(0)).current;
+  const first = useRef(count);
+  useEffect(() => {
+    if (count === first.current) return;
+    first.current = count;
+    if (reduce) {
+      const run = Animated.sequence([
+        Animated.timing(flash, { toValue: 1, duration: duration.fast, easing: curve.enter, useNativeDriver: true }),
+        Animated.timing(flash, { toValue: 0, duration: duration.shake - duration.fast, easing: curve.exit, useNativeDriver: true }),
+      ]);
+      run.start();
+      return () => run.stop();
+    }
+    const swings = [1, -1, 2 / 3, -2 / 3, 1 / 3, -1 / 3, 0];
+    const run = Animated.sequence(swings.map(share => Animated.timing(x, { toValue: share * shakeReach,
+      duration: duration.shake / swings.length, easing: curve.move, useNativeDriver: true })));
+    run.start();
+    return () => { run.stop(); x.setValue(0); };
+  }, [count, reduce, x, flash]);
+  return { x, flash };
+}
+
+/**
  * The next layout change animates as a list's rows do in Dia: a new row
  * fades in while the rows below slide down over 0.14 s; a closed row fades
  * out in 0.1 s while the rest close up. Call it just before the change.
@@ -184,15 +276,19 @@ export function animateListChange(reduce: boolean) {
   });
 }
 
-/** How each overlay moves between hidden (0) and shown (1). */
+/**
+ * How each overlay moves between hidden (0) and shown (1). Things in the
+ * middle of the window (dialogs, sheets, notices) arrive from 92% on the
+ * `appear` spring (`springIn`); popovers grow out of their arrow from 94%.
+ */
 export const presence = {
-  popover: { enter: duration.base, exit: duration.fast, scaleFrom: 0.94, shiftFrom: -4 },
-  menu: { enter: duration.fast, exit: duration.fast, scaleFrom: 0.98, shiftFrom: -2 },
-  dialog: { enter: duration.slow, exit: duration.base, scaleFrom: 0.97, shiftFrom: 8 },
-  sheet: { enter: duration.slow, exit: duration.base, scaleFrom: 0.985, shiftFrom: 12 },
-  toast: { enter: duration.slow, exit: duration.base, scaleFrom: 1, shiftFrom: 12 },
-  fade: { enter: duration.base, exit: duration.fast, scaleFrom: 1, shiftFrom: 0 },
-  dropZone: { enter: duration.dropZone, exit: duration.dropZone, scaleFrom: 1, shiftFrom: 0 },
+  popover: { enter: duration.base, exit: duration.fast, scaleFrom: 0.94, shiftFrom: -4, springIn: false },
+  menu: { enter: duration.fast, exit: duration.fast, scaleFrom: 0.98, shiftFrom: -2, springIn: false },
+  dialog: { enter: duration.slow, exit: duration.base, scaleFrom: appearFrom, shiftFrom: 4, springIn: true },
+  sheet: { enter: duration.slow, exit: duration.base, scaleFrom: appearFrom, shiftFrom: 6, springIn: true },
+  toast: { enter: duration.slow, exit: duration.base, scaleFrom: appearFrom, shiftFrom: 8, springIn: true },
+  fade: { enter: duration.base, exit: duration.fast, scaleFrom: 1, shiftFrom: 0, springIn: false },
+  dropZone: { enter: duration.dropZone, exit: duration.dropZone, scaleFrom: 1, shiftFrom: 0, springIn: false },
 } as const;
 export type PresenceKind = keyof typeof presence;
 
@@ -212,7 +308,10 @@ export function usePresence(open: boolean, kind: PresenceKind, reduce: boolean) 
     const spec = presence[kind];
     if (open) {
       setMounted(true);
-      const run = animate(progress, 1, spec.enter, curve.enter, reduce);
+      const run = spec.springIn && !reduce
+        ? Animated.spring(progress, { toValue: 1, ...spring.appear, useNativeDriver: true, restDisplacementThreshold: 0.001,
+          restSpeedThreshold: 0.001 })
+        : animate(progress, 1, spec.enter, curve.enter, reduce);
       run.start();
       return () => run.stop();
     }
@@ -228,7 +327,8 @@ export function presenceStyle(progress: Animated.Value, kind: PresenceKind, orig
   const spec = presence[kind];
   const shift = upward ? -spec.shiftFrom : spec.shiftFrom;
   return {
-    opacity: progress,
+    // A spring passes 1 a little on its way in; the scale may, the opacity can't.
+    opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
     // Grows out of its arrow, so it reads as coming from the control.
     ...(origin ? { transformOrigin: origin } : null),
     transform: [
@@ -295,16 +395,16 @@ export function useSidebarSpring(open: boolean, width: number, reduce: boolean) 
   return { width: value, shown: shown || open };
 }
 
-/** The peeking tabs sliding in from an edge: 0 hidden, 1 in place, on Dia's sidebar spring. */
+/** The peeking tabs sliding in from an edge and back out: 0 hidden, 1 in place, on Dia's sidebar spring both ways. */
 export function usePeekSpring(open: boolean, reduce: boolean) {
   const value = useRef(new Animated.Value(open ? 1 : 0)).current;
   const [mounted, setMounted] = useState(open);
   useEffect(() => {
     if (open) setMounted(true);
     if (reduce) { value.setValue(open ? 1 : 0); if (!open) setMounted(false); return; }
-    const run = open
-      ? Animated.spring(value, { toValue: 1, ...spring.sidebar, useNativeDriver: true, restDisplacementThreshold: 0.002, restSpeedThreshold: 0.002 })
-      : Animated.timing(value, { toValue: 0, duration: duration.base, easing: curve.exit, useNativeDriver: true });
+    // In and out on the same spring, so leaving keeps the feel of arriving.
+    const run = Animated.spring(value, { toValue: open ? 1 : 0, ...spring.sidebar, useNativeDriver: true,
+      restDisplacementThreshold: 0.002, restSpeedThreshold: 0.002, overshootClamping: !open });
     run.start(({ finished }) => { if (finished && !open) setMounted(false); });
     return () => run.stop();
   }, [open, reduce, value]);
@@ -342,8 +442,11 @@ export function useColorFade(color: string, _reduce: boolean) {
 }
 
 /**
- * Slides to `to` (a left edge and a width) over `duration.slide`. The first
- * position, and every move while `follow` is set (a drag), is immediate.
+ * Slides to `to` (a left edge and a width) on the `slide` spring. A new
+ * target while it moves takes over its speed instead of stopping it (React
+ * Native's spring carries a running spring's velocity), so quick switches
+ * flow into each other. The first position, and every move while `follow`
+ * is set (a drag), is immediate.
  */
 export function useSlide(to: { x: number; width: number } | null, reduce: boolean, follow = false) {
   const x = useRef(new Animated.Value(to?.x ?? 0)).current;
@@ -357,10 +460,10 @@ export function useSlide(to: { x: number; width: number } | null, reduce: boolea
       width.setValue(to.width);
       return;
     }
-    const spec = { duration: duration.slide, easing: curve.slide, useNativeDriver: false };
-    const run = Animated.parallel([Animated.timing(x, { ...spec, toValue: to.x }), Animated.timing(width, { ...spec, toValue: to.width })]);
-    run.start();
-    return () => run.stop();
+    const spec = { ...spring.slide, useNativeDriver: false, restDisplacementThreshold: 0.2, restSpeedThreshold: 0.2 };
+    // Not stopped on the next change: the next spring takes over this one's velocity.
+    Animated.spring(x, { ...spec, toValue: to.x }).start();
+    Animated.spring(width, { ...spec, toValue: to.width }).start();
   }, [to?.x, to?.width, follow, reduce, x, width]);  // eslint-disable-line react-hooks/exhaustive-deps
   return { x, width };
 }
