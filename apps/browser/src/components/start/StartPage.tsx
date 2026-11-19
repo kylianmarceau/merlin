@@ -71,8 +71,8 @@ export function StartPage({ tab }: { tab: Tab }) {
           </Text>
         </View>
         : !!others.length && <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center',
-          gap: space.md + space.hair, marginTop: space.lg + space.sm, maxWidth: geometry.palette }}>
-          <Text variant="label" weight="regular" tone="textSecondary">Open in this window</Text>
+          columnGap: space.xs, rowGap: space.xs, marginTop: space.lg + space.sm, maxWidth: geometry.palette }}>
+          <Text variant="label" weight="regular" tone="textSecondary" style={{ marginRight: space.xs }}>Open in this window</Text>
           {others.map(t => <PageLink key={t.id} tab={t} onPress={() => void actions.activateTab(t.id)} />)}
         </View>}
     </ScrollView>
@@ -91,11 +91,20 @@ export function GoButton({ ready, onPress }: { ready: boolean; onPress(): void }
   </Pressable>;
 }
 
+/**
+ * One of the window's other pages: its icon and title on a soft pill of its
+ * own, so neighbours never run together; a long title shrinks to fit the
+ * pill and ends in an ellipsis.
+ */
 function PageLink({ tab, onPress }: { tab: Tab; onPress(): void }) {
+  const { colors } = useTheme();
   const { hovered, handlers } = useInteraction();
   return <Pressable accessibilityRole="button" accessibilityLabel={tab.title || tab.url} onPress={onPress} {...handlers}
-    style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair, maxWidth: geometry.stripTab }}>
+    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair, maxWidth: geometry.stripTab + space.xl,
+      height: geometry.control, paddingHorizontal: space.sm + space.hair, borderRadius: radius.pill,
+      backgroundColor: colors[pressed ? 'fillPressed' : hovered ? 'fillHover' : 'fillTransparent'] })}>
     <Favicon tab={tab} />
-    <Text variant="label" weight="regular" tone={hovered ? 'textPrimary' : 'tabText'} lines={1}>{tab.title || tab.url}</Text>
+    <Text variant="label" weight="regular" tone={hovered ? 'textPrimary' : 'tabText'} lines={1} style={{ flexShrink: 1 }}>
+      {tab.title || tab.url}</Text>
   </Pressable>;
 }

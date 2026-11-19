@@ -17,12 +17,13 @@ import { GroupNameDialog } from '../tabs/GroupNameDialog';
 import { TabDropOverlay } from '../tabs/TabDropOverlay';
 import { TabSwitcher } from '../tabs/TabSwitcher';
 import { HoverCardOverlay } from '../tabs/HoverCard';
+import { HudLayer } from './Hud';
 
 /**
  * Everything drawn over the window, in fixed layers: sheets, then dialogs,
  * then popovers, then notices. Which ones show is decided in state/surfaces.
  */
-export function Overlays() {
+export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
   const snapshot = useSnapshot();
   const actions = useActions();
   const shown = useOverlays();
@@ -70,6 +71,7 @@ export function Overlays() {
     </Layer>
     <Layer level="toast">
       <DownloadFlights />
+      <HudLayer top={pageTop} />
       <ToastStack toasts={toasts} onDismiss={actions.dismissToast} />
     </Layer>
   </>;

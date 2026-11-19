@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Animated, View } from 'react-native';
 import { isStartUrl } from '../../lib/format';
 import { PAGE_FRAME, useShellPrefs } from '../../state/shellPrefs';
-import { useActions, useActiveTab, useBrowser, useCommitTrace, useSnapshot } from '../../state/window';
+import { useActions, useActiveTab, useBrowser, useCommitTrace, useSnapshot, useViewMenu } from '../../state/window';
 import {
   DragRegion, FullScreenWatch, Glass, Panel, TooltipLayer, geometry, radius, shellTintFor, space, useColorFade, usePeekSpring,
   useSidebarSpring, useTheme,
@@ -11,6 +11,7 @@ import { BookmarksBar } from '../bookmarks/BookmarksBar';
 import { useSiteChrome } from '../tabs/siteChrome';
 import { Sidebar } from '../tabs/Sidebar';
 import { TabStrip } from '../tabs/TabStrip';
+import { tabTitle } from '../tabs/TabRow';
 import { Overlays } from './Overlays';
 import { PageArea } from './PageArea';
 import { StatusLine } from './StatusLine';
@@ -32,6 +33,7 @@ const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as 
  */
 export function BrowserWindow() {
   useCommitTrace();
+  useViewMenu();
   const snapshot = useSnapshot();
   const actions = useActions();
   const active = useActiveTab();
@@ -44,6 +46,8 @@ export function BrowserWindow() {
   const side = tabs && !top;
   const { glass } = useTheme();
   const [macFullScreen, setMacFullScreen] = useState(false);
+  // Where the page itself starts, below the toolbar and bookmarks bar, so a HUD sits on the page.
+  const [pageTop, setPageTop] = useState(0);
   const borderless = useShellPrefs(p => p.borderlessMode);
   const frameSetting = useShellPrefs(p => p.pageFrame);
   const zeroInFullScreen = useShellPrefs(p => p.pageFrameZeroInFullScreen);
@@ -53,6 +57,11 @@ export function BrowserWindow() {
   const barWhen = useShellPrefs(p => (p.showBookmarks ? p.bookmarksBar : 'never'));
   const peeking = useBrowser(s => s.peeking);
   const bounds = useBrowser(s => s.windowSize);
+  const hoverCard = useBrowser(s => !!s.hoverCard);
+  // Where the pointer stops at the screen's edge a thin strip is enough to
+  // reach; a window away from the edge gets a wider one (Ardia's 8 pt).
+  const atEdge = useBrowser(s => (s.snapshot?.modal.tabLayout === 'top' ? s.screenEdges.top : s.screenEdges.left));
+  const edgeStrip = atEdge ? geometry.edgeStrip : geometry.edgeStripWide;
   // Settings › Appearance › Bookmarks › Bookmarks bar: always, on new tabs and the start page only, or never.
   const onStart = !!active && (isStartUrl(active.url) || !!active.start);
   const bookmarksBar = !fullscreen && (barWhen === 'always' || (barWhen === 'newTab' && onStart));
@@ -79,17 +88,18 @@ export function BrowserWindow() {
           // A toolbar in the page's own colour runs straight on into it.
           borderBottomColor: chrome.seamless ? chrome.bar : colors.toolbarDivider }}><Toolbar /></View>}
         {bookmarksBar && <BookmarksBar />}
-        <View style={{ flex: 1 }}><PageArea /></View>
+        <View style={{ flex: 1 }} onLayout={e => setPageTop(e.nativeEvent.layout.y + (tabs && top ? geometry.strip : frame))}><PageArea /></View>
         {!fullscreen && <StatusLine />}
       </View>
     </Panel>
   </View>;
   // One tree for every layout, so the page is never remounted when the tabs move or hide.
-  return <TooltipLayer bounds={bounds}><View style={{ flex: 1, flexDirection: top ? 'column' : 'row',
+  return <TooltipLayer bounds={bounds} suppress={hoverCard}><View style={{ flex: 1, flexDirection: top ? 'column' : 'row',
     backgroundColor: colors[shell ? 'sidebarFallback' : 'contentBackground'] }}
     onLayout={e => actions.setWindowSize(e.nativeEvent.layout.width, e.nativeEvent.layout.height)}>
     {/* The traffic lights hide with the tabs, as in Dia, and come back with them when they peek in. */}
-    <FullScreenWatch onChange={setMacFullScreen} windowButtons={!peekable || peeking || macFullScreen} />
+    <FullScreenWatch onChange={setMacFullScreen} onState={actions.setWindowFacts} windowButtons={!peekable || peeking || macFullScreen}
+      title={active ? tabTitle(active) : undefined} />
     {/* Glass lets the desktop through the shell; Classic is solid. */}
     {shell && glass.translucent && <Glass material="sidebar" style={cover} />}
     {shell && <ShellTint followSite={top} />}
@@ -104,10 +114,10 @@ export function BrowserWindow() {
     {tabs && top && <TabStrip />}
     {/* The hidden tabs come in from the edge the pointer reaches: a thin strip that lets clicks through. */}
     {peekable && !peeking && <View pointerEvents="none" onMouseEnter={actions.peek}
-      style={top ? { position: 'absolute', top: 0, left: 0, right: 0, height: geometry.edgeStrip }
-        : { position: 'absolute', top: 0, bottom: 0, left: 0, width: geometry.edgeStrip }} />}
+      style={top ? { position: 'absolute', top: 0, left: 0, right: 0, height: edgeStrip }
+        : { position: 'absolute', top: 0, bottom: 0, left: 0, width: edgeStrip }} />}
     {peekable && (top ? <StripPeek /> : <SidebarPeek width={sidebarWidth} />)}
-    <Overlays />
+    <Overlays pageTop={pageTop} />
   </View></TooltipLayer>;
 }
 

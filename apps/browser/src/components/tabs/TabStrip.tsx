@@ -4,7 +4,7 @@ import type { Tab } from '../../state/types';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import {
   ContextMenu, DragRegion, Fade, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
-  groupColorRoles, opacity, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
+  groupColorRoles, opacity, useEased, useHeld, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
 } from '../ui';
 import { StripGroupChip, chipWidth } from './TabGroups';
 import { Favicon } from '../favicon/Favicon';
@@ -226,6 +226,12 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, draggin
   const { x, width } = useSlide(slot, reduceMotion, dragging);
   const there = usePresence(!lifted, 'fade', reduceMotion);
   const wash = useHoverFade(!active && hovered && !dragging, reduceMotion);
+  // The active tab's × waits for the joined shape to land under it, so it
+  // never shows outside its tab while the shape slides; a hovered tab's
+  // fades in at once.
+  const landed = useHeld(active, reduceMotion ? duration.instant : duration.slide);
+  const closeOn = hovered || (reduceMotion ? active : landed);
+  const closeShown = useEased(closeOn && !dragging, reduceMotion);
   const pan = useTabPan({ onDrag, onDrop });
   const ref = useRef<View>(null);
   const title = tabTitle(tab);
@@ -235,6 +241,12 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, draggin
     if (!on) { actions.leaveTab(); return; }
     ref.current?.measureInWindow((x0, y0, w, h) => actions.hoverTab(tab.id, { x: x0, y: y0, width: w, height: h }, 'below'));
   };
+  // A tab that slides under a resting pointer (its neighbour closed) moves
+  // its card along once it has settled, rather than leaving it where the
+  // tab was when the pointer met it.
+  const hoveredNow = useRef(hovered);
+  hoveredNow.current = hovered;
+  useTimeout(() => { if (hoveredNow.current) hover(true); }, reduceMotion ? duration.instant : duration.slide, [slot.x, slot.width]);
   const label = `${tab.pinned ? 'Pinned: ' : ''}${title}${tab.loading ? ', loading' : ''}${tab.muted ? ', muted' : tab.audible ? ', playing audio' : ''}${
     tab.engine === 'webkit' ? ', in WebKit' : ''}`;
   const body = <Animated.View ref={ref} {...pan.panHandlers} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}
@@ -270,8 +282,10 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, draggin
         {sound && <IconButton label={tab.muted ? `Unmute ${title}` : `Mute ${title}`} tip={tab.muted ? 'Unmute tab' : 'Mute tab'}
           icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" tone="iconSecondary"
           onPress={() => void actions.muteTab(tab.id, !tab.muted)} />}
-        {(hovered || active) && <IconButton label={`Close ${title}`} tip="Close tab" keys={['⌘', 'W']} icon="xmark" size="small"
-          onPress={() => { actions.closeHoverCard(); void actions.closeTab(tab.id); }} />}
+        <Animated.View pointerEvents={closeOn ? 'auto' : 'none'} style={{ opacity: closeShown }}>
+          <IconButton label={`Close ${title}`} tip="Close tab" keys={['⌘', 'W']} icon="xmark" size="small"
+            onPress={() => { actions.closeHoverCard(); void actions.closeTab(tab.id); }} />
+        </Animated.View>
       </View>}
       {/* An icon-only tab (pinned, or crowded) shows its sound as a small badge you can press. */}
       {icon && sound && <View style={{ position: 'absolute', right: -space.xs, top: -space.hair }}>

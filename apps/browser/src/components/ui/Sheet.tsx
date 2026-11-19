@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { Animated, ScrollView, View } from 'react-native';
+import { Field } from './Field';
 import { Pressable } from './Pressable';
 import { IconButton } from './Button';
 import { Icon, type SymbolName } from './Icon';
@@ -13,18 +14,23 @@ import { geometry, radius, space } from './tokens';
 export type SheetSection<K extends string> = { id: K; label: string; icon: SymbolName; badge?: string };
 
 /**
- * A large centred surface over a dimmed window. Settings shows its sections as
- * icon tabs across the top; the Library as a segmented control beside its
- * title. Both share one frame and one motion.
+ * A large centred surface over a dimmed window. Settings shows its sections
+ * down a sidebar under a search field (`nav="sidebar"`, `size="tall"`), as
+ * System Settings does; the Library as a segmented control beside its title.
+ * Both share one frame and one motion.
  *
  * It takes the keyboard as it opens, so Escape closes it: opened from a
  * button or Command-comma, the keyboard stayed in the page, which never
  * passed Escape on. `onClosed` gives it back (to the page) once it closes.
  */
 export function Sheet<K extends string>({ open = true, title, sections, section, onSection, onClose, onClosed, children, footer,
-  nav = 'tabs' }: {
+  nav = 'tabs', size = 'regular', search }: {
   open?: boolean; title: string; sections: readonly SheetSection<K>[]; section: K; onSection(id: K): void; onClose(): void;
-  onClosed?(): void; children?: React.ReactNode; footer?: React.ReactNode; nav?: 'tabs' | 'segments';
+  onClosed?(): void; children?: React.ReactNode; footer?: React.ReactNode; nav?: 'tabs' | 'segments' | 'sidebar';
+  /** Tall takes most of the window's height. */
+  size?: 'regular' | 'tall';
+  /** A search field at the top of the sidebar. */
+  search?: { value: string; placeholder: string; onChange(text: string): void };
 }) {
   const { colors, reduceMotion } = useTheme();
   const { mounted, progress } = usePresence(open, 'sheet', reduceMotion);
@@ -44,13 +50,33 @@ export function Sheet<K extends string>({ open = true, title, sections, section,
     <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}>
       <Pressable accessible={false} style={{ flex: 1, backgroundColor: colors.scrim }} onPress={() => { if (open) onClose(); }} />
     </Animated.View>
-    <Animated.View style={[{ width: geometry.sheetWidth, maxWidth: '94%', height: geometry.sheetHeight, maxHeight: '90%' },
+    <Animated.View style={[{ width: geometry.sheetWidth, maxWidth: '94%', height: size === 'tall' ? geometry.sheetTall : geometry.sheetHeight,
+      maxHeight: size === 'tall' ? '94%' : '90%' },
       presenceStyle(progress, 'sheet')]}
       keyDownEvents={[{ key: 'Escape' }]} onKeyDown={e => { if (e.nativeEvent.key === 'Escape' && open) onClose(); }}>
       <View ref={keys} focusable enableFocusRing={false} style={{ flex: 1 }}>
       <Panel fill={nav === 'tabs' ? 'surfaceSheetBody' : 'surfaceSheet'} radius="panel" elevation="dialog" accessibilityLabel={title}
         accessibilityViewIsModal style={{ flex: 1 }}>
-        <View style={{ flex: 1, borderRadius: radius.panel, overflow: 'hidden' }}>
+        {nav === 'sidebar' ? <View style={{ flex: 1, flexDirection: 'row', borderRadius: radius.panel, overflow: 'hidden' }}>
+          <View style={{ width: geometry.sheetNav, backgroundColor: colors.surfaceSheetNav, borderRightWidth: geometry.hairline,
+            borderRightColor: colors.borderSubtle, paddingTop: space.lg, paddingHorizontal: space.sm + space.hair, gap: space.md }}>
+            <View style={{ paddingHorizontal: space.sm }}><Text variant="headline">{title}</Text></View>
+            {search && <Field icon="magnifyingglass" accessibilityLabel={search.placeholder} placeholder={search.placeholder}
+              value={search.value} onChangeText={search.onChange} />}
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: space.hair, paddingBottom: space.md }}>
+              <View accessibilityRole="tablist" accessibilityLabel={title} style={{ gap: space.hair }}>
+                {sections.map(s => <SideTab key={s.id} label={s.label} icon={s.icon} selected={!search?.value && s.id === section}
+                  onPress={() => { search?.onChange(''); onSection(s.id); }} />)}
+              </View>
+            </ScrollView>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ position: 'absolute', top: space.md, right: space.md, zIndex: 1 }}>
+              <IconButton label={`Close ${title}`} icon="xmark" onPress={onClose} />
+            </View>
+            {body}
+          </View>
+        </View> : <View style={{ flex: 1, borderRadius: radius.panel, overflow: 'hidden' }}>
           {nav === 'tabs' ? <View style={{ backgroundColor: colors.surfaceSheetNav, borderBottomWidth: geometry.hairline,
             borderBottomColor: colors.borderSubtle, paddingTop: space.md, paddingBottom: space.sm, paddingHorizontal: space.xxl + space.sm }}>
             <View accessibilityRole="tablist" accessibilityLabel={title}
@@ -73,7 +99,7 @@ export function Sheet<K extends string>({ open = true, title, sections, section,
           </View>}
           <View style={{ flex: 1 }}>{body}</View>
           {footer}
-        </View>
+        </View>}
       </Panel>
       </View>
     </Animated.View>
@@ -93,6 +119,19 @@ function IconTab({ label, icon, selected, onPress }: { label: string; icon: Symb
   </Pressable>;
 }
 
+/** A section in the sheet's sidebar: its symbol and name, the chosen one on a soft accent fill. */
+function SideTab({ label, icon, selected, onPress }: { label: string; icon: SymbolName; selected: boolean; onPress(): void }) {
+  const { colors } = useTheme();
+  const { hovered, handlers } = useInteraction();
+  return <Pressable accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected }} onPress={onPress} {...handlers}
+    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm + space.hair, height: geometry.popoverRow,
+      paddingHorizontal: space.sm, borderRadius: radius.control,
+      backgroundColor: colors[selected ? 'accentSoft' : pressed ? 'fillPressed' : hovered ? 'fillHover' : 'fillTransparent'] })}>
+    <Icon name={icon} weight="regular" tone={selected ? 'accentSoftText' : 'iconPrimary'} />
+    <Text weight={selected ? 'medium' : undefined} lines={1} tone={selected ? 'accentSoftText' : 'textPrimary'}>{label}</Text>
+  </Pressable>;
+}
+
 function SegmentTab({ label, badge, selected, onPress }: { label: string; badge?: string; selected: boolean; onPress(): void }) {
   const { colors } = useTheme();
   return <Pressable accessibilityRole="tab" accessibilityLabel={badge ? `${label}, ${badge}` : label} accessibilityState={{ selected }}
@@ -109,8 +148,20 @@ function SegmentTab({ label, badge, selected, onPress }: { label: string; badge?
   </Pressable>;
 }
 
+/** What lets a row in a sheet bring itself into view (a search result being shown). */
+type SheetScroll = { content: React.RefObject<View | null>; scrollTo(y: number): void };
+const SheetScrollContext = createContext<SheetScroll | null>(null);
+export const useSheetScroll = () => useContext(SheetScrollContext);
+
 /** Scrollable content for one Sheet section. */
 export function SheetBody({ children }: React.PropsWithChildren) {
-  return <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: space.huge + space.sm, paddingTop: space.xl,
-    paddingBottom: space.xl }}>{children}</ScrollView>;
+  const scroll = useRef<ScrollView>(null);
+  const content = useRef<View>(null);
+  const value = React.useMemo<SheetScroll>(() => ({ content, scrollTo: y => scroll.current?.scrollTo({ y: Math.max(0, y), animated: true }) }), []);
+  return <SheetScrollContext.Provider value={value}>
+    <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: space.huge, paddingTop: space.xl,
+      paddingBottom: space.xl }}>
+      <View ref={content}>{children}</View>
+    </ScrollView>
+  </SheetScrollContext.Provider>;
 }

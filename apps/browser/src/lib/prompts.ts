@@ -30,3 +30,13 @@ export function promptChipLabel(prompt: PromptFacts) {
   if (title.includes('card') || title.includes('address')) return 'Autofill';
   return 'Request';
 }
+
+/**
+ * The answer that only puts a site question away (Done, Not now, Cancel),
+ * given when it is closed by Escape or a press outside it; null when the
+ * question has none and must be answered.
+ */
+export function lightDismissAction(prompt: { actions: readonly { id: string }[] }) {
+  for (const id of ['done', 'dismiss', 'cancel']) if (prompt.actions.some(a => a.id === id)) return id;
+  return null;
+}

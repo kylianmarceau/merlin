@@ -4,9 +4,10 @@ import type { PreferenceKey, Preferences } from '../../state/types';
 import { useUpdates } from '../../state/updates';
 import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
 import {
-  Box, Button, Field, FormGroup, FormRow, ListRow, Notice, SectionHeader, Sheet, SheetBody, Text, Toggle, geometry,
-  type SheetSection,
+  Box, Button, Field, FormGroup, FormHighlight, FormRow, Icon, ListRow, Notice, Pressable, SectionHeader, Sheet, SheetBody, Text, Toggle,
+  geometry, radius, space, useInteraction, useTheme, type SheetSection,
 } from '../ui';
+import { searchSettings, type SettingsHit } from './searchIndex';
 import { AppearancePane } from './AppearancePane';
 import { ClearData } from './ClearData';
 import { GeneralPane } from './GeneralPane';
@@ -39,6 +40,11 @@ type Set = (key: PreferenceKey, value: unknown) => void;
 export function Settings({ open }: { open: boolean }) {
   const actions = useActions();
   const [section, setSection] = useState<SettingsSection>('appearance');
+  const [query, setQuery] = useState('');
+  // The row a search result led to, glowing once it is on screen.
+  const [highlight, setHighlight] = useState<string | null>(null);
+  const hits = searchSettings(query);
+  const go = (hit: SettingsHit) => { setQuery(''); setSection(hit.section as SettingsSection); setHighlight(hit.title); };
   const prefs = useRequest('settings.get', {});
   const action = useAction();
   const set: Set = async (key, value) => {
@@ -49,9 +55,11 @@ export function Settings({ open }: { open: boolean }) {
   const p = prefs.data;
   // Merlin's own version, stamped into a packaged release; Chromium reports its engine's.
   const release = useUpdates(s => s.version);
-  return <Sheet<SettingsSection> open={open} title="Settings" sections={sections} section={section} onSection={setSection}
+  return <Sheet<SettingsSection> open={open} title="Settings" sections={sections} section={section}
+    onSection={id => { setHighlight(null); setSection(id); }} nav="sidebar" size="tall"
+    search={{ value: query, placeholder: 'Search settings', onChange: setQuery }}
     onClose={actions.closePanel} onClosed={actions.focusPage}>
-    <SheetBody>
+    {query.trim() ? <SearchResults query={query.trim()} hits={hits} onOpen={go} /> : <FormHighlight.Provider value={highlight}><SheetBody key={section}>
       {action.error && <Box marginBottom="lg"><Notice tone="error">{action.error}</Notice></Box>}
       {prefs.error && !p ? <Notice tone="error">{prefs.error}</Notice> : !p && section !== 'appearance' ? <Text tone="textSecondary">Loading settings…</Text> : <>
         {section === 'appearance' && <AppearancePane p={p} set={set} />}
@@ -114,8 +122,33 @@ export function Settings({ open }: { open: boolean }) {
           </Box>
         </>}
       </>}
-    </SheetBody>
+    </SheetBody></FormHighlight.Provider>}
   </Sheet>;
+}
+
+/** Settings that match what was typed, each with its section; choosing one shows it in place. */
+function SearchResults({ query, hits, onOpen }: { query: string; hits: SettingsHit[]; onOpen(hit: SettingsHit): void }) {
+  return <SheetBody>
+    <SectionHeader title={hits.length ? 'Results' : 'No results'}
+      detail={hits.length ? undefined : `Nothing in Settings matches “${query}”. Try another word, such as “tabs” or “dark”.`} />
+    {!!hits.length && <FormGroup>
+      {hits.map(hit => <SearchHit key={`${hit.section}:${hit.title}`} hit={hit} onPress={() => onOpen(hit)} />)}
+    </FormGroup>}
+  </SheetBody>;
+}
+
+function SearchHit({ hit, onPress }: { hit: SettingsHit; onPress(): void }) {
+  const { colors } = useTheme();
+  const { hovered, handlers } = useInteraction();
+  const place = sections.find(s => s.id === hit.section);
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${hit.title}, in ${place?.label ?? hit.section}`} onPress={onPress} {...handlers}
+    style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: geometry.rowTall, marginHorizontal: -space.sm,
+      paddingHorizontal: space.sm, borderRadius: radius.control, backgroundColor: colors[hovered ? 'fillHover' : 'fillTransparent'] }}>
+    {place && <Icon name={place.icon} tone="iconSecondary" />}
+    <Text flex={1}>{hit.title}</Text>
+    <Text variant="label" weight="regular" tone="textSecondary">{place?.label}</Text>
+    <Icon name="chevron.right" tone="iconSecondary" size="chevron" />
+  </Pressable>;
 }
 
 function PageLinks({ links, openPage }: { links: readonly (readonly [string, string])[]; openPage(key: string): void }) {

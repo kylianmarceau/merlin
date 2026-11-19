@@ -1,11 +1,11 @@
 import React from 'react';
 import { Animated, ScrollView, View, type ViewStyle } from 'react-native';
-import { OutsidePress } from '../../platform/shell';
+import { OutsidePress, type OutsidePressEvent } from '../../platform/shell';
 import { PopoverSurface } from './PopoverSurface';
 import { presenceStyle, useLatest, usePresence, type PresenceKind } from './motion';
 import { Panel } from './Panel';
 import { useTheme } from './theme';
-import { geometry, space, type ColorRole } from './tokens';
+import { anchoredGlass, geometry, space, type ColorRole } from './tokens';
 
 export type Frame = { x: number; y: number; width: number; height: number };
 export type Placement = 'below-start' | 'below-end' | 'below-center' | 'above-start' | 'above-end' | 'right-start';
@@ -66,7 +66,9 @@ export function autoPlacement(anchor: Frame | undefined, bounds: { height: numbe
 export function Popover({ open, anchor, bounds, placement = 'below-start', width = 'popover', kind = 'popover', fill,
   label, onClose, children, flush = false, instant = false, arrow = true }: {
   open: boolean; anchor: Frame | undefined; bounds: { width: number; height: number }; placement?: Placement;
-  width?: keyof typeof geometry | number; kind?: PresenceKind; fill?: ColorRole; label: string; onClose(): void;
+  width?: keyof typeof geometry | number; kind?: PresenceKind; fill?: ColorRole; label: string;
+  /** Why it should close: a press outside it (also on the page), Escape, or the window losing focus. */
+  onClose(reason: 'press' | 'escape' | 'blur'): void;
   children?: React.ReactNode; flush?: boolean;
   /** Shows and hides at once, like the address field's suggestions: a list that faded out over the page after Enter read as the page fading in. */
   instant?: boolean;
@@ -78,20 +80,23 @@ export function Popover({ open, anchor, bounds, placement = 'below-start', width
   const content = useLatest(open ? children : null);
   if (!mounted || !frame) return null;
   const w = typeof width === 'number' ? width : geometry[width];
-  const close = () => { if (open) onClose(); };
-  const keys = { keyDownEvents: [{ key: 'Escape' }], onKeyDown: (e: { nativeEvent: { key: string } }) => { if (e.nativeEvent.key === 'Escape') onClose(); } };
+  const close = (e: OutsidePressEvent) => { if (open) onClose(e.nativeEvent.reason); };
+  const keys = { keyDownEvents: [{ key: 'Escape' }], onKeyDown: (e: { nativeEvent: { key: string } }) => { if (e.nativeEvent.key === 'Escape') onClose('escape'); } };
+  // Escape closes it wherever the focus is, the page included; the address
+  // field's own suggestions (`instant`) leave Escape to the field.
+  const escape = open && !instant;
 
   if (flush || !arrow) {
     const place = placePopover(frame, { width: w }, bounds, placement);
     const upward = place.bottom !== undefined;
-    return <OutsidePress onOutsidePress={close} style={{ position: 'absolute', top: place.top, bottom: place.bottom, left: place.left, width: w }}>
+    return <OutsidePress onOutsidePress={close} closesOnEscape={escape} style={{ position: 'absolute', top: place.top, bottom: place.bottom, left: place.left, width: w }}>
       <Animated.View style={presenceStyle(progress, kind, undefined, upward)} accessibilityViewIsModal={false} {...keys}>
         {flush
           ? <Panel fill="contentBackground" radius="card" elevation="popover" accessibilityLabel={label} style={{ maxHeight: place.maxHeight }}>
             <View style={{ maxHeight: place.maxHeight }}>{content}</View>
           </Panel>
           : <View accessibilityLabel={label}>
-            <PopoverSurface fill={fill ?? 'surfacePopoverSolid'} elevation={kind === 'menu' ? 'menu' : 'popover'} />
+            <PopoverSurface fill={fill ?? 'surfacePopoverSolid'} elevation={kind === 'menu' ? 'menu' : 'popover'} glassFloor={anchoredGlass} />
             <ScrollView style={{ maxHeight: place.maxHeight }} contentContainerStyle={{ paddingVertical: space.xs + space.hair }}>
               {content}
             </ScrollView>
@@ -104,11 +109,11 @@ export function Popover({ open, anchor, bounds, placement = 'below-start', width
   const upward = place.arrow === 'bottom';
   const origin: [number, number | string, number] = [place.arrowX, upward ? '100%' : 0, 0];
   const listMax = Math.max(geometry.panelRow * 3, place.room);
-  return <OutsidePress onOutsidePress={close}
+  return <OutsidePress onOutsidePress={close} closesOnEscape={escape}
     style={{ position: 'absolute', top: place.top, bottom: place.bottom, left: place.left, width: place.width }}>
     <Animated.View style={presenceStyle(progress, kind, origin, upward)} accessibilityViewIsModal={false} {...keys}>
       <View accessibilityLabel={label}>
-        <PopoverSurface arrow={place.arrow} arrowX={place.arrowX} fill={fill ?? 'surfacePopoverSolid'} />
+        <PopoverSurface arrow={place.arrow} arrowX={place.arrowX} fill={fill ?? 'surfacePopoverSolid'} glassFloor={anchoredGlass} />
         <ScrollView style={{ maxHeight: listMax, marginTop: upward ? 0 : geometry.arrowHeight, marginBottom: upward ? geometry.arrowHeight : 0 }}
           contentContainerStyle={{ paddingVertical: space.xs + space.hair }}>{content}</ScrollView>
       </View>

@@ -5,6 +5,7 @@
 // `snapshot` is what components show, `engineSnapshot` what Chromium sent.
 import { createStore } from 'zustand/vanilla';
 import { shellPrefs } from './shellPrefs';
+import type { IconTone, SymbolName } from '../platform/shell';
 import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
 import { acceptResults, type Omnibox } from './omnibox';
 import { rememberActive, type TabDrag } from './tabDrag';
@@ -19,6 +20,11 @@ export type Rect = { x: number; y: number; width: number; height: number };
 export type HoverCard = { tabId: string; anchor: Rect; side: 'right' | 'below' };
 /** Naming a tab group: a new one for `tabId`, or renaming `groupId`. */
 export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string };
+/**
+ * A short confirmation over the page ("Link copied", a command's message),
+ * gone on its own after a moment; `action` adds one button ("Edit").
+ */
+export type Hud = { id: number; text: string; tone: 'info' | 'error'; symbol?: SymbolName; action?: { label: string; run(): void } };
 /** A notice; `action` adds one button to it ("View" on an update). */
 export type Toast = { id: number; tone: 'error' | 'info'; text: string; action?: { label: string; run(): void } };
 export { currentSuggestions, type Omnibox, type SearchOwner } from './omnibox';
@@ -34,11 +40,14 @@ export type BrowserState = {
   /** A quiet request the person chose to see. */
   revealedPromptId: string | null;
   toasts: Toast[];
+  hud: Hud | null;
   addressFocus: number;
   addressRevert: number;
   omnibox: Omnibox | null;
   /** Icon data URLs by favicon key. */
   favicons: Record<string, string>;
+  /** Whether each icon (by favicon key) is all one dark or light colour, so it can be drawn as a template where it would vanish. */
+  iconTones: Record<string, IconTone>;
   anchors: Partial<Record<AnchorName, Rect>>;
   windowSize: { width: number; height: number };
   /** Counts new downloads' icons reaching the downloads button, which nudges each time. */
@@ -54,6 +63,10 @@ export type BrowserState = {
   hoverCard: HoverCard | null;
   /** The hidden tabs, slid in over the page because the pointer reached the window's edge. */
   peeking: boolean;
+  /** The window is in front (key); its shell dims a little when it isn't, as macOS sidebars do. */
+  windowKey: boolean;
+  /** Which of the window's edges meet the screen's: there the pointer stops, so the peek strip can stay thin. */
+  screenEdges: { left: boolean; top: boolean };
   /** Where each pinned tab started, by tab: its tile offers to go back there once it has navigated away. */
   pinnedHomes: Record<string, { url: string; title: string }>;
   /** Tests only: the window's interface fails as it next draws, to show its error boundary. */
@@ -62,9 +75,9 @@ export type BrowserState = {
 
 export function initialState(): BrowserState {
   return {
-    snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [],
-    addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, panes: {}, recentTabs: [], groupDialog: null, hoverCard: null, peeking: false, pinnedHomes: {},
+    snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [], hud: null,
+    addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
+    downloadLandings: 0, tabDrag: null, panes: {}, recentTabs: [], groupDialog: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, pinnedHomes: {},
     failInRender: false,
   };
 }
@@ -166,6 +179,14 @@ export function pushToast(store: BrowserStore, text: string, tone: Toast['tone']
   // The newest three; an identical notice replaces its older copy.
   store.setState(s => ({ toasts: [...s.toasts.filter(t => t.text !== text), { id, tone, text, ...(action ? { action } : {}) }].slice(-3) }));
   return id;
+}
+let hudCounter = 0;
+/** Shows a HUD, replacing any that is showing. */
+export function showHud(store: BrowserStore, text: string, tone: Hud['tone'] = 'info', symbol?: SymbolName, action?: Hud['action']) {
+  store.setState({ hud: { id: ++hudCounter, text, tone, ...(symbol ? { symbol } : {}), ...(action ? { action } : {}) } });
+}
+export function dismissHud(store: BrowserStore, id: number) {
+  if (store.getState().hud?.id === id) store.setState({ hud: null });
 }
 export function dismissToast(store: BrowserStore, id: number) {
   store.setState(s => ({ toasts: s.toasts.filter(t => t.id !== id) }));

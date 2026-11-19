@@ -21,7 +21,11 @@ const TooltipContext = createContext<Api | null>(null);
  * waits half a second under a still pointer; while one is showing, or just
  * after, the next appears at once as the pointer moves along the controls.
  */
-export function TooltipLayer({ bounds, children }: React.PropsWithChildren<{ bounds: { width: number; height: number } }>) {
+export function TooltipLayer({ bounds, suppress = false, children }: React.PropsWithChildren<{
+  bounds: { width: number; height: number };
+  /** A tab's hover card is showing: no tooltip opens over or beside it (a row's close button under the pointer). */
+  suppress?: boolean;
+}>) {
   const [shown, setShown] = useState<(TooltipSpec & { frame: Frame }) | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warmUntil = useRef(0);
@@ -43,9 +47,10 @@ export function TooltipLayer({ bounds, children }: React.PropsWithChildren<{ bou
     },
   }), []);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  useEffect(() => { if (suppress) api.hide(); }, [suppress, api]);
   return <TooltipContext.Provider value={api}>
     {children}
-    <Bubble tip={shown} bounds={bounds} />
+    <Bubble tip={suppress ? null : shown} bounds={bounds} />
   </TooltipContext.Provider>;
 }
 
@@ -83,19 +88,23 @@ function Bubble({ tip, bounds }: { tip: (TooltipSpec & { frame: Frame }) | null;
 
 /**
  * Hover handlers that show `spec` beside the view `ref` points at. Without
- * a TooltipLayer above (a pop-up window) they do nothing.
+ * a TooltipLayer above (a pop-up window) they do nothing. A press puts the
+ * tooltip away until the pointer leaves, so it never sits over the popover
+ * or menu the press opened.
  */
 export function useTooltip(spec: TooltipSpec | null, ref: React.RefObject<View | null>) {
   const api = useContext(TooltipContext);
   const latest = useRef(spec);
   latest.current = spec;
+  const pressed = useRef(false);
   return useMemo(() => ({
     enter() {
-      if (!api || !latest.current) return;
+      if (!api || !latest.current || pressed.current) return;
       ref.current?.measureInWindow((x, y, width, height) => {
-        if (latest.current) api.show(latest.current, { x, y, width, height });
+        if (latest.current && !pressed.current) api.show(latest.current, { x, y, width, height });
       });
     },
-    leave() { api?.hide(); },
+    press() { pressed.current = true; api?.hide(); },
+    leave() { pressed.current = false; api?.hide(); },
   }), [api, ref]);
 }

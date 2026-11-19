@@ -1,6 +1,6 @@
 // Everything a window's components can ask for. Components never hold the
 // engine or call getState(); they call these, and failures become notices.
-import { copyText, showMenu, type MenuItem } from '../platform/shell';
+import { copyText, imageTone, showMenu, type MenuItem } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { canUseWebKit } from '../lib/engines';
 import { pageLabel } from '../lib/format';
@@ -11,7 +11,7 @@ import { groupColors, type Appearance, type Calls, type DownloadAction, type Eng
   type Requests } from '../platform/protocol';
 import { currentSuggestions, moveSelection, startQuery, suggestionChoice } from './omnibox';
 import {
-  dismissToast, pushToast, rememberFavicon, type AnchorName, type BrowserStore, type HoverCard, type Panel, type PopoverName, type Rect,
+  dismissHud, dismissToast, pushToast, rememberFavicon, showHud, type Hud, type AnchorName, type BrowserStore, type HoverCard, type Panel, type PopoverName, type Rect,
   type SearchOwner,
 } from './store';
 import type { BookmarkItem } from '../platform/protocol';
@@ -53,6 +53,12 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     return !newTab && t?.engine === 'webkit' && navigateWebKitTab(t.id, url, isPrivate());
   };
   const faviconLoads = new Set<string>();
+  /** Notes whether an icon is one dark or light colour (GitHub's black mark), so it can be drawn light on the dark shell. */
+  const learnTone = (key: string, url: string) => {
+    void imageTone(url).then(tone => {
+      if (tone && store.getState().iconTones[key] !== tone) store.setState(s => ({ iconTones: { ...s.iconTones, [key]: tone } }));
+    });
+  };
   // Hover cards: the timer that opens the next one, the one that closes the
   // shown one, and until when the next opens at once.
   let cardOpen: ReturnType<typeof setTimeout> | null = null;
@@ -64,6 +70,20 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     cardOpen = cardClose = null;
   };
   let peekClose: ReturnType<typeof setTimeout> | null = null;
+  // A native menu (a tab's right-click menu) covers the peeking tabs, which
+  // reads as the pointer leaving them, and an animation started while it
+  // tracks stalls half-way. So they hold still while a menu is open, and a
+  // leave during it counts only once it has closed (if the pointer is back
+  // on them, AppKit says so and they stay).
+  let menusOpen = 0;
+  let leftDuringMenu = false;
+  const menu = async (items: MenuItem[]) => {
+    menusOpen++;
+    try { return await showMenu(items); } finally {
+      menusOpen--;
+      if (!menusOpen && leftDuringMenu) { leftDuringMenu = false; actions.unpeek(); }
+    }
+  };
   let lastClosed: { name: PopoverName | null; at: number } = { name: null, at: 0 };
 
   const actions = {
@@ -94,8 +114,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const on = bookmarked ?? !tab?.bookmarked;
       if (!(await run('tabs.bookmark', { tabId, bookmarked: on }))) return false;
       // Edit opens the Library's bookmarks, to rename it or move it to another folder.
-      if (on) pushToast(store, 'Added to the Bookmarks bar', 'info', { label: 'Edit', run: () => actions.openPanel('bookmarks') });
-      else pushToast(store, 'Bookmark removed', 'info');
+      if (on) showHud(store, 'Added to the Bookmarks bar', 'info', 'bookmark.fill', { label: 'Edit', run: () => actions.openPanel('bookmarks') });
+      else showHud(store, 'Bookmark removed', 'info', 'bookmark');
       return true;
     },
     muteTab: (tabId: string, muted: boolean) => run('tabs.mute', { tabId, muted }),
@@ -149,18 +169,26 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     // The hidden tabs peeking in from the window's edge.
     /** The pointer reached the edge, or came back to the peeking tabs. */
     peek() {
+      leftDuringMenu = false;
       if (peekClose) { clearTimeout(peekClose); peekClose = null; }
       const s = store.getState();
       if (!s.peeking && s.snapshot?.modal.sidebarHidden && !s.snapshot.fullscreen) store.setState({ peeking: true });
     },
     /** The pointer left the peeking tabs: they slide away shortly, unless the address is being typed in. */
     unpeek() {
+      if (menusOpen) { leftDuringMenu = true; return; }
       if (peekClose || !store.getState().peeking) return;
       peekClose = setTimeout(() => {
         peekClose = null;
         if (store.getState().omnibox) return;
         store.setState({ peeking: false });
       }, hoverTiming.peekClose);
+    },
+    /** The window came to the front or left it, or moved against or away from the screen's edges. */
+    setWindowFacts(facts: { key: boolean; leftEdge: boolean; topEdge: boolean }) {
+      const s = store.getState();
+      if (s.windowKey !== facts.key || s.screenEdges.left !== facts.leftEdge || s.screenEdges.top !== facts.topEdge)
+        store.setState({ windowKey: facts.key, screenEdges: { left: facts.leftEdge, top: facts.topEdge } });
     },
     endPeek() {
       if (peekClose) { clearTimeout(peekClose); peekClose = null; }
@@ -211,7 +239,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         { id: 'close', title: 'Close Group', destructive: true },
       ];
       let choice: string | null;
-      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      try { choice = await menu(items); } catch (e) { fail(e); return; }
       if (choice === 'rename') actions.nameGroup({ kind: 'rename', groupId });
       else if (choice === 'collapse') await actions.updateGroup(groupId, { collapsed: !group.collapsed });
       else if (choice === 'ungroup') await actions.ungroupGroup(groupId);
@@ -298,6 +326,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       engine.request('favicons.page', { url }).then(icon => {
         // Remembered even when there is none, so the row isn't asked again; '' draws the fallback.
         rememberFavicon(store, key, icon ?? '');
+        if (icon) learnTone(key, icon);
       }, () => {}).finally(() => faviconLoads.delete(key));
     },
     openBookmark(url: string, newTab: boolean) {
@@ -320,13 +349,13 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         }));
       };
       try {
-        const choice = await showMenu(await level(folderId, 0));
+        const choice = await menu(await level(folderId, 0));
         const url = choice ? urls.get(choice) : undefined;
         if (url) await actions.openBookmark(url, false);
       } catch (e) { fail(e); }
     },
     async bookmarkMenu(item: { id: string; url?: string; editable: boolean }, onChanged: () => void) {
-      const choice = await showMenu([
+      const choice = await menu([
         ...(item.url ? [{ id: 'open', title: 'Open' }, { id: 'tab', title: 'Open in New Tab' }, { id: 'copy', title: 'Copy Address' },
           { separator: true as const }] : []),
         { id: 'remove', title: 'Delete', enabled: item.editable, destructive: true },
@@ -339,7 +368,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       }
     },
     async copyAddress(url: string) {
-      try { await copyText(url); pushToast(store, 'Address copied', 'info'); } catch (e) { fail(e); }
+      try { await copyText(url); showHud(store, 'Link copied', 'info', 'link'); } catch (e) { fail(e); }
     },
     async tabMenu(tabId: string) {
       const snap = store.getState().snapshot;
@@ -391,7 +420,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         { id: 'below', title: 'Close Tabs Below', enabled: below.length > 0 },
       ];
       let choice: string | null;
-      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      try { choice = await menu(items); } catch (e) { fail(e); return; }
       switch (choice) {
         case 'pin': await actions.pinTab(tabId, !tab.pinned); break;
         case 'duplicate': await actions.newTab(tab.url); break;
@@ -428,7 +457,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         { id: 'chromium', title: 'Open Site in Chromium' },
       ];
       let choice: string | null;
-      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      try { choice = await menu(items); } catch (e) { fail(e); return; }
       if (choice === 'chromium') {
         try { await moveSite(tab.url, 'chromium'); } catch (e) { fail(e); }
       }
@@ -443,7 +472,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       });
       if (!items.length) return;
       let choice: string | null;
-      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      try { choice = await menu(items); } catch (e) { fail(e); return; }
       if (choice) await actions.activateTab(choice);
     },
 
@@ -475,7 +504,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       if (!entries.length) return;
       const items: MenuItem[] = entries.slice(0, 20).map(e => ({ id: String(e.index), title: pageLabel(e.title, e.url) }));
       let choice: string | null;
-      try { choice = await showMenu(items); } catch (e) { fail(e); return; }
+      try { choice = await menu(items); } catch (e) { fail(e); return; }
       if (choice !== null) await run('navigation.go', { tabId: t.id, index: Number(choice) });
     },
     reloadTab: (tabId: string) => (runPageCommand(tabId, 'reload') ? Promise.resolve(true) : run('navigation.reload', { tabId })),
@@ -544,7 +573,9 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       if (!key || key.startsWith('webkit:') || store.getState().favicons[key] || faviconLoads.has(key)) return;
       faviconLoads.add(key);
       engine.call('favicons.get', { tabId }).then(icon => {
-        if (icon) rememberFavicon(store, icon.key, icon.url);
+        if (!icon) return;
+        rememberFavicon(store, icon.key, icon.url);
+        learnTone(icon.key, icon.url);
       }, () => {}).finally(() => faviconLoads.delete(key));
     },
 
@@ -589,6 +620,9 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       if (old.width !== width || old.height !== height) store.setState({ windowSize: { width, height } });
     },
     dismissToast: (id: number) => dismissToast(store, id),
+    /** A short confirmation over the page that leaves on its own (see Hud). */
+    showHud: (text: string, tone: Hud['tone'] = 'info', symbol?: Hud['symbol'], action?: Hud['action']) => showHud(store, text, tone, symbol, action),
+    dismissHud: (id: number) => dismissHud(store, id),
     notify: (text: string) => pushToast(store, text, 'info'),
 
     // Browser questions. Errors are returned so the prompt can show them in place.
@@ -641,7 +675,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         { separator: true },
         { id: 'folder', title: 'Open Downloads Folder' },
       ];
-      const choice = await showMenu(items);
+      const choice = await menu(items);
       if (choice === 'folder') return actions.openDownloadsFolder();
       if (choice === 'copy' && d.url) return copyText(d.url);
       if (choice) return run('downloads.act', { downloadId, action: choice as DownloadAction });

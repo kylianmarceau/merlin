@@ -56,7 +56,9 @@ The stored accent names predate Tide and stay as the browser saves them:
   and on the active tab. Tabs share the width up to 148 pt, become icons
   below 96 pt and, past 40 pt, the rest collect behind a "+N" native menu
   (the active tab always stays in the strip). Pinned tabs are icons in a
-  soft group. A background tab that is loading breathes its icon
+  soft group. While tabs slide after a close, a tab's close button fades and
+  moves with it, and the hover card follows the tab that ends up under the
+  pointer. A background tab that is loading breathes its icon
   (`useBreathe`); the active tab's loading is the bar under the address.
   A split view's two tabs are one piece, as in Ardia (`StripSplit`): the
   split symbol, each side's icon and title with a hairline between them,
@@ -88,6 +90,9 @@ The stored accent names predate Tide and stay as the browser saves them:
   (`PaintMark`: pre-rendered 2x images, one per workspace colour, slightly
   dimmed in dark mode; the card overlaps its bottom edge), one search card with "Jump to a tab or file", and the
   window's other pages on one line under it, on the off-white ground.
+- **Open in this window**, under the new tab page's card: each of the
+  window's other pages on a soft pill of its own (hover and pressed fills),
+  4 pt apart, a long title shrinking to an ellipsis inside it.
 - **New tabs as a pop-up** (Settings > Appearance, kept by the shell in
   AppKit's defaults rather than the profile): New Tab and Command-T open a
   search pop-up over the current page under a light veil; the sidebar's New
@@ -108,28 +113,43 @@ The stored accent names predate Tide and stay as the browser saves them:
   Dia's spring (`spring.sidebar`: response 0.215 s, damping 0.79) and the
   traffic lights hide with it (`FullScreenWatch windowButtons`), so the
   card's toolbar starts at the edge. The pointer at the window's left edge
-  (the top edge with tabs on top), a 3 pt strip that lets clicks through,
+  (the top edge with tabs on top), a 3 pt strip that lets clicks through
+  (8 pt, `edgeStripWide`, when the window is away from the screen's edge,
+  where the pointer does not stop by itself),
   slides the tabs in over the page as a floating card in the shell's glass
   (`SidebarPeek`, `StripPeek`); they stay while the pointer is within 40 pt
   of them and slide away 200 ms after it leaves, unless the address is
-  being typed in.
+  being typed in. A tab's right-click menu holds them in place; if the
+  pointer left meanwhile they slide away once the menu closes.
 - **Hover cards**: half a second's rest on a tab, a strip tab or a pinned
   tile shows its card (`HoverCardOverlay`): the whole title, the address and
   one-press actions (pin, bookmark, split, mute, copy link; for a pinned tile
   that has left its page, back to it). Moving on to the next tab shows its
-  card at once; the card stays while the pointer is on it. As Dia's does, it
+  card at once; the card stays while the pointer is on it, and no tooltip
+  shows on top of it. As Dia's does, it
   goes when the keyboard moves on: a tab opened, closed or switched to, the
   find bar opened, or keys typed.
 - **Tooltips** (`TooltipLayer`, `IconButton`'s `tip` and `keys`): every icon
   button names itself after the same half-second rest, with its shortcut as
   keycaps and Merlin's Normal-mode keys on a second line; they too follow
-  the pointer at once from one button to the next.
+  the pointer at once from one button to the next. A pressed button's
+  tooltip goes and stays away until the pointer leaves it.
 - **Content card**: `contentBackground`, `radius.window`, `contentBorder`,
   `shadow.card`, inset 8 pt from the window edge (0 on the sidebar side).
-- **Status line** under the page, only outside Normal mode or with
-  something to say: the mode, the keys typed so far, or the last message
-  (errors in `textDanger`). Half a second into an unfinished key sequence it
-  lists the keys that can follow.
+- **Status line** under the page, only outside Normal mode: the mode and
+  the keys typed so far. Half a second into an unfinished key sequence it
+  lists the keys that can follow. What a command has to say goes to the HUD.
+- **HUD** (`HudLayer`), as in Ardia: a short confirmation in a glass capsule
+  16 pt inside the top of the page ("Link copied", "Added to the Bookmarks
+  bar" with an Edit button, or a command's message, errors in
+  `textDanger`). It grows from 92% on the `appear` spring, stays 1.8 s (a
+  failure or one with a button the toast's 5 s) and goes by itself or on a
+  click. A newer one replaces it.
+- **Menu bar**: the View menu starts with Merlin's own commands, as in Dia:
+  Show Tabs in Sidebar, Show Tabs on Top, Hide Tabs, Open Split View and
+  Show Address in Toolbar, checked and enabled from the front window's
+  state (`useViewMenu`). The Window menu names each window after its active
+  tab, and a new tab is listed as New Tab, never by its address.
 - **Pop-up windows** (sign-in, payment) show only a 40 pt title strip with the
   site's security icon and host, then the page. They never look like a full
   browser window.
@@ -163,10 +183,13 @@ so the desktop still shows faintly through the tinted shell.
 | Dialog | glass, `surfaceDialog` | 18 | `dialog` | Yes, with `scrim` |
 | Sheet (Settings, Library) | `surfaceSheetBody` / `surfaceSheet` | 16 | `dialog` | Yes, with `scrim` |
 | Toast | `surfaceToast` capsule | pill | `toast` | No |
+| HUD | glass capsule, at least 72% colour | pill | `menu` | No |
 
 Popover content follows Ardia's downloads panel: popovers are 300 pt wide,
 centred on their control with a 20 × 9 pt arrow pointing at it, and grow
-out of the arrow (scale 0.94 to 1). An uppercase `MenuSection` label
+out of the arrow (scale 0.94 to 1). An anchored popover's glass keeps at
+least an 82% colour layer (`anchoredGlass`), so a saturated page never
+smears through its text and dark-mode text keeps its contrast. An uppercase `MenuSection` label
 (24 pt, with a quiet text action such as Clear), rows inset 6 pt with 10 pt
 of padding and a 6 pt corner (text 16 pt from the edge), a `row` title at
 13/16 and a `rowDetail` line at 11/14, a half-point `MenuSeparator` and a
@@ -204,8 +227,13 @@ a file in Finder (`FileDragArea`), to the desktop, Mail or a page.
   (or Separate Split View for a tab in one) and Move to New Window.
 Buttons are pills: `primary` is dark ink, `secondary` a soft wash.
 
-Settings shows its sections as icon tabs across the top; the Library as a
-segmented control beside its title, with a search field under it.
+Settings is a tall sheet (780 pt, shorter on a small screen) with its
+sections in a sidebar under a search field; a search lists matching settings
+across every section, and choosing one opens its section, scrolls to it and
+lights it in the accent for a moment (`searchSettings`, `useLit`). The
+Library shows its sections as a segmented control beside its title, with a
+search field under it. Its history folds repeat visits to the same page
+within half an hour (a redirect, a reload) into one row (`foldRepeats`).
 
 Overlays are layers inside the window, never separate windows: content <
 sheets < dialogs < popovers < toasts. `Modal` is not used. **(tested)**
@@ -218,13 +246,18 @@ sheets < dialogs < popovers < toasts. `Modal` is not used. **(tested)**
   questions about the site: permissions, passwords, addresses and cards,
   translation, opening in an app, bookmarks and site information. Popovers
   close on a press anywhere outside them (including on the page), on Escape
-  and when the window loses focus. Browser questions close only when answered.
+  (the newest one first) and when the window loses focus. A browser question
+  stays when the window loses focus; a press outside or Escape answers it
+  with its own Done, Dismiss or Cancel, and one without such an answer
+  stays until answered.
 - **Native menu** (`NSMenu`): actions on a thing, such as a tab's right-click
   menu and its "…" button.
 - **Dialog**: questions from the page (`alert`, `confirm`, `prompt`, leaving
   the page), attached to the top of the page; window questions (closing with
   downloads running, restarting to update) in the centre.
 - **Sheet**: Settings and the Library.
+- **HUD**: a confirmation of something just done, or a short message from a
+  command. It never stays behind.
 - **Toast**: a failure or notice that needs no answer. Toasts leave after 5 s
   or on click; at most three show.
 
@@ -282,7 +315,9 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
   300 ms after one closes. A hover card arrives as Dia's: it fades over
   100 ms while its scale springs from 92% (response 0.25 s, damping 0.75)
   out of its corner nearest the tab, and leaves on a quicker spring
-  (`useHoverCardMotion`). Nothing anywhere scales up from zero.
+  (`useHoverCardMotion`). The HUD appears the same way, from 92% on the
+  `appear` spring (response 0.3 s, damping 0.82; `useAppear`). Nothing
+  anywhere scales up from zero.
 - Presses: an icon button's glyph dips to 96%, a labelled button's contents
   to 98.5% and a round button to 94%, on the `press` spring, which never
   overshoots (`usePressScale`). Rows and tiles, used all day, hold still and
@@ -297,7 +332,11 @@ for navigation, `shippingbox` for extensions, `arrow.down.to.line` for
 downloads. Settings uses Merlin's own set: a window with its sidebar, a
 switch, a closed eye, a no-entry sign, a speedometer, a box, stacked cards,
 ⌘, braces and the M. Native menus carry words only. Page favicons are
-fetched from Chromium as 2x PNGs and fall back to a globe; bookmarks and
+fetched from Chromium as 2x PNGs into a fixed 16 pt slot (20 pt large) that
+shows the globe until the image arrives, which then fades in over 100 ms, so
+titles never shift. An icon that is all dark is drawn in `iconPrimary` in
+dark mode, and one that is all light in light mode (`imageTone`). A page
+without one shows the globe; bookmarks and
 history rows ask for a page's icon by its address (`favicons.page`,
 `PageFavicon`).
 

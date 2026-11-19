@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
-import { Animated, Image, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Animated, View } from 'react-native';
 import { isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useActions, useBrowser } from '../../state/window';
-import { Icon, geometry, opacity, radius, space, useBreathe, useTheme } from '../ui';
+import { Icon, geometry, opacity, radius, space, useBreathe, useEased, useTheme, type ColorRole, type IconTone, type SymbolName } from '../ui';
 
 /**
  * The page's own icon, sharp on Retina; a symbol until it arrives. `busy`
@@ -31,12 +31,34 @@ function FaviconImage({ tab, large }: { tab: Tab; large: boolean }) {
   const actions = useActions();
   const key = tab.favicon ?? '';
   const url = useBrowser(s => (key ? s.favicons[key] : undefined));
+  const tone = useBrowser(s => (key ? s.iconTones[key] : undefined));
   useEffect(() => { if (key && !url) actions.loadFavicon(tab.id, key); }, [actions, tab.id, key, url]);
+  const fallback = tab.audible ? 'speaker.wave.2' : isStartUrl(tab.url) ? 'magnifyingglass' : 'globe';
+  return <IconSlot large={large} url={url} tone={tone} fallback={fallback} fallbackTone={tab.loading && !tab.audible ? 'tabLoading' : 'iconSecondary'} />;
+}
+
+/**
+ * The icon's fixed square (16 pt, 20 pt large), so a title never moves when
+ * the icon arrives: the symbol holds the place, and the icon fades in over
+ * it in 100 ms. An icon that is all one dark colour (GitHub's black mark) is
+ * drawn in the ink colour on the dark shell, and an all-white one on the
+ * light shell, so neither vanishes.
+ */
+function IconSlot({ large, url, tone, fallback, fallbackTone }: {
+  large: boolean; url: string | undefined; tone: IconTone | undefined; fallback: SymbolName; fallbackTone: ColorRole;
+}) {
+  const { colors, dark, reduceMotion } = useTheme();
   const side = large ? geometry.iconLarge : geometry.favicon;
-  if (url) return <Image source={{ uri: url }} accessible={false} style={{ width: side, height: side, borderRadius: radius.xs }} />;
-  if (tab.audible) return <Icon name="speaker.wave.2" tone="iconSecondary" size={large ? 'regular' : 'small'} />;
-  return <Icon name={isStartUrl(tab.url) ? 'magnifyingglass' : 'globe'} tone={tab.loading ? 'tabLoading' : 'iconSecondary'}
-    size={large ? 'regular' : 'small'} />;
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const shown = useEased(!!url && loaded === url, reduceMotion);
+  const template = (dark && tone === 'dark') || (!dark && tone === 'light');
+  return <View style={{ width: side, height: side, alignItems: 'center', justifyContent: 'center' }}>
+    {loaded !== url && <Icon name={fallback} tone={fallbackTone} size={large ? 'regular' : 'small'} />}
+    {/* React Native macOS tints an image only as it is set, so a template is a fresh image. */}
+    {!!url && <Animated.Image key={template ? `template:${colors.iconPrimary}` : 'plain'} source={{ uri: url }} accessible={false} onLoad={() => setLoaded(url)}
+      style={{ position: 'absolute', width: side, height: side, borderRadius: radius.xs, opacity: shown,
+        ...(template ? { tintColor: colors.iconPrimary } : null) }} />}
+  </View>;
 }
 
 /**
@@ -48,8 +70,7 @@ export const PageFavicon = React.memo(function PageFavicon({ url, large = false 
   const actions = useActions();
   const key = url ? `page:${url}` : '';
   const icon = useBrowser(s => (key ? s.favicons[key] : undefined));
+  const tone = useBrowser(s => (key ? s.iconTones[key] : undefined));
   useEffect(() => { if (url && icon === undefined) actions.loadPageFavicon(url); }, [actions, url, icon]);
-  const side = large ? geometry.iconLarge : geometry.favicon;
-  if (icon) return <Image source={{ uri: icon }} accessible={false} style={{ width: side, height: side, borderRadius: radius.xs }} />;
-  return <Icon name="globe" tone="iconSecondary" size={large ? 'regular' : 'small'} />;
+  return <IconSlot large={large} url={icon || undefined} tone={tone} fallback="globe" fallbackTone="iconSecondary" />;
 });

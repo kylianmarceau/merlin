@@ -24,6 +24,10 @@ export const duration = {
   holdMenu: 450,
   /** How long a notice stays before it leaves on its own. */
   toast: 5000,
+  /** How long a settings row a search led to glows before it fades. */
+  highlight: 1600,
+  /** How long a HUD's confirmation ("Link copied") stays; an error stays as long as a notice. */
+  hud: 1800,
   /** The joined tab sliding to the newly active tab. */
   slide: 340,
   /** How long a dropped tab keeps its new place while the browser confirms it. */
@@ -85,6 +89,8 @@ export const spring = {
   hoverCardOut: responseSpring(0.2, 0.6),
   /** A control dipping under a press and coming back: quick, and never past its rest (response 0.2 s, ratio 0.9). */
   press: responseSpring(0.2, 0.9),
+  /** Something appearing in the middle of the window (a HUD, the command menu, a sheet): from 92%, barely past its size (response 0.3 s, ratio 0.82). */
+  appear: responseSpring(0.3, 0.82),
 } as const;
 
 /** How far a pressed control dips: an icon button's glyph, a pill or field, a round button or tile. */
@@ -127,6 +133,35 @@ export function useHoverCardMotion(open: boolean, reduce: boolean) {
       : Animated.spring(scale, { toValue: open ? 1 : hoverCardMotion.scaleFrom, ...(open ? spring.hoverCardIn : spring.hoverCardOut),
         useNativeDriver: true, restDisplacementThreshold: 0.001, restSpeedThreshold: 0.001 });
     // It leaves once it has faded; the spring needn't finish under a card no one sees.
+    fade.start(({ finished }) => { if (finished && !open) setMounted(false); });
+    size.start();
+    return () => { fade.stop(); size.stop(); };
+  }, [open, reduce, opacity, scale]);
+  return { mounted: mounted || open, opacity, scale };
+}
+
+/** Things appearing mid-window grow from this, never from nothing. */
+export const appearFrom = 0.92;
+
+/**
+ * Something appearing in the middle of the window (a HUD, the command menu,
+ * the new-tab pop-up, a sheet): it fades in over 0.1 s while its scale
+ * springs from 92%, and leaves with a quick fade, shrinking a little.
+ * `mounted` turns false once it has gone. Reduced motion only fades.
+ */
+export function useAppear(open: boolean, reduce: boolean) {
+  const opacity = useRef(new Animated.Value(open ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(open || reduce ? 1 : appearFrom)).current;
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) setMounted(true);
+    const fade = Animated.timing(opacity, { toValue: open ? 1 : 0, duration: open ? duration.fast : duration.base,
+      easing: open ? curve.enter : curve.exit, useNativeDriver: true });
+    const size = reduce
+      ? Animated.timing(scale, { toValue: 1, duration: duration.instant, useNativeDriver: true })
+      : open
+        ? Animated.spring(scale, { toValue: 1, ...spring.appear, useNativeDriver: true, restDisplacementThreshold: 0.001, restSpeedThreshold: 0.001 })
+        : Animated.timing(scale, { toValue: (1 + appearFrom) / 2, duration: duration.base, easing: curve.exit, useNativeDriver: true });
     fade.start(({ finished }) => { if (finished && !open) setMounted(false); });
     size.start();
     return () => { fade.stop(); size.stop(); };

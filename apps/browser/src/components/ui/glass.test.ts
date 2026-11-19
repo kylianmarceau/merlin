@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classicLook, controlGlass, legibleGlass, panelGlass, shellTintFor, type GlassLook } from './tokens';
+import { anchoredGlass, classicLook, controlGlass, legibleGlass, panelGlass, shellTintFor, type GlassLook } from './tokens';
 
 const look = (transparency: number, tint = 0): GlassLook => ({ on: true, translucent: true, tint, transparency });
 const alpha = (rgba: string) => Number(/,\s*([\d.]+)\)$/.exec(rgba)![1]);
@@ -54,4 +54,10 @@ test('Classic makes the shell opaque; glass keeps the default tint at the defaul
   assert.equal(alpha(shellTintFor('rgba(222, 232, 225, 0.84)', { ...classicLook, translucent: false })), 1);
   assert.equal(alpha(shellTintFor('rgba(222, 232, 225, 0.84)', look(0.5))), 0.84);
   assert.ok(alpha(shellTintFor('rgba(222, 232, 225, 0.84)', look(1))) < 0.84);
+});
+
+test('an anchored popover keeps enough of a colour layer that the page never smears through it', () => {
+  for (let i = 0; i <= 10; i++) for (const mode of ['light', 'dark'] as const) {
+    assert.ok(alpha(panelGlass(mode, 'fern', look(i / 10), anchoredGlass).fill) >= anchoredGlass);
+  }
 });

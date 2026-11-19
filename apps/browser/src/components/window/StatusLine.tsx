@@ -3,12 +3,13 @@ import { useSnapshot } from '../../state/window';
 import { Box, KeyCap, Text } from '../ui';
 
 /**
- * Merlin's key mode, the keys typed so far and the last message. After a
- * pause mid-sequence it lists the keys that can follow, like which-key.
+ * Merlin's key mode and the keys typed so far. After a pause mid-sequence it
+ * lists the keys that can follow, like which-key. Messages go to the HUD
+ * (Hud.tsx), which leaves on its own.
  */
 export function StatusLine() {
   const { modal } = useSnapshot();
-  const note = modal.pending || modal.message;
+  const note = modal.pending;
   const next = modal.whichKey ?? [];
   if (modal.mode === 'Normal' && !note && !next.length) return null;
   return <Box borderTop="toolbarDivider">
@@ -20,8 +21,7 @@ export function StatusLine() {
     </Box>}
     <Box row gap="md" padX="md" padY="xs">
       <Text variant="caption" weight="semibold" tone="textAccent">{modal.mode}</Text>
-      {!!note && <Text variant="caption" lines={1} flex={1}
-        tone={!modal.pending && modal.messageIsError ? 'textDanger' : undefined}>{note}</Text>}
+      {!!note && <Text variant="caption" lines={1} flex={1}>{note}</Text>}
     </Box>
   </Box>;
 }

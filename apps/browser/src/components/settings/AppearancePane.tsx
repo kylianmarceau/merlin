@@ -8,7 +8,7 @@ import type { Preferences, PreferenceKey } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import {
   Button, FormGroup, FormRow, GlassFill, GlassScope, PictureChoice, PopUp, Segmented, Slider, Text, Toggle, accentSwatch,
-  geometry, radius, space, toolbarColorLabels, toolbarColors, useTheme,
+  geometry, radius, space, toolbarColorLabels, toolbarColors, useLit, useTheme,
 } from '../ui';
 import { Swatch, ThemeChoice } from './Previews';
 
@@ -85,10 +85,8 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
     </Section>
 
     <Section title="Tabs">
+      {p && <TabPositionRow tabs={p.tabs} onChange={tabs => set('tabs', tabs)} />}
       <FormGroup>
-        {p && <FormRow title="Tab position" detail="Down the side or across the top. Command-S hides them either way.">
-          <Segmented label="Tab position" value={p.tabs} onChange={tabs => set('tabs', tabs)}
-            options={[{ value: 'side', label: 'Sidebar' }, { value: 'top', label: 'Top' }]} /></FormRow>}
         {top && <FormRow title="Site colour" detail="The active tab and toolbar take the site's colour. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white.">
           <Segmented label="Site colour" value={prefs.toolbarColor} onChange={style => void setToolbarColor(style)}
             options={toolbarColors.map(value => ({ value, label: toolbarColorLabels[value] }))} /></FormRow>}
@@ -187,8 +185,10 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
 }
 
 function Section({ title, detail, children }: React.PropsWithChildren<{ title: string; detail?: string }>) {
+  const lit = useLit(title);
   return <View style={{ gap: space.md, marginBottom: space.lg }}>
-    <View style={{ gap: space.hair }}>
+    <View ref={lit.ref} style={{ gap: space.hair }}>
+      {lit.glow}
       <Text variant="title">{title}</Text>
       {!!detail && <Text variant="label" weight="regular" tone="textSecondary">{detail}</Text>}
     </View>
@@ -240,6 +240,37 @@ function AddressBarChoice({ place, selected, onPress }: { place: 'toolbar' | 'si
           {place === 'toolbar' && <View style={[pill, { height: space.xs + space.hair }]} />}
         </View>
       </View>
+    </View>
+  </PictureChoice>;
+}
+
+/** Tab position as two small windows, like the theme and address bar choices: tabs down the side or across the top. */
+function TabPositionRow({ tabs, onChange }: { tabs: Preferences['tabs']; onChange(tabs: Preferences['tabs']): void }) {
+  const lit = useLit('Tab position');
+  return <View ref={lit.ref} style={{ gap: space.sm }}>
+    {lit.glow}
+    <Text variant="label" weight="regular" tone="textSecondary">Tab position: down the side or across the top. Command-S hides them either way.</Text>
+    <View accessibilityRole="radiogroup" accessibilityLabel="Tab position" style={{ flexDirection: 'row', gap: space.xl, marginBottom: space.sm }}>
+      <TabPositionChoice place="side" selected={tabs !== 'top'} onPress={() => onChange('side')} />
+      <TabPositionChoice place="top" selected={tabs === 'top'} onPress={() => onChange('top')} />
+    </View>
+  </View>;
+}
+
+function TabPositionChoice({ place, selected, onPress }: { place: 'side' | 'top'; selected: boolean; onPress(): void }) {
+  const { colors } = useTheme();
+  const tab = (active: boolean) => ({ borderRadius: radius.xs, backgroundColor: colors[active ? 'contentBackground' : 'fillShellControl'] });
+  return <PictureChoice title={place === 'side' ? 'Sidebar' : 'Top'} selected={selected} onPress={onPress}>
+    <View style={{ flex: 1, alignSelf: 'stretch', flexDirection: place === 'side' ? 'row' : 'column', padding: space.sm, gap: space.sm,
+      backgroundColor: colors.shellTint }}>
+      {place === 'side'
+        ? <View style={{ width: space.xxl + space.sm, gap: space.xs }}>
+          {[1, 0, 0].map((active, i) => <View key={i} style={[tab(!!active), { height: space.sm }]} />)}
+        </View>
+        : <View style={{ flexDirection: 'row', gap: space.xs, height: space.sm, paddingLeft: space.lg }}>
+          {[1, 0, 0].map((active, i) => <View key={i} style={[tab(!!active), { width: space.xl }]} />)}
+        </View>}
+      <View style={{ flex: 1, borderRadius: radius.sm, backgroundColor: colors.contentBackground }} />
     </View>
   </PictureChoice>;
 }

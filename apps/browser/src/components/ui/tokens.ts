@@ -47,7 +47,7 @@ export const geometry = {
   /** Peek's card over the page: its header. */
   peekHeader: 44,
   /** A tooltip's widest; a tab's hover card; the strip at the window's edge that brings hidden tabs in, and the room they keep around them. */
-  tooltip: 280, hoverCard: 260, edgeStrip: 3, peekSlack: 40, resizeHandle: 6, engineBadge: 11,
+  tooltip: 280, hoverCard: 260, edgeStrip: 3, edgeStripWide: 8, peekSlack: 40, resizeHandle: 6, engineBadge: 11,
   /** A title's run before it fades: wider than any row, so the fade, not the text layout, ends it. */
   titleRun: 640,
   /** The downloads button's progress ring, the page-loading bar under the address, and the icon that flies to the button. */
@@ -56,8 +56,10 @@ export const geometry = {
   tearOff: 24,
   /** A drop zone's dashed edge: how far inside the card it is drawn, and how thick, at rest and under the tab; the card's own edge. */
   dropZoneInset: 9.5, dropZoneDash: 2, dropZoneDashActive: 2.33, dropZoneEdge: 0.5,
-  sheetWidth: 840, sheetHeight: 640, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
+  sheetWidth: 840, sheetHeight: 640, sheetTall: 780, sheetNav: 208, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
   suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, paintWidth: 400, paintHeight: 172, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
+  /** A HUD's capsule, and how far below the window's top it sits. */
+  hud: 36, hudTop: 16,
 } as const;
 
 /** Layer order inside the window, lowest first. */
@@ -515,6 +517,13 @@ const glassCurve = { solid: 0.95, middle: 0.5, tintAlpha: 0.25, accentShare: 0.5
  * page in dark mode (or a dark page in light mode) left its text grey on grey.
  */
 export const legibleGlass = 0.72;
+/**
+ * The least colour layer an anchored popover's glass takes: enough that a
+ * saturated page (Hacker News's orange bar) no longer smears through its
+ * text, and that dark-mode text keeps its contrast, while it still reads as
+ * glass at the clear end of Transparency.
+ */
+export const anchoredGlass = 0.82;
 const glassBase = { light: ink[0], dark: ink[850] } as const;
 const controlAlpha = { rest: 0, lit: 0.05, pressed: 0.1, active: 0.22 } as const;
 export type GlassState = keyof typeof controlAlpha;

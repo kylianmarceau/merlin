@@ -85,7 +85,7 @@ export function IconButton({ label, icon, variant = 'ghost', selected, size = 'r
     onAccessibilityTap={accessibilityPress(rest.onPress, disabled)}
     onHoverIn={e => { handlers.onHoverIn(); tooltip.enter(); rest.onHoverIn?.(e); }}
     onHoverOut={e => { handlers.onHoverOut(); tooltip.leave(); rest.onHoverOut?.(e); }}
-    onPressIn={e => { setPressed(true); tooltip.leave(); if (onFrame) report(); rest.onPressIn?.(e); }}
+    onPressIn={e => { setPressed(true); tooltip.press(); if (onFrame) report(); rest.onPressIn?.(e); }}
     onPressOut={e => { setPressed(false); rest.onPressOut?.(e); }}
     style={({ pressed: down }) => ({
       width: side, height: side, borderRadius: radius.control, alignItems: 'center', justifyContent: 'center',

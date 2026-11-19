@@ -3,7 +3,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { connectEngine } from '../platform/engine';
-import { copyText, releaseVersion } from '../platform/shell';
+import { copyText, onMenuCommand, releaseVersion, setMenuState } from '../platform/shell';
+import { setShellPref } from './shellPrefsStorage';
+import { shellPrefs, useShellPrefs } from './shellPrefs';
 import type { Request, Requests } from '../platform/protocol';
 import { settle, type ActionResult } from '../lib/result';
 import { createActions, type Actions } from './actions';
@@ -183,4 +185,49 @@ export function useAction() {
     return result;
   }, [actions]);
   return { run, error, busy, clearError: () => setError(null) };
+}
+
+/**
+ * Merlin's items in the menu bar's View menu (tabs in the sidebar or on top,
+ * hide tabs, split view, the address in the toolbar): this window keeps
+ * their checkmarks while it is in front and carries out the ones chosen
+ * while it is, or while it is the only window.
+ */
+export function useViewMenu() {
+  const { store, actions } = useWindow();
+  const key = useStore(store, s => s.windowKey);
+  const top = useStore(store, s => s.snapshot?.modal.tabLayout === 'top');
+  const hidden = useStore(store, s => !!s.snapshot?.modal.sidebarHidden);
+  const split = useStore(store, s => !!s.snapshot?.tabs.find(t => t.id === s.snapshot?.activeTabId)?.split);
+  const partner = useStore(store, s => s.recentTabs.find(id => id !== s.snapshot?.activeTabId && s.snapshot?.tabs.some(t => t.id === id)) ?? null);
+  const addressInToolbar = useShellPrefs(p => p.addressBar === 'toolbar');
+  const front = () => store.getState().windowKey || open.length === 1;
+  useEffect(() => {
+    if (key || open.length === 1) setMenuState({ window: true, top, hidden, split, canSplit: !!partner, addressInToolbar });
+  }, [key, top, hidden, split, partner, addressInToolbar]);
+  useEffect(() => {
+    const listener = onMenuCommand(id => {
+      if (!front()) return;
+      const s = store.getState().snapshot;
+      const active = s?.tabs.find(t => t.id === s.activeTabId);
+      switch (id) {
+        case 'tabs.side': case 'tabs.top':
+          void actions.request('settings.set', { key: 'tabs', value: id === 'tabs.top' ? 'top' : 'side' }).catch(() => undefined);
+          break;
+        case 'tabs.hide': void actions.command('sidebar'); break;
+        case 'split': {
+          if (!active) break;
+          if (active.split) { void actions.unsplitTab(active.id); break; }
+          const other = store.getState().recentTabs.find(t => t !== active.id && s?.tabs.some(x => x.id === t));
+          if (other) void actions.splitTab(other);
+          break;
+        }
+        case 'address.toolbar':
+          void setShellPref('addressBar', shellPrefs.getState().addressBar === 'toolbar' ? 'sidebar' : 'toolbar');
+          break;
+        default: break;
+      }
+    });
+    return () => listener.remove();
+  }, [store, actions]);  // eslint-disable-line react-hooks/exhaustive-deps
 }
