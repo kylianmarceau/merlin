@@ -170,6 +170,7 @@ enum MenuTidy {
     34049,  // IDC_NAME_WINDOW
     40022,  // IDC_MANAGE_EXTENSIONS
   ]
+  private static let fullScreenTag = 34030  // IDC_FULLSCREEN
   private static var observer: NSObjectProtocol?
 
   static func install() {
@@ -186,20 +187,35 @@ enum MenuTidy {
   }
 
   private static func tidy(_ menu: NSMenu) {
+    var touched = false
+    // AppKit adds its own Enter Full Screen to a View menu that already has Chromium's.
+    let chromiumFullScreen = menu.items.contains { $0.tag == fullScreenTag }
     for item in menu.items {
-      if hiddenTags.contains(item.tag) && !item.isHidden { item.isHidden = true }
+      let appKitFullScreen = chromiumFullScreen && item.tag != fullScreenTag
+        && item.action == #selector(NSWindow.toggleFullScreen(_:))
+      if hiddenTags.contains(item.tag) || appKitFullScreen {
+        if !item.isHidden { item.isHidden = true }
+        touched = true
+      }
       if let submenu = item.submenu { tidy(submenu) }
     }
-    // A separator left with nothing between it and the next one, or the end, goes too.
-    var lastVisibleWasSeparator = true
-    for item in menu.items where !item.isHidden || item.isSeparatorItem {
+    guard touched else { return }
+    // A separator with nothing left between it and the previous one, the
+    // start or the end of the menu goes too. Only in menus we took items
+    // from, so one that fills in later (History) keeps its separators.
+    var previousWasSeparator = true
+    var trailing: NSMenuItem?
+    for item in menu.items where !item.isHidden {
       if item.isSeparatorItem {
-        if lastVisibleWasSeparator && !item.isHidden { item.isHidden = true }
-        if !item.isHidden { lastVisibleWasSeparator = true }
+        if previousWasSeparator { item.isHidden = true; continue }
+        previousWasSeparator = true
+        trailing = item
       } else {
-        lastVisibleWasSeparator = false
+        previousWasSeparator = false
+        trailing = nil
       }
     }
+    trailing?.isHidden = true
   }
 }
 

@@ -84,8 +84,9 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
       </View>
       {/* A hairline under the heading once the list has scrolled under it, as in Dia. */}
       <ScrollEdge shown={list.scrolled} />
-      <View ref={list.frame} style={{ flex: 1 }}>
+      <View ref={list.frame} style={{ flex: 1 }} onLayout={list.check}>
         <ScrollView ref={list.scroll} style={{ flex: 1 }} onScroll={list.onScroll} scrollEventThrottle={32}
+          onContentSizeChange={list.check}
           onScrollBeginDrag={actions.closeHoverCard}
           contentContainerStyle={{ gap: geometry.hairline, paddingBottom: space.md, flexGrow: 1 }}>
           <NewTabRow pending={pending} onPress={actions.openNewTab} keys={newTab.keys} />
@@ -131,7 +132,9 @@ function useActiveRowPointer(activeId: string | null) {
   }, []);
   useEffect(check, [activeId, check]);
   return {
-    scroll, frame, scrolled, away,
+    // Measured again whenever the list or its rows move (bookmarks loading
+    // above it, the sidebar sliding in), not only when the active tab changes.
+    scroll, frame, scrolled, away, check,
     onActive: useCallback((view: View | null) => { row.current = view; check(); }, [check]),
     onScroll: useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
       offset.current = e.nativeEvent.contentOffset.y;

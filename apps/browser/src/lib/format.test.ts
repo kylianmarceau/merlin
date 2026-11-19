@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addressParts, displayAddress, displayHost, downloadLine, fileExtension, formatBytes, formatDay, isStartUrl, leftToRight, overallProgress, percent } from './format';
+import { addressParts, displayAddress, displayHost, downloadLine, fileExtension, formatBytes, formatDay, isStartUrl, leftToRight, overallProgress, pageTitle, percent } from './format';
 
 test('hosts and addresses read the way a person would say them', () => {
   assert.equal(displayHost('https://www.example.com:8443/a?b'), 'example.com');
@@ -10,6 +10,10 @@ test('hosts and addresses read the way a person would say them', () => {
 test('new tab pages are recognised in every spelling', () => {
   for (const url of ['', 'about:blank', 'chrome://newtab/', 'merlin://start']) assert.equal(isStartUrl(url), true);
   assert.equal(isStartUrl('https://example.com'), false);
+});
+test('an internal address standing in for a title is no title', () => {
+  for (const title of ['chrome://newtab', 'merlin://start', 'about:blank', undefined]) assert.equal(pageTitle(title), '');
+  assert.equal(pageTitle('Example Domain'), 'Example Domain');
 });
 test('days are relative when recent', () => {
   const now = new Date(2026, 10, 11, 12);

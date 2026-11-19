@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, View } from 'react-native';
-import { displayHost } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import { Panel, Text, geometry, radius, space, useInteraction, useTheme, Pressable } from '../ui';
 import { Favicon } from '../favicon/Favicon';
 import { perRow, shownCards, thumbnailsToRequest } from './switcherCards';
+import { tabTitle } from './TabRow';
 
 /**
  * Ctrl-Tab's cards, while Control is held: every tab of the window with the
@@ -59,7 +59,7 @@ export function TabSwitcher() {
 function Card({ tab, thumbnail, selected, onPress }: { tab: Tab; thumbnail: string | null; selected: boolean; onPress(): void }) {
   const { colors } = useTheme();
   const { hovered, handlers } = useInteraction();
-  return <Pressable accessibilityRole="button" accessibilityLabel={tab.title || tab.url} accessibilityState={{ selected }}
+  return <Pressable accessibilityRole="button" accessibilityLabel={tabTitle(tab)} accessibilityState={{ selected }}
     onPress={onPress} {...handlers}
     style={{ width: geometry.switcherCard, padding: space.xs, gap: space.xs, borderRadius: radius.field,
       borderWidth: geometry.focusRing, borderColor: colors[selected ? 'paletteSelected' : 'fillTransparent'],
@@ -74,7 +74,7 @@ function Card({ tab, thumbnail, selected, onPress }: { tab: Tab; thumbnail: stri
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>
       <Favicon tab={tab} />
       <Text variant="label" weight={selected ? 'semibold' : 'regular'} lines={1} style={{ flexShrink: 1 }}>
-        {tab.title || displayHost(tab.url) || 'New Tab'}
+        {tabTitle(tab)}
       </Text>
     </View>
   </Pressable>;

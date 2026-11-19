@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, View } from 'react-native';
-import { displayAddress, isStartUrl, leftToRight } from '../../lib/format';
+import { displayAddress, isStartUrl, leftToRight, pageTitle } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { awayFromHome } from '../../state/pinned';
 import { useShellPrefs } from '../../state/shellPrefs';
@@ -20,7 +20,7 @@ export const rowStep = geometry.tabRow + geometry.hairline;
 
 /** A tab's title, or its address as Chromium formats it, never the raw URL (which can carry a user name). */
 export function tabTitle(tab: Tab, fallback = 'New Tab') {
-  return isStartUrl(tab.url) ? 'New Tab' : tab.title || leftToRight(tab.displayUrl ?? displayAddress(tab.url)) || fallback;
+  return isStartUrl(tab.url) ? 'New Tab' : pageTitle(tab.title) || leftToRight(tab.displayUrl ?? displayAddress(tab.url)) || fallback;
 }
 
 /**

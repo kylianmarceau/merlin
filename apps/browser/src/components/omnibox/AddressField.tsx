@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TextInput, View } from 'react-native';
 import { promptChipLabel, promptIcon } from '../../lib/prompts';
-import { addressParts, displayHost, isStartUrl, leftToRight } from '../../lib/format';
+import { addressParts, displayHost, isStartUrl, leftToRight, pageTitle } from '../../lib/format';
 import { securityBadge } from '../../lib/security';
 import { currentSuggestions } from '../../state/store';
 import { useShellPrefs } from '../../state/shellPrefs';
@@ -114,8 +114,9 @@ export function AddressField({ variant = 'toolbar', compact = false, listens = t
   // stays quiet, as Chromium formats it: no user name, spoofed hosts in punycode.
   const { host: label, rest } = addressParts(tab ?? { url });
   // Dia's breadcrumb: "site / page title", until the pointer asks for the whole address.
-  const pageTitle = tab?.title && tab.title !== label && tab.title !== tab.displayUrl ? tab.title : '';
-  const crumb = !shell && !hovered && !!pageTitle;
+  const title = pageTitle(tab?.title);
+  const crumbTitle = title && title !== label && title !== tab?.displayUrl ? title : '';
+  const crumb = !shell && !hovered && !!crumbTitle;
   const page = !!tab && !start && /^(https?|file):/i.test(url);
   const bookmarks = useShellPrefs(p => p.showBookmarks);
   const insert = snapshot.modal.modalBrowsing !== false && snapshot.modal.mode === 'Insert';
@@ -160,7 +161,7 @@ export function AddressField({ variant = 'toolbar', compact = false, listens = t
         flexDirection: 'row', alignItems: 'center' }}>
         <Text weight="medium" lines={1} style={{ flexShrink: 0, maxWidth: '100%' }}>{leftToRight(label)}</Text>
         {crumb && <Text tone="textTertiary">{'  /  '}</Text>}
-        {crumb && <Text tone="textSecondary" lines={1} style={{ flexShrink: 1 }}>{pageTitle}</Text>}
+        {crumb && <Text tone="textSecondary" lines={1} style={{ flexShrink: 1 }}>{crumbTitle}</Text>}
         {!shell && !crumb && !!rest && <Text tone="textSecondary" lines={1} style={{ flexShrink: 1 }}>{leftToRight(rest)}</Text>}
       </View>}
     </View>
