@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { Pressable } from './Pressable';
 import { Icon } from './Icon';
 import { Text } from './Text';
 import { useTheme } from './theme';

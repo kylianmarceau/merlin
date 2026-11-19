@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Animated, Pressable, View } from 'react-native';
+import { Animated, View } from 'react-native';
+import { Pressable } from './Pressable';
 import { ContextMenuArea } from '../../platform/shell';
 import { useInteraction } from './interaction';
 import { useEased } from './motion';

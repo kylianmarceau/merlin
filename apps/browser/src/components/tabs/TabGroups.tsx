@@ -1,8 +1,8 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import type { Tab, TabGroup } from '../../state/types';
 import { useActions } from '../../state/window';
-import { ContextMenu, Icon, Text, geometry, groupColorRoles, radius, space, useInteraction, useTheme } from '../ui';
+import { ContextMenu, Icon, Text, geometry, groupColorRoles, radius, space, useInteraction, useTheme, Pressable } from '../ui';
 
 /** A run of tabs: one group's (in strip order), or tabs in no group. */
 export type TabBlock = { group: TabGroup | null; tabs: Tab[] };

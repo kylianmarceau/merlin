@@ -1,7 +1,7 @@
 // Every timing, curve and spring the shell animates with. This is the only
 // file allowed to use Easing or a numeric duration (see conventions.test.ts).
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing } from 'react-native';
+import { Animated, Easing, LayoutAnimation } from 'react-native';
 
 export const duration = {
   instant: 0,
@@ -10,6 +10,18 @@ export const duration = {
   slow: 220,
   /** How long a hover must rest before a tooltip-like hint appears. */
   hoverIntent: 350,
+  /** Rows wash in on hover almost at once and fade out more slowly, as in Dia. */
+  hoverIn: 50,
+  hoverOut: 200,
+  /**
+   * A tooltip or a tab's hover card waits this long under a still pointer;
+   * once one is showing, the next appears at once while the pointer moves
+   * on within `hoverWarm`, as in Dia.
+   */
+  hoverCard: 500,
+  hoverWarm: 300,
+  /** A press this long on Back or Forward shows the history. */
+  holdMenu: 450,
   /** How long a notice stays before it leaves on its own. */
   toast: 5000,
   /** The joined tab sliding to the newly active tab. */
@@ -60,7 +72,24 @@ export const curve = {
 export const spring = {
   snappy: { stiffness: 520, damping: 40, mass: 1 },
   gentle: { stiffness: 260, damping: 28, mass: 1 },
+  /** The sidebar hiding, showing and peeking: Dia's response 0.215 s, damping 0.79. */
+  sidebar: { stiffness: 854, damping: 46, mass: 1 },
 } as const;
+
+/**
+ * The next layout change animates as a list's rows do in Dia: a new row
+ * fades in while the rows below slide down over 0.14 s; a closed row fades
+ * out in 0.1 s while the rest close up. Call it just before the change.
+ */
+export function animateListChange(reduce: boolean) {
+  if (reduce) return;
+  LayoutAnimation.configureNext({
+    duration: 140,
+    create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity, duration: 100 },
+    update: { type: LayoutAnimation.Types.easeInEaseOut },
+    delete: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: 100 },
+  });
+}
 
 /** How each overlay moves between hidden (0) and shown (1). */
 export const presence = {
@@ -133,6 +162,60 @@ export function useEased(on: boolean, reduce: boolean) {
     return () => run.stop();
   }, [on, reduce, value]);
   return value;
+}
+
+/**
+ * A hover wash as an opacity: in over `duration.hoverIn`, out over
+ * `duration.hoverOut`, so a pointer sweeping down a list leaves a short trail.
+ */
+export function useHoverFade(on: boolean, reduce: boolean) {
+  const value = useRef(new Animated.Value(on ? 1 : 0)).current;
+  useEffect(() => {
+    const run = Animated.timing(value, { toValue: on ? 1 : 0, duration: reduce ? duration.instant : on ? duration.hoverIn : duration.hoverOut,
+      easing: on ? curve.enter : curve.exit, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
+  }, [on, reduce, value]);
+  return value;
+}
+
+
+/**
+ * The sidebar's width, springing between 0 and `width` as the tabs hide and
+ * show (Dia's spring). `shown` turns false once it has closed, so the
+ * sidebar can unmount.
+ */
+export function useSidebarSpring(open: boolean, width: number, reduce: boolean) {
+  const value = useRef(new Animated.Value(open ? width : 0)).current;
+  const [shown, setShown] = useState(open);
+  const last = useRef(open);
+  useEffect(() => {
+    if (open === last.current) { value.setValue(open ? width : 0); return; }
+    last.current = open;
+    if (open) setShown(true);
+    if (reduce) { value.setValue(open ? width : 0); if (!open) setShown(false); return; }
+    const run = Animated.spring(value, { toValue: open ? width : 0, ...spring.sidebar, useNativeDriver: false,
+      restDisplacementThreshold: 0.5, restSpeedThreshold: 0.5 });
+    run.start(({ finished }) => { if (finished && !open) setShown(false); });
+    return () => run.stop();
+  }, [open, width, reduce, value]);
+  return { width: value, shown: shown || open };
+}
+
+/** The peeking tabs sliding in from an edge: 0 hidden, 1 in place, on Dia's sidebar spring. */
+export function usePeekSpring(open: boolean, reduce: boolean) {
+  const value = useRef(new Animated.Value(open ? 1 : 0)).current;
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) setMounted(true);
+    if (reduce) { value.setValue(open ? 1 : 0); if (!open) setMounted(false); return; }
+    const run = open
+      ? Animated.spring(value, { toValue: 1, ...spring.sidebar, useNativeDriver: true, restDisplacementThreshold: 0.002, restSpeedThreshold: 0.002 })
+      : Animated.timing(value, { toValue: 0, duration: duration.base, easing: curve.exit, useNativeDriver: true });
+    run.start(({ finished }) => { if (finished && !open) setMounted(false); });
+    return () => run.stop();
+  }, [open, reduce, value]);
+  return { progress: value, mounted: mounted || open };
 }
 
 /** Calls `fn` after `ms`, restarting whenever `deps` change. */

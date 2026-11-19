@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { displayHost } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
-import { Panel, Text, geometry, radius, space, useInteraction, useTheme } from '../ui';
+import { Panel, Text, geometry, radius, space, useInteraction, useTheme, Pressable } from '../ui';
 import { Favicon } from '../favicon/Favicon';
 import { perRow, shownCards, thumbnailsToRequest } from './switcherCards';
 

@@ -1,13 +1,13 @@
 import React from 'react';
 import { Image, View } from 'react-native';
 import { liquidGlass } from '../../state/glass';
-import { GLASS_DEFAULTS, PAGE_FRAME, useShellPrefs } from '../../state/shellPrefs';
+import { GLASS_DEFAULTS, PAGE_FRAME, SIDEBAR_WIDTH, useShellPrefs } from '../../state/shellPrefs';
 import { setShellFollowsSite, setShellPref, setToolbarColor, setNewTabPopup } from '../../state/shellPrefsStorage';
 import { useAppIcons } from '../../state/system';
 import type { Preferences, PreferenceKey } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import {
-  FormGroup, FormRow, GlassFill, GlassScope, PictureChoice, PopUp, Segmented, Slider, Text, Toggle, accentSwatch,
+  Button, FormGroup, FormRow, GlassFill, GlassScope, PictureChoice, PopUp, Segmented, Slider, Text, Toggle, accentSwatch,
   geometry, radius, space, toolbarColorLabels, toolbarColors, useTheme,
 } from '../ui';
 import { Swatch, ThemeChoice } from './Previews';
@@ -97,6 +97,12 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
           <Toggle label="Tint the window with the site colour" value={prefs.shellFollowsSite} onChange={on => void setShellFollowsSite(on)} /></FormRow>}
         <FormRow title="Open new tabs as a pop-up" detail="Search over the current page; the tab opens once you choose where to go.">
           <Toggle label="Open new tabs as a pop-up" value={prefs.newTabPopup} onChange={on => void setNewTabPopup(on)} /></FormRow>
+        <FormRow title="New tabs open" detail="At the top puts a new tab above your other open tabs, as in Arc and Dia. Links you open keep their place.">
+          <Segmented label="New tabs open" value={prefs.newTabPosition} onChange={v => void setShellPref('newTabPosition', v)}
+            options={[{ value: 'end', label: 'At the end' }, { value: 'top', label: 'At the top' }]} /></FormRow>
+        {!top && prefs.sidebarWidth !== SIDEBAR_WIDTH.default && <FormRow title="Sidebar width"
+          detail={`${Math.round(prefs.sidebarWidth)} points. Drag the sidebar's edge to change it.`}>
+          <Button label="Reset" size="small" onPress={() => void setShellPref('sidebarWidth', SIDEBAR_WIDTH.default)} /></FormRow>}
         {p && <FormRow title="Default page zoom"><Segmented label="Default zoom" value={p.zoom} onChange={zoom => set('zoom', zoom)}
           options={p.zoomChoices.filter(z => z >= 75 && z <= 150).map(z => ({ value: z, label: `${z}%` }))} /></FormRow>}
       </FormGroup>
@@ -105,13 +111,18 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
     <Section title="Bookmarks">
       <FormGroup>
         <FormRow title="Show bookmarks"
-          detail="Off hides the bookmark button, the bookmarks bar and the Bookmarks menu, and the toolbar shows Copy Address instead. Your bookmarks stay.">
+          detail="Off hides the bookmark star, the bookmarks bar, the sidebar's Bookmarks and the Bookmarks menu. Your bookmarks stay.">
           <Toggle label="Show bookmarks" value={prefs.showBookmarks} onChange={on => void setShellPref('showBookmarks', on)} />
         </FormRow>
-        {prefs.showBookmarks && <FormRow title="Show bookmarks bar" detail="Below the toolbar: the Bookmarks bar folder.">
-          <Toggle label="Show bookmarks bar" value={prefs.bookmarksBar} onChange={on => void setShellPref('bookmarksBar', on)} />
+        {prefs.showBookmarks && <FormRow title="Bookmarks bar"
+          detail="The Bookmarks bar folder over the page, where the star saves. New Tab only shows it on new tabs and the start page.">
+          <Segmented label="Bookmarks bar" value={prefs.bookmarksBar} onChange={v => void setShellPref('bookmarksBar', v)}
+            options={[{ value: 'always', label: 'Always' }, { value: 'newTab', label: 'New Tab only' }, { value: 'never', label: 'Never' }]} />
         </FormRow>}
-        {prefs.showBookmarks && <FormRow title="Size" detail="Large makes the bar, its icons and its text bigger.">
+        {prefs.showBookmarks && !top && <FormRow title="Bookmarks in the sidebar" detail="The Bookmarks bar folder under your pinned tabs.">
+          <Toggle label="Bookmarks in the sidebar" value={prefs.sidebarBookmarks} onChange={on => void setShellPref('sidebarBookmarks', on)} />
+        </FormRow>}
+        {prefs.showBookmarks && prefs.bookmarksBar !== 'never' && <FormRow title="Size" detail="Large makes the bar, its icons and its text bigger.">
           <PopUp label="Bookmarks bar size" value={prefs.bookmarksBarSize}
             options={[{ value: 'default', title: 'Default' }, { value: 'large', title: 'Large' }]}
             onChange={v => void setShellPref('bookmarksBarSize', v)} />

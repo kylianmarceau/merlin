@@ -30,7 +30,7 @@ export function DownloadsButton() {
     ? `Downloads, ${count} in progress${progress === null ? '' : `, ${Math.round(progress * 100)}%`}`
     : 'Downloads';
   return <Animated.View style={{ transform: [{ scale: nudge }] }}>
-    <IconButton label={label} icon={ring ? 'arrow.down' : 'arrow.down.to.line'}
+    <IconButton label={label} tip="Downloads" keys={['⌥', '⌘', 'L']} icon={ring ? 'arrow.down' : 'arrow.down.to.line'}
       selected={popover === 'downloads'} selectedFill="fillShellControl" onFrame={frame => actions.setAnchor('downloads', frame)}
       onPress={() => actions.togglePopover('downloads')} />
     {ring && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center',
@@ -46,11 +46,22 @@ export function DownloadsButton() {
 /** The command menu, the Library and Settings, wherever the tabs are. */
 export function LibraryButtons() {
   const actions = useActions();
+  const modal = useSnapshot().modal.modalBrowsing !== false;
   return <>
-    <IconButton label="Command menu" icon="command" onPress={() => void actions.command('palette menu')} />
-    <IconButton label="Library" icon="books.vertical" onPress={() => actions.openPanel('history')} />
-    <IconButton label="Settings" icon="gearshape" onPress={() => actions.openPanel('settings')} />
+    <IconButton label="Command menu" tipDetail={modal ? 'Normal mode: M' : undefined} icon="command"
+      onPress={() => void actions.command('palette menu')} />
+    <IconButton label="Library" tip="History, bookmarks and downloads" keys={['⌘', 'Y']} icon="books.vertical"
+      onPress={() => actions.openPanel('history')} />
+    <IconButton label="Settings" keys={['⌘', ',']} icon="gearshape" onPress={() => actions.openPanel('settings')} />
   </>;
+}
+
+/** Merlin's workspaces (saved sets of tabs), from the sidebar as Arc's spaces are. */
+function WorkspacesButton() {
+  const actions = useActions();
+  const modal = useSnapshot().modal.modalBrowsing !== false;
+  return <IconButton label="Workspaces" tipDetail={modal ? 'Normal mode: gw' : undefined} icon="rectangle.stack"
+    onPress={() => void actions.command('workspace')} />;
 }
 
 /** The extensions button; in the sidebar layout it lives here, as the card has no toolbar. */
@@ -63,11 +74,17 @@ export function ExtensionsButton() {
     onPress={() => actions.togglePopover('extensions')} />;
 }
 
-/** The bottom of the sidebar: downloads on the left, the rest on the right. */
+/**
+ * The bottom of the sidebar, as quiet as Dia's: downloads on the left only
+ * while there are some (the Library has them all), the rest on the right.
+ */
 export function SidebarFooter() {
+  const downloads = useSnapshot().downloads.length > 0;
+  const open = useBrowser(s => s.popover === 'downloads');
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
-    <DownloadsButton />
+    {(downloads || open) && <DownloadsButton />}
     <View style={{ flex: 1 }} />
+    <WorkspacesButton />
     <ExtensionsButton />
     <LibraryButtons />
   </View>;

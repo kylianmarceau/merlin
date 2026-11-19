@@ -16,6 +16,7 @@ import { NewTabPopup } from '../start/NewTabPopup';
 import { GroupNameDialog } from '../tabs/GroupNameDialog';
 import { TabDropOverlay } from '../tabs/TabDropOverlay';
 import { TabSwitcher } from '../tabs/TabSwitcher';
+import { HoverCardOverlay } from '../tabs/HoverCard';
 
 /**
  * Everything drawn over the window, in fixed layers: sheets, then dialogs,
@@ -51,6 +52,7 @@ export function Overlays() {
     </Layer>
     <Layer level="popover">
       <TabDropOverlay />
+      {!shown.panel && !shown.palette && <HoverCardOverlay />}
       <PromptOverlay shown={shown.prompt} />
       <Suggestions />
       <Popover open={shown.popover === 'extensions'} anchor={anchors.extensions} bounds={bounds} placement={place(anchors.extensions)}

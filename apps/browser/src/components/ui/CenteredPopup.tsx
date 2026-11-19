@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
+import { Pressable } from './Pressable';
 import { Icon, type SymbolName } from './Icon';
 import { KeyCap } from './KeyCap';
 import { Panel } from './Panel';

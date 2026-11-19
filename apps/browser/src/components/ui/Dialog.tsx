@@ -1,5 +1,6 @@
 import React from 'react';
-import { Animated, Pressable, ScrollView, View } from 'react-native';
+import { Animated, ScrollView, View } from 'react-native';
+import { Pressable } from './Pressable';
 import { RoundButton } from './Button';
 import { type SymbolName } from './Icon';
 import { presenceStyle, useLatest, usePresence } from './motion';

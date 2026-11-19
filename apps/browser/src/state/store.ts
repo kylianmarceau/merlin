@@ -15,6 +15,8 @@ export type PopoverName = 'extensions' | 'downloads';
 /** Places popovers attach to. Toolbar and sidebar controls report their frames; `page` is where pages show, for dropping tabs. */
 export type AnchorName = 'site' | 'requests' | 'extensions' | 'downloads' | 'address' | 'page';
 export type Rect = { x: number; y: number; width: number; height: number };
+/** A tab's hover card: which tab, where its row or tile is in the window, and which side the card opens on. */
+export type HoverCard = { tabId: string; anchor: Rect; side: 'right' | 'below' };
 /** Naming a tab group: a new one for `tabId`, or renaming `groupId`. */
 export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string };
 /** A notice; `action` adds one button to it ("View" on an update). */
@@ -48,6 +50,12 @@ export type BrowserState = {
   /** Tabs most recently active first, for the tab a dragged tab splits with when it is the only one on screen. */
   recentTabs: string[];
   groupDialog: GroupDialog | null;
+  /** The card over a hovered tab (title, address, actions), as in Dia and Ardia. */
+  hoverCard: HoverCard | null;
+  /** The hidden tabs, slid in over the page because the pointer reached the window's edge. */
+  peeking: boolean;
+  /** Where each pinned tab started, by tab: its tile offers to go back there once it has navigated away. */
+  pinnedHomes: Record<string, { url: string; title: string }>;
   /** Tests only: the window's interface fails as it next draws, to show its error boundary. */
   failInRender: boolean;
 };
@@ -56,7 +64,8 @@ export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [],
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, panes: {}, recentTabs: [], groupDialog: null, failInRender: false,
+    downloadLandings: 0, tabDrag: null, panes: {}, recentTabs: [], groupDialog: null, hoverCard: null, peeking: false, pinnedHomes: {},
+    failInRender: false,
   };
 }
 
@@ -84,8 +93,34 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
   const engineSnapshot = current ? shareUnchanged(current, next) : next;
   const recentTabs = rememberActive(store.getState().recentTabs, next.activeTabId, next.tabs.map(t => t.id));
   if (timing) snapshotAccepted.set(store, { revision: next.revision, at, tabs: next.tabs.length });
-  store.setState({ engineSnapshot, snapshot: store.overlay(engineSnapshot), connectionError: null, recentTabs });
+  const snapshot = store.overlay(engineSnapshot);
+  const state = store.getState();
+  const pinnedHomes = rememberPinnedHomes(state.pinnedHomes, snapshot.tabs);
+  // A card for a tab that closed, or a peek with the tabs shown again, goes.
+  const hoverCard = state.hoverCard && snapshot.tabs.some(t => t.id === state.hoverCard?.tabId) ? state.hoverCard : null;
+  const peeking = state.peeking && !!snapshot.modal.sidebarHidden;
+  store.setState({ engineSnapshot, snapshot, connectionError: null, recentTabs, pinnedHomes, hoverCard, peeking });
 }
+
+/**
+ * Each pinned tab's page when it was first seen pinned (pinned in this
+ * window, or restored pinned); unpinned and closed tabs are forgotten. The
+ * same object comes back when nothing changed.
+ */
+export function rememberPinnedHomes(homes: BrowserState['pinnedHomes'], tabs: Snapshot['tabs']): BrowserState['pinnedHomes'] {
+  const next: BrowserState['pinnedHomes'] = {};
+  let changed = false;
+  for (const tab of tabs) {
+    if (!tab.pinned) continue;
+    const home = homes[tab.id] ?? (tab.url && !isBlank(tab.url) ? { url: tab.url, title: tab.title } : undefined);
+    if (!home) continue;
+    next[tab.id] = home;
+    if (home !== homes[tab.id]) changed = true;
+  }
+  if (!changed && Object.keys(next).length === Object.keys(homes).length) return homes;
+  return next;
+}
+const isBlank = (url: string) => url === 'about:blank' || /^(chrome|merlin):\/\//.test(url);
 
 /** Shows the snapshot again after the overlay's own state changed. */
 export function refreshOverlay(store: BrowserStore) {

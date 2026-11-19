@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, View } from 'react-native';
+import { PanResponder, View } from 'react-native';
+import { Pressable } from './Pressable';
 import { showMenu } from '../../platform/shell';
 import { Icon } from './Icon';
 import { useInteraction } from './interaction';

@@ -13,6 +13,9 @@ export type ScrollBars = 'system' | 'thin';
 export type BarSize = 'default' | 'large';
 export type SearchPreference = 'website' | 'search';
 export type UpdateChannel = 'stable' | 'beta';
+/** When the bookmarks bar shows under the toolbar or over the page: Dia's and Ardia's three choices. */
+export type BookmarksBarWhen = 'always' | 'newTab' | 'never';
+export type NewTabPosition = 'end' | 'top';
 
 export type ShellPrefs = {
   /** New tabs start as a pop-up over the current page instead of a page of their own. */
@@ -41,8 +44,17 @@ export type ShellPrefs = {
   compactToolbar: boolean;
   // Appearance › Bookmarks.
   showBookmarks: boolean;
-  bookmarksBar: boolean;
+  bookmarksBar: BookmarksBarWhen;
   bookmarksBarSize: BarSize;
+  /** The sidebar shows the Bookmarks bar folder under the pinned tabs. */
+  sidebarBookmarks: boolean;
+  /** That section is folded to its heading. */
+  sidebarBookmarksFolded: boolean;
+  // Appearance › Tabs.
+  /** The sidebar's width in points, dragged at its edge. */
+  sidebarWidth: number;
+  /** Where Command-T and the New Tab buttons open a tab; Chromium reads MerlinShell.newTabPosition itself. */
+  newTabPosition: NewTabPosition;
   // Appearance › Page frame.
   borderlessMode: boolean;
   /** Points between the page and the window's edges. */
@@ -62,6 +74,7 @@ export type ShellPrefs = {
 };
 
 export const PAGE_FRAME = { min: 0, max: 12, default: 8 } as const;
+export const SIDEBAR_WIDTH = { min: 200, max: 400, default: 252 } as const;
 export const GLASS_DEFAULTS = { tintAmount: 0.8, transparency: 0.5 } as const;
 
 export const defaultShellPrefs: ShellPrefs = {
@@ -69,7 +82,8 @@ export const defaultShellPrefs: ShellPrefs = {
   interfaceStyle: 'glass', glassTintWithTheme: false, glassTintAmount: GLASS_DEFAULTS.tintAmount,
   glassTransparency: GLASS_DEFAULTS.transparency,
   addressBar: 'sidebar', commandBarPlacement: 'field', compactToolbar: false,
-  showBookmarks: true, bookmarksBar: false, bookmarksBarSize: 'default',
+  showBookmarks: true, bookmarksBar: 'newTab', bookmarksBarSize: 'default', sidebarBookmarks: true, sidebarBookmarksFolded: false,
+  sidebarWidth: SIDEBAR_WIDTH.default, newTabPosition: 'end',
   borderlessMode: false, pageFrame: PAGE_FRAME.default, pageFrameZeroInFullScreen: false, pageFrameZeroWhenTabsHidden: false,
   selectedTabGlow: 'soft', pageScrollBars: 'system',
   warnBeforeQuitting: false, warnBeforeClosingWindow: true, searchPreference: 'website',

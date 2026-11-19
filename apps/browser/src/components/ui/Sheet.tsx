@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, ScrollView, View } from 'react-native';
+import { Animated, ScrollView, View } from 'react-native';
+import { Pressable } from './Pressable';
 import { IconButton } from './Button';
 import { Icon, type SymbolName } from './Icon';
 import { useInteraction } from './interaction';

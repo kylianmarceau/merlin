@@ -1,7 +1,9 @@
 import React from 'react';
-import { Pressable, View, type PressableProps } from 'react-native';
+import { View, type PressableProps } from 'react-native';
+import { Pressable } from './Pressable';
 import { Icon, type SymbolName } from './Icon';
-import { useInteraction } from './interaction';
+import { accessibilityPress, useInteraction } from './interaction';
+import { useTooltip, type TooltipSpec } from './Tooltip';
 import { Text } from './Text';
 import { useTheme } from './theme';
 import { geometry, opacity, radius, space, type ColorRole } from './tokens';
@@ -29,7 +31,7 @@ export function Button({ label, variant = 'secondary', icon, trailingIcon, size 
   const { hovered, focused, handlers } = useInteraction();
   const height = size === 'large' ? geometry.controlLarge : size === 'small' ? geometry.control - space.hair : geometry.button;
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled, selected }}
-    disabled={disabled} {...handlers} {...rest}
+    disabled={disabled} {...handlers} {...rest} onAccessibilityTap={accessibilityPress(rest.onPress, disabled)}
     style={({ pressed }) => ({
       minHeight: height, paddingHorizontal: size === 'small' ? space.md : space.md + space.hair, borderRadius: radius.pill,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xs + space.hair,
@@ -51,21 +53,30 @@ export type IconButtonProps = Omit<PressableProps, 'style' | 'children'> & {
   selectedFill?: ColorRole;
   /** Reports the button's frame in the window, for anchoring a popover. */
   onFrame?: (frame: { x: number; y: number; width: number; height: number }) => void;
+  /** Its tooltip: the label unless given, its shortcut as `keys`, `false` for none. */
+  tip?: string | false;
+  keys?: string[];
+  tipDetail?: string;
 };
 
 /** A square icon button; its label is read by VoiceOver. */
 export function IconButton({ label, icon, variant = 'ghost', selected, size = 'regular', tone, selectedFill = 'fillSelected', disabled,
-  onFrame, ...rest }: IconButtonProps) {
+  onFrame, tip, keys, tipDetail, ...rest }: IconButtonProps) {
   const { colors } = useTheme();
   const look = looks[variant];
   const { hovered, focused, handlers } = useInteraction();
   const ref = React.useRef<View>(null);
+  const spec: TooltipSpec | null = tip === false ? null : { text: tip ?? label, keys, detail: tipDetail };
+  const tooltip = useTooltip(spec, ref);
   const side = size === 'small' ? geometry.control - space.sm : size === 'compact' ? geometry.controlCompact : geometry.control;
   const report = () => ref.current?.measureInWindow((x, y, width, height) => onFrame?.({ x, y, width, height }));
   // Buttons look the same with Glass as with Classic: no glass plate around them.
   return <Pressable ref={ref} onLayout={onFrame ? report : undefined} accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={{ disabled: !!disabled, selected }} disabled={disabled} {...handlers} {...rest}
-    onPressIn={e => { if (onFrame) report(); rest.onPressIn?.(e); }}
+    onAccessibilityTap={accessibilityPress(rest.onPress, disabled)}
+    onHoverIn={e => { handlers.onHoverIn(); tooltip.enter(); rest.onHoverIn?.(e); }}
+    onHoverOut={e => { handlers.onHoverOut(); tooltip.leave(); rest.onHoverOut?.(e); }}
+    onPressIn={e => { tooltip.leave(); if (onFrame) report(); rest.onPressIn?.(e); }}
     style={({ pressed }) => ({
       width: side, height: side, borderRadius: radius.control, alignItems: 'center', justifyContent: 'center',
       backgroundColor: colors[selected ? selectedFill : pressed ? look.pressed : hovered ? look.hover : look.fill],
@@ -86,7 +97,7 @@ export function RoundButton({ label, icon, soft = false, disabled, onPress }: {
   const { colors } = useTheme();
   const { hovered, focused, handlers } = useInteraction();
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled }}
-    disabled={disabled} onPress={onPress} {...handlers}
+    disabled={disabled} onPress={onPress} {...handlers} onAccessibilityTap={accessibilityPress(onPress, disabled)}
     style={({ pressed }) => ({
       width: geometry.round, height: geometry.round, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',
       backgroundColor: colors[soft ? (hovered ? 'fillControlHover' : 'roundSoft') : 'roundFill'],

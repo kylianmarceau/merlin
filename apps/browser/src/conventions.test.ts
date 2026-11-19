@@ -72,6 +72,13 @@ test('shadows and overlays use the shell, not React Native defaults', () => {
   assert.deepEqual(violations(/<Modal\b|\bModal\s*[,}]/, p => p.startsWith('components/') || p === 'App.tsx'), []);
 });
 
+test('controls press with the shell\'s Pressable, which VoiceOver can press', () => {
+  const found = sources.filter(s => s.path.startsWith('components/') && s.path !== 'components/ui/Pressable.tsx')
+    .filter(s => imports(s.text).some(i => i.from === 'react-native') && /import[^;]*\bPressable\b[^;]*from 'react-native'/.test(s.text))
+    .map(s => s.path);
+  assert.deepEqual(found, []);
+});
+
 test('only platform/ imports native packages', () => {
   const native = /^(@merlin\/|expo-modules-core|expo$)/;
   const found = sources.filter(s => !s.path.startsWith('platform/'))
