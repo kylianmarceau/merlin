@@ -57,8 +57,9 @@ export const WindowDragRegion = view<ViewProps>('WindowDragRegion');
 /** Puts its React root in the macOS appearance for the shell's theme, so AppKit's own caret and menus match; "system" follows the window. */
 export const WindowAppearance = view<ViewProps & { appearanceMode: 'light' | 'dark' | 'system' }>('WindowAppearance');
 
-export type OutsidePressEvent = NativeSyntheticEvent<{ reason: 'press' | 'blur' }>;
-export const OutsidePress = view<ViewProps & { onOutsidePress(event: OutsidePressEvent): void }>('OutsidePress');
+export type OutsidePressEvent = NativeSyntheticEvent<{ reason: 'press' | 'blur' | 'escape' }>;
+/** Reports presses outside it (also on the page), the window losing focus and, with `closesOnEscape`, Escape typed anywhere in the window while it is the newest such area. */
+export const OutsidePress = view<ViewProps & { onOutsidePress(event: OutsidePressEvent): void; closesOnEscape?: boolean }>('OutsidePress');
 
 export const ContextMenuArea = view<ViewProps & { onContextMenu(): void }>('ContextMenuArea');
 
@@ -94,13 +95,20 @@ export type PopoverBubbleProps = ViewProps & {
 export const PopoverBubble = view<PopoverBubbleProps>('PopoverBubble');
 
 export type FullScreenEvent = NativeSyntheticEvent<{ fullScreen: boolean }>;
-/** Reports whether its window is in macOS full screen. */
-export const WindowState = view<ViewProps & { onFullScreen(event: FullScreenEvent): void; windowButtons?: boolean }>('WindowState');
+/** Whether the window is in front, and which of its edges touch the screen's. */
+export type WindowStateEvent = NativeSyntheticEvent<{ key: boolean; leftEdge: boolean; topEdge: boolean }>;
+/** Reports whether its window is in macOS full screen, in front, and at the screen's edges; names the window. */
+export const WindowState = view<ViewProps & { onFullScreen(event: FullScreenEvent): void; onWindowState?(event: WindowStateEvent): void;
+  windowButtons?: boolean; windowTitle?: string }>('WindowState');
 
 export type MenuItem =
   | { id: string; title: string; enabled?: boolean; checked?: boolean; destructive?: boolean; symbol?: SymbolName }
   | { title: string; children: MenuItem[]; enabled?: boolean; symbol?: SymbolName }
   | { separator: true };
+/** alignment: a tick as something snaps into place; level: a limit reached; generic: anything else. */
+export type HapticKind = 'alignment' | 'level' | 'generic';
+/** An icon's colours: one dark colour, one light colour, a few greys, or colour. */
+export type IconTone = 'dark' | 'light' | 'mixed' | 'colour';
 export type LoginItemStatus = 'enabled' | 'requiresApproval' | 'notRegistered' | 'notFound';
 export type AppIconChoice = { id: string; name: string; preview: string };
 type NativeShell = {
@@ -125,7 +133,11 @@ type NativeShell = {
   traceEnabled(): boolean;
   trace(line: string): void;
   chooseSaveFile(name: string): Promise<string | null>;
+  haptic(kind: HapticKind): void;
+  imageTone(dataURL: string): Promise<IconTone | null>;
+  setMenuState(state: Record<string, boolean>): void;
   addListener(event: 'onPreferenceChanged', listener: (event: { key: string; value: string | null }) => void): { remove(): void };
+  addListener(event: 'onMenuCommand', listener: (event: { id: string }) => void): { remove(): void };
 };
 let shell: NativeShell | undefined;
 const native = () => (shell ??= requireNativeModule<NativeShell>('MerlinShell'));
@@ -180,4 +192,21 @@ export function preference(key: string): Promise<string | null> {
 export function setPreference(key: string, value: string | null): Promise<void> {
   shell ??= requireNativeModule<NativeShell>('MerlinShell');
   return shell.setPreference(key, value);
+}
+
+/** A tick on a Force Touch trackpad; nothing on other hardware or builds without it. */
+export function haptic(kind: HapticKind) {
+  try { native().haptic(kind); } catch { /* An older host: no haptics. */ }
+}
+/** Whether a page icon (a data URL) is all one dark or light colour. */
+export async function imageTone(dataURL: string): Promise<IconTone | null> {
+  try { return await native().imageTone(dataURL); } catch { return null; }
+}
+/** The front window's layout, for the checkmarks on Merlin's View menu items. */
+export function setMenuState(state: Record<string, boolean>) {
+  try { native().setMenuState(state); } catch { /* An older host: no View menu items. */ }
+}
+/** A View menu item of Merlin's was chosen ("tabs.side", "tabs.top", "tabs.hide", "split", "address.toolbar"). */
+export function onMenuCommand(listener: (id: string) => void) {
+  try { return native().addListener('onMenuCommand', e => listener(e.id)); } catch { return { remove() {} }; }
 }

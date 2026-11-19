@@ -24,8 +24,9 @@ public final class MerlinShellModule: Module {
     }
 
     // Settings › General and Appearance: system state the shell reads and sets.
-    Events("onPreferenceChanged")
+    Events("onPreferenceChanged", "onMenuCommand")
     OnCreate {
+      MerlinMenus.shared.onCommand = { [weak self] id in self?.sendEvent("onMenuCommand", ["id": id]) }
       AppIcons.restore()
       QuitGuard.shared.onSuppressed = { [weak self] in
         self?.sendEvent("onPreferenceChanged", ["key": "warnBeforeQuitting", "value": nil])
@@ -68,6 +69,20 @@ public final class MerlinShellModule: Module {
       NSPasteboard.general.setString(text, forType: .string)
     }.runOnQueue(.main)
     AsyncFunction("setAppIcon") { (id: String) in AppIcons.set(id) }.runOnQueue(.main)
+
+    // A tick on a Force Touch trackpad: a dragged tab finding a new place, a
+    // drop zone, a pin, the sidebar meeting its limit. Nothing elsewhere.
+    Function("haptic") { (kind: String) in
+      let pattern: NSHapticFeedbackManager.FeedbackPattern = kind == "level" ? .levelChange : kind == "generic" ? .generic : .alignment
+      DispatchQueue.main.async { NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now) }
+    }
+    // Whether a page icon is all one dark or one light colour, so the shell can
+    // draw it as a template on a background where it would vanish.
+    AsyncFunction("imageTone") { (url: String) -> String? in IconTone.tone(dataURL: url) }
+    // The menu bar's View menu items for Merlin's own layout (see MerlinMenus).
+    Function("setMenuState") { (state: [String: Bool]) in
+      DispatchQueue.main.async { MerlinMenus.shared.state = state; MerlinMenus.shared.install() }
+    }
 
     AsyncFunction("showMenu") { (items: [[String: Any]], promise: Promise) in
       let choice = MenuChoice()
@@ -132,6 +147,7 @@ public final class MerlinShellOutsidePressModule: Module {
     Name("MerlinShellOutsidePress")
     View(MerlinOutsidePress.self) {
       Events("onOutsidePress")
+      Prop("closesOnEscape") { (view, value: Bool) in view.closesOnEscape = value }
     }
   }
 }
@@ -211,8 +227,9 @@ public final class MerlinShellWindowStateModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MerlinShellWindowState")
     View(MerlinWindowState.self) {
-      Events("onFullScreen")
+      Events("onFullScreen", "onWindowState")
       Prop("windowButtons") { (view, value: Bool) in view.windowButtons = value }
+      Prop("windowTitle") { (view, value: String?) in view.windowTitle = value }
     }
   }
 }

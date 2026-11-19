@@ -178,6 +178,8 @@ enum MenuTidy {
     guard observer == nil else { return }
     observer = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { _ in
       tidy()
+      // Chromium fills its tab list as the menu opens; tidy what it added.
+      DispatchQueue.main.async { tidy() }
     }
   }
 
@@ -190,6 +192,10 @@ enum MenuTidy {
     var touched = false
     // AppKit adds its own Enter Full Screen to a View menu that already has Chromium's.
     let chromiumFullScreen = menu.items.contains { $0.tag == fullScreenTag }
+    for item in menu.items where item.title.hasPrefix("chrome://newtab") || item.title.hasPrefix("chrome://new-tab-page") {
+      // The Tab menu lists the window's tabs; a new tab has no title, and Chromium fell back to its raw address.
+      item.title = "New Tab"
+    }
     for item in menu.items {
       let appKitFullScreen = chromiumFullScreen && item.tag != fullScreenTag
         && item.action == #selector(NSWindow.toggleFullScreen(_:))
@@ -229,11 +235,19 @@ enum BookmarksMenu {
 // fullscreen, which Chromium reports in the snapshot).
 final class MerlinWindowState: ExpoView {
   let onFullScreen = EventDispatcher()
+  // Whether the window is in front (key), and which of its edges meet the
+  // screen's, so the hidden tabs' edge strip can be wider when they don't.
+  let onWindowState = EventDispatcher()
   private var observers: [NSObjectProtocol] = []
+  private var titleWatch: NSKeyValueObservation?
   // The traffic lights. Hidden while the tabs are, as in Dia, and shown again
   // when the tabs peek in from the edge. Never hidden in macOS full screen,
   // where they live in the menu bar's drop-down title bar.
   var windowButtons = true { didSet { applyButtons() } }
+  // The window's name in the Window menu and Mission Control: the front tab's
+  // title, as in Dia. Chromium names every window "Merlin" whenever a tab
+  // changes, so the name is put back each time it does.
+  var windowTitle: String? { didSet { applyTitle() } }
 
   private func applyButtons() {
     guard let window else { return }
@@ -243,24 +257,61 @@ final class MerlinWindowState: ExpoView {
     }
   }
 
+  private func applyTitle() {
+    guard let window, let title = windowTitle, !title.isEmpty, window.title != title else { return }
+    window.title = title
+  }
+
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
     observers.forEach(NotificationCenter.default.removeObserver)
     observers = []
+    titleWatch = nil
     guard let window else { return }
     for name in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
       observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
         self?.report()
         self?.applyButtons()
+        self?.reportState()
       })
+    }
+    for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.didMoveNotification,
+                 NSWindow.didResizeNotification, NSWindow.didChangeScreenNotification, NSApplication.didBecomeActiveNotification,
+                 NSApplication.didResignActiveNotification] {
+      let object: Any? = name.rawValue.hasPrefix("NSApplication") ? nil : window
+      observers.append(NotificationCenter.default.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
+        self?.reportState()
+      })
+    }
+    titleWatch = window.observe(\.title, options: [.new]) { [weak self] _, _ in
+      DispatchQueue.main.async { self?.applyTitle() }
     }
     report()
     applyButtons()
+    applyTitle()
+    reportState()
   }
 
   private func report() {
     onFullScreen(["fullScreen": window?.styleMask.contains(.fullScreen) ?? false])
   }
 
+  private var lastState: [String: Bool] = [:]
+  private func reportState() {
+    guard let window else { return }
+    let screen = (window.screen ?? NSScreen.main)?.visibleFrame ?? .zero
+    let frame = window.frame
+    let slack: CGFloat = 2
+    let state = [
+      "key": window.isKeyWindow && NSApp.isActive,
+      "leftEdge": frame.minX <= screen.minX + slack,
+      "topEdge": frame.maxY >= screen.maxY - slack,
+    ]
+    guard state != lastState else { return }
+    lastState = state
+    onWindowState(state)
+  }
+
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
+

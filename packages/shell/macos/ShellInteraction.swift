@@ -7,12 +7,20 @@ import ExpoModulesCore
 enum PressWatch {
   private static let regions = NSHashTable<MerlinWindowDragRegion>.weakObjects()
   private static let areas = NSHashTable<MerlinOutsidePress>.weakObjects()
+  // Areas in the order they joined their window, newest last: Escape closes the newest.
+  private static var stack: [Weak] = []
   private static var monitor: Any?
+  private static var keyMonitor: Any?
+  private struct Weak { weak var area: MerlinOutsidePress? }
 
   static func add(_ region: MerlinWindowDragRegion) { install(); regions.add(region) }
   static func remove(_ region: MerlinWindowDragRegion) { regions.remove(region) }
-  static func add(_ area: MerlinOutsidePress) { install(); areas.add(area) }
-  static func remove(_ area: MerlinOutsidePress) { areas.remove(area) }
+  static func add(_ area: MerlinOutsidePress) {
+    install(); areas.add(area)
+    stack.removeAll { $0.area == nil || $0.area === area }
+    stack.append(Weak(area: area))
+  }
+  static func remove(_ area: MerlinOutsidePress) { areas.remove(area); stack.removeAll { $0.area == nil || $0.area === area } }
 
   private static func install() {
     guard monitor == nil else { return }
@@ -22,6 +30,20 @@ enum PressWatch {
       guard event.type == .leftMouseDown else { return event }
       for region in regions.allObjects where region.handles(event) {
         region.drag(event)
+        return nil
+      }
+      return event
+    }
+    // Escape closes the newest popover that asks for it in the window it was
+    // typed in, wherever the focus is, including the web page, and goes no
+    // further: the page never sees the Escape that closed a popover.
+    keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+      guard event.keyCode == 53, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .function]).isEmpty
+      else { return event }
+      for entry in stack.reversed() {
+        guard let area = entry.area, area.closesOnEscape, area.window != nil,
+              area.window === (event.window ?? NSApp.keyWindow), !area.isHiddenOrHasHiddenAncestor else { continue }
+        area.onOutsidePress(["reason": "escape"])
         return nil
       }
       return event
@@ -78,6 +100,8 @@ final class MerlinWindowDragRegion: ExpoView {
 // click outside a popover both closes it and does what it was aimed at.
 final class MerlinOutsidePress: ExpoView {
   let onOutsidePress = EventDispatcher()
+  // Escape anywhere in the window reports {reason: "escape"} to the newest such area.
+  var closesOnEscape = false
   private var resign: NSObjectProtocol?
 
   override func viewDidMoveToWindow() {
