@@ -777,7 +777,7 @@ class Merlin:
 
     def __init__(self, server: PageServer, extra_args: Optional[list[str]] = None,
                  shell_api: bool = True, local_state: Optional[dict] = None,
-                 extra_env: Optional[dict] = None) -> None:
+                 extra_env: Optional[dict] = None, preferences: Optional[dict] = None) -> None:
         self.server = server
         self.app = app_path()
         self.dir = Path(tempfile.mkdtemp(prefix="merlin-e2e-"))
@@ -794,10 +794,12 @@ class Merlin:
         self.config_file.write_text("")
         # Downloads land in the throwaway folder, never in ~/Downloads, and
         # never ask where to go.
+        # A test class's own profile preferences (MerlinTestCase.preferences) go with them.
         (self.profile / "Default/Preferences").write_text(json.dumps({
             "download": {"default_directory": str(self.downloads), "prompt_for_download": False,
                          "directory_upgrade": True},
             "savefile": {"default_directory": str(self.downloads)},
+            **(preferences or {}),
         }))
         # Browser-wide preferences a test class starts with (MerlinTestCase.local_state).
         if local_state:
@@ -1132,12 +1134,15 @@ class MerlinTestCase(unittest.TestCase):
     extra_args: list[str] = []
     shell_api = True
     local_state: dict = {}
+    # Profile preferences the instance starts with, such as {"merlin": {"auto_pip": False}}.
+    preferences: dict = {}
 
     @classmethod
     def setUpClass(cls) -> None:
         cls.server = PageServer()
         try:
-            cls.browser = Merlin(cls.server, cls.extra_args, cls.shell_api, cls.local_state)
+            cls.browser = Merlin(cls.server, cls.extra_args, cls.shell_api, cls.local_state,
+                                 preferences=cls.preferences)
         except BaseException:
             cls.server.close()
             raise

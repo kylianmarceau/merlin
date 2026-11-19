@@ -44,6 +44,11 @@ public final class MerlinWebKitModule: Module {
       WebKitPages.shared.privateWindow(windowId, open: open)
     }.runOnQueue(.main)
 
+    // Settings › General › Float videos when you switch tabs.
+    AsyncFunction("autoPip") { (on: Bool) in
+      WebKitPages.shared.autoPip = on
+    }.runOnQueue(.main)
+
     View(MerlinWebKitPageView.self) {
       Prop("tabId") { (view, value: String) in view.tabID = value }
       Prop("active") { (view, value: Bool) in view.active = value }
@@ -87,6 +92,7 @@ final class MerlinWebKitPageView: ExpoView {
       addSubview(webView)
       shown = webView
       placed = true
+      WebKitPages.shared.pageShown(page)
     }
     // The active page takes the keys when it appears, unless a text field
     // (the address, the command menu) has them, as Chromium's pages do.
