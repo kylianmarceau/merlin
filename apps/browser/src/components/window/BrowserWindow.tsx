@@ -102,7 +102,7 @@ export function BrowserWindow() {
       title={active ? tabTitle(active) : undefined} />
     {/* Glass lets the desktop through the shell; Classic is solid. */}
     {shell && glass.translucent && <Glass material="sidebar" style={cover} />}
-    {shell && <ShellTint followSite={top} />}
+    {shell && <ShellTint />}
     {shell && <DragRegion style={cover} />}
     {slide.shown && !top && !fullscreen && <Animated.View style={{ width: slide.width, overflow: 'hidden' }}>
       {/* Pinned to the right edge, so it slides out to the left as the column narrows. */}
@@ -175,12 +175,12 @@ function FloatingShell({ style, children }: React.PropsWithChildren<{ style: obj
 
 /**
  * The tint over the shell's vibrancy: the workspace colour, or the site's
- * when chosen in Settings (tabs on top). Its strength follows the glass
+ * when chosen in Settings, in either layout. Its strength follows the glass
  * transparency; with Classic it is opaque.
  */
-function ShellTint({ followSite }: { followSite: boolean }) {
+function ShellTint() {
   const { colors, reduceMotion, glass } = useTheme();
   const chrome = useSiteChrome();
-  const tint = useColorFade(shellTintFor((followSite ? chrome.shell : null) ?? colors.shellTint, glass), reduceMotion);
+  const tint = useColorFade(shellTintFor(chrome.shell ?? colors.shellTint, glass), reduceMotion);
   return <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: tint }} />;
 }

@@ -87,10 +87,12 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
     <Section title="Tabs">
       {p && <TabPositionRow tabs={p.tabs} onChange={tabs => set('tabs', tabs)} />}
       <FormGroup>
-        {top && <FormRow title="Site colour" detail="The active tab and toolbar take the site's colour. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white.">
+        {<FormRow title="Site colour" detail={top
+          ? "The active tab and toolbar take the site's colour. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white."
+          : "The toolbar, when the page has one (tabs hidden, or the address in the toolbar), takes the site's colour, as can the window. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white."}>
           <Segmented label="Site colour" value={prefs.toolbarColor} onChange={style => void setToolbarColor(style)}
             options={toolbarColors.map(value => ({ value, label: toolbarColorLabels[value] }))} /></FormRow>}
-        {top && prefs.toolbarColor !== 'white' && <FormRow title="Tint the window with the site colour"
+        {prefs.toolbarColor !== 'white' && <FormRow title="Tint the window with the site colour"
           detail="The space around the page takes the site's colour instead of the workspace colour.">
           <Toggle label="Tint the window with the site colour" value={prefs.shellFollowsSite} onChange={on => void setShellFollowsSite(on)} /></FormRow>}
         <FormRow title="Open new tabs as a pop-up" detail="Search over the current page; the tab opens once you choose where to go.">
