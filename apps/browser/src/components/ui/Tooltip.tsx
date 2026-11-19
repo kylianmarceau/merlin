@@ -13,8 +13,10 @@ import { geometry, space } from './tokens';
  * keys ("⌘", "["), and an optional second line ("Hold to see history").
  */
 export type TooltipSpec = { text: string; keys?: string[]; detail?: string };
-type Api = { show(spec: TooltipSpec, frame: Frame): void; hide(): void };
+type Api = { show(spec: TooltipSpec, frame: Frame, covered: boolean): void; hide(): void; cover(): () => void };
 const TooltipContext = createContext<Api | null>(null);
+/** Inside a modal sheet, dialog or peek (TooltipCover). */
+const CoverScope = createContext(false);
 
 /**
  * Holds the window's one tooltip and draws it above everything. A tooltip
@@ -29,8 +31,12 @@ export function TooltipLayer({ bounds, suppress = false, children }: React.Props
   const [shown, setShown] = useState<(TooltipSpec & { frame: Frame }) | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warmUntil = useRef(0);
+  const covers = useRef(0);
   const api = useMemo<Api>(() => ({
-    show(spec, frame) {
+    show(spec, frame, covered) {
+      // Hover reaches controls under a modal too (tracking areas ignore what
+      // is drawn over them), so only those inside it may show a tooltip.
+      if (covers.current > 0 && !covered) return;
       if (timer.current) clearTimeout(timer.current);
       timer.current = null;
       const show = () => { timer.current = null; setShown({ ...spec, frame }); };
@@ -44,6 +50,11 @@ export function TooltipLayer({ bounds, suppress = false, children }: React.Props
         if (current) warmUntil.current = Date.now() + duration.hoverWarm;
         return null;
       });
+    },
+    cover() {
+      covers.current += 1;
+      this.hide();
+      return () => { covers.current -= 1; };
     },
   }), []);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -94,6 +105,7 @@ function Bubble({ tip, bounds }: { tip: (TooltipSpec & { frame: Frame }) | null;
  */
 export function useTooltip(spec: TooltipSpec | null, ref: React.RefObject<View | null>) {
   const api = useContext(TooltipContext);
+  const covered = useContext(CoverScope);
   const latest = useRef(spec);
   latest.current = spec;
   const pressed = useRef(false);
@@ -101,10 +113,20 @@ export function useTooltip(spec: TooltipSpec | null, ref: React.RefObject<View |
     enter() {
       if (!api || !latest.current || pressed.current) return;
       ref.current?.measureInWindow((x, y, width, height) => {
-        if (latest.current && !pressed.current) api.show(latest.current, { x, y, width, height });
+        if (latest.current && !pressed.current) api.show(latest.current, { x, y, width, height }, covered);
       });
     },
     press() { pressed.current = true; api?.hide(); },
     leave() { pressed.current = false; api?.hide(); },
-  }), [api, ref]);
+  }), [api, ref, covered]);
+}
+
+/**
+ * Wraps a modal's content (a sheet, a dialog, a peek over a scrim): while
+ * one is up, controls under it show no tooltips, only those inside it.
+ */
+export function TooltipCover({ children }: React.PropsWithChildren) {
+  const api = useContext(TooltipContext);
+  useEffect(() => api?.cover(), [api]);
+  return <CoverScope.Provider value>{children}</CoverScope.Provider>;
 }

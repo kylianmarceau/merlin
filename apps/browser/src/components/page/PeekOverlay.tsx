@@ -2,7 +2,7 @@ import React from 'react';
 import { Animated, View } from 'react-native';
 import { displayHost } from '../../lib/format';
 import { useActions, useSnapshot } from '../../state/window';
-import { Button, Icon, IconButton, Panel, Spinner, Text, geometry, presenceStyle, space, useLatest, usePresence, useTheme, Pressable } from '../ui';
+import { Button, Icon, IconButton, Panel, Spinner, Text, geometry, presenceStyle, space, TooltipCover, useLatest, usePresence, useTheme, Pressable } from '../ui';
 import { Page } from './Page';
 
 const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
@@ -23,7 +23,7 @@ export function PeekOverlay() {
   if (!mounted || !shown) return null;
   const host = displayHost(shown.url);
   const title = shown.title || host || 'Loading…';
-  return <View style={[cover, { alignItems: 'center', justifyContent: 'center' }]}>
+  return <TooltipCover><View style={[cover, { alignItems: 'center', justifyContent: 'center' }]}>
     <Animated.View style={[cover, { opacity: progress }]}>
       <Pressable accessible={false} style={{ flex: 1, backgroundColor: colors.scrim }} onPress={() => { if (peek) void actions.closePeek(); }} />
     </Animated.View>
@@ -49,5 +49,5 @@ export function PeekOverlay() {
         </View>
       </Panel>
     </Animated.View>
-  </View>;
+  </View></TooltipCover>;
 }

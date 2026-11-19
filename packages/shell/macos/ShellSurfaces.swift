@@ -88,14 +88,17 @@ final class MerlinSurface: ExpoView {
       drop.mask = shadowCutout
     }
     layer.masksToBounds = false
+    // A pill asks for a huge radius; past half the short side a continuous
+    // corner draws no fill at all, so it is held to a true capsule.
+    let corner = min(plateRadius, min(bounds.width, bounds.height) / 2)
     plate.frame = bounds
-    plate.cornerRadius = plateRadius
+    plate.cornerRadius = corner
     plate.cornerCurve = .continuous
     plate.backgroundColor = plateFill?.cgColor
     plate.borderColor = plateBorderColor?.cgColor
     plate.borderWidth = plateBorderWidth
 
-    let outline = CGPath(roundedRect: bounds, cornerWidth: plateRadius, cornerHeight: plateRadius, transform: nil)
+    let outline = CGPath(roundedRect: bounds, cornerWidth: corner, cornerHeight: corner, transform: nil)
     drop.frame = bounds
     if let dropColor, dropOpacity > 0 {
       drop.isHidden = false

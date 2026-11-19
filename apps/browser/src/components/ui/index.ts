@@ -16,7 +16,7 @@ export { keyGlyphs, type RowAction, type RowKey } from './rowActions';
 export { MenuFooter, MenuRow, MenuSection, MenuSeparator, MenuTextButton, PopoverBody, PopoverRow, RowFill, popoverInset, rowState } from './Menu';
 export { GlassFill } from './GlassFill';
 export { KeyCap } from './KeyCap';
-export { TooltipLayer, useTooltip, type TooltipSpec } from './Tooltip';
+export { TooltipCover, TooltipLayer, useTooltip, type TooltipSpec } from './Tooltip';
 export { DashedRule, Divider } from './Divider';
 export { Panel } from './Panel';
 export { Glass } from './Glass';

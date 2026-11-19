@@ -8,6 +8,7 @@ import { useInteraction } from './interaction';
 import { duration, presenceStyle, useLatest, usePresence } from './motion';
 import { Panel } from './Panel';
 import { Text } from './Text';
+import { TooltipCover } from './Tooltip';
 import { useTheme } from './theme';
 import { geometry, radius, space } from './tokens';
 
@@ -46,7 +47,7 @@ export function Sheet<K extends string>({ open = true, title, sections, section,
     return () => { clearTimeout(timer); closed.current?.(); };
   }, [open]);
   if (!mounted) return null;
-  return <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+  return <TooltipCover><View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
     <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}>
       <Pressable accessible={false} style={{ flex: 1, backgroundColor: colors.scrim }} onPress={() => { if (open) onClose(); }} />
     </Animated.View>
@@ -103,7 +104,7 @@ export function Sheet<K extends string>({ open = true, title, sections, section,
       </Panel>
       </View>
     </Animated.View>
-  </View>;
+  </View></TooltipCover>;
 }
 
 function IconTab({ label, icon, selected, onPress }: { label: string; icon: SymbolName; selected: boolean; onPress(): void }) {

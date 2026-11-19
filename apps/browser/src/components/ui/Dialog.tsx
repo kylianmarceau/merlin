@@ -7,6 +7,7 @@ import { presenceStyle, useLatest, usePresence } from './motion';
 import { popoverInset } from './Menu';
 import { Panel } from './Panel';
 import { Text } from './Text';
+import { TooltipCover } from './Tooltip';
 import { useTheme } from './theme';
 import { geometry, space, type ColorRole } from './tokens';
 
@@ -28,7 +29,7 @@ export function Dialog({ open = true, title, subtitle, actions, onClose, place =
   const { mounted, progress } = usePresence(open, 'dialog', reduceMotion);
   const body = useLatest(open ? { title, subtitle, actions, children } : null);
   if (!mounted || !body) return null;
-  return <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center',
+  return <TooltipCover><View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center',
     justifyContent: place === 'top' ? 'flex-start' : 'center', paddingTop: place === 'top' ? space.sm + space.xs : 0 }}>
     <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}>
       <Pressable accessible={false} style={{ flex: 1, backgroundColor: colors.scrim }}
@@ -51,5 +52,5 @@ export function Dialog({ open = true, title, subtitle, actions, onClose, place =
         </View>
       </Panel>
     </Animated.View>
-  </View>;
+  </View></TooltipCover>;
 }
