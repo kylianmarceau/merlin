@@ -1006,7 +1006,17 @@ class Merlin:
         for key, mods in parse_keys(keys):
             for event in key_event_specs(key, mods):
                 try:
-                    self.cdp.call("Input.dispatchKeyEvent", event, session)
+                    self.cdp.call("Input.dispatchKeyEvent", event, session, timeout=10)
+                except socket.timeout:
+                    # A key that opened or switched to another tab left its
+                    # page in the background, where Chromium holds input (and
+                    # DevTools' answer) until the page shows again. Whether
+                    # the key's last events got there first is a race; the
+                    # rest of this key has nowhere to go.
+                    if self.active_session() == session:
+                        raise
+                    session = self.active_session()
+                    break
                 except TargetClosed:
                     # The key closed its own tab; DevTools never answers it.
                     if keys.endswith(key) or len(parse_keys(keys)) == 1:
