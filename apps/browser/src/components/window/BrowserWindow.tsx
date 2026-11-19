@@ -4,8 +4,8 @@ import { isStartUrl } from '../../lib/format';
 import { PAGE_FRAME, useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useActiveTab, useBrowser, useCommitTrace, useSnapshot, useViewMenu } from '../../state/window';
 import {
-  DragRegion, FullScreenWatch, Glass, Panel, TooltipLayer, geometry, radius, shellTintFor, space, useColorFade, usePeekSpring,
-  useSidebarSpring, useTheme,
+  DragRegion, FullScreenWatch, Glass, Panel, TooltipLayer, geometry, inactiveTabs, radius, shellTintFor, space, useColorFade, useEased,
+  usePeekSpring, useSidebarSpring, useTheme,
 } from '../ui';
 import { BookmarksBar } from '../bookmarks/BookmarksBar';
 import { useSiteChrome } from '../tabs/siteChrome';
@@ -58,6 +58,9 @@ export function BrowserWindow() {
   const peeking = useBrowser(s => s.peeking);
   const bounds = useBrowser(s => s.windowSize);
   const hoverCard = useBrowser(s => !!s.hoverCard);
+  // While the window isn't in front its tabs fade back and the shell turns opaque, as macOS sidebars do.
+  const inactive = useEased(!useBrowser(s => s.windowKey), reduceMotion);
+  const tabsFade = inactive.interpolate({ inputRange: [0, 1], outputRange: [1, inactiveTabs] });
   // Where the pointer stops at the screen's edge a thin strip is enough to
   // reach; a window away from the edge gets a wider one (Ardia's 8 pt).
   const atEdge = useBrowser(s => (s.snapshot?.modal.tabLayout === 'top' ? s.screenEdges.top : s.screenEdges.left));
@@ -103,15 +106,17 @@ export function BrowserWindow() {
     {/* Glass lets the desktop through the shell; Classic is solid. */}
     {shell && glass.translucent && <Glass material="sidebar" style={cover} />}
     {shell && <ShellTint />}
+    {/* A window not in front: an opaque, lighter shell, as in Dia. */}
+    {shell && <Animated.View pointerEvents="none" style={[cover, { backgroundColor: colors.shellInactive, opacity: inactive }]} />}
     {shell && <DragRegion style={cover} />}
     {slide.shown && !top && !fullscreen && <Animated.View style={{ width: slide.width, overflow: 'hidden' }}>
       {/* Pinned to the right edge, so it slides out to the left as the column narrows. */}
       <View style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: sidebarWidth, flexDirection: 'row' }}>
-        <Sidebar width={sidebarWidth} />
+        <Animated.View style={{ flexDirection: 'row', opacity: tabsFade }}><Sidebar width={sidebarWidth} /></Animated.View>
       </View>
     </Animated.View>}
     {card}
-    {tabs && top && <TabStrip />}
+    {tabs && top && <Animated.View pointerEvents="box-none" style={[cover, { opacity: tabsFade }]}><TabStrip /></Animated.View>}
     {/* The hidden tabs come in from the edge the pointer reaches: a thin strip that lets clicks through. */}
     {peekable && !peeking && <View pointerEvents="none" onMouseEnter={actions.peek}
       style={top ? { position: 'absolute', top: 0, left: 0, right: 0, height: edgeStrip }

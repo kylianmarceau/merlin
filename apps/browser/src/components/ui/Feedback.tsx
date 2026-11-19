@@ -1,9 +1,9 @@
 import React from 'react';
-import { ActivityIndicator, Animated, View } from 'react-native';
-import { ProgressRing as NativeProgressRing } from '../../platform/shell';
+import { ActivityIndicator, Animated, View, type ViewProps } from 'react-native';
+import { Gradient as NativeGradient, ProgressRing as NativeProgressRing } from '../../platform/shell';
 import { Icon, type SymbolName } from './Icon';
 import { Text } from './Text';
-import { useLoadingBar } from './motion';
+import { useAreaLight, useEqualiser, useLoadingBar } from './motion';
 import { useTheme } from './theme';
 import { geometry, radius, space, type ColorRole } from './tokens';
 
@@ -90,5 +90,28 @@ export function LoadingBar({ loading, inset = 0 }: { loading: boolean; inset?: n
     {/* tabLoading follows the site's colours on a tinted toolbar, so the bar stays visible on any site. */}
     <Animated.View style={{ height: geometry.loadingBar, borderRadius: radius.pill, backgroundColor: colors.tabLoading,
       width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} />
+  </Animated.View>;
+}
+
+/** A playing tab's sound: three bars rising and falling out of step, in place of a still speaker. */
+export function Equaliser({ playing, tone = 'iconSecondary' }: { playing: boolean; tone?: ColorRole }) {
+  const { colors, reduceMotion } = useTheme();
+  const bars = useEqualiser(playing, reduceMotion);
+  return <View accessible={false} style={{ width: geometry.iconSmall, height: geometry.iconSmall, flexDirection: 'row', alignItems: 'flex-end',
+    justifyContent: 'center', gap: geometry.equaliserGap }}>
+    {bars.map((bar, i) => <Animated.View key={i} style={{ width: geometry.equaliserBar, height: geometry.iconSmall, borderRadius: radius.pill,
+      backgroundColor: colors[tone], transformOrigin: 'bottom', transform: [{ scaleY: bar }] }} />)}
+  </View>;
+}
+
+/**
+ * A soft light behind the new tab page's search card in the workspace
+ * colour, breathing slowly, as Dia's area light does. Never takes a click.
+ */
+export function AreaLight({ style }: { style?: ViewProps['style'] }) {
+  const { colors, reduceMotion } = useTheme();
+  const breath = useAreaLight(reduceMotion);
+  return <Animated.View pointerEvents="none" style={[style, { opacity: breath }]}>
+    <NativeGradient gradientKind="glow" gradientColors={[colors.areaLight]} style={{ flex: 1 }} />
   </Animated.View>;
 }

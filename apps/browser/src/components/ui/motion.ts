@@ -61,6 +61,12 @@ export const duration = {
   dropZone: 110,
   /** Refused input shaking (three swings dying away), or flashing red with reduced motion. */
   shake: 350,
+  /** The address's suggestions unfolding out of the field, as Dia's command bar grows out of it. */
+  grow: 130,
+  /** The new tab page's area light breathing in and out (each way). */
+  areaLight: 3200,
+  /** A playing tab's equaliser: each bar's rise (and fall), unequal so they never move together. */
+  equaliser: [380, 520, 440],
 } as const;
 
 /** How far refused input swings each way at first, in pt. */
@@ -108,6 +114,8 @@ export const curve = {
   /** The joined tab: a fast start that settles softly onto the tab. */
   slide: Easing.bezier(0.2, 0.9, 0.25, 1),
   linear: Easing.linear,
+  /** Dia's exponential ease-out: almost all of the way at once, then settling. */
+  expoOut: Easing.out(Easing.exp),
 } as const;
 
 /** A spring from its response (seconds per swing) and damping ratio, as Core Animation and SwiftUI describe them. */
@@ -134,7 +142,14 @@ export const spring = {
    * midway carries on from its speed rather than starting over.
    */
   slide: responseSpring(0.34, 0.9),
+  /** A glyph popping as it takes effect (a page saved, a tab pinned): lively, settling in about 0.4 s. */
+  pop: responseSpring(0.32, 0.45),
+  /** The new tab page's search card settling as the page opens, as Dia's command bar does (response 0.7 s, from 99%). */
+  settle: responseSpring(0.7, 0.85),
 } as const;
+
+/** How large a popping glyph starts before it springs back to its size. */
+export const popFrom = 1.35;
 
 /** How far a pressed control dips: an icon button's glyph, a pill or field, a round button or tile. */
 export const pressScale = { icon: 0.96, control: 0.985, tile: 0.94 } as const;
@@ -229,6 +244,86 @@ export function useEntrance(reduce: boolean) {
     return () => { fade.stop(); size.stop(); };
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
   return { opacity, scale };
+}
+
+/**
+ * A scale that pops when `on` turns true (a bookmark saved, a tab pinned):
+ * it jumps to 135% and springs back to its size, a little past it. Steady
+ * at 1 with reduced motion, when it is already on as it first shows, and
+ * when `subject` changes (another tab, already saved, isn't news).
+ */
+export function usePop(on: boolean, reduce: boolean, subject?: string) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const was = useRef({ on, subject });
+  useEffect(() => {
+    const turnedOn = on && !was.current.on && subject === was.current.subject;
+    was.current = { on, subject };
+    if (!turnedOn || reduce) return;
+    scale.setValue(popFrom);
+    const run = Animated.spring(scale, { toValue: 1, ...spring.pop, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
+  }, [on, reduce, subject, scale]);
+  return scale;
+}
+
+/**
+ * A scale for something that has just arrived because of what the user did
+ * (a tab pinned into the favourites): from 92% to its size on the lively
+ * `pop` spring, once, as it mounts. Steady at 1 when `fresh` is false (it
+ * was there already) or with reduced motion.
+ */
+export function useArrival(fresh: boolean, reduce: boolean) {
+  const scale = useRef(new Animated.Value(fresh && !reduce ? appearFrom : 1)).current;
+  useEffect(() => {
+    if (!fresh || reduce) return;
+    const run = Animated.spring(scale, { toValue: 1, ...spring.pop, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  return scale;
+}
+
+/**
+ * Bar heights (0–1) for a playing tab's equaliser: three bars rising and
+ * falling out of step while `on`. They rest at differing heights when off
+ * or with reduced motion.
+ */
+export function useEqualiser(on: boolean, reduce: boolean) {
+  const bars = useRef(duration.equaliser.map((_, i) => new Animated.Value(equaliserRest[i]))).current;
+  useEffect(() => {
+    if (!on || reduce) { bars.forEach((bar, i) => bar.setValue(equaliserRest[i])); return; }
+    const runs = bars.map((bar, i) => Animated.loop(Animated.sequence([
+      Animated.timing(bar, { toValue: 1, duration: duration.equaliser[i], easing: curve.move, useNativeDriver: true }),
+      Animated.timing(bar, { toValue: equaliserLow, duration: duration.equaliser[i], easing: curve.move, useNativeDriver: true }),
+    ])));
+    runs.forEach(run => run.start());
+    return () => runs.forEach(run => run.stop());
+  }, [on, reduce, bars]);
+  return bars;
+}
+/** The equaliser's bars at rest, and how low a moving bar falls. */
+const equaliserRest = [0.55, 0.9, 0.7];
+const equaliserLow = 0.3;
+
+/**
+ * A height that unfolds from 0 to `target` over 130 ms on Dia's exponential
+ * ease-out the first time there is something to show, then follows
+ * `target` at once (rows changing as the user types). Immediate with
+ * reduced motion.
+ */
+export function useUnfold(target: number, reduce: boolean) {
+  const height = useRef(new Animated.Value(0)).current;
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!target) { opened.current = false; height.setValue(0); return; }
+    if (opened.current || reduce) { opened.current = true; height.setValue(target); return; }
+    opened.current = true;
+    const run = Animated.timing(height, { toValue: target, duration: duration.grow, easing: curve.expoOut, useNativeDriver: false });
+    run.start();
+    return () => run.stop();
+  }, [target, reduce, height]);
+  return height;
 }
 
 /**
@@ -539,6 +634,41 @@ export function useBreathe(on: boolean, reduce: boolean) {
   }, [on, reduce, value]);
   return value;
 }
+
+/**
+ * The new tab page's area light: it brightens and dims slowly while the page
+ * shows (0.55 ↔ 1), as Dia's breathing light does. Steady with reduced motion.
+ */
+export function useAreaLight(reduce: boolean) {
+  const value = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (reduce) { value.setValue(1); return; }
+    const half = { duration: duration.areaLight, easing: Easing.inOut(Easing.sin), useNativeDriver: true };
+    const run = Animated.loop(Animated.sequence([
+      Animated.timing(value, { ...half, toValue: areaLightLow }),
+      Animated.timing(value, { ...half, toValue: 1 }),
+    ]));
+    run.start();
+    return () => run.stop();
+  }, [reduce, value]);
+  return value;
+}
+const areaLightLow = 0.55;
+
+/** The new tab page's search card as the page opens: from 99% on a slow, soft spring, fading in. Still with reduced motion. */
+export function useSettle(reduce: boolean) {
+  const scale = useRef(new Animated.Value(reduce ? 1 : settleFrom)).current;
+  const opacity = useRef(new Animated.Value(reduce ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduce) return;
+    const fade = Animated.timing(opacity, { toValue: 1, duration: duration.base, easing: curve.enter, useNativeDriver: true });
+    const size = Animated.spring(scale, { toValue: 1, ...spring.settle, useNativeDriver: true });
+    fade.start(); size.start();
+    return () => { fade.stop(); size.stop(); };
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+  return { scale, opacity };
+}
+const settleFrom = 0.99;
 
 /** A new download's flight: how high it lifts off the page, and how large it is as it lifts and as it lands. */
 const flight = { lift: 28, startScale: 0.5, landScale: 0.32 } as const;

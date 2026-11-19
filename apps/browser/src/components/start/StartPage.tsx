@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { Animated, ScrollView, TextInput, View } from 'react-native';
 import { displayHost, isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
-import { Button, Icon, Panel, PopupRow, Text, font, geometry, opacity, radius, space, useEscape, useInteraction, useTheme, Pressable } from '../ui';
+import { Button, Icon, Panel, PopupRow, Text, font, geometry, opacity, radius, space, AreaLight, useEscape, useInteraction, useSettle, useTheme, Pressable } from '../ui';
 import { Favicon } from '../favicon/Favicon';
 import { suggestionDetail, suggestionIcons, useSearch } from '../omnibox/useSearch';
 import { PaintMark } from './PaintMark';
@@ -15,7 +15,9 @@ import { PaintMark } from './PaintMark';
 export function StartPage({ tab }: { tab: Tab }) {
   const snapshot = useSnapshot();
   const actions = useActions();
-  const { colors } = useTheme();
+  const { colors, reduceMotion } = useTheme();
+  // As in Dia, the search card settles in on a soft spring over a slowly breathing light in the workspace colour.
+  const settle = useSettle(reduceMotion);
   const search = useSearch();
   const input = useRef<TextInput>(null);
   // Chromium asks for the address to be focused as a new tab opens; on the
@@ -27,11 +29,13 @@ export function StartPage({ tab }: { tab: Tab }) {
   const go = () => { search.submit(false); };
   const escape = useEscape(() => { if (actions.escapePopover()) return; search.reset(); input.current?.blur(); });
   return <View style={{ flex: 1, backgroundColor: colors.startBackground }}>
+    <AreaLight style={{ position: 'absolute', top: geometry.newTabTop, left: 0, right: 0, height: geometry.areaLight }} />
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: geometry.newTabTop,
       paddingBottom: space.huge, paddingHorizontal: space.huge }}>
       <PaintMark />
       {/* The card overlaps the mark's bottom edge, so its paint seems to sit behind the card. */}
       <View style={{ width: geometry.palette, maxWidth: '100%', marginTop: -space.hair }}>
+        <Animated.View style={{ opacity: settle.opacity, transform: [{ scale: settle.scale }] }}>
         <Panel fill="contentBackground" radius="popover" border="borderSubtle" elevation="card">
           <View style={{ paddingTop: space.sm, paddingHorizontal: space.sm + space.hair, paddingBottom: space.sm + space.hair }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, height: geometry.newTabInput, paddingHorizontal: space.sm }}>
@@ -62,6 +66,7 @@ export function StartPage({ tab }: { tab: Tab }) {
             </View>
           </View>
         </Panel>
+        </Animated.View>
       </View>
       {snapshot.private
         ? <View style={{ marginTop: space.lg + space.sm }}>

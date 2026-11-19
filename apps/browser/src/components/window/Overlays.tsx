@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useActions, useBrowser, useOverlays, useSnapshot } from '../../state/window';
 import { Layer, Popover, ToastStack, autoPlacement, geometry, usePresence, useTheme, type Frame } from '../ui';
 import { ExtensionPopupView } from '../extensions/ExtensionPopupView';
@@ -29,6 +29,9 @@ export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
   const shown = useOverlays();
   const toasts = useBrowser(s => s.toasts);
   const naming = useBrowser(s => !!s.groupDialog);
+  // A tab closed in this window: a notice offers it back for a few seconds.
+  const closed = useBrowser(s => s.closedTabs);
+  useEffect(() => { if (closed) actions.offerReopen(closed.count, closed.title); }, [closed?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
   const anchors = useBrowser(s => s.anchors);
   const bounds = useBrowser(s => s.windowSize);
   const { reduceMotion } = useTheme();

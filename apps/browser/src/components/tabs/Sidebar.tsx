@@ -82,6 +82,10 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
   const hide = useShortcut('Hide sidebar', ['⌘', 'S'], 'gs');
   const newTab = useShortcut('New tab', ['⌘', 'T'], 't');
   const list = useActiveRowPointer(snapshot.activeTabId);
+  // Whether the tabs overflow the list, so New Tab stays in sight at its foot, as in Ardia.
+  const [listHeight, setListHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const overflowing = !!listHeight && contentHeight > listHeight + geometry.hairline;
   return <View style={{ width, paddingLeft: space.md, paddingRight: space.sm + space.hair, paddingBottom: space.sm + space.hair,
     gap: space.sm + space.hair }}>
     <View style={{ height: geometry.titlebar, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: space.hair }}>
@@ -105,9 +109,9 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
       {/* As in Dia, a hairline divides the bookmarks from the open tabs; with nothing above (or only the
           favourites' own rule), it fades in only once the list has scrolled under it. */}
       <ScrollEdge shown={(bookmarks && bookmarksShown) || list.scrolled} />
-      <View ref={list.frame} style={{ flex: 1 }} onLayout={list.check}>
+      <View ref={list.frame} style={{ flex: 1 }} onLayout={e => { setListHeight(e.nativeEvent.layout.height); list.check(); }}>
         <ScrollView ref={list.scroll} style={{ flex: 1 }} onScroll={list.onScroll} scrollEventThrottle={32}
-          onContentSizeChange={list.check}
+          onContentSizeChange={(_w, h) => { setContentHeight(h); list.check(); }}
           onScrollBeginDrag={actions.closeHoverCard}
           contentContainerStyle={{ gap: geometry.tabRowGap, paddingBottom: space.md, flexGrow: 1 }}>
           {tabBlocks(open, snapshot.groups).map(block => {
@@ -121,13 +125,19 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
                 active={block.tabs.some(t => t.id === snapshot.activeTabId)}>{rows}</SidebarGroup>
               : rows;
           })}
-          {/* New Tab follows the last tab, as in Dia. */}
-          <NewTabRow pending={pending} onPress={actions.openNewTab} keys={newTab.keys} />
+          {/* New Tab follows the last tab, as in Dia; once the list overflows it stays at the bottom instead (below),
+              and this one only keeps its place. */}
+          <View style={overflowing ? { opacity: 0 } : undefined} pointerEvents={overflowing ? 'none' : 'auto'}>
+            <NewTabRow pending={pending} onPress={actions.openNewTab} keys={newTab.keys} />
+          </View>
           {/* Double-clicking the empty space under the tabs opens a new one, as in Arc. */}
           <View style={{ flex: 1, minHeight: space.xl }} onDoubleClick={() => actions.openNewTab()} />
         </ScrollView>
         {list.away && <ActiveTabPill direction={list.away} onPress={list.reveal} />}
       </View>
+      {overflowing && <View style={{ paddingTop: space.xs }}>
+        <NewTabRow pending={pending} onPress={actions.openNewTab} keys={newTab.keys} />
+      </View>}
     </View>
     <SidebarFooter />
     {!floating && <ResizeEdge width={width} />}

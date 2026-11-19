@@ -43,9 +43,11 @@ The stored accent names predate Tide and stay as the browser saves them:
   shows Dia's deeper pressed fill). With nothing above the tabs, the
   hairline fades in only once the list scrolls; a "Current tab" pill points to the active
   row when it is out of sight; double-clicking the empty space under the
-  rows opens a tab. Rows fade their titles (`Fade`, no ellipsis), show a
-  speaker that mutes the tab while it plays, a Safari badge on WebKit tabs,
-  and dim while asleep. Rows joining or leaving the list, and groups
+  rows opens a tab; once the rows overflow, New Tab stays put under the
+  list. Rows fade their titles (`Fade`, no ellipsis), show three bouncing
+  bars while the tab plays (`Equaliser`; a press mutes it, and a muted tab
+  shows a crossed speaker), a Safari badge on WebKit tabs, and, asleep, a
+  quiet grey square in place of their icon, dimmed. Rows joining or leaving the list, and groups
   folding, animate as in Dia (`animateListChange`). A dragged row lifts
   into a white card with a shadow (no scale) and follows the pointer, while
   the rows it passes slide aside on the `snappy` spring with a trackpad tick
@@ -116,7 +118,7 @@ The stored accent names predate Tide and stay as the browser saves them:
 - **Address field**: at rest Dia's breadcrumb, the site in medium weight,
   then " / " and the page's title, quiet. With the pointer on it, the whole
   address and the page's actions (bookmark, copy link) show; a saved page
-  keeps its filled bookmark in the accent. The bookmark saves into the
+  keeps its filled bookmark in the accent, which pops as it is saved. The bookmark saves into the
   Bookmarks Bar folder, so the page appears in the bar and the sidebar. With
   modal browsing on, Insert mode rings the field in `modeInsert`.
 - **Bookmarks bar** (Settings > Appearance > Bookmarks: Always, New Tab only
@@ -149,7 +151,9 @@ The stored accent names predate Tide and stay as the browser saves them:
   button names itself after the same half-second rest, with its shortcut as
   keycaps and Merlin's Normal-mode keys on a second line; they too follow
   the pointer at once from one button to the next. A pressed button's
-  tooltip goes and stays away until the pointer leaves it.
+  tooltip goes and stays away until the pointer leaves it. Under a sheet,
+  dialog or peek only the controls inside it show tooltips
+  (`TooltipCover`): hover reaches what is drawn over too.
 - **Content card**: `contentBackground`, `radius.window`, `contentBorder`,
   `shadow.card`, inset 8 pt from the window edge (0 on the sidebar side).
 - **Status line** under the page, only outside Normal mode: the mode and
@@ -161,6 +165,14 @@ The stored accent names predate Tide and stay as the browser saves them:
   `textDanger`). It grows from 92% on the `appear` spring, stays 1.8 s (a
   failure or one with a button the toast's 5 s) and goes by itself or on a
   click. A newer one replaces it.
+- **Closed tabs**: closing a tab with a page on it brings a toast to the
+  bottom centre, Closed “Title” with Reopen, which restores it with its
+  history ("3 tabs closed" for several at once). Blank and new tab pages,
+  which Chromium doesn't keep, and tabs dragged to another window offer
+  none.
+- **A window not in front**: the shell turns an opaque, lighter tone
+  (`shellInactive`) and the tabs fade back to 62% (`inactiveTabs`), as in
+  Dia.
 - **Menu bar**: the View menu starts with Merlin's own commands, as in Dia:
   Show Tabs in Sidebar, Show Tabs on Top, Hide Tabs, Open Split View and
   Show Address in Toolbar, checked and enabled from the front window's
@@ -359,6 +371,18 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
   to 98.5% and a round button to 94%, on the `press` spring, which never
   overshoots (`usePressScale`). Rows and tiles, used all day, hold still and
   show a deeper fill instead, as in Dia.
+- Things just made pop: a page's bookmark as it is saved and a newly pinned
+  favourite tile spring from 135% on the bouncy `pop` spring (`usePop`,
+  `useArrival`).
+- The address field's suggestions unfold from it over 130 ms on an
+  exponential ease-out, as Dia's command bar grows (`useUnfold`); the field
+  and its text hold still.
+- A segmented control's thumb slides to the new choice on the `snappy`
+  spring.
+- The new tab page settles in from 99% as it fades in (`useSettle`), and a
+  soft light behind its card breathes over 3.2 s (`AreaLight`).
+- A playing tab's three bars bounce at their own pace (380, 520 and 440 ms;
+  `useEqualiser`) and rest at uneven heights when it stops.
 - "Reduce motion" in Settings makes every transition instant: springs,
   slides and growth become cuts and fades, and shakes become a red flash.
 

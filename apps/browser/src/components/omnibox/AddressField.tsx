@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { TextInput, View } from 'react-native';
+import { Animated, TextInput, View } from 'react-native';
 import { promptChipLabel, promptIcon } from '../../lib/prompts';
 import { addressParts, displayHost, isStartUrl, leftToRight, pageTitle } from '../../lib/format';
 import { securityBadge } from '../../lib/security';
 import { currentSuggestions } from '../../state/store';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
-import { Icon, IconButton, LoadingBar, Text, duration, useEscape, useTheme, font, geometry, radius, space, Pressable } from '../ui';
+import { Icon, IconButton, LoadingBar, Text, duration, useEscape, usePop, useTheme, font, geometry, radius, space, Pressable } from '../ui';
 
 /**
  * The address and search field. Chromium's address-bar engine suggests as the
@@ -24,7 +24,7 @@ import { Icon, IconButton, LoadingBar, Text, duration, useEscape, useTheme, font
 export function AddressField({ variant = 'toolbar', compact = false, listens = true }: {
   variant?: 'toolbar' | 'shell'; compact?: boolean; listens?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, reduceMotion } = useTheme();
   const snapshot = useSnapshot();
   const actions = useActions();
   const tab = useActiveTab();
@@ -119,6 +119,7 @@ export function AddressField({ variant = 'toolbar', compact = false, listens = t
   const crumb = !shell && !hovered && !!crumbTitle;
   const page = !!tab && !start && /^(https?|file):/i.test(url);
   const bookmarks = useShellPrefs(p => p.showBookmarks);
+  const saved = usePop(!!tab?.bookmarked, reduceMotion, tab?.id);
   const insert = snapshot.modal.modalBrowsing !== false && snapshot.modal.mode === 'Insert';
 
   // The field looks the same with Glass as with Classic.
@@ -175,9 +176,10 @@ export function AddressField({ variant = 'toolbar', compact = false, listens = t
       <Text variant="caption" weight="semibold" tone="accentSoftText">{promptChipLabel(waiting)}</Text>
     </Pressable>}
     {/* The page's actions, as in Dia: shown with the pointer on the field; a saved page keeps its filled bookmark. */}
-    {!editing && page && bookmarks && (hovered || tab?.bookmarked) && <IconButton
+    {/* Saving pops the glyph on a spring. */}
+    {!editing && page && bookmarks && (hovered || tab?.bookmarked) && <Animated.View style={{ transform: [{ scale: saved }] }}><IconButton
       label={tab?.bookmarked ? 'Remove bookmark' : 'Add to Bookmarks bar'} keys={['⌘', 'D']} icon={tab?.bookmarked ? 'bookmark.fill' : 'bookmark'}
-      tone={tab?.bookmarked ? 'textAccent' : undefined} size="small" onPress={() => { if (tab) void actions.bookmarkTab(tab.id); }} />}
+      tone={tab?.bookmarked ? 'textAccent' : undefined} size="small" onPress={() => { if (tab) void actions.bookmarkTab(tab.id); }} /></Animated.View>}
     {!editing && page && hovered && <IconButton label="Copy link" keys={['⇧', '⌘', 'C']} icon="link" size="small"
       onPress={() => { if (tab) void actions.copyAddress(tab.url); }} />}
     {!editing && !start && tab?.engine === 'webkit' && <IconButton label="Shown in WebKit. Show engine options" icon="safari"

@@ -67,11 +67,13 @@ export type IconButtonProps = Omit<PressableProps, 'style' | 'children'> & {
   tip?: string | false;
   keys?: string[];
   tipDetail?: string;
+  /** Drawn in place of the symbol (a playing tab's equaliser); `icon` still names it for its plate's size. */
+  art?: React.ReactNode;
 };
 
 /** A square icon button; its label is read by VoiceOver. */
 export function IconButton({ label, icon, variant = 'ghost', selected, size = 'regular', tone, selectedFill = 'fillSelected', disabled,
-  onFrame, tip, keys, tipDetail, ...rest }: IconButtonProps) {
+  onFrame, tip, keys, tipDetail, art, ...rest }: IconButtonProps) {
   const { colors, reduceMotion } = useTheme();
   const look = looks[variant];
   const { hovered, focused, handlers } = useInteraction();
@@ -98,7 +100,7 @@ export function IconButton({ label, icon, variant = 'ghost', selected, size = 'r
     })}>
     {/* The glyph dips under a press while its plate holds still. */}
     <Animated.View style={{ transform: [{ scale }] }}>
-      <Icon name={icon} tone={tone ?? (disabled ? 'iconDisabled' : look.icon)} size={size === 'small' ? 'small' : size === 'card' ? 'medium' : 'regular'} />
+      {art ?? <Icon name={icon} tone={tone ?? (disabled ? 'iconDisabled' : look.icon)} size={size === 'small' ? 'small' : size === 'card' ? 'medium' : 'regular'} />}
     </Animated.View>
   </Pressable>;
 }

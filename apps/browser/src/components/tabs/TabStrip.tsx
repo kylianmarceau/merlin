@@ -8,7 +8,7 @@ import {
 } from '../ui';
 import { StripGroupChip, chipWidth } from './TabGroups';
 import { Favicon } from '../favicon/Favicon';
-import { tabTitle as rowTitle } from './TabRow';
+import { SoundButton, tabTitle as rowTitle } from './TabRow';
 import { useSiteChrome } from './siteChrome';
 import { DownloadsButton, LibraryButtons } from './WindowButtons';
 import { dropBefore, dropPlace, itemSlot, layoutStrip, reflow, type Slot, type StripItem, type StripMetrics } from './stripLayout';
@@ -285,9 +285,7 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, draggin
         </Pressable>
       </ContextMenu>
       {!icon && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center' }}>
-        {sound && <IconButton label={tab.muted ? `Unmute ${title}` : `Mute ${title}`} tip={tab.muted ? 'Unmute tab' : 'Mute tab'}
-          icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" tone="iconSecondary"
-          onPress={() => void actions.muteTab(tab.id, !tab.muted)} />}
+        {sound && <SoundButton tab={tab} title={title} />}
         <Animated.View pointerEvents={closeOn ? 'auto' : 'none'} style={{ opacity: closeShown }}>
           <IconButton label={`Close ${title}`} tip="Close tab" keys={['⌘', 'W']} icon="xmark" size="small"
             onPress={() => { actions.closeHoverCard(); void actions.closeTab(tab.id); }} />
@@ -295,9 +293,7 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, draggin
       </View>}
       {/* An icon-only tab (pinned, or crowded) shows its sound as a small badge you can press. */}
       {icon && sound && <View style={{ position: 'absolute', right: -space.xs, top: -space.hair }}>
-        <IconButton label={tab.muted ? `Unmute ${title}` : `Mute ${title}`} tip={tab.muted ? 'Unmute tab' : 'Mute tab'}
-          icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" tone="iconSecondary"
-          onPress={() => void actions.muteTab(tab.id, !tab.muted)} />
+        <SoundButton tab={tab} title={title} />
       </View>}
     </Animated.View>
   </Animated.View>;

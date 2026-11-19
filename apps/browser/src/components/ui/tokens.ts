@@ -32,8 +32,12 @@ export const geometry = {
   control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, stripTabHeight: 32, address: 36, favourite: 44, favouriteSmall: 28,
   /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
   tabRowGap: 3, tileRing: 2.5,
+  /** The new tab page's breathing area light: how tall its wash is. */
+  areaLight: 420,
   /** A dashed rule's dashes and the gaps between them (under the favourite tiles, as in Ardia). */
   ruleDash: 3, ruleGap: 3,
+  /** A playing tab's equaliser: each bar's width and the gap between them. */
+  equaliserBar: 2.5, equaliserGap: 1.5,
   rowTall: 44, popoverRow: 32, icon: 16, iconSmall: 13, iconMedium: 15, iconLarge: 20,
   /** Every small icon button's hover square (each ×, a row's mute), and a hover card's action plates. */
   iconButton: 22, cardButton: 24, favicon: 16, tile: 28, round: 20, roundGlyph: 9, keycap: 18,
@@ -124,6 +128,8 @@ function roles(mode: Mode, accentName: AccentName) {
     shellTint: a.shell,
     sidebarTint: a.shell,
     sidebarFallback: pick(ink[100], ink[925]),
+    /** Over the shell while the window isn't in front: it turns more opaque and a little lighter, as Dia's and macOS sidebars do. */
+    shellInactive: pick('rgba(246, 248, 246, 0.55)', 'rgba(52, 56, 54, 0.55)'),
     sidebarRule: pick('rgba(30, 55, 42, 0.12)', 'rgba(255, 255, 255, 0.08)'),
     contentBackground: pick(ink[0], ink[900]),
     contentBorder: pick('rgba(20, 40, 30, 0.12)', 'rgba(255, 255, 255, 0.07)'),
@@ -131,6 +137,8 @@ function roles(mode: Mode, accentName: AccentName) {
     toolbarDivider: pick('rgba(20, 40, 30, 0.07)', 'rgba(255, 255, 255, 0.06)'),
     titlebarBackground: pick(ink[75], ink[925]),
     startBackground: pick(ink[25], ink[900]),
+    /** The new tab page's breathing area light: the workspace colour, faint. */
+    areaLight: withAlpha(a.ring, light ? 0.3 : 0.24),
 
     // Text.
     textPrimary: pick(ink[900], ink[50]),
@@ -340,6 +348,8 @@ export const shadow = {
 } as const;
 export type ShadowName = keyof typeof shadow;
 
+/** How far the tabs fade while the window isn't in front, as a macOS sidebar's contents do. */
+export const inactiveTabs = 0.62;
 /** How strongly refused input flashes red when motion is reduced (instead of shaking). */
 export const flashOpacity = 0.22;
 

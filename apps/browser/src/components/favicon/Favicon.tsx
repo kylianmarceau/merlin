@@ -17,8 +17,10 @@ export const Favicon = React.memo(function Favicon({ tab, large = false, busy = 
 }) {
   const { colors, reduceMotion } = useTheme();
   const breathe = useBreathe(busy, reduceMotion);
-  return <Animated.View style={{ opacity: badges && tab.discarded ? opacity.sleeping : breathe }}>
-    <FaviconImage tab={tab} large={large} />
+  // A sleeping tab shows a quiet grey square in place of its icon, as in Dia.
+  const asleep = badges && !!tab.discarded;
+  return <Animated.View style={{ opacity: asleep ? opacity.sleeping : breathe }}>
+    {asleep ? <SleepingSlot large={large} /> : <FaviconImage tab={tab} large={large} />}
     {badges && tab.engine === 'webkit' && <View accessibilityLabel="Shown in WebKit" style={{ position: 'absolute', right: -space.xs, bottom: -space.xs,
       width: geometry.engineBadge, height: geometry.engineBadge, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',
       backgroundColor: colors.engineBadge }}>
@@ -31,6 +33,12 @@ function FaviconImage({ tab, large }: { tab: Tab; large: boolean }) {
   // A symbol the user chose for the tab (Change Icon) stands in for the page's icon.
   if (tab.symbol) return <SymbolSlot large={large} name={tab.symbol as SymbolName} />;
   return <PageIcon tab={tab} large={large} />;
+}
+
+function SleepingSlot({ large }: { large: boolean }) {
+  const { colors } = useTheme();
+  const side = large ? geometry.iconLarge : geometry.favicon;
+  return <View style={{ width: side, height: side, borderRadius: radius.xs + space.hair, backgroundColor: colors.iconDisabled }} />;
 }
 
 function SymbolSlot({ large, name }: { large: boolean; name: SymbolName }) {

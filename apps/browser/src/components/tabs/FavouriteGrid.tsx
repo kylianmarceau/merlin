@@ -3,7 +3,7 @@ import { Animated, PanResponder, View } from 'react-native';
 import { columnsFor, gridHeight, placeAt, slotAt, slotOrigin, tileWidth } from '../../state/favouriteGrid';
 import type { Tab } from '../../state/types';
 import { useActions, useBrowser } from '../../state/window';
-import { Panel, duration, geometry, radius, space, tick, useSpringRect, useTheme, useTimeout } from '../ui';
+import { Panel, duration, geometry, radius, space, tick, useArrival, useSpringRect, useTheme, useTimeout } from '../ui';
 import { Favicon } from '../favicon/Favicon';
 import { FavouriteTile } from './TabRow';
 
@@ -39,6 +39,10 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
   const [held, setHeld] = useState<{ id: string; index: number } | null>(null);
   const ids = pinned.map(t => t.id);
   const key = ids.join(' ');
+  // Tiles there when the grid first showed don't pop; a tab pinned since does.
+  const known = useRef<Set<string> | null>(null);
+  const fresh = (id: string) => !!known.current && !known.current.has(id);
+  useEffect(() => { known.current = new Set([...(known.current ?? []), ...ids]); }, [key]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setHeld(null), [key]);
   useTimeout(() => setHeld(null), duration.dropSettle, [held]);
   const incoming = pinDrop && !ids.includes(pinDrop.tabId) ? tabs.find(t => t.id === pinDrop.tabId) ?? null : null;
@@ -73,7 +77,7 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
       if (!tab) return null;
       const dragged = move?.id === id;
       return <Cell key={id} index={dragged ? move.from : index} offset={dragged ? move : undefined} columns={columns} tile={tile}
-        reduce={reduceMotion} lifted={dragged}
+        reduce={reduceMotion} lifted={dragged} fresh={fresh(id)}
         drag={{
           start: () => { actions.closeHoverCard(); setMove({ id, from: latest.ids.indexOf(id), index: latest.ids.indexOf(id), dx: 0, dy: 0 }); },
           move: (dx, dy) => {
@@ -101,9 +105,11 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
  * One slot of the grid. Its tile springs to the slot when the tiles reflow,
  * and follows the pointer, lifted, while it is dragged.
  */
-function Cell({ index, columns, tile, reduce, offset, lifted, drag, children }: React.PropsWithChildren<{
+function Cell({ index, columns, tile, reduce, offset, lifted, fresh = false, drag, children }: React.PropsWithChildren<{
   index: number; columns: number; tile: { width: number; height: number }; reduce: boolean;
   offset?: { dx: number; dy: number }; lifted?: boolean;
+  /** Just pinned: it pops into place. */
+  fresh?: boolean;
   drag?: { start(): void; move(dx: number, dy: number): void; end(): void };
 }>) {
   const origin = slotOrigin(index, columns, tile, tileGap);
@@ -111,6 +117,7 @@ function Cell({ index, columns, tile, reduce, offset, lifted, drag, children }: 
     reduce, !!offset);
   const latest = useRef(drag);
   latest.current = drag;
+  const arrival = useArrival(fresh, reduce);
   const pan = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponderCapture: (_, g) => !!latest.current && Math.hypot(g.dx, g.dy) > space.xs,
     onPanResponderGrant: () => latest.current?.start(),
@@ -120,7 +127,7 @@ function Cell({ index, columns, tile, reduce, offset, lifted, drag, children }: 
     onPanResponderTerminationRequest: () => false,
   }), []);
   return <Animated.View {...pan.panHandlers} style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height,
-    zIndex: lifted ? 1 : undefined }}>
+    zIndex: lifted ? 1 : undefined, transform: [{ scale: arrival }] }}>
     {/* A lifted tile casts a shadow; like a row, it holds its size rather than scaling. */}
     {lifted && <Panel fill="tilePinnedHover" radius="tile" elevation="menu" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
     {children}

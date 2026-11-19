@@ -6,7 +6,7 @@ import { awayFromHome } from '../../state/pinned';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useBrowser } from '../../state/window';
 import {
-  ContextMenu, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, opacity, pinnedTileRing, spring, pinnedTileTint, radius, space, useEased, useHoverFade,
+  ContextMenu, Equaliser, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, opacity, pinnedTileRing, spring, pinnedTileTint, radius, space, useEased, useHoverFade,
   useInteraction, useTheme, type ShadowName,
 } from '../ui';
 import { Favicon } from '../favicon/Favicon';
@@ -124,9 +124,7 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSte
             tone={active ? 'tabTextActive' : tab.discarded ? 'textTertiary' : 'tabText'} weight={active ? 'medium' : undefined}>{title}</Text>
         </Fade>
       </Pressable>
-      {sound && <IconButton label={tab.muted ? `Unmute ${title}` : `Mute ${title}`} tip={tab.muted ? 'Unmute tab' : 'Mute tab'}
-        icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" tone="iconSecondary"
-        onPress={() => void actions.muteTab(tab.id, !tab.muted)} />}
+      {sound && <SoundButton tab={tab} title={title} />}
       <Animated.View pointerEvents={hovered || active ? 'auto' : 'none'}
         style={{ width: geometry.control, alignItems: 'center', opacity: closeShown }}>
         <IconButton label={`Close ${title}`} tip="Close tab" keys={['⌘', 'W']} icon="xmark" size="small"
@@ -135,6 +133,18 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSte
     </Animated.View>
   </ContextMenu>;
 });
+
+/**
+ * A tab's sound, pressed to mute or unmute it: while it plays, animated
+ * equaliser bars rather than a still speaker; muted, a crossed speaker.
+ */
+export function SoundButton({ tab, title }: { tab: Tab; title: string }) {
+  const actions = useActions();
+  return <IconButton label={tab.muted ? `Unmute ${title}` : `Mute ${title}`} tip={tab.muted ? 'Unmute tab' : 'Mute tab'}
+    icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" tone="iconSecondary"
+    art={tab.muted ? undefined : <Equaliser playing={tab.audible} />}
+    onPress={() => void actions.muteTab(tab.id, !tab.muted)} />;
+}
 
 /**
  * A pinned tab, shown as a favourite tile above the tab list. As in Dia, a
@@ -177,9 +187,7 @@ export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, wi
       {ring && <View pointerEvents="none" style={[cover, { borderRadius: radius.tile, borderWidth: geometry.tileRing, borderColor: ring }]} />}
       <Favicon tab={tab} large busy={tab.loading && !active} badges />
       {(tab.audible || tab.muted) && <View style={{ position: 'absolute', top: space.hair, right: space.hair }}>
-        <IconButton label={tab.muted ? `Unmute ${title}` : `Mute ${title}`} tip={tab.muted ? 'Unmute tab' : 'Mute tab'}
-          icon={tab.muted ? 'speaker.slash.fill' : 'speaker.wave.2.fill'} size="small" tone="iconSecondary"
-          onPress={() => void actions.muteTab(tab.id, !tab.muted)} />
+        <SoundButton tab={tab} title={title} />
       </View>}
       {/* A tile that has left its pinned page says so with a dot under the icon. */}
       {away && <View pointerEvents="none" style={{ position: 'absolute', bottom: space.xs, width: space.xs, height: space.xs,
