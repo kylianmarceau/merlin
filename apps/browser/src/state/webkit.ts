@@ -3,7 +3,7 @@
 // tab for the whole app; each window draws its own tabs' records over its
 // snapshot (store.overlay).
 import { createStore } from 'zustand/vanilla';
-import { engineFor, hostLabel, siteOf, type PageEngine } from '../lib/engines';
+import { engineFor, siteOf, type PageEngine } from '../lib/engines';
 import type { EngineClient } from '../platform/protocol';
 import {
   closeWebKitPage, focusWebKitPage, loadWebKitPage, setPrivateWindow, subscribeWebKit, webKitCommand, type WebKitCommand,
@@ -20,8 +20,6 @@ export const webkitTabs = createStore<Record<string, WebKitTab>>()(() => ({}));
 
 type Window = { store: BrowserStore; engine: EngineClient; openTab(url: string): void };
 const windows = new Map<string, Window>();
-/** Sites already explained in a notice this session. */
-const announced = new Set<string>();
 /** Saved site choices have been read; until then no tab moves to WebKit. */
 let prefsReady = false;
 /** The shell was built without the WebKit module: every page stays in Chromium. */
@@ -205,11 +203,6 @@ function open(store: BrowserStore, engine: EngineClient, tabId: string, url: str
     pushToast(store, 'This copy of Merlin can’t open pages in WebKit, so protected video won’t play.');
   });
   void leave(store, engine, tabId);
-  const site = siteOf(url);
-  if (site && !announced.has(site)) {
-    announced.add(site);
-    pushToast(store, `${hostLabel(url)} opens in WebKit, which can play its video. WebKit keeps its own sign-ins.`, 'info');
-  }
 }
 
 /**
