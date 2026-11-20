@@ -12,7 +12,11 @@ import { Icon, geometry, opacity, radius, space, useBreathe, useEased, useTheme,
  */
 export const Favicon = React.memo(function Favicon({ tab, large = false, busy = false, badges = false }: {
   tab: Tab; large?: boolean; busy?: boolean;
-  /** Marks a WebKit tab with a small Safari badge, and a sleeping tab by dimming it, as in Ardia. */
+  /**
+   * Marks a WebKit tab with a small Safari badge, and a sleeping tab by
+   * dimming it, as in Ardia; a muted tab, and one whose media is paused,
+   * with a badge at the icon's other corner, as Dia does.
+   */
   badges?: boolean;
 }) {
   const { colors, reduceMotion } = useTheme();
@@ -26,8 +30,23 @@ export const Favicon = React.memo(function Favicon({ tab, large = false, busy = 
       backgroundColor: colors.engineBadge }}>
       <Icon name="safari" tone="iconSecondary" size="chevron" />
     </View>}
+    {badges && !asleep && <SoundBadge tab={tab} />}
   </Animated.View>;
 });
+
+/** Muted, or its media paused: a small crossed speaker or pause sign on the icon's lower leading corner
+ * (the trailing one is WebKit's, the upper one a favourite's unread count). */
+function SoundBadge({ tab }: { tab: Tab }) {
+  const { colors } = useTheme();
+  const icon: SymbolName | null = tab.muted ? 'speaker.slash.fill' : tab.media && !tab.media.playing ? 'pause.fill' : null;
+  if (!icon) return null;
+  return <View accessible={false} pointerEvents="none" style={{ position: 'absolute', left: -space.xs, bottom: -space.xs,
+    width: geometry.engineBadge, height: geometry.engineBadge, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',
+    // In the opposite of the shell's tone, so it reads over the icon and against the sidebar alike.
+    backgroundColor: colors.soundBadge }}>
+    <Icon name={icon} tone="textOnSoundBadge" size="chevron" />
+  </View>;
+}
 
 function FaviconImage({ tab, large }: { tab: Tab; large: boolean }) {
   // A symbol the user chose for the tab (Change Icon) stands in for the page's icon.

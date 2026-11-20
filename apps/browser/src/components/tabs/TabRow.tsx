@@ -102,7 +102,8 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSte
   const wash = useHoverFade(!active && (hovered || dy !== null), reduceMotion);
   const closeShown = useEased(hovered || active, reduceMotion);
   const title = tabTitle(tab);
-  const sound = tab.audible || tab.muted;
+  // A muted tab's icon says so; its unmute button waits for the pointer.
+  const sound = (tab.audible && !tab.muted) || (tab.muted && hovered);
   const hover = (on: boolean) => {
     setHovered(on);
     if (!on) { actions.leaveTab(); return; }
@@ -230,7 +231,7 @@ export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, wi
         <Favicon tab={tab} large busy={tab.loading && !active} badges />
         {unread !== null && <UnreadBadge unread={unread} late={shown.current} />}
       </View>
-      {(tab.audible || tab.muted) && <View style={{ position: 'absolute', top: space.hair, right: space.hair }}>
+      {((tab.audible && !tab.muted) || (tab.muted && hovered)) && <View style={{ position: 'absolute', top: space.hair, right: space.hair }}>
         <SoundButton tab={tab} title={title} />
       </View>}
       {/* A tile that has left its pinned page says so with a dot under the icon. */}

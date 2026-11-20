@@ -18,7 +18,7 @@ import {
   dismissHud, dismissToast, expectDeparture, pushToast, refreshOverlay, rememberFavicon, showHud, type Hud, type AnchorName, type BrowserStore, type GroupDialog, type HoverCard, type Panel, type PopoverName, type Rect,
   type SearchOwner,
 } from './store';
-import type { BookmarkItem } from '../platform/protocol';
+import type { BookmarkItem, MediaAction } from '../platform/protocol';
 import { awayFromHome } from './pinned';
 
 let queryCounter = 0;
@@ -133,6 +133,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       return true;
     },
     muteTab: (tabId: string, muted: boolean) => run('tabs.mute', { tabId, muted }),
+    /** Plays, pauses or skips a tab's media from the sidebar's player. */
+    mediaTab: (tabId: string, action: MediaAction) => run('tabs.media', { tabId, action }),
     /** A pinned tab goes back to the page it was pinned on. */
     returnToPinnedPage(tabId: string) {
       const home = store.getState().pinnedHomes[tabId];

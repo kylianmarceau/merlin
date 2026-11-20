@@ -55,8 +55,11 @@ The stored accent names predate Tide and stay as the browser saves them:
   row when it is out of sight; double-clicking the empty space under the
   rows opens a tab; once the rows overflow, New Tab stays put under the
   list. Rows fade their titles (`Fade`, no ellipsis), show three bouncing
-  bars while the tab plays (`Equaliser`; a press mutes it, and a muted tab
-  shows a crossed speaker), a Safari badge on WebKit tabs, and, asleep, a
+  bars while the tab plays (`Equaliser`; a press mutes it), a Safari badge
+  on WebKit tabs, a small chip at the icon's lower corner when the tab is
+  muted or its media is paused, as Dia marks them (a crossed speaker or a
+  pause sign, in the opposite of the shell's tone; a muted tab's unmute
+  button then waits for the pointer), and, asleep, a
   quiet grey square in place of their icon, dimmed. Rows joining or leaving the list, and groups
   folding, animate as in Dia (`animateListChange`). A dragged row lifts
   into a white card with a shadow (no scale) and follows the pointer, while
@@ -66,7 +69,14 @@ The stored accent names predate Tide and stay as the browser saves them:
   row on the middle of another for a moment (`contactRow`, 450 ms) stops
   the rows making room and rings that row in the accent, the lifted card
   turning solid; let go there and the two make a tab group, or it joins
-  that row's group, as in Ardia. The footer is quiet: downloads on the left only
+  that row's group, as in Ardia. Media playing, or paused, in a tab you
+  have left gets a small player over the footer, as in Dia (`MediaPlayer`):
+  the track and its artist (else the tab's title and site), play or pause
+  and skip as the page's own controls would (`tabs.media`, from Chromium's
+  media session), the whole card going to the tab; a playing tab comes
+  before a paused one, then the most recent. Its × (on hover) puts it away
+  until that tab plays again. An engine that describes no media gets the
+  sounding tab with its mute button. The footer is quiet: downloads on the left only
   while there are some; workspaces, extensions, the command menu, the
   Library and Settings on the right. The page card has **no toolbar** in
   this layout.

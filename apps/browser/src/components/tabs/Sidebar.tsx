@@ -16,6 +16,7 @@ import { useShortcut } from '../window/shortcuts';
 import { FavouriteGrid } from './FavouriteGrid';
 import { TabRow, rowStep } from './TabRow';
 import { SidebarGroup, tabBlocks } from './TabGroups';
+import { MediaPlayer } from './MediaPlayer';
 import { SidebarFooter } from './WindowButtons';
 
 const sidePadding = space.md + space.sm + space.hair;
@@ -177,6 +178,7 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
         <NewTabRow pending={pending} onPress={actions.openNewTab} keys={newTab.keys} />
       </View>}
     </View>
+    <MediaPlayer />
     <SidebarFooter />
     {!floating && <ResizeEdge width={width} />}
   </View>;

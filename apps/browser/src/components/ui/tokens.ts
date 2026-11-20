@@ -244,6 +244,9 @@ function roles(mode: Mode, accentName: AccentName) {
     // A favourite's unread count, red as macOS's dock badges are, whatever the workspace colour.
     unreadBadge: pick('#E5484D', '#E5484D'),
     textOnUnread: pick(ink[0], ink[0]),
+    /** A muted or paused tab's badge on its icon: a chip in the opposite of the shell's tone, as a dock badge stands out. */
+    soundBadge: pick(ink[700], ink[200]),
+    textOnSoundBadge: pick(ink[0], ink[900]),
     info: a.base,
     infoSoft: a.soft,
 

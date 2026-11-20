@@ -308,14 +308,15 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
         </Pressable>
       </ContextMenu>
       {!icon && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center' }}>
-        {sound && <SoundButton tab={tab} title={title} />}
+        {/* A muted tab's icon says so; its unmute button waits for the pointer. */}
+        {sound && (!tab.muted || hovered) && <SoundButton tab={tab} title={title} />}
         <Animated.View pointerEvents={closeOn ? 'auto' : 'none'} style={{ opacity: closeShown }}>
           <IconButton label={`Close ${title}`} tip="Close tab" keys={['⌘', 'W']} icon="xmark" size="small"
             onPress={() => { actions.closeHoverCard(); void actions.closeTab(tab.id); }} />
         </Animated.View>
       </View>}
       {/* An icon-only tab (pinned, or crowded) shows its sound as a small badge you can press. */}
-      {icon && sound && <View style={{ position: 'absolute', right: -space.xs, top: -space.hair }}>
+      {icon && sound && (!tab.muted || hovered) && <View style={{ position: 'absolute', right: -space.xs, top: -space.hair }}>
         <SoundButton tab={tab} title={title} />
       </View>}
     </Animated.View>
