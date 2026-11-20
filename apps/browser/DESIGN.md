@@ -76,9 +76,9 @@ The stored accent names predate Tide and stay as the browser saves them:
   media session), the whole card going to the tab; a playing tab comes
   before a paused one, then the most recent. Its × (on hover) puts it away
   until that tab plays again. An engine that describes no media gets the
-  sounding tab with its mute button. The footer is quiet: downloads on the left only
-  while there are some; workspaces, extensions, the command menu, the
-  Library and Settings on the right. The page card has **no toolbar** in
+  sounding tab with its mute button. Downloads stays visible on the left of
+  the footer. Workspaces, extensions, the command menu, the Library and
+  Settings sit on the right. The page card has **no toolbar** in
   this layout.
 - **Tabs on top** (`tabs = "top"`): the "Joined" strip, 48 pt after 84 pt
   for the traffic lights, drawn over the card so the active tab can overlap
@@ -111,9 +111,9 @@ The stored accent names predate Tide and stay as the browser saves them:
   cell at a time and never into a split, the joined shape following it
   (`stripLayout.ts`); pulled down past the strip it leaves the tabs, fading
   while the others close up (see Tab drops).
-  The command menu, Library, Settings and, last, Downloads (only while
-  there are downloads) sit at the right, so the downloads panel hangs at the
-  window's right edge. A tab that plays sound shows a speaker that mutes it;
+  The command menu, Library, Settings and Downloads stay visible on the
+  right. Downloads sits last so its panel hangs at the window's right edge.
+  A tab that plays sound shows a speaker that mutes it;
   WebKit tabs carry a Safari badge on their icon.
   The card gets one 46 pt toolbar (32 pt when compact), as calm as Dia's:
   hide tabs, back, forward, reload, the address and extensions. Holding Back

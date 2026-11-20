@@ -74,15 +74,10 @@ export function ExtensionsButton() {
     onPress={() => actions.togglePopover('extensions')} />;
 }
 
-/**
- * The bottom of the sidebar, as quiet as Dia's: downloads on the left only
- * while there are some (the Library has them all), the rest on the right.
- */
+/** Downloads on the left, with the other sidebar controls on the right. */
 export function SidebarFooter() {
-  const downloads = useSnapshot().downloads.length > 0;
-  const open = useBrowser(s => s.popover === 'downloads');
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
-    {(downloads || open) && <DownloadsButton />}
+    <DownloadsButton />
     <View style={{ flex: 1 }} />
     <WorkspacesButton />
     <ExtensionsButton />
