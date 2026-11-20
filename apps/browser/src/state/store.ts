@@ -76,8 +76,6 @@ export type BrowserState = {
   windowKey: boolean;
   /** Which of the window's edges meet the screen's: there the pointer stops, so the peek strip can stay thin. */
   screenEdges: { left: boolean; top: boolean };
-  /** The last time tabs closed in this window (not moved to another), so a notice can offer them back. */
-  closedTabs: { id: number; count: number; title: string } | null;
   /** A two-finger swipe back or forward over the page, as Chromium reports it; the shell draws its arrow. */
   historySwipe: HistorySwipe | null;
   /** Names and icons the user gave tabs in Merlin (Rename Tab, Change Icon), by tab. */
@@ -92,7 +90,7 @@ export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [], hud: null,
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, openFolder: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, closedTabs: null, historySwipe: null, tabLooks: {}, pinnedHomes: {},
+    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, openFolder: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, historySwipe: null, tabLooks: {}, pinnedHomes: {},
     failInRender: false,
   };
 }
@@ -132,27 +130,7 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
     (!before.find?.visible && !!snapshot.find?.visible) || before.modal.pending !== snapshot.modal.pending);
   const hoverCard = state.hoverCard && !keyed && snapshot.tabs.some(t => t.id === state.hoverCard?.tabId) ? state.hoverCard : null;
   const peeking = state.peeking && !!snapshot.modal.sidebarHidden;
-  const closedTabs = closedSince(store, before, snapshot) ?? state.closedTabs;
-  store.setState({ engineSnapshot, snapshot, connectionError: null, recentTabs, pinnedHomes, hoverCard, peeking, closedTabs });
-}
-
-const departing = new WeakMap<BrowserStore, Set<string>>();
-let closedCounter = 0;
-/** A tab about to leave this window for another (not to close), so its going offers no Reopen. */
-export function expectDeparture(store: BrowserStore, tabId: string) {
-  const set = departing.get(store) ?? new Set<string>();
-  set.add(tabId);
-  departing.set(store, set);
-}
-/** Tabs that were in the last snapshot and aren't in this one, other than those that moved to another window. */
-function closedSince(store: BrowserStore, before: Snapshot | null, after: Snapshot): BrowserState['closedTabs'] {
-  if (!before || before.session !== after.session) return null;
-  const now = new Set(after.tabs.map(t => t.id));
-  const moving = departing.get(store);
-  // Blank and start pages aren't kept by the engine's closed-tab history, so they offer no Reopen.
-  const gone = before.tabs.filter(t => !now.has(t.id) && !moving?.delete(t.id) && !!t.url && !isBlank(t.url) && !t.start);
-  if (!gone.length) return null;
-  return { id: ++closedCounter, count: gone.length, title: gone[0].name || gone[0].title || '' };
+  store.setState({ engineSnapshot, snapshot, connectionError: null, recentTabs, pinnedHomes, hoverCard, peeking });
 }
 
 /**

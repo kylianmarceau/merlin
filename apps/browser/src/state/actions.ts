@@ -15,7 +15,7 @@ import { groupColors, type Appearance, type Calls, type DownloadAction, type Eng
   type Requests } from '../platform/protocol';
 import { currentSuggestions, moveSelection, startQuery, suggestionChoice } from './omnibox';
 import {
-  dismissHud, dismissToast, expectDeparture, pushToast, refreshOverlay, rememberFavicon, showHud, type Hud, type AnchorName, type BrowserStore, type GroupDialog, type HoverCard, type Panel, type PopoverName, type Rect,
+  dismissHud, dismissToast, pushToast, refreshOverlay, rememberFavicon, showHud, type Hud, type AnchorName, type BrowserStore, type GroupDialog, type HoverCard, type Panel, type PopoverName, type Rect,
   type SearchOwner,
 } from './store';
 import type { BookmarkItem, MediaAction } from '../platform/protocol';
@@ -33,8 +33,6 @@ const tabSymbols = Object.keys(symbolTitles) as (keyof typeof symbolTitles)[];
 const groupColorTitle = (color: GroupColor) => color[0].toUpperCase() + color.slice(1);
 /** How soon after an outside press closes a popover its own button is ignored. */
 const reopenGuardMs = 400;
-/** How much of a closed tab's title its Reopen notice quotes. */
-const reopenTitle = 36;
 /**
  * Hover cards and tooltips, as in Dia: half a second under a still pointer,
  * then at once for the next one while the pointer moves on; a card stays a
@@ -216,7 +214,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     /** Ends the tab's split view; both tabs stay open. */
     unsplitTab: (tabId: string) => run('tabs.unsplit', { tabId }),
     /** Moves the tab into a window of its own, under the pointer. */
-    detachTab: (tabId: string) => { expectDeparture(store, tabId); return run('tabs.detach', { tabId }); },
+    detachTab: (tabId: string) => run('tabs.detach', { tabId }),
 
     // Tab groups.
     /** Adds the tab to `groupId`, or to a new group named `title` when `groupId` is null. */
@@ -762,12 +760,6 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     showHud: (text: string, tone: Hud['tone'] = 'info', symbol?: Hud['symbol'], action?: Hud['action']) => showHud(store, text, tone, symbol, action),
     dismissHud: (id: number) => dismissHud(store, id),
     notify: (text: string) => pushToast(store, text, 'info'),
-    /** After a tab closes: a notice that offers it back, as Safari and Arc do. */
-    offerReopen(count: number, title: string) {
-      const name = title.length > reopenTitle ? `${title.slice(0, reopenTitle - 1).trimEnd()}…` : title;
-      const text = count > 1 ? `${count} tabs closed` : name ? `Closed “${name}”` : 'Tab closed';
-      pushToast(store, text, 'info', { label: 'Reopen', run: () => { void actions.command('tabrestore'); } });
-    },
 
     // Browser questions. Errors are returned so the prompt can show them in place.
     answerPrompt: (promptId: string, actionId: string, extra: { text?: string; secret?: string; suppress?: boolean }) =>

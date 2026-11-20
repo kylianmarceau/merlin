@@ -193,11 +193,6 @@ The stored accent names predate Tide and stay as the browser saves them:
   Command-plus, a pinch, or the same site zoomed in another tab) shows its
   zoom there, "125%", with Reset while it isn't the default (`zoomChange`;
   a new tab or site showing a different zoom says nothing).
-- **Closed tabs**: closing a tab with a page on it brings a toast to the
-  bottom centre, Closed “Title” with Reopen, which restores it with its
-  history ("3 tabs closed" for several at once). Blank and new tab pages,
-  which Chromium doesn't keep, and tabs dragged to another window offer
-  none.
 - **A window not in front**: the shell turns an opaque, lighter tone
   (`shellInactive`) and the tabs fade back to 62% (`inactiveTabs`), as in
   Dia.

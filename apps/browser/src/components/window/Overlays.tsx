@@ -31,9 +31,6 @@ export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
   const shown = useOverlays();
   const toasts = useBrowser(s => s.toasts);
   const naming = useBrowser(s => !!s.groupDialog);
-  // A tab closed in this window: a notice offers it back for a few seconds.
-  const closed = useBrowser(s => s.closedTabs);
-  useEffect(() => { if (closed) actions.offerReopen(closed.count, closed.title); }, [closed?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
   // The page in front zoomed: its zoom shows over the page for a moment, as Dia's HUD does, with Reset while it isn't the default.
   const zoomedFrom = useRef(snapshot);
   useEffect(() => {
