@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, ScrollView, View } from 'react-native';
 import type { Tab } from '../../state/types';
-import { useActions, useBrowser, useSnapshot } from '../../state/window';
+import { useActions, useSnapshot } from '../../state/window';
 import {
   ContextMenu, DragRegion, Fade, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
   groupColorRoles, opacity, tick, useEased, useHeld, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
@@ -56,8 +56,6 @@ export function TabStrip({ floating = false }: {
   const [room, setRoom] = useState(0);
   const [drag, setDrag] = useState<Drag | null>(null);
   const activeId = snapshot.activeTabId;
-  // Downloads shows only while there are some, as in Dia; the Library keeps them all.
-  const popoverOpen = useBrowser(s => s.popover === 'downloads');
   const groups = snapshot.groups ?? [];
   const [hold, setHold] = useState(0);
   const full = useMemo(() => layoutStrip(snapshot.tabs, groups, activeId, room, metrics, null, hold),
@@ -179,7 +177,7 @@ export function TabStrip({ floating = false }: {
     <View style={{ height: geometry.strip, flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
       <LibraryButtons />
       {/* Last, so its popover hangs at the window's right edge, as in Ardia. */}
-      {(!!snapshot.downloads.length || popoverOpen) && <DownloadsButton />}
+      <DownloadsButton />
     </View>
   </View>;
 }
