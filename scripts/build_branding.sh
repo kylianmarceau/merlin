@@ -41,8 +41,17 @@ for scale in 1 2; do
   done
 done
 
-render "$START/merlin-logo.png" 112
-render "$START/merlin-logo@2x.png" 224
+# AppKit image tinting can fill the transparent pixels on macOS. Bake both inks.
+render_start_mark() {
+  local part="$1" name="$2" size="$3" ink="$4"
+  python3 "$ROOT/scripts/merlin_mark.py" "--start-$part" "$ink" > "$work/start.svg"
+  "$work/render_svg" "$work/start.svg" "$START/$name.png" "$size"
+  "$work/render_svg" "$work/start.svg" "$START/$name@2x.png" $((size * 2))
+}
+render_start_mark falcon merlin-logo 76 '#1F2421'
+render_start_mark falcon merlin-logo-light 76 '#F7F7F7'
+render_start_mark prompt merlin-prompt 18 '#1F2421'
+render_start_mark prompt merlin-prompt-light 18 '#FFFFFF'
 
 # The Dock override and fallback app icons need the transparent macOS margin.
 python3 "$ROOT/scripts/merlin_mark.py" --app-icon > "$work/app-icon.svg"
