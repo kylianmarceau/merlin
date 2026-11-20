@@ -1,8 +1,28 @@
-Merlin 0.4.0, a keyboard-driven browser for macOS built on
+Merlin 0.5.0, a keyboard-driven browser for macOS built on
 Chromium 157.0.8103.26.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.0
+
+* **Keep video in view.** WebKit tabs can now enter picture-in-picture
+  automatically when you switch away, like Chromium tabs. The sidebar
+  media player lets you play, pause and skip when the site supports it.
+  Tabs show when media is paused or muted.
+* **Organize tabs and favourites by dragging.** Drop tabs together to
+  group them, and organize favourites into folders. Folders and tab groups
+  show how many unread tabs they contain. Tabs can also be renamed and
+  given a custom icon from their menu.
+* **More room for top tabs.** The tab strip scrolls when tabs reach their
+  minimum width and holds their widths while you close tabs in succession.
+* **Clearer browser feedback.** Merlin shows page zoom changes, draws its
+  own back and forward swipe indicator, and displays site sign-in prompts
+  and page dialogs in the browser shell. Closing a tab offers to reopen it.
+* **Easier to find settings and history.** Search Settings to find a
+  preference, and see repeat visits to the same page together in History.
+* **A new app icon.** The pixel falcon is Merlin's default app icon and
+  appears on the new tab page.
 
 ## What's new in 0.4.0
 
