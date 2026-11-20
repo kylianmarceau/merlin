@@ -7,7 +7,7 @@ import type { NativeSyntheticEvent, ViewProps } from 'react-native';
 export type SymbolName = 'arrow.left' | 'arrow.right' | 'arrow.up' | 'arrow.down' | 'arrow.clockwise' | 'xmark' | 'plus' |
   'sidebar.left' | 'gearshape' | 'arrow.down.circle' | 'command' | 'pin' | 'pin.fill' |
   'magnifyingglass' | 'clock' | 'bookmark' | 'bookmark.fill' | 'rectangle.stack' | 'speaker.wave.2' | 'speaker.slash' | 'globe' |
-  'lock.shield' | 'ellipsis' | 'folder' | 'folder.badge.plus' | 'trash' | 'pencil' | 'checkmark' | 'chevron.right' |
+  'lock.shield' | 'ellipsis' | 'folder' | 'folder.badge.plus' | 'folder.badge.minus' | 'play.fill' | 'pause.fill' | 'forward.fill' | 'backward.fill' | 'trash' | 'pencil' | 'checkmark' | 'chevron.right' |
   'chevron.down' | 'puzzlepiece.extension' | 'person.crop.circle' | 'doc.text' | 'paintbrush' | 'hand.raised' | 'bolt' |
   'keyboard' | 'info.circle' | 'books.vertical' | 'arrow.uturn.backward' | 'play' | 'pause' | 'rectangle.split.2x1' |
   'lock' | 'lock.open' | 'exclamationmark.triangle' | 'exclamationmark.octagon' | 'bell.badge' | 'square.on.square' |

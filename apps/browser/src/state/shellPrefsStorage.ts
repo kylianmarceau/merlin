@@ -3,6 +3,7 @@
 // absent always means "the default", including for Chromium, which reads
 // MerlinShell.warnBeforeClosingWindow itself.
 import { parseSiteEngines, type PageEngine } from '../lib/engines';
+import { parseFolders, type FavouriteFolder } from './favouriteFolders';
 import {
   installQuitGuard, onPreferenceChanged, preference, setBookmarksMenuHidden, setPreference, setThinScrollBars, tidyMenuBar,
 } from '../platform/shell';
@@ -29,7 +30,7 @@ const amount = (fallback: number, min = 0, max = 1): Codec<number> => ({
 
 const d = defaultShellPrefs;
 /** Every simple preference, how it is saved, and its default. */
-const codecs: { [K in Exclude<keyof ShellPrefs, 'siteEngines' | 'protectedVideoInWebKit'>]: Codec<ShellPrefs[K]> } = {
+const codecs: { [K in Exclude<keyof ShellPrefs, 'siteEngines' | 'protectedVideoInWebKit' | 'favouriteFolders'>]: Codec<ShellPrefs[K]> } = {
   newTabPopup: flag(d.newTabPopup),
   // Unset is the default, Match. Soft was the default before it and saved
   // nothing, so those windows move to Match too.
@@ -84,12 +85,15 @@ export function loadShellPrefs() {
       applyNative(key, shellPrefs.getState());
     }, () => {});
   }
+  preference('favouriteFolders').then(raw => shellPrefs.setState({ favouriteFolders: parseFolders(raw) }), () => {});
   void installQuitGuard().catch(() => {});
   void tidyMenuBar().catch(() => {});
   try {
     // "Don't ask again" on the quit question clears the preference natively.
     onPreferenceChanged((key, raw) => {
       if (key in codecs) shellPrefs.setState({ [key]: codecs[key as SimpleKey].read(raw) } as Partial<ShellPrefs>);
+      // Another window changed the folders.
+      if (key === 'favouriteFolders') shellPrefs.setState({ favouriteFolders: parseFolders(raw) });
     });
   } catch { /* An older host without the event. */ }
   void loadEnginePrefs();
@@ -141,4 +145,10 @@ export function setSiteEngine(site: string, engine: PageEngine | null) {
 export function forgetSiteEngines() {
   shellPrefs.setState({ siteEngines: {} });
   return setPreference('siteEngines', null);
+}
+
+/** Saves the favourite folders for every window; none saves nothing. */
+export function setFavouriteFolders(folders: FavouriteFolder[]) {
+  shellPrefs.setState({ favouriteFolders: folders });
+  return setPreference('favouriteFolders', folders.length ? JSON.stringify(folders) : null);
 }

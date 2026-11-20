@@ -3,7 +3,7 @@ import { Animated, PanResponder, ScrollView, View, type NativeScrollEvent, type 
 import { SIDEBAR_WIDTH, useShellPrefs } from '../../state/shellPrefs';
 import { previewShellPref, setShellPref } from '../../state/shellPrefsStorage';
 import { tabUnits } from '../../state/splits';
-import { reorderTarget, rowShift, type ListDrag } from '../../state/tabDrag';
+import { contactRow, reorderTarget, rowShift, type ListDrag } from '../../state/tabDrag';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import {
   DashedRule, DragRegion, Icon, IconButton, Pressable, Text, animateListChange, duration, geometry, radius, rubberBand, snapDistance, space,
@@ -52,7 +52,43 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
     if (old && old.steps !== clamped) tick('alignment');
     return { tabId: id, from, steps: clamped, order: openIds.current.join(' '), settling: false };
   }), []);
+  // Grouping on contact, as in Ardia: a dragged row resting squarely on another for a moment stops the
+  // list making room and rings that row; let go there, the two make a group (or it joins that row's).
+  const [contact, setContact] = useState<{ tabId: string; targetId: string } | null>(null);
+  const contactNow = useRef(contact);
+  contactNow.current = contact;
+  const resting = useRef<{ tabId: string; index: number; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const dragAt = useCallback((id: string, at: number | null) => {
+    const from = openIds.current.indexOf(id);
+    const held = contactNow.current?.tabId === id;
+    const index = at === null || from < 0 ? null : contactRow(from, at, openIds.current.length,
+      held && openIds.current[from + Math.round(at)] === contactNow.current?.targetId);
+    if (index === null) {
+      if (resting.current) clearTimeout(resting.current.timer);
+      resting.current = null;
+      if (contactNow.current) setContact(null);
+      return;
+    }
+    if (resting.current?.tabId === id && resting.current.index === index) return;
+    if (resting.current) clearTimeout(resting.current.timer);
+    if (contactNow.current && openIds.current[index] !== contactNow.current.targetId) setContact(null);
+    const targetId = openIds.current[index];
+    resting.current = { tabId: id, index, timer: setTimeout(() => {
+      tick('alignment');
+      setContact({ tabId: id, targetId });
+    }, duration.contact) };
+  }, []);
+  useEffect(() => () => { if (resting.current) clearTimeout(resting.current.timer); }, []);
   const reorder = useCallback((id: string, moved: number) => {
+    const touching = contactNow.current;
+    if (resting.current) clearTimeout(resting.current.timer);
+    resting.current = null;
+    if (touching?.tabId === id) {
+      setContact(null);
+      setListDrag(null);
+      void actions.groupOnContact(id, touching.targetId);
+      return;
+    }
     const target = reorderTarget(openIds.current, id, moved);
     if (!target) { setListDrag(null); return; }
     setListDrag(old => old && { ...old, settling: true });
@@ -63,7 +99,8 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
   useEffect(() => { if (caughtUp) setListDrag(null); }, [caughtUp]);
   useTimeout(() => setListDrag(old => (old?.settling ? null : old)), duration.dropSettle, [listDrag?.settling]);
   const shiftFor = (id: string) => {
-    if (!listDrag || caughtUp) return 0;
+    // Resting on a row to group with it, the others hold their places.
+    if (!listDrag || caughtUp || contact) return 0;
     if (id === listDrag.tabId) return listDrag.settling ? listDrag.steps * rowStep : 0;
     return rowShift(listDrag, openIds.current.indexOf(id)) * rowStep;
   };
@@ -117,7 +154,8 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
           {tabBlocks(open, snapshot.groups).map(block => {
             const rows = tabUnits(block.tabs).map(unit => {
               const unitRows = unit.map(tab => <TabRow key={tab.id} tab={tab} active={tab.id === snapshot.activeTabId} onReorder={reorder}
-                onSteps={steps} shift={shiftFor(tab.id)} instant={caughtUp} onActive={list.onActive} />);
+                onSteps={steps} onRows={dragAt} contact={contact?.targetId === tab.id ? 'target' : contact?.tabId === tab.id ? 'dragged' : null} shift={shiftFor(tab.id)} instant={caughtUp}
+                onActive={list.onActive} />);
               return unit.length > 1 ? <SidebarSplit key={`split:${unit[0].split}`}>{unitRows}</SidebarSplit> : unitRows[0];
             });
             return block.group
@@ -278,3 +316,4 @@ function NewTabRow({ onPress, pending, keys }: { onPress(): void; pending: boole
     {hovered && <Text variant="caption" tone="textTertiary">{keys.join('')}</Text>}
   </Pressable>;
 }
+

@@ -3,10 +3,12 @@ import { Animated, PanResponder, View } from 'react-native';
 import { displayAddress, isStartUrl, leftToRight, pageTitle } from '../../lib/format';
 import type { Tab } from '../../state/types';
 import { awayFromHome } from '../../state/pinned';
+import { unreadIn, unreadLabel, type Unread } from '../../state/unread';
+import { folderTitle, type FavouriteFolder } from '../../state/favouriteFolders';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useBrowser } from '../../state/window';
 import {
-  ContextMenu, Equaliser, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, opacity, pinnedTileRing, spring, pinnedTileTint, radius, space, useEased, useHoverFade,
+  ContextMenu, Equaliser, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, opacity, pinnedTileRing, spring, pinnedTileTint, radius, space, useArrival, useEased, useHoverFade,
   useInteraction, useTheme, type ShadowName,
 } from '../ui';
 import { Favicon } from '../favicon/Favicon';
@@ -14,6 +16,8 @@ import { Favicon } from '../favicon/Favicon';
 const glowElevation: Record<'full' | 'soft' | 'off', ShadowName> = { full: 'tabGlow', soft: 'tab', off: 'none' };
 
 const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
+/** A folder tile's icons, two by two. */
+const folderGrid = geometry.favicon * 2 + space.hair;
 
 /** One row's height in the list, for turning a drag into a number of places. */
 export const rowStep = geometry.tabRow + geometry.tabRowGap;
@@ -35,10 +39,15 @@ export function tabTitle(tab: Tab, fallback = 'New Tab') {
  * page to split it beside the current tab, or out of the window to give it
  * a window of its own.
  */
-export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSteps, onActive, shift = 0, instant = false }: {
+export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSteps, onRows, contact = null, onActive, shift = 0,
+  instant = false }: {
   tab: Tab; active: boolean; onReorder?(tabId: string, steps: number): void;
   /** The places the dragged row would move if let go now; null once the drag ends without a move. */
   onSteps?(tabId: string, steps: number | null): void;
+  /** Where the dragged row is, in rows from its start (a fraction), for grouping on contact; null once it leaves the list. */
+  onRows?(tabId: string, rows: number | null): void;
+  /** Grouping on contact: a dragged row rests on this one ('target'), or this is that row ('dragged'). */
+  contact?: 'target' | 'dragged' | null;
   /** The active row's view, so the sidebar can point to it when it is scrolled out of sight. */
   onActive?(view: View | null): void;
   /** How far this row is pushed aside (or, once dropped, carried) by a drag, in pt; `instant` once the list has caught up. */
@@ -52,8 +61,8 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSte
   const [pinning, setPinning] = useState(false);
   const sidebarWidth = useShellPrefs(p => p.sidebarWidth);
   const ref = useRef<View>(null);
-  const latest = useRef({ onReorder, onSteps, id: tab.id, sidebarWidth });
-  latest.current = { onReorder, onSteps, id: tab.id, sidebarWidth };
+  const latest = useRef({ onReorder, onSteps, onRows, id: tab.id, sidebarWidth });
+  latest.current = { onReorder, onSteps, onRows, id: tab.id, sidebarWidth };
   // The row's place while others are dragged past it, or after it was dropped, on the snappy spring.
   const offset = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -72,17 +81,21 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSte
       setPinning(pinning);
       setDy(out ? 0 : g.dy);
       latest.current.onSteps?.(latest.current.id, out || pinning ? 0 : Math.round(g.dy / rowStep));
+      latest.current.onRows?.(latest.current.id, out || pinning ? null : g.dy / rowStep);
     },
     onPanResponderRelease: (_, g) => {
       // The lifted row springs on from where it was let go.
       offset.setValue(g.dy);
       setDy(null);
       setPinning(false);
-      if (actions.pinDragEnd()) { latest.current.onSteps?.(latest.current.id, null); return; }
+      if (actions.pinDragEnd()) { latest.current.onRows?.(latest.current.id, null); latest.current.onSteps?.(latest.current.id, null); return; }
       if (actions.tabDragEnd() === 'reorder') latest.current.onReorder?.(latest.current.id, Math.round(g.dy / rowStep));
       else latest.current.onSteps?.(latest.current.id, null);
     },
-    onPanResponderTerminate: () => { offset.setValue(0); setDy(null); setPinning(false); actions.tabDragCancel(); latest.current.onSteps?.(latest.current.id, null); },
+    onPanResponderTerminate: () => {
+      offset.setValue(0); setDy(null); setPinning(false); actions.tabDragCancel();
+      latest.current.onRows?.(latest.current.id, null); latest.current.onSteps?.(latest.current.id, null);
+    },
     onPanResponderTerminationRequest: () => false,
   }), [actions]);
   const glow = useShellPrefs(p => p.selectedTabGlow);
@@ -109,6 +122,13 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSte
       {active && <Panel fill="tabActive" radius="row" elevation={glowElevation[glow]} border="tabActiveBorder" style={cover} />}
       {/* Lifted while dragged: a card with a shadow over the rows, as in Ardia; like the rows, it holds its size. */}
       {dy !== null && !active && !pinning && <Panel fill="tabActive" radius="row" elevation="menu" border="tabActiveBorder" style={cover} />}
+      {/* Resting on another row to group with it, the card turns solid, so only its own title reads. */}
+      {dy !== null && contact === 'dragged' && <Panel fill="surfacePopoverSolid" radius="row" elevation="menu" border="tabActiveBorder"
+        style={cover} />}
+      {/* The row it rests on rings in the accent just outside its edge, as the group the two will make. */}
+      {contact === 'target' && <View pointerEvents="none" style={{ position: 'absolute', top: -geometry.tileRing,
+        bottom: -geometry.tileRing, left: -geometry.tileRing, right: -geometry.tileRing, borderRadius: radius.row + geometry.tileRing,
+        borderWidth: geometry.tileRing, borderColor: colors.accent }} />}
       <Pressable accessibilityRole="button" accessibilityState={{ selected: active }}
         accessibilityLabel={`${title}${tab.loading ? ', loading' : ''}${tab.muted ? ', muted' : tab.audible ? ', playing audio' : ''}${
           tab.engine === 'webkit' ? ', in WebKit' : ''}${tab.discarded ? ', asleep' : ''}`}
@@ -147,6 +167,22 @@ export function SoundButton({ tab, title }: { tab: Tab; title: string }) {
 }
 
 /**
+ * A favourite's unread count, red as a dock badge, at its icon's corner; a
+ * dot when the title says only that something is unread.
+ */
+function UnreadBadge({ unread, late, at = geometry.iconLarge }: { unread: Exclude<Unread, null>; late: boolean; at?: number }) {
+  const { colors, reduceMotion } = useTheme();
+  const scale = useArrival(late, reduceMotion);
+  const dot = unread === 'dot';
+  const size = dot ? geometry.dot : geometry.unreadBadge;
+  return <Animated.View pointerEvents="none" style={{ position: 'absolute', top: -size / 2, left: at - size / 2,
+    minWidth: size, height: size, borderRadius: radius.pill, paddingHorizontal: dot ? 0 : space.xs - space.hair, alignItems: 'center',
+    justifyContent: 'center', backgroundColor: colors.unreadBadge, transform: [{ scale }] }}>
+    {!dot && <Text variant="micro" tone="textOnUnread" weight="semibold">{unreadLabel(unread)}</Text>}
+  </Animated.View>;
+}
+
+/**
  * A pinned tab, shown as a favourite tile above the tab list. As in Dia, a
  * tile lights almost to white under the pointer, deeper while pressed, and
  * the chosen one takes its site's colour with a ring of it; resting on one
@@ -161,6 +197,11 @@ export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, wi
   const ref = useRef<View>(null);
   const title = tabTitle(tab, 'Pinned tab');
   const tint = active ? pinnedTileTint(tab.color, dark) : null;
+  // Mail and chat titles carry their unread count, which the tile shows as a dock badge does.
+  const unread = unreadIn(tab.title);
+  // A badge that comes after the tile has shown pops in; one there from the start doesn't.
+  const shown = useRef(false);
+  useEffect(() => { shown.current = true; }, []);
   const ring = active ? pinnedTileRing(tab.color, dark) : null;
   const hover = (on: boolean) => {
     if (on) { handlers.onHoverIn(); ref.current?.measureInWindow((x, y, w, h) => actions.hoverTab(tab.id, { x, y, width: w, height: h }, 'below')); }
@@ -185,7 +226,10 @@ export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, wi
       {tint && <View pointerEvents="none" style={[cover, { borderRadius: radius.tile, backgroundColor: tint }]} />}
       {/* The chosen tile's ring, in its site's colour, as Dia draws it. */}
       {ring && <View pointerEvents="none" style={[cover, { borderRadius: radius.tile, borderWidth: geometry.tileRing, borderColor: ring }]} />}
-      <Favicon tab={tab} large busy={tab.loading && !active} badges />
+      <View>
+        <Favicon tab={tab} large busy={tab.loading && !active} badges />
+        {unread !== null && <UnreadBadge unread={unread} late={shown.current} />}
+      </View>
       {(tab.audible || tab.muted) && <View style={{ position: 'absolute', top: space.hair, right: space.hair }}>
         <SoundButton tab={tab} title={title} />
       </View>}
@@ -197,3 +241,48 @@ export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, wi
   // As in TabRow, the active card is behind the tile, not around it.
   return <ContextMenu onOpen={() => { actions.closeHoverCard(); void actions.tabMenu(tab.id); }}>{tile}</ContextMenu>;
 });
+
+/**
+ * Favourites gathered in one tile, as Ardia's Top Apps folders are: their
+ * icons small, two by two. Pressing it opens the folder under it; its menu
+ * renames or ungroups it. When one of its tabs is the chosen one, the tile
+ * takes that tab's colour and ring; their unread counts add up on it.
+ */
+export function FolderTile({ folder, tabs, activeId }: { folder: FavouriteFolder; tabs: Tab[]; activeId: string | null }) {
+  const { colors, glass, dark } = useTheme();
+  const actions = useActions();
+  const { hovered, handlers } = useInteraction();
+  const ref = useRef<View>(null);
+  const shown = useRef(false);
+  useEffect(() => { shown.current = true; }, []);
+  const chosen = tabs.find(t => t.id === activeId) ?? null;
+  const tint = chosen ? pinnedTileTint(chosen.color, dark) : null;
+  const ring = chosen ? pinnedTileRing(chosen.color, dark) : null;
+  const counts = tabs.map(t => unreadIn(t.title));
+  const total = counts.reduce<number>((n, u) => n + (typeof u === 'number' ? u : 0), 0);
+  const unread: Unread = total > 0 ? total : counts.includes('dot') ? 'dot' : null;
+  const title = folderTitle(folder, tabs.length);
+  const open = () => ref.current?.measureInWindow((x, y, width, height) => actions.openFavouriteFolder(folder.id, { x, y, width, height }));
+  return <ContextMenu onOpen={() => { actions.closeHoverCard(); void actions.folderMenu(folder.id); }}>
+    <Pressable ref={ref} accessibilityRole="button" accessibilityLabel={`Folder: ${title}, ${tabs.length} favourites`}
+      accessibilityState={{ selected: !!chosen }} onPress={open} {...handlers}
+      style={({ pressed }) => ({ width: '100%', height: geometry.favourite, borderRadius: radius.tile, alignItems: 'center',
+        justifyContent: 'center', backgroundColor: colors[chosen || glass.on ? 'fillTransparent' : pressed ? 'tilePinnedPressed'
+          : hovered ? 'tilePinnedHover' : 'tilePinned'] })}>
+      {({ pressed }) => <>
+        {glass.on && <GlassFill radius={radius.tile} state={chosen ? 'active' : pressed ? 'pressed' : hovered ? 'lit' : 'rest'} />}
+        {glass.on && !chosen && (hovered || pressed) && <View pointerEvents="none" style={[cover, { borderRadius: radius.tile,
+          backgroundColor: colors[pressed ? 'tilePinnedPressed' : 'tilePinnedHover'] }]} />}
+        {chosen && !glass.on && <Panel fill="tilePinnedActive" radius="tile" elevation="tab" border="tabActiveBorder" style={cover} />}
+        {tint && <View pointerEvents="none" style={[cover, { borderRadius: radius.tile, backgroundColor: tint }]} />}
+        {ring && <View pointerEvents="none" style={[cover, { borderRadius: radius.tile, borderWidth: geometry.tileRing, borderColor: ring }]} />}
+        <View>
+          <View style={{ width: folderGrid, flexDirection: 'row', flexWrap: 'wrap', gap: space.hair }}>
+            {tabs.slice(0, 4).map(t => <Favicon key={t.id} tab={t} />)}
+          </View>
+          {unread !== null && <UnreadBadge unread={unread} late={shown.current} at={folderGrid} />}
+        </View>
+      </>}
+    </Pressable>
+  </ContextMenu>;
+}

@@ -13,6 +13,7 @@ import { PeekOverlay } from '../page/PeekOverlay';
 import { Settings } from '../settings/Settings';
 import { PromptOverlay } from '../site/PromptOverlay';
 import { NewTabPopup } from '../start/NewTabPopup';
+import { FolderPopover } from '../tabs/FolderPopover';
 import { GroupNameDialog } from '../tabs/GroupNameDialog';
 import { TabDropOverlay } from '../tabs/TabDropOverlay';
 import { TabSwitcher } from '../tabs/TabSwitcher';
@@ -60,6 +61,7 @@ export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
       {!shown.panel && !shown.palette && !naming && <HoverCardOverlay />}
       <PromptOverlay shown={shown.prompt} />
       <Suggestions />
+      <FolderPopover />
       <Popover open={shown.popover === 'extensions'} anchor={anchors.extensions} bounds={bounds} placement={place(anchors.extensions)}
         label="Extensions" onClose={actions.closePopover}>
         <ExtensionsPopover />

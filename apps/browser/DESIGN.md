@@ -35,7 +35,17 @@ The stored accent names predate Tide and stay as the browser saves them:
   row dragged up over the tiles (or, with none yet, past the top of the
   list) is pinned where it is let go: the tiles make room for an outlined
   tile with its icon, and the row fades meanwhile. A trackpad tick marks
-  each new slot (`tick`). A dashed rule closes the tiles (`DashedRule`); the
+  each new slot (`tick`). A tile resting on the middle of another for a
+  moment rings it in the accent (the tiles hold their places, the lifted
+  one turns solid); let go there and the two make a folder, as Ardia's Top
+  Apps do (`FolderTile`): their icons two by two in one tile, opening under
+  it to show their tiles (`FolderPopover`), renamed or ungrouped from its
+  menu; a tile leaves from its own menu. Folders are kept with the shell's
+  preferences by their pinned home pages (`favouriteFolders`). A tile
+  whose page title carries an unread count ("(3) …", "Inbox (12)", "5
+  unread") shows it as a red dock badge at its icon's corner (`unreadIn`),
+  a dot when the title only marks it; a folder adds its tiles' counts.
+  A dashed rule closes the tiles (`DashedRule`); the
   Bookmarks section (the Bookmarks Bar folder, six rows, folding at its
   heading); then, under Dia's hairline, the open tabs with New Tab after
   the last (34 pt rows 3 pt apart, Dia's 37 pt pitch; the active one a
@@ -52,7 +62,11 @@ The stored accent names predate Tide and stay as the browser saves them:
   into a white card with a shadow (no scale) and follows the pointer, while
   the rows it passes slide aside on the `snappy` spring with a trackpad tick
   at each place, as in Ardia (`rowShift`); let go, it springs into the gap
-  and holds there until Chromium's order catches up. The footer is quiet: downloads on the left only
+  and holds there until Chromium's order catches up. Resting the dragged
+  row on the middle of another for a moment (`contactRow`, 450 ms) stops
+  the rows making room and rings that row in the accent, the lifted card
+  turning solid; let go there and the two make a tab group, or it joins
+  that row's group, as in Ardia. The footer is quiet: downloads on the left only
   while there are some; workspaces, extensions, the command menu, the
   Library and Settings on the right. The page card has **no toolbar** in
   this layout.
@@ -352,7 +366,7 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
   ±6 pt dying away over 0.35 s (`useShake`, `Shake`). The find bar shakes
   when a search finds nothing (its text turns red), and again on Return;
   the command menu shakes on a command it can't run; the group dialog on an
-  empty or taken name. With reduced motion it flashes red instead.
+  empty or taken name; the Config File editor on a save that doesn't parse. With reduced motion it flashes red instead.
 - Drags that pass a limit rubber-band: the sidebar's edge past its minimum
   or maximum width gives less and less, and springs back carrying the
   drag's speed when let go (`rubberBand`, `springBack`); near the default

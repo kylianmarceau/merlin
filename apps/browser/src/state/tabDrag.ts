@@ -170,3 +170,19 @@ export function rowShift(drag: ListDrag | null, place: number): number {
   if (drag.steps < 0 && place >= to && place < drag.from) return 1;
   return 0;
 }
+
+/**
+ * The row a dragged row rests on, for grouping on contact, as in Ardia: the
+ * dragged row, `rows` places from where it started (a fraction while it
+ * moves), sits squarely over another row. Its index among `count` rows, or
+ * null between rows or over its own place. `held` widens the band once
+ * contact is made, so it doesn't flicker at its edge.
+ */
+export function contactRow(from: number, rows: number, count: number, held = false): number | null {
+  const near = Math.round(rows);
+  const index = from + near;
+  if (near === 0 || index < 0 || index >= count) return null;
+  return Math.abs(rows - near) <= (held ? contactBand.held : contactBand.enter) ? index : null;
+}
+/** How far off a row's centre, in rows, the dragged row may be to make contact, and to keep it. */
+export const contactBand = { enter: 0.22, held: 0.36 } as const;

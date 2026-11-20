@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dropCandidates, dropOutcome, paneRects, rememberActive, reorderTarget, rowShift, splitPartner, zoneHit, zoneRect } from './tabDrag';
+import { contactRow, dropCandidates, dropOutcome, paneRects, rememberActive, reorderTarget, rowShift, splitPartner, zoneHit, zoneRect } from './tabDrag';
 
 const window = { width: 1000, height: 700 };
 const page = { x: 260, y: 50, width: 730, height: 640 };
@@ -98,4 +98,15 @@ test('rows between a dragged row and its landing place slide towards its start; 
   assert.deepEqual([0, 1, 2, 3, 4].map(place => rowShift(up, place)), [0, 1, 1, 0, 0]);
   assert.equal(rowShift(null, 2), 0);
   assert.equal(rowShift(down, -1), 0);
+});
+
+test('a dragged row makes contact squarely over another row, and keeps it a little further', () => {
+  assert.equal(contactRow(2, 1.05, 6), 3);
+  assert.equal(contactRow(2, -2.1, 6), 0);
+  // Between rows, over its own place, or past the ends: no contact.
+  assert.equal(contactRow(2, 0.5, 6), null);
+  assert.equal(contactRow(2, 0.1, 6), null);
+  assert.equal(contactRow(2, 4, 6), null);
+  assert.equal(contactRow(2, 1.3, 6), null);
+  assert.equal(contactRow(2, 1.3, 6, true), 3);
 });

@@ -31,6 +31,8 @@ export const geometry = {
   joinedTab: 38, joinedEar: 10,
   /** Crowded tabs on top, as in Dia: none narrower than this, and the active one never narrower than its own minimum. */
   stripTabFloor: 64, stripTabActive: 128,
+  /** A favourite's unread count, as a dock badge: this tall, and at least this wide. */
+  unreadBadge: 15,
   control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, stripTabHeight: 32, address: 36, favourite: 44, favouriteSmall: 28,
   /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
   tabRowGap: 3, tileRing: 2.5,
@@ -239,6 +241,9 @@ function roles(mode: Mode, accentName: AccentName) {
     success: pick('#2F7D55', '#6FCF97'),
     successSoft: pick('#DFF2E6', '#173322'),
     notice: pick('#FF8A7A', '#FF8A7A'),
+    // A favourite's unread count, red as macOS's dock badges are, whatever the workspace colour.
+    unreadBadge: pick('#E5484D', '#E5484D'),
+    textOnUnread: pick(ink[0], ink[0]),
     info: a.base,
     infoSoft: a.soft,
 

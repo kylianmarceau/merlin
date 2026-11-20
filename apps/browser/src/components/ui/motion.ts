@@ -32,6 +32,8 @@ export const duration = {
   slide: 340,
   /** How long a dropped tab keeps its new place while the browser confirms it. */
   dropSettle: 1500,
+  /** A dragged row resting on another this long groups them when let go, as in Ardia. */
+  contact: 450,
   /** A pop-up field takes the focus back if the page took it as the pop-up opened. */
   refocus: 50,
   /** Debounce for search fields that ask the browser. */

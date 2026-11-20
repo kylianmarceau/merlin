@@ -4,6 +4,7 @@
 import { createStore } from 'zustand/vanilla';
 import { useStore } from 'zustand';
 import type { SiteEngines } from '../lib/engines';
+import type { FavouriteFolder } from './favouriteFolders';
 
 export type InterfaceStyle = 'glass' | 'classic';
 export type AddressBarPlace = 'sidebar' | 'toolbar';
@@ -28,6 +29,8 @@ export type ShellPrefs = {
   protectedVideoInWebKit: boolean;
   /** Sites the person moved to the other engine by hand. */
   siteEngines: SiteEngines;
+  /** Favourites gathered into folders, by their pinned home pages. */
+  favouriteFolders: FavouriteFolder[];
 
   // Appearance › Interface style (Ardia's), plus Merlin's transparency.
   /** Glass draws popovers, fields and buttons in Liquid Glass; Classic keeps them solid. */
@@ -78,7 +81,7 @@ export const SIDEBAR_WIDTH = { min: 200, max: 400, default: 252 } as const;
 export const GLASS_DEFAULTS = { tintAmount: 0.8, transparency: 0.5 } as const;
 
 export const defaultShellPrefs: ShellPrefs = {
-  newTabPopup: false, toolbarColor: 'match', shellFollowsSite: false, protectedVideoInWebKit: true, siteEngines: {},
+  newTabPopup: false, toolbarColor: 'match', shellFollowsSite: false, protectedVideoInWebKit: true, siteEngines: {}, favouriteFolders: [],
   interfaceStyle: 'glass', glassTintWithTheme: false, glassTintAmount: GLASS_DEFAULTS.tintAmount,
   glassTransparency: GLASS_DEFAULTS.transparency,
   addressBar: 'sidebar', commandBarPlacement: 'field', compactToolbar: false,

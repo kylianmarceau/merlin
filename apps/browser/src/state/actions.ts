@@ -2,6 +2,8 @@
 // engine or call getState(); they call these, and failures become notices.
 import { copyText, haptic, imageTone, showMenu, type MenuItem, type SymbolName } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
+import { setFavouriteFolders } from './shellPrefsStorage';
+import { foldInto, homeKey, leaveFolder, renameFolder, ungroupFolder } from './favouriteFolders';
 import { canUseWebKit } from '../lib/engines';
 import { pageLabel } from '../lib/format';
 import { dropOutcome, type DropTarget, type SplitSide } from './tabDrag';
@@ -219,6 +221,57 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     groupTab: (tabId: string, groupId: string | null, title?: string) =>
       run('tabs.group', title === undefined ? { tabId, groupId } : { tabId, groupId, title }),
     ungroupTab: (tabId: string) => run('tabs.ungroup', { tabId }),
+    /** A pinned tab's place in the favourite folders: its pinned home page. */
+    favouriteKey(tabId: string): string | null {
+      const s = store.getState();
+      const tab = s.snapshot?.tabs.find(t => t.id === tabId);
+      return tab ? homeKey(s.pinnedHomes[tabId]?.url ?? tab.url) : null;
+    },
+    /** A favourite dropped onto another, as in Ardia: the two make a folder, or it joins the one the other is in. */
+    foldFavourite(tabId: string, targetId: string) {
+      const key = actions.favouriteKey(tabId), target = actions.favouriteKey(targetId);
+      if (!key || !target || key === target) return;
+      haptic('alignment');
+      void setFavouriteFolders(foldInto(shellPrefs.getState().favouriteFolders, key, target, `f${Date.now().toString(36)}`));
+    },
+    leaveFavouriteFolder(tabId: string) {
+      const key = actions.favouriteKey(tabId);
+      if (key) void setFavouriteFolders(leaveFolder(shellPrefs.getState().favouriteFolders, key));
+    },
+    openFavouriteFolder: (folderId: string, anchor: Rect) => {
+      actions.closeHoverCard();
+      store.setState({ openFolder: { folderId, anchor }, popover: null });
+    },
+    closeFavouriteFolder: () => store.setState({ openFolder: null }),
+    /** A folder tile's own menu: rename it, or put its favourites back as tiles of their own. */
+    async folderMenu(folderId: string) {
+      let choice: string | null;
+      try {
+        choice = await menu([
+          { id: 'rename', title: 'Rename Folder…', symbol: 'pencil' },
+          { id: 'ungroup', title: 'Ungroup Folder', symbol: 'folder.badge.minus' },
+        ]);
+      } catch (e) { fail(e); return; }
+      if (choice === 'rename') actions.nameGroup({ kind: 'renameFolder', folderId });
+      if (choice === 'ungroup') {
+        store.setState({ openFolder: null });
+        void setFavouriteFolders(ungroupFolder(shellPrefs.getState().favouriteFolders, folderId));
+      }
+    },
+    /**
+     * A tab dropped onto another, as in Ardia: it joins that tab's group, or
+     * the two make a new one (the engine names the group's colour; the name
+     * stays empty until it is renamed).
+     */
+    async groupOnContact(tabId: string, targetId: string) {
+      const groupOf = (s: ReturnType<typeof store.getState>) => s.snapshot?.tabs.find(t => t.id === targetId)?.group;
+      let group = groupOf(store.getState());
+      if (!group) {
+        if (!await actions.groupTab(targetId, null)) return false;
+        group = await until(store, groupOf);
+      }
+      return group ? actions.groupTab(tabId, group) : false;
+    },
     updateGroup: (groupId: string, change: { title?: string; color?: GroupColor; collapsed?: boolean }) =>
       run('groups.update', { groupId, ...change }),
     ungroupGroup: (groupId: string) => run('groups.ungroup', { groupId }),
@@ -233,6 +286,11 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       if (!dialog) return;
       const name = title.trim();
       if (dialog.kind === 'renameTab') { actions.setTabLook(dialog.tabId, { name }); store.setState({ groupDialog: null }); return; }
+      if (dialog.kind === 'renameFolder') {
+        void setFavouriteFolders(renameFolder(shellPrefs.getState().favouriteFolders, dialog.folderId, name));
+        store.setState({ groupDialog: null });
+        return;
+      }
       const ok = dialog.kind === 'new' ? await actions.groupTab(dialog.tabId, null, name)
         : await actions.updateGroup(dialog.groupId, { title: name });
       if (ok) store.setState({ groupDialog: null });
@@ -456,12 +514,15 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const others = tabs.filter(t => t.id !== tabId && !t.pinned);
       const below = tabs.slice(tabs.findIndex(t => t.id === tabId) + 1).filter(t => !t.pinned);
       const home = tab.pinned ? store.getState().pinnedHomes[tabId] : undefined;
+      const folderKey = tab.pinned ? actions.favouriteKey(tabId) : null;
+      const inFolder = !!folderKey && shellPrefs.getState().favouriteFolders.some(f => f.members.includes(folderKey));
       const page = !!tab.url && !/^(about|chrome|merlin):/.test(tab.url);
       const groups = (store.getState().snapshot?.groups ?? []).filter(g => g.id !== tab.group);
       // As in Ardia, every item carries a symbol; the tab's own title says which tab.
       const look = store.getState().tabLooks[tabId];
       const items: MenuItem[] = [
         { id: 'pin', title: tab.pinned ? 'Unpin Tab' : 'Pin Tab', symbol: tab.pinned ? 'pin.slash' : 'pin' },
+        ...(inFolder ? [{ id: 'unfold', title: 'Remove from Folder', symbol: 'folder.badge.minus' as const }] : []),
         ...(home && awayFromHome(tab, home) ? [{ id: 'home', title: 'Back to Pinned Page', symbol: 'arrow.uturn.backward' as const }] : []),
         { id: 'duplicate', title: 'Duplicate Tab', enabled: !!tab.url, symbol: 'doc.on.doc' },
         { id: 'reload', title: 'Reload Tab', symbol: 'arrow.clockwise' },
@@ -505,6 +566,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       try { choice = await menu(items); } catch (e) { fail(e); return; }
       switch (choice) {
         case 'pin': await actions.pinTab(tabId, !tab.pinned); break;
+        case 'unfold': actions.leaveFavouriteFolder(tabId); break;
         case 'rename': actions.nameGroup({ kind: 'renameTab', tabId }); break;
         case 'unname': actions.setTabLook(tabId, { name: '' }); break;
         case 'duplicate': await actions.newTab(tab.url); break;
@@ -795,4 +857,21 @@ export type Actions = ReturnType<typeof createActions>;
 function addressUrl(text: string): string | null {
   const trimmed = text.trim();
   return /^https?:\/\/\S+$/i.test(trimmed) ? trimmed : null;
+}
+
+/** The first value `pick` finds in the store, now or as the store changes within `ms`; undefined if none comes. */
+function until<T>(store: BrowserStore, pick: (state: ReturnType<BrowserStore['getState']>) => T | null | undefined,
+  ms = 2000): Promise<T | undefined> {
+  const now = pick(store.getState());
+  if (now) return Promise.resolve(now);
+  return new Promise(resolve => {
+    const stop = store.subscribe(state => {
+      const found = pick(state);
+      if (!found) return;
+      clearTimeout(timer);
+      stop();
+      resolve(found);
+    });
+    const timer = setTimeout(() => { stop(); resolve(undefined); }, ms);
+  });
 }

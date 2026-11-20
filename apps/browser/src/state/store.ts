@@ -21,7 +21,8 @@ export type Rect = { x: number; y: number; width: number; height: number };
 /** A tab's hover card: which tab, where its row or tile is in the window, and which side the card opens on. */
 export type HoverCard = { tabId: string; anchor: Rect; side: 'right' | 'below' };
 /** Naming a tab group: a new one for `tabId`, or renaming `groupId`. */
-export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string } | { kind: 'renameTab'; tabId: string };
+export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string } | { kind: 'renameTab'; tabId: string }
+  | { kind: 'renameFolder'; folderId: string };
 /**
  * A short confirmation over the page ("Link copied", a command's message),
  * gone on its own after a moment; `action` adds one button ("Edit").
@@ -65,6 +66,8 @@ export type BrowserState = {
   /** Tabs most recently active first, for the tab a dragged tab splits with when it is the only one on screen. */
   recentTabs: string[];
   groupDialog: GroupDialog | null;
+  /** A favourite folder opened to show its tiles, under its own tile. */
+  openFolder: { folderId: string; anchor: Rect } | null;
   /** The card over a hovered tab (title, address, actions), as in Dia and Ardia. */
   hoverCard: HoverCard | null;
   /** The hidden tabs, slid in over the page because the pointer reached the window's edge. */
@@ -87,7 +90,7 @@ export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [], hud: null,
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, closedTabs: null, tabLooks: {}, pinnedHomes: {},
+    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, openFolder: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, closedTabs: null, tabLooks: {}, pinnedHomes: {},
     failInRender: false,
   };
 }

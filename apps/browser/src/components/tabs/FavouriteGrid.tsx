@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, View } from 'react-native';
+import { gridItems, homeKey, type GridItem } from '../../state/favouriteFolders';
 import { columnsFor, gridHeight, placeAt, slotAt, slotOrigin, tileWidth } from '../../state/favouriteGrid';
+import { useShellPrefs } from '../../state/shellPrefs';
 import type { Tab } from '../../state/types';
 import { useActions, useBrowser } from '../../state/window';
 import { Panel, duration, geometry, radius, space, tick, useArrival, useSpringRect, useTheme, useTimeout } from '../ui';
 import { Favicon } from '../favicon/Favicon';
-import { FavouriteTile } from './TabRow';
+import { FavouriteTile, FolderTile } from './TabRow';
 
 /** The gap between favourite tiles. */
 export const tileGap = space.xs + space.hair;
@@ -23,6 +25,8 @@ type TileMove = { id: string; from: number; index: number; dx: number; dy: numbe
  * the list to pin it: the tiles make room where it would land, outlined
  * with its icon. With no favourites yet, dragging a row up past the top of
  * the list (`list`) opens that first slot. A tick marks each new slot.
+ * Resting a dragged tile on the middle of another for a moment rings it, as
+ * in Ardia: let go there and the two make a folder (or it joins the folder).
  */
 export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
   pinned: Tab[]; tabs: Tab[]; activeId: string | null; width: number; list: React.RefObject<View | null>;
@@ -37,7 +41,18 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
   const setMove = (next: TileMove | null) => { moving.current = next; setMoveState(next); };
   // Where a dropped tile went, held until the engine's order catches up so it doesn't jump back first.
   const [held, setHeld] = useState<{ id: string; index: number } | null>(null);
-  const ids = pinned.map(t => t.id);
+  // The slots: pinned tabs, some gathered into folders.
+  const folders = useShellPrefs(p => p.favouriteFolders);
+  const homes = useBrowser(s => s.pinnedHomes);
+  const items = useMemo(() => gridItems(pinned, t => homeKey(homes[t.id]?.url ?? t.url), folders), [pinned, homes, folders]);
+  const ids = items.map(i => i.id);
+  // The tile a dragged one rests on, to make a folder with it; and the one it is resting on now, timing that.
+  const [merge, setMergeState] = useState<string | null>(null);
+  const merging = useRef<string | null>(null);
+  const setMerge = (next: string | null) => { merging.current = next; setMergeState(next); };
+  const resting = useRef<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const stopResting = () => { if (resting.current) clearTimeout(resting.current.timer); resting.current = null; };
+  useEffect(() => stopResting, []);
   const key = ids.join(' ');
   // Tiles there when the grid first showed don't pop; a tab pinned since does.
   const known = useRef<Set<string> | null>(null);
@@ -67,32 +82,75 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
   useEffect(() => { if (rowDrag) measure(); }, [rowDrag, measure]);
   useEffect(() => () => actions.setFavouriteZone(null), [actions]);
   if (empty) return null;
-  const latest = { ids, width };
+  const latest = { ids, items, width };
+  /** The tile at the middle of which (x, y) sits, from the grid's corner, with the tiles in their places. */
+  const middleOf = (x: number, y: number, self: string) => {
+    const slot = slotAt(x, y, latest.ids.length, latest.width, tile.height, tileGap);
+    const target = latest.ids[slot];
+    if (!target || target === self) return null;
+    const o = slotOrigin(slot, columns, tile, tileGap);
+    const band = merging.current === target ? folderBand.held : folderBand.enter;
+    return Math.abs(x - o.x - tile.width / 2) <= tile.width * band && Math.abs(y - o.y - tile.height / 2) <= tile.height * band ? target : null;
+  };
+  const tabsOf = (item: GridItem | undefined) => (!item ? [] : item.kind === 'tab' ? [item.tab] : item.tabs);
   return <View ref={ref} onLayout={measure} style={{ height: gridHeight(count, tile.height, tileGap) }}>
     {order.map((id, index) => {
       if (id === incomingSlot) return incoming && <Cell key={incomingSlot} index={index} columns={columns} tile={tile} reduce={reduceMotion}>
         <IncomingTile tab={incoming} />
       </Cell>;
-      const tab = pinned.find(t => t.id === id);
-      if (!tab) return null;
+      const item = items.find(i => i.id === id);
+      if (!item) return null;
       const dragged = move?.id === id;
+      const ring = merge === id;
+      if (item.kind === 'folder') return <Cell key={id} index={index} columns={columns} tile={tile} reduce={reduceMotion} ring={ring}
+        fresh={fresh(id)}>
+        <FolderTile folder={item.folder} tabs={item.tabs} activeId={activeId} />
+      </Cell>;
+      const tab = item.tab;
       return <Cell key={id} index={dragged ? move.from : index} offset={dragged ? move : undefined} columns={columns} tile={tile}
-        reduce={reduceMotion} lifted={dragged} fresh={fresh(id)}
+        reduce={reduceMotion} lifted={dragged} solid={dragged && !!merge} fresh={fresh(id)} ring={ring}
         drag={{
           start: () => { actions.closeHoverCard(); setMove({ id, from: latest.ids.indexOf(id), index: latest.ids.indexOf(id), dx: 0, dy: 0 }); },
           move: (dx, dy) => {
             const old = moving.current;
             if (!old) return;
             const origin = slotOrigin(old.from, columns, tile, tileGap);
-            const next = slotAt(origin.x + tile.width / 2 + dx, origin.y + tile.height / 2 + dy, latest.ids.length, latest.width,
-              tile.height, tileGap);
+            const x = origin.x + tile.width / 2 + dx, y = origin.y + tile.height / 2 + dy;
+            // Resting on the middle of another tile: after a moment it rings, and the tiles hold their places.
+            const target = middleOf(x, y, id);
+            if (target !== resting.current?.id) {
+              stopResting();
+              if (merging.current && merging.current !== target) setMerge(null);
+              if (target && merging.current !== target) {
+                resting.current = { id: target, timer: setTimeout(() => {
+                  tick('alignment');
+                  setMerge(target);
+                  const now = moving.current;
+                  if (now) setMove({ ...now, index: now.from });
+                }, duration.contact) };
+              }
+            }
+            const next = merging.current ? old.from : slotAt(x, y, latest.ids.length, latest.width, tile.height, tileGap);
             if (next !== old.index) tick('alignment');
             setMove({ ...old, index: next, dx, dy });
           },
           end: () => {
             const old = moving.current;
+            const onto = merging.current;
+            stopResting();
+            setMerge(null);
             setMove(null);
-            if (old && old.index !== old.from) { setHeld({ id: old.id, index: old.index }); void actions.moveFavourite(old.id, old.index); }
+            if (!old) return;
+            if (onto) {
+              const target = tabsOf(latest.items.find(i => i.id === onto))[0];
+              if (target) actions.foldFavourite(tab.id, target.id);
+              return;
+            }
+            if (old.index === old.from) return;
+            setHeld({ id: old.id, index: old.index });
+            // The engine counts pinned tabs, not slots: a folder holds several.
+            const flat = placeAt(latest.ids, old.id, old.index).flatMap(slot => tabsOf(latest.items.find(i => i.id === slot)));
+            void actions.moveFavourite(tab.id, flat.findIndex(t => t.id === tab.id));
           },
         }}>
         <FavouriteTile tab={tab} width="100%" active={tab.id === activeId} />
@@ -105,9 +163,13 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
  * One slot of the grid. Its tile springs to the slot when the tiles reflow,
  * and follows the pointer, lifted, while it is dragged.
  */
-function Cell({ index, columns, tile, reduce, offset, lifted, fresh = false, drag, children }: React.PropsWithChildren<{
+function Cell({ index, columns, tile, reduce, offset, lifted, solid = false, fresh = false, ring = false, drag, children }: React.PropsWithChildren<{
   index: number; columns: number; tile: { width: number; height: number }; reduce: boolean;
   offset?: { dx: number; dy: number }; lifted?: boolean;
+  /** A dragged tile rests on this one: letting go makes a folder of the two. */
+  ring?: boolean;
+  /** The lifted tile resting on another: solid, so only it reads. */
+  solid?: boolean;
   /** Just pinned: it pops into place. */
   fresh?: boolean;
   drag?: { start(): void; move(dx: number, dy: number): void; end(): void };
@@ -131,10 +193,23 @@ function Cell({ index, columns, tile, reduce, offset, lifted, fresh = false, dra
     zIndex: lifted ? 1 : undefined }}>
     <Animated.View style={{ flex: 1, transform: [{ scale: arrival }] }}>
     {/* A lifted tile casts a shadow; like a row, it holds its size rather than scaling. */}
-    {lifted && <Panel fill="tilePinnedHover" radius="tile" elevation="menu" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
+    {lifted && <Panel fill={solid ? 'surfacePopoverSolid' : 'tilePinnedHover'} radius="tile" elevation="menu"
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
     {children}
+    {ring && <MergeRing />}
     </Animated.View>
   </Animated.View>;
+}
+
+/** How near a tile's middle, as a share of its size, a dragged tile must rest to make a folder, and to keep it. */
+const folderBand = { enter: 0.25, held: 0.4 } as const;
+
+/** The accent ring just outside a tile that a dragged one rests on. */
+function MergeRing() {
+  const { colors } = useTheme();
+  return <View pointerEvents="none" style={{ position: 'absolute', top: -geometry.tileRing, left: -geometry.tileRing,
+    right: -geometry.tileRing, bottom: -geometry.tileRing, borderRadius: radius.tile + geometry.tileRing, borderWidth: geometry.tileRing,
+    borderColor: colors.accent }} />;
 }
 
 /** Where a tab dragged in from the list will be pinned: an outlined tile with its icon. */
