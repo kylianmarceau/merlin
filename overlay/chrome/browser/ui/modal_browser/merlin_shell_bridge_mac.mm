@@ -111,6 +111,8 @@
 #include "ui/native_theme/native_theme_observer.h"
 #include "base/timer/timer.h"
 #include "content/public/browser/media_session.h"
+#include "components/zoom/zoom_controller.h"
+#include "content/public/browser/host_zoom_map.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "services/media_session/public/cpp/media_metadata.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
@@ -253,6 +255,13 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     // changes colour as the page scrolls is read once the scroll ends.
     scrolls_.Watch(web_contents());
     theme_.Observe(ui::NativeTheme::GetInstanceForNativeUi());
+    // A page's zoom, however it changed (the menu, a pinch, Command-plus, a
+    // site's own zoom carried to another tab), for the shell's zoom HUD.
+    zoom_changes_ = content::HostZoomMap::GetDefaultForBrowserContext(browser_->GetProfile())
+        ->AddZoomLevelChangedCallback(base::BindRepeating(
+            [](base::WeakPtr<WindowState> window, const content::HostZoomMap::ZoomLevelChange&) {
+              if (window) window->Changed();
+            }, weak_factory_.GetWeakPtr()));
     // Each tab says whether its page is bookmarked (the address field's star).
     if (auto* model = BookmarkModelFactory::GetForBrowserContext(browser_->GetProfile())) bookmarks_.Observe(model);
   }
@@ -390,6 +399,7 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   // The tab's media, for the sidebar's player and its icon's badge: absent
   // when it has none that can be played or paused.
   base::Value Media(content::WebContents* contents);
+  base::CallbackListSubscription zoom_changes_;
   // Keyed by the tab's contents only to find a watch again; never followed.
   std::map<const content::WebContents*, std::unique_ptr<MediaWatch>> media_;
   PrefChangeRegistrar prefs_;
@@ -623,6 +633,8 @@ Dict WindowState::Snapshot() {
       .Set("canGoForward", contents->GetController().CanGoForward())
       .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
     if (auto media = Media(contents); !media.is_none()) entry.Set("media", std::move(media));
+    if (const auto* zoom = zoom::ZoomController::FromWebContents(contents))
+      entry.Set("zoom", Dict().Set("percent", zoom->GetZoomPercent()).Set("default", zoom->IsAtDefaultZoom()));
     if (const auto group = strip->GetTabGroupForTab(i)) entry.Set("group", modal_browser::GroupKey(*group));
     // Every split, not only the one on screen, so the tabs can show each as one piece.
     if (const auto split = strip->GetSplitForTab(i)) entry.Set("split", split->ToString());

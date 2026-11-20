@@ -248,3 +248,10 @@ test('a tab\'s media is described exactly', () => {
   assert.throws(() => valid({ ...media, playing: 'yes' }));
   assert.throws(() => valid({ playing: true }));
 });
+test('a tab\'s zoom is a positive percent and whether it is the default', () => {
+  const tab = { id: 't', title: '', url: 'https://a.test/', loading: false, pinned: false, audible: false, canGoBack: false, canGoForward: false };
+  const valid = (zoom: unknown) => validateSnapshot({ ...snapshot(), tabs: [{ ...tab, zoom } as never] }, 'window-one');
+  assert.deepEqual(valid({ percent: 125, default: false }).tabs[0].zoom, { percent: 125, default: false });
+  assert.throws(() => valid({ percent: 0, default: true }));
+  assert.throws(() => valid({ percent: 110 }));
+});

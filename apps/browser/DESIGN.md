@@ -192,7 +192,10 @@ The stored accent names predate Tide and stay as the browser saves them:
   bar" with an Edit button, or a command's message, errors in
   `textDanger`). It grows from 92% on the `appear` spring, stays 1.8 s (a
   failure or one with a button the toast's 5 s) and goes by itself or on a
-  click. A newer one replaces it.
+  click. A newer one replaces it. Zooming the page in front (the menu,
+  Command-plus, a pinch, or the same site zoomed in another tab) shows its
+  zoom there, "125%", with Reset while it isn't the default (`zoomChange`;
+  a new tab or site showing a different zoom says nothing).
 - **Closed tabs**: closing a tab with a page on it brings a toast to the
   bottom centre, Closed “Title” with Reopen, which restores it with its
   history ("3 tabs closed" for several at once). Blank and new tab pages,

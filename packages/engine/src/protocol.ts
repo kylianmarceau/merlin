@@ -29,6 +29,8 @@ export type Tab = {
    * tabs.media controls. Absent when it has none, and from older engines.
    */
   media?: TabMedia;
+  /** The page's zoom, in percent, and whether that is the default zoom. Absent from older engines. */
+  zoom?: { percent: number; default: boolean };
   /** The page it shows (WebKit's, on a WebKit tab) is bookmarked. Absent from older engines. */
   bookmarked?: boolean;
   /** Memory Saver put it to sleep; it reloads when shown. Absent from older engines. */
@@ -458,6 +460,8 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.userInitiated !== undefined && typeof tab.userInitiated !== 'boolean') ||
         (tab.media !== undefined && !fields(tab.media, {
           playing: isBool, title: isString, artist: isString, canNext: isBool, canPrevious: isBool })) ||
+        (tab.zoom !== undefined && !fields(tab.zoom, {
+          percent: v => typeof v === 'number' && Number.isFinite(v) && v > 0, default: isBool })) ||
         [tab.muted, tab.bookmarked, tab.discarded].some(x => x !== undefined && typeof x !== 'boolean')) {
       throw new Error('Invalid tab snapshot');
     }

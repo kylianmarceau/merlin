@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useActions, useBrowser, useOverlays, useSnapshot } from '../../state/window';
+import { zoomChange } from '../../state/zoom';
 import { Layer, Popover, ToastStack, autoPlacement, geometry, usePresence, useTheme, type Frame } from '../ui';
 import { ExtensionPopupView } from '../extensions/ExtensionPopupView';
 import { ExtensionsPopover } from '../extensions/ExtensionsPopover';
@@ -33,6 +34,14 @@ export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
   // A tab closed in this window: a notice offers it back for a few seconds.
   const closed = useBrowser(s => s.closedTabs);
   useEffect(() => { if (closed) actions.offerReopen(closed.count, closed.title); }, [closed?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  // The page in front zoomed: its zoom shows over the page for a moment, as Dia's HUD does, with Reset while it isn't the default.
+  const zoomedFrom = useRef(snapshot);
+  useEffect(() => {
+    const zoom = zoomChange(zoomedFrom.current, snapshot);
+    zoomedFrom.current = snapshot;
+    if (zoom) actions.showHud(`${zoom.percent}%`, 'info', 'magnifyingglass',
+      zoom.default ? undefined : { label: 'Reset', run: () => void actions.command('browser zoom-reset') });
+  }, [snapshot]);  // eslint-disable-line react-hooks/exhaustive-deps
   const anchors = useBrowser(s => s.anchors);
   const bounds = useBrowser(s => s.windowSize);
   const { reduceMotion } = useTheme();
