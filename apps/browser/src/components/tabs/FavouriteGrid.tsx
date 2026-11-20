@@ -126,11 +126,14 @@ function Cell({ index, columns, tile, reduce, offset, lifted, fresh = false, dra
     onPanResponderTerminate: () => latest.current?.end(),
     onPanResponderTerminationRequest: () => false,
   }), []);
+  // The slot's place springs on the JS driver and the arrival's scale on the native one, so they are on views of their own.
   return <Animated.View {...pan.panHandlers} style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height,
-    zIndex: lifted ? 1 : undefined, transform: [{ scale: arrival }] }}>
+    zIndex: lifted ? 1 : undefined }}>
+    <Animated.View style={{ flex: 1, transform: [{ scale: arrival }] }}>
     {/* A lifted tile casts a shadow; like a row, it holds its size rather than scaling. */}
     {lifted && <Panel fill="tilePinnedHover" radius="tile" elevation="menu" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />}
     {children}
+    </Animated.View>
   </Animated.View>;
 }
 
