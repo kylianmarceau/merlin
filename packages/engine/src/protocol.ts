@@ -319,8 +319,16 @@ export type EngineEvent = { type: 'snapshot'; snapshot: Snapshot } | { type: 'ad
   | { type: 'panel.open'; windowId: string; panel: PanelName }
   | { type: 'reply'; windowId: string; requestId: string; ok: boolean; value?: unknown; error?: string }
   | { type: 'omnibox.results'; windowId: string; queryId: string; items: Suggestion[] }
+  /**
+   * A two-finger swipe back or forward over the page, which the shell draws
+   * in place of Chromium's overlay: how far it has gone (0 to 1, more past
+   * its end), whether letting go would navigate, and whether it has ended.
+   */
+  | HistorySwipe
   /** Tests only (native code sends it only to a test instance): fail while drawing, or from a timer outside React. */
   | { type: 'test.throw'; windowId: string; where: 'render' | 'timer' };
+
+export type HistorySwipe = { type: 'history.swipe'; windowId: string; direction: 'back' | 'forward'; progress: number; ready: boolean; ended: boolean };
 
 export function parseEngineEvent(json: string): EngineEvent {
   const value: unknown = JSON.parse(json);
@@ -341,6 +349,9 @@ export function parseEngineEvent(json: string): EngineEvent {
     return { type: 'reply', windowId: v.windowId, requestId: v.requestId, ok: v.ok, value: v.value, error: v.error as string | undefined };
   if (v.type === 'omnibox.results' && typeof v.windowId === 'string' && typeof v.queryId === 'string' && listOf(suggestion)(v.items))
     return { type: 'omnibox.results', windowId: v.windowId, queryId: v.queryId, items: v.items as Suggestion[] };
+  if (v.type === 'history.swipe' && typeof v.windowId === 'string' && (v.direction === 'back' || v.direction === 'forward') &&
+      isNumber(v.progress) && isBool(v.ready) && isBool(v.ended))
+    return { type: 'history.swipe', windowId: v.windowId, direction: v.direction, progress: v.progress, ready: v.ready, ended: v.ended };
   if (v.type === 'test.throw' && typeof v.windowId === 'string' && (v.where === 'render' || v.where === 'timer'))
     return { type: 'test.throw', windowId: v.windowId, where: v.where };
   throw new Error('Unknown engine event');

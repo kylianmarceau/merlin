@@ -33,6 +33,8 @@ export const geometry = {
   stripTabFloor: 64, stripTabActive: 128,
   /** A favourite's unread count, as a dock badge: this tall, and at least this wide. */
   unreadBadge: 15,
+  /** A swipe back or forward's round arrow at the page's edge, and how far in it comes when letting go would navigate. */
+  swipeChip: 40, swipeReach: 56,
   control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, stripTabHeight: 32, address: 36, favourite: 44, favouriteSmall: 28,
   /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
   tabRowGap: 3, tileRing: 2.5,

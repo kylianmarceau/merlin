@@ -1,0 +1,71 @@
+--- a/chrome/browser/ui/cocoa/history_overlay_controller.mm
++++ b/chrome/browser/ui/cocoa/history_overlay_controller.mm
+@@ -14,6 +14,7 @@
+ #include "ui/base/resource/resource_bundle.h"
+ #include "ui/base/ui_base_features.h"
+ #include "ui/gfx/image/image.h"
++#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
+ 
+ // Constants ///////////////////////////////////////////////////////////////////
+ 
+@@ -98,6 +99,10 @@
+ @implementation HistoryOverlayController {
+   HistoryOverlayMode _mode;
+   HistoryOverlayView* __strong _contentView;
++  // Merlin's shell draws the swipe itself: the page's view, while it does.
++  NSView* __weak _shellPage;
++  CGFloat _shellProgress;
++  BOOL _shellReady;
+ }
+ 
+ - (instancetype)initForMode:(HistoryOverlayMode)mode {
+@@ -127,6 +132,13 @@
+ }
+ 
+ - (void)setProgress:(CGFloat)gestureAmount finished:(BOOL)finished {
++  if (_shellPage) {
++    _shellProgress = gestureAmount;
++    _shellReady = finished;
++    modal_browser::ShellHistorySwipe(gfx::NativeView(_shellPage), _mode == kHistoryOverlayModeForward,
++                                     gestureAmount, finished, /*ended=*/false);
++    return;
++  }
+   DCHECK(self.view.superview);
+   NSRect parentFrame = self.view.superview.frame;
+   // When tracking the gesture, the height is constant and the alpha value
+@@ -160,6 +172,12 @@
+ }
+ 
+ - (void)showPanelForView:(NSView*)view {
++  // In Merlin's shell the swipe is drawn by the shell, never as this panel.
++  if (modal_browser::ShellHistorySwipe(gfx::NativeView(view), _mode == kHistoryOverlayModeForward,
++                                       0, NO, /*ended=*/false)) {
++    _shellPage = view;
++    return;
++  }
+   // The self.view should be added to the hierarchy before its initial position
+   // can be set, because setProgress:finished: depends on the superview's frame.
+   [view addSubview:self.view];
+@@ -167,6 +185,12 @@
+ }
+ 
+ - (void)dismiss {
++  if (_shellPage) {
++    modal_browser::ShellHistorySwipe(gfx::NativeView(_shellPage), _mode == kHistoryOverlayModeForward,
++                                     _shellProgress, _shellReady, /*ended=*/true);
++    _shellPage = nil;
++    return;
++  }
+   const CGFloat kFadeOutDurationSeconds = 0.4;
+ 
+   [NSAnimationContext beginGrouping];
+--- a/chrome/browser/ui/cocoa/BUILD.gn
++++ b/chrome/browser/ui/cocoa/BUILD.gn
+@@ -120,6 +120,7 @@
+   public_deps = [ "//chrome/browser/ui:browser_live_tab_context" ]
+ 
+   deps = [
++    "//chrome/browser/ui/modal_browser:shell_headers",
+     "//chrome/app:command_ids",
+     "//chrome/app/theme:chrome_unscaled_resources_grit",
+     "//chrome/browser:app_controller_mac",

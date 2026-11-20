@@ -6,7 +6,7 @@
 import { createStore } from 'zustand/vanilla';
 import { shellPrefs } from './shellPrefs';
 import type { IconTone, SymbolName } from '../platform/shell';
-import { validateSnapshot, type EngineClient, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
+import { validateSnapshot, type EngineClient, type HistorySwipe, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
 import { acceptResults, type Omnibox } from './omnibox';
 import { rememberActive, type TabDrag } from './tabDrag';
 import type { GridZone } from './favouriteGrid';
@@ -78,6 +78,8 @@ export type BrowserState = {
   screenEdges: { left: boolean; top: boolean };
   /** The last time tabs closed in this window (not moved to another), so a notice can offer them back. */
   closedTabs: { id: number; count: number; title: string } | null;
+  /** A two-finger swipe back or forward over the page, as Chromium reports it; the shell draws its arrow. */
+  historySwipe: HistorySwipe | null;
   /** Names and icons the user gave tabs in Merlin (Rename Tab, Change Icon), by tab. */
   tabLooks: TabLooks;
   /** Where each pinned tab started, by tab: its tile offers to go back there once it has navigated away. */
@@ -90,7 +92,7 @@ export function initialState(): BrowserState {
   return {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [], hud: null,
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
-    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, openFolder: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, closedTabs: null, tabLooks: {}, pinnedHomes: {},
+    downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, openFolder: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, closedTabs: null, historySwipe: null, tabLooks: {}, pinnedHomes: {},
     failInRender: false,
   };
 }
@@ -265,6 +267,7 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
         case 'address.revert': store.setState(s => ({ addressRevert: s.addressRevert + 1, omnibox: null })); break;
         case 'command.open': store.setState({ panel: 'command', popover: null }); break;
         case 'panel.open': openNativePanel(store, event.panel); break;
+        case 'history.swipe': store.setState({ historySwipe: event }); break;
         case 'omnibox.results': {
           // Results for an older query never replace newer ones.
           const next = acceptResults(store.getState().omnibox, event.queryId, event.items);

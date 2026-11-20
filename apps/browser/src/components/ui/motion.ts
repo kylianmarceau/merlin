@@ -92,6 +92,32 @@ export function rubberBand(value: number, min: number, max: number, reach = rubb
 }
 
 /**
+ * A swipe back or forward's arrow (SwipeArrow): it comes in with the swipe,
+ * up to `reach` and rubber-banded past it; let go where it navigates, it
+ * pops and fades; short of that, it springs back out.
+ */
+export function useSwipeArrow(swipe: { progress: number; ready: boolean; ended: boolean } | null, reach: number, reduce: boolean) {
+  const x = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const shown = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!swipe) return;
+    if (!swipe.ended) {
+      x.setValue(rubberBand(Math.max(0, swipe.progress) * reach, 0, reach, reach / 2)); scale.setValue(1); shown.setValue(1);
+      return;
+    }
+    const fade = animate(shown, 0, swipe.ready ? duration.base : duration.fast, curve.exit, reduce);
+    const run = swipe.ready
+      ? Animated.parallel([animate(scale, popFrom, duration.base, curve.exit, reduce), fade])
+      : Animated.parallel([reduce ? animate(x, 0, duration.instant, curve.exit, true)
+        : Animated.spring(x, { toValue: 0, ...spring.snappy, useNativeDriver: true }), fade]);
+    run.start();
+    return () => run.stop();
+  }, [swipe, reach, reduce, x, scale, shown]);
+  return { x, scale, shown };
+}
+
+/**
  * Springs a number back from where a drag left it (a rubber-banded edge) to
  * `to`, carrying the drag's speed (pt per ms, as gestures report it), calling
  * `on` each frame and `done` at rest. Immediate with reduced motion.

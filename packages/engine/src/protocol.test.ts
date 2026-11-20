@@ -255,3 +255,9 @@ test('a tab\'s zoom is a positive percent and whether it is the default', () => 
   assert.throws(() => valid({ percent: 0, default: true }));
   assert.throws(() => valid({ percent: 110 }));
 });
+test('a history swipe names its direction and how far it has gone', () => {
+  const swipe = { type: 'history.swipe', windowId: 'window-one', direction: 'back', progress: 0.4, ready: false, ended: false };
+  assert.deepEqual(parseEngineEvent(JSON.stringify(swipe)), swipe);
+  assert.throws(() => parseEngineEvent(JSON.stringify({ ...swipe, direction: 'up' })));
+  assert.throws(() => parseEngineEvent(JSON.stringify({ ...swipe, progress: 'far' })));
+});

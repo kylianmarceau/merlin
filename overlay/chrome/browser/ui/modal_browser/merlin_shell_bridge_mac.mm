@@ -3,6 +3,7 @@
 
 #import <AppKit/AppKit.h>
 #include <algorithm>
+#include <cmath>
 #include <array>
 #include <string_view>
 #include <deque>
@@ -1552,6 +1553,19 @@ bool ShellFindHasFocus(BrowserWindowInterface* browser) {
 void SendShellEvent(BrowserWindowInterface* browser, const char* type) {
   if (!Enabled() || !browser) return;
   GetRegistry().Emit(Dict().Set("type", type).Set("windowId", WindowId(browser)));
+}
+bool ShellHistorySwipe(gfx::NativeView view, bool forward, double progress, bool ready, bool ended) {
+  NSView* page = view.GetNativeNSView();
+  if (!Enabled() || !page.window) return false;
+  for (const auto& [id, state] : GetRegistry().windows) {
+    auto* window = state->browser()->GetWindow();
+    if (!window || window->GetNativeWindow().GetNativeNSWindow() != page.window) continue;
+    GetRegistry().Emit(Dict().Set("type", "history.swipe").Set("windowId", id)
+        .Set("direction", forward ? "forward" : "back").Set("progress", std::isfinite(progress) ? progress : 0.0)
+        .Set("ready", ready).Set("ended", ended));
+    return true;
+  }
+  return false;
 }
 bool OpenNewTabPopup(BrowserWindowInterface* browser) {
   if (!Enabled() || !browser || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||

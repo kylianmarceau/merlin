@@ -122,7 +122,7 @@ source_set("media_presentation") {
 # implementations to avoid a window-factory/permission-factory dependency cycle.
 source_set("shell_headers") {
   sources = [ "merlin_react_window.h", "merlin_shell_bridge.h", "merlin_react_permission_prompt.h", "merlin_react_script_dialog.h", "merlin_react_passwords.h", "merlin_react_login.h" ]
-  public_deps = [ "//base", "//chrome/browser/ui:browser_window_deleter", "//components/permissions", "//content/public/browser", "//components/tabs:public", "//chrome/browser/ui/browser_window" ]
+  public_deps = [ "//base", "//chrome/browser/ui:browser_window_deleter", "//components/permissions", "//content/public/browser", "//components/tabs:public", "//chrome/browser/ui/browser_window", "//ui/gfx:native_ui_types" ]
 }
 
 source_set("modal_browser") {

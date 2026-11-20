@@ -387,6 +387,11 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
   or maximum width gives less and less, and springs back carrying the
   drag's speed when let go (`rubberBand`, `springBack`); near the default
   width it snaps there. Peeking tabs spring out as they sprang in.
+- Swiping back or forward with two fingers draws Merlin's own arrow, not
+  Chromium's: a round chip comes in from the page's edge with the swipe,
+  rubber-banded past its end, filling with the accent once letting go
+  would navigate; let go there it pops and fades, short of it it springs
+  back out (`SwipeArrow`, `useSwipeArrow`, the `history.swipe` event).
 - Trackpad ticks (`tick`, NSHapticFeedbackManager; only Force Touch
   trackpads feel them): a dragged tab or tile reaching a new place, a tab
   leaving the tabs or reaching a drop zone, a favourite pinned by drag, the

@@ -5,6 +5,7 @@
 #include <string>
 #include "base/functional/callback.h"
 #include "base/values.h"
+#include "ui/gfx/native_ui_types.h"
 
 class BrowserWindowInterface;
 class GURL;
@@ -36,6 +37,11 @@ bool ShowsShellStartPage(BrowserWindowInterface* browser, content::WebContents* 
 void SetShellFindState(BrowserWindowInterface* browser, base::DictValue state);
 bool ShellFindHasFocus(BrowserWindowInterface* browser);
 void SendShellEvent(BrowserWindowInterface* browser, const char* type);
+// A two-finger swipe back or forward over `view`'s page, in place of
+// Chromium's overlay: how far it has gone (0 to 1, more past its end),
+// whether letting go would navigate, and whether it has ended. False when
+// the view isn't in a window of the shell, which then draws nothing.
+bool ShellHistorySwipe(gfx::NativeView view, bool forward, double progress, bool ready, bool ended);
 // Opens a React shell panel: "settings", "history", "bookmarks", "downloads",
 // "extensions" or "newTab". False when `browser` has no React window.
 bool OpenShellPanel(BrowserWindowInterface* browser, const char* panel);

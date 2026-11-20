@@ -6,6 +6,7 @@ import type { Tab } from '../../state/types';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
 import { Box, Button, EmptyState, Text, geometry, radius, space, useTheme, Pressable } from '../ui';
 import { FindBar } from '../find/FindBar';
+import { SwipeArrow } from '../page/SwipeArrow';
 import { TabPage } from '../page/TabPage';
 import { StartPage } from '../start/StartPage';
 
@@ -45,6 +46,7 @@ export function PageArea() {
       })}
     </View> : <Pane tab={active} hints />}
     {snapshot.find?.visible && <FindBar key={active.id} find={snapshot.find} tabId={active.id} />}
+    <SwipeArrow />
   </View>;
 }
 
