@@ -64,13 +64,15 @@ def video_with_sound() -> bytes:
 
 # A looping video that plays at once (WebKit pages here need no click to
 # play) and reports to the server whether it floats: WebKit pages can't be
-# scripted over DevTools. ?muted mutes it.
+# scripted over DevTools. ?muted mutes it. ?player-controls simulates a
+# custom player that opts out of the page's Picture in Picture controls.
 WEBKIT_VIDEO_HTML = """<!doctype html>
 <title>video</title>
 <video id="v" src="/av.mp4" autoplay loop playsinline width="320" height="180"></video>
 <script>
   const v = document.getElementById('v');
   v.muted = location.search.includes('muted');
+  if (location.search.includes('player-controls')) v.setAttribute('disablepictureinpicture', '');
   const report = what => fetch('/report?' + what);
   v.addEventListener('playing', () => report('playing'));
   v.addEventListener('webkitpresentationmodechanged', () => report('mode=' + v.webkitPresentationMode));
@@ -140,6 +142,16 @@ class WebKitAutoPipTest(WebKitVideoCase):
         self.leave()
         time.sleep(1.5)
         self.assertIsNone(self.mode(), "only a video playing with sound floats")
+
+
+@unittest.skipUnless(os.environ.get("MERLIN_E2E_PIP") == "1", "shows a floating window; set MERLIN_E2E_PIP=1")
+class WebKitCustomPlayerAutoPipTest(WebKitVideoCase):
+    def test_video_with_picture_in_picture_hint_can_float_and_return(self) -> None:
+        self.play("?player-controls")
+        self.leave()
+        self.wait(lambda: self.mode() == "picture-in-picture", "the WebKit video to float", timeout=5)
+        self.browser.browserctl("focus", tab=1)
+        self.wait(lambda: self.mode() == "inline", "the WebKit video to return to its page", timeout=5)
 
 
 @unittest.skipUnless(os.environ.get("MERLIN_E2E_PIP") == "1", "shows a floating window; set MERLIN_E2E_PIP=1")

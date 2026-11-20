@@ -1,7 +1,12 @@
-Merlin 0.5.3, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.4, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.4
+
+* **Picture in Picture for WebKit video.** Supported videos can float when you switch tabs, including when the player disables the page’s Picture in Picture control. Right-click or Control-click a video to enter or exit Picture in Picture, even over custom player controls.
+* **Quieter tab closing.** The notification that appeared after closing a tab has been removed.
 
 ## What's new in 0.5.3
 

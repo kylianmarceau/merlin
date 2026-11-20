@@ -153,7 +153,8 @@ site with `:adblock site toggle`.
 Spotify's web player and other DRM services open in WebKit (Safari's engine)
 inside the same tab, where they play. A video playing with sound floats in a
 picture-in-picture window when you switch tabs and goes back when you
-return.
+return. To float a video yourself in a WebKit tab, right-click or Control-click
+the video and choose **Enter Picture in Picture**.
 
 **Marks and macros.** `ma` sets a mark and `'a` returns to it. `qa` … `q`
 records a macro and `@a` replays it. Counts work too, as in `5j`.

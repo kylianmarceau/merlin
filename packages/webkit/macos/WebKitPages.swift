@@ -141,11 +141,11 @@ final class WebKitPages {
   /// The page's tab was left: a video playing with sound floats, unless the
   /// tab showed again, the window closed, or a video already floats.
   private func maybeFloat(_ page: WebKitPage) {
-    let webView = page.webView
-    guard autoPip, !page.isClosed, pages[page.tabId] === page, webView.window?.isVisible == true, parked(webView) else { return }
     let float: () -> Void = { [weak self, weak page] in
-      page?.floatVideo { floated in
-        guard floated, let self, let page else { return }
+      guard let self, let page, self.autoPip, !page.isClosed, self.pages[page.tabId] === page,
+        page.webView.window?.isVisible == true, self.parked(page.webView) else { return }
+      page.floatVideo { [weak self, weak page] floated in
+        guard floated, let self, let page, !page.isClosed else { return }
         self.floated = page
         // The tab showed again while its video floated off: it comes back.
         if !self.parked(page.webView) { self.pageShown(page) }
@@ -157,9 +157,9 @@ final class WebKitPages {
       float()
       return
     }
-    other.isFloating { [weak self] floating in
-      if floating { return }
-      self?.floated = nil
+    other.isFloating { [weak self, weak other] floating in
+      guard let self, !floating, self.floated === other else { return }
+      self.floated = nil
       float()
     }
   }
@@ -265,6 +265,7 @@ final class WebKitPages {
     if configuration.preferences.responds(to: NSSelectorFromString("_setAllowsPictureInPictureMediaPlayback:")) {
       configuration.preferences.setValue(true, forKey: "allowsPictureInPictureMediaPlayback")
     }
+    WebKitPictureInPicture.install(on: configuration.userContentController)
     // A pop-up needs a click, except in a test instance, whose pages can't be clicked.
     configuration.preferences.javaScriptCanOpenWindowsAutomatically = Self.testFolder != nil
     // Merlin makes no Safe Browsing lookups in Chromium; nor does WebKit here.
@@ -386,64 +387,16 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
 
   var isClosed: Bool { closed }
 
-  // Automatic picture in picture runs in a world of Merlin's own, apart from
-  // the page's scripts, which share only the DOM with it. `merlinFloated`
-  // is that world's: the page can't read or change which video Merlin floated.
-
-  /// Floats the page's largest video that is playing with its sound on, as
-  /// Chromium's tabs do: not a muted or paused one, nor one the page keeps
-  /// from floating, nor while one already floats. The answer is whether it floated.
-  private static let floatScript = """
-    const videos = [...document.querySelectorAll('video')];
-    if (document.pictureInPictureElement || videos.some(v => v.webkitPresentationMode && v.webkitPresentationMode !== 'inline')) return false;
-    const watched = v => !v.paused && !v.ended && v.readyState >= 2 && !v.muted && v.volume > 0 && v.videoWidth > 0 && !v.disablePictureInPicture;
-    const video = videos.filter(watched).sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
-    if (!video) return false;
-    if (video.webkitSupportsPresentationMode?.('picture-in-picture')) video.webkitSetPresentationMode('picture-in-picture');
-    else if (video.requestPictureInPicture) await video.requestPictureInPicture();
-    else return false;
-    globalThis.merlinFloated = new WeakRef(video);
-    return true;
-    """
-
-  /// Puts the video Merlin floated back in the page, if it still floats. A
-  /// video still on its way into the floating window ignores a new mode, so
-  /// it asks again until the video has stayed in the page for 0.3 s (3 s at most).
-  private static let returnScript = """
-    const video = globalThis.merlinFloated?.deref();
-    globalThis.merlinFloated = undefined;
-    if (!video) return;
-    for (let settled = 0, tries = 0; settled < 3 && tries < 30; tries++) {
-      if (video.webkitPresentationMode === 'picture-in-picture') {
-        settled = 0;
-        video.webkitSetPresentationMode('inline');
-      } else if (document.pictureInPictureElement === video) {
-        settled = 0;
-        await document.exitPictureInPicture().catch(() => {});
-      } else {
-        settled++;
-      }
-      await new Promise(done => setTimeout(done, 100));
-    }
-    """
-
-  private static let floatingScript = """
-    const video = globalThis.merlinFloated?.deref();
-    return !!video && (video.webkitPresentationMode === 'picture-in-picture' || document.pictureInPictureElement === video);
-    """
-
   /// Evaluated as the browser's own action, which WebKit counts as a click,
   /// as picture in picture needs.
   private func media(_ script: String, _ done: @escaping (Bool) -> Void) {
     guard !closed else { return done(false) }
-    webView.callAsyncJavaScript(script, arguments: [:], in: nil, in: .defaultClient) { result in
-      if case .success(let value) = result { done((value as? Bool) ?? (value as? NSNumber)?.boolValue ?? false) } else { done(false) }
-    }
+    WebKitPictureInPicture.evaluate(script, in: webView, completion: done)
   }
 
-  func floatVideo(_ done: @escaping (Bool) -> Void) { media(Self.floatScript, done) }
-  func returnVideo() { media(Self.returnScript) { _ in } }
-  func isFloating(_ done: @escaping (Bool) -> Void) { media(Self.floatingScript, done) }
+  func floatVideo(_ done: @escaping (Bool) -> Void) { media(WebKitPictureInPicture.floatScript, done) }
+  func returnVideo() { media(WebKitPictureInPicture.returnScript) { _ in } }
+  func isFloating(_ done: @escaping (Bool) -> Void) { media(WebKitPictureInPicture.floatingScript, done) }
 
   /// A link or script in a pop-up opened another window: a tab, as from the page.
   func openTab(_ url: URL) { emit("openTab", ["url": url.absoluteString]) }

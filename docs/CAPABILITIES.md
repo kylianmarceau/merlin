@@ -17,7 +17,7 @@ Chromium.
 | Capability | Status | How it's tested |
 |---|---|---|
 | Playing DRM video (FairPlay) | Supported | By hand, on a DRM site |
-| Picture in picture: the player's own button, and a video playing with sound floating when its tab is left (Settings › General › Float videos when you switch tabs) | Supported, through a WebKit preference Safari sets that has no public API; a site can still keep its video from floating | e2e `test_auto_pip` (opt-in); Netflix by hand |
+| Picture in picture: right-click a video to enter or exit, or let video playing with sound float when its tab is left (Settings › General › Float videos when you switch tabs) | Supported for videos WebKit can present in Picture in Picture | Automatic mode in e2e `test_auto_pip` (opt-in); Netflix by hand |
 | Choosing the engine per site; moving a site between engines (right-click a tab) | Supported | `pnpm ui:test` (routing and moving back to Chromium); e2e `test_webkit` (navigations behind a WebKit page) |
 | Private windows: one WebKit session in memory that ends with the last private window | Supported | e2e `test_webkit` |
 | Clear browsing data and "Forget this site" | Supported in both engines at once | e2e `test_webkit` |
