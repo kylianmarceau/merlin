@@ -770,7 +770,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     },
 
     // Browser questions. Errors are returned so the prompt can show them in place.
-    answerPrompt: (promptId: string, actionId: string, extra: { text?: string; suppress?: boolean }) =>
+    answerPrompt: (promptId: string, actionId: string, extra: { text?: string; secret?: string; suppress?: boolean }) =>
       engine.call('permissions.answer', { promptId, actionId, ...extra }),
     updatePromptText: (promptId: string, text: string) => engine.call('prompts.update', { promptId, text }),
 

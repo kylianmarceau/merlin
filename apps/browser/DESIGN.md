@@ -318,8 +318,11 @@ sheets < dialogs < popovers < toasts. `Modal` is not used. **(tested)**
 - **Native menu** (`NSMenu`): actions on a thing, such as a tab's right-click
   menu and its "…" button.
 - **Dialog**: questions from the page (`alert`, `confirm`, `prompt`, leaving
-  the page), attached to the top of the page; window questions (closing with
-  downloads running, restarting to update) in the centre.
+  the page, and a site's HTTP sign-in, with its user name and password),
+  attached to the top of the page; window questions (closing with
+  downloads running, restarting to update) in the centre. A sign-in the
+  site refused comes back shaking, saying so; its password goes only with
+  the answer, never kept as a draft.
 - **Sheet**: Settings and the Library.
 - **HUD**: a confirmation of something just done, or a short message from a
   command. It never stays behind.

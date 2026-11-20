@@ -121,7 +121,7 @@ source_set("media_presentation") {
 # Headers used at upstream hook sites. Keep this leaf independent of Views
 # implementations to avoid a window-factory/permission-factory dependency cycle.
 source_set("shell_headers") {
-  sources = [ "merlin_react_window.h", "merlin_shell_bridge.h", "merlin_react_permission_prompt.h", "merlin_react_script_dialog.h", "merlin_react_passwords.h" ]
+  sources = [ "merlin_react_window.h", "merlin_shell_bridge.h", "merlin_react_permission_prompt.h", "merlin_react_script_dialog.h", "merlin_react_passwords.h", "merlin_react_login.h" ]
   public_deps = [ "//base", "//chrome/browser/ui:browser_window_deleter", "//components/permissions", "//content/public/browser", "//components/tabs:public", "//chrome/browser/ui/browser_window" ]
 }
 
@@ -164,6 +164,8 @@ source_set("modal_browser") {
       "merlin_react_permission_prompt.cc",
       "merlin_react_script_dialog.cc",
       "merlin_react_script_dialog.h",
+      "merlin_react_login.cc",
+      "merlin_react_login.h",
       "merlin_react_permission_prompt.h",
       "merlin_shell_services.cc",
       "merlin_shell_services.h",
@@ -318,6 +320,7 @@ source_set("modal_browser") {
       "//components/web_modal",
       "//components/permissions",
       "//components/javascript_dialogs",
+      "//chrome/browser/ui/login",
       "//components/find_in_page",
       "//components/favicon/content",
       "//ui/gfx/codec",

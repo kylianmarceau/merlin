@@ -11,6 +11,7 @@ export function promptIcon(prompt: PromptFacts): PromptIcon {
   // Site information leads with the same badge as the address field.
   if (prompt.security) return securityBadge(prompt.security).icon;
   if (prompt.kind === 'permission') return 'hand.raised';
+  if (prompt.kind === 'signIn') return 'key';
   const title = prompt.title.toLowerCase();
   if (prompt.origin === 'Translate' || title.includes('translat')) return 'character.bubble';
   if (title.includes('password')) return 'key';
@@ -24,6 +25,7 @@ export function promptIcon(prompt: PromptFacts): PromptIcon {
 /** A short name for a waiting request, shown on its toolbar chip. */
 export function promptChipLabel(prompt: PromptFacts) {
   if (prompt.kind === 'permission') return 'Permission';
+  if (prompt.kind === 'signIn') return 'Sign in';
   if (prompt.origin === 'Translate') return 'Translate';
   const title = prompt.title.toLowerCase();
   if (title.includes('password')) return 'Password';

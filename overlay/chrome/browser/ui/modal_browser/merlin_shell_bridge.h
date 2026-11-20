@@ -14,6 +14,8 @@ namespace modal_browser {
 struct ShellPromptReply {
   std::string action;
   std::string text;
+  // A sign-in's password, given only with the answer and never kept as a draft.
+  std::string secret;
   bool suppress = false;
 };
 bool ReactShellEnabled();

@@ -10,6 +10,8 @@ test('prompts lead with a symbol for what they ask', () => {
   assert.equal(promptIcon({ ...base, origin: 'Translate', title: 'Translate this page?' }), 'character.bubble');
   assert.equal(promptChipLabel({ ...base, kind: 'permission' }), 'Permission');
   assert.equal(promptChipLabel(base), 'Password');
+  assert.equal(promptIcon({ ...base, kind: 'signIn', title: 'Sign in' }), 'key');
+  assert.equal(promptChipLabel({ ...base, kind: 'signIn', title: 'Sign in' }), 'Sign in');
 });
 
 test('a site question closed by Escape or a press outside gets its quiet answer', () => {

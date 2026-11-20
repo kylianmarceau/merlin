@@ -1,20 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, View, type TextInput } from 'react-native';
 import { promptIcon } from '../../lib/prompts';
 import type { Prompt } from '../../state/types';
 import { useActions } from '../../state/window';
-import { Box, Button, Checkbox, Field, Icon, Text, duration, geometry, space } from '../ui';
+import { Box, Button, Checkbox, Field, Icon, Shake, Text, duration, geometry, radius, space } from '../ui';
 
 /**
  * A browser question. Mounted with the native prompt ID as its key, so typed
  * input and pending state never carry into the next question. Answers are
  * ignored for the first half second, as in Chromium, so a stray click cannot
- * grant a permission.
+ * grant a permission. A sign-in asks for a name and a password; when the
+ * site refused the last one it arrives shaking, as a refused field does.
  */
 export function PromptBody({ prompt, compact }: { prompt: Prompt; compact: boolean }) {
   const actions = useActions();
   const [text, setText] = useState(prompt.input?.defaultValue ?? '');
+  const [secret, setSecret] = useState('');
   const [suppress, setSuppress] = useState(false);
+  // Shaken once it has appeared, when the site has just refused a sign-in.
+  const [refused, setRefused] = useState(0);
+  useEffect(() => { if (prompt.failed) setRefused(1); }, [prompt.failed]);
+  const password = useRef<TextInput>(null);
   const [armed, setArmed] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +35,8 @@ export function PromptBody({ prompt, compact }: { prompt: Prompt; compact: boole
     if (!armed || submitting.current) return;
     submitting.current = true; setPending(true); setError(null);
     try {
-      await actions.answerPrompt(prompt.id, actionId, { ...(prompt.input ? { text } : {}), ...(prompt.canSuppress ? { suppress } : {}) });
+      await actions.answerPrompt(prompt.id, actionId, { ...(prompt.input ? { text } : {}), ...(prompt.secret ? { secret } : {}),
+        ...(prompt.canSuppress ? { suppress } : {}) });
       // The browser's next snapshot removes this prompt.
     } catch (e) {
       if (alive.current) { setError(e instanceof Error ? e.message : String(e)); setPending(false); submitting.current = false; }
@@ -38,7 +45,8 @@ export function PromptBody({ prompt, compact }: { prompt: Prompt; compact: boole
   const icon = promptIcon(prompt);
   const tone = prompt.security === 'dangerous' ? 'danger' : prompt.security === 'insecure' ? 'warning' : 'iconSecondary';
   // Site questions lead with what is asked; a page's own dialogs say who is asking first.
-  const asked = prompt.kind === 'permission' || prompt.anchor === 'site';
+  const asked = prompt.kind === 'permission' || prompt.kind === 'signIn' || prompt.anchor === 'site';
+  const submit = () => { const primary = prompt.actions.find(a => a.emphasis === 'primary'); if (primary) void answer(primary.id); };
   return <Box gap="md">
     {asked ? <Box row gap="md" align="flex-start">
       <Box padTop="hair"><Icon name={icon} tone={tone} /></Box>
@@ -55,15 +63,24 @@ export function PromptBody({ prompt, compact }: { prompt: Prompt; compact: boole
     {!!prompt.message && <ScrollView style={{ maxHeight: compact ? geometry.popover / 2 : geometry.sheetHeight / 2 }}>
       <Text tone="textSecondary" selectable>{prompt.message}</Text>
     </ScrollView>}
-    {prompt.input && <Box gap="xs">
-      <Text variant="label" tone="textSecondary">{prompt.input.label}</Text>
-      <Field autoFocus accessibilityLabel={prompt.input.label} value={text} editable={!pending} maxLength={8192}
-        onSubmitEditing={() => { const primary = prompt.actions.find(a => a.emphasis === 'primary'); if (primary) void answer(primary.id); }}
-        onChangeText={value => {
-          setText(value);
-          actions.updatePromptText(prompt.id, value).catch(e => { if (alive.current) setError(e instanceof Error ? e.message : String(e)); });
-        }} />
-    </Box>}
+    {(prompt.input || prompt.secret) && <Shake count={refused} radius={radius.field} style={{ gap: space.md }}>
+      {prompt.input && <Box gap="xs">
+        <Text variant="label" tone="textSecondary">{prompt.input.label}</Text>
+        <Field autoFocus accessibilityLabel={prompt.input.label} value={text} editable={!pending} maxLength={8192}
+          // With a password to come, Return moves on to it.
+          onSubmitEditing={() => { if (prompt.secret) password.current?.focus(); else submit(); }}
+          onChangeText={value => {
+            setText(value);
+            actions.updatePromptText(prompt.id, value).catch(e => { if (alive.current) setError(e instanceof Error ? e.message : String(e)); });
+          }} />
+      </Box>}
+      {prompt.secret && <Box gap="xs">
+        <Text variant="label" tone="textSecondary">{prompt.secret.label}</Text>
+        <Field ref={password} secureTextEntry accessibilityLabel={prompt.secret.label} value={secret} editable={!pending} maxLength={4096}
+          onSubmitEditing={submit} onChangeText={setSecret} />
+      </Box>}
+    </Shake>}
+    {prompt.failed && <Text tone="textDanger">That user name and password weren't accepted.</Text>}
     {prompt.canSuppress && <Checkbox label={prompt.origin === 'Merlin' ? "Don't ask again" : "Don't let this page show more dialogs"} value={suppress} disabled={pending} onChange={setSuppress} />}
     {error && <Text tone="textDanger">{error}</Text>}
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: space.sm, paddingTop: space.hair }}>

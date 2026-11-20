@@ -1063,6 +1063,11 @@ char* Call(const char* window, const char* method, const char* json) {
       pending.draft.suppress = *suppress;
     }
     if (name == shell::method::kPromptsUpdate) return Ok();
+    // A sign-in's password comes only with its answer.
+    if (const auto* secret = args->FindString("secret")) {
+      if (!pending.description.FindDict("secret") || secret->size() > 4096) return Error("Invalid prompt input");
+      pending.draft.secret = *secret;
+    }
     const auto* actions = pending.description.FindList("actions");
     bool allowed = false;
     if (actions) for (const auto& candidate : *actions) {

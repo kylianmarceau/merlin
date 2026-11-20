@@ -96,7 +96,11 @@ export type Peek = { url: string; title: string; loading: boolean; canGoBack: bo
 export type Split = { tabs: string[]; layout: 'sideBySide' | 'stacked'; ratio: number };
 export type Prompt = {
   id: string; origin: string; title: string; message: string; quiet?: boolean; canSuppress?: boolean; input?: { label: string; defaultValue: string };
-  kind: 'permission' | 'confirm' | 'alert' | 'beforeUnload';
+  /** A sign-in's password field. What is typed goes only with the answer (`secret`), never as a draft. */
+  secret?: { label: string };
+  /** The site asked again straight after a sign-in was sent: it refused it. */
+  failed?: boolean;
+  kind: 'permission' | 'confirm' | 'alert' | 'beforeUnload' | 'signIn';
   /** Where it appears: beside the address ("site"), over the page ("page") or in the window centre. */
   anchor?: PromptAnchor;
   /** Site information only: the connection's security. */
@@ -205,7 +209,7 @@ export type Calls = {
   'downloads.cancel': { args: { downloadId: string }; result: null };
   'downloads.act': { args: { downloadId: string; action: DownloadAction }; result: null };
   'downloads.openFolder': { args: {}; result: null };
-  'permissions.answer': { args: { promptId: string; actionId: string; text?: string; suppress?: boolean }; result: null };
+  'permissions.answer': { args: { promptId: string; actionId: string; text?: string; secret?: string; suppress?: boolean }; result: null };
   'prompts.update': { args: { promptId: string; text: string }; result: null };
   'appearance.set': { args: Appearance; result: null };
   'modal.command': { args: { text: string }; result: null };
@@ -498,7 +502,9 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
       (s.prompt.quiet !== undefined && typeof s.prompt.quiet !== 'boolean') ||
       (s.prompt.canSuppress !== undefined && typeof s.prompt.canSuppress !== 'boolean') ||
       (s.prompt.input !== undefined && (!s.prompt.input || typeof s.prompt.input.label !== 'string' || typeof s.prompt.input.defaultValue !== 'string')) ||
-      !['permission', 'confirm', 'alert', 'beforeUnload'].includes(s.prompt.kind) ||
+      (s.prompt.secret !== undefined && !fields(s.prompt.secret, { label: isString })) ||
+      (s.prompt.failed !== undefined && typeof s.prompt.failed !== 'boolean') ||
+      !['permission', 'confirm', 'alert', 'beforeUnload', 'signIn'].includes(s.prompt.kind) ||
       (s.prompt.anchor !== undefined && !['site', 'page', 'window'].includes(s.prompt.anchor)) ||
       (s.prompt.security !== undefined && !securities.includes(s.prompt.security)) ||
       (s.prompt.protection !== undefined && !protections.includes(s.prompt.protection)) ||

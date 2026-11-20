@@ -1,0 +1,38 @@
+--- a/chrome/browser/ui/views/login_handler_views.cc
++++ b/chrome/browser/ui/views/login_handler_views.cc
+@@ -21,6 +21,10 @@
+ #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+ #include "ui/views/widget/widget.h"
+ #include "ui/views/window/dialog_delegate.h"
++#include "build/build_config.h"
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/ui/modal_browser/merlin_react_login.h"
++#endif
+ 
+ class LoginHandlerViewsDialog;
+ 
+@@ -231,6 +235,13 @@
+     const net::AuthChallengeInfo& auth_info,
+     content::WebContents* web_contents,
+     content::LoginDelegate::LoginAuthRequiredCallback auth_required_callback) {
++#if BUILDFLAG(IS_MAC)
++  // Merlin's shell asks for the sign-in itself, as its other questions.
++  if (modal_browser::UsesReactLoginPrompt(web_contents)) {
++    return modal_browser::CreateReactLoginHandler(
++        auth_info, web_contents, std::move(auth_required_callback));
++  }
++#endif
+   return std::make_unique<LoginHandlerViews>(auth_info, web_contents,
+                                              std::move(auth_required_callback));
+ }
+--- a/chrome/browser/ui/views/BUILD.gn
++++ b/chrome/browser/ui/views/BUILD.gn
+@@ -1054,6 +1054,8 @@
+   deps = [
+     ":login_view",
+     "//base",
++    "//build:buildflag_header_h",
++    "//chrome/browser/ui/modal_browser:shell_headers",
+     "//chrome/browser/ui/blocked_content",
+     "//chrome/browser/ui/dialogs",
+     "//chrome/browser/ui/login",
