@@ -125,6 +125,22 @@ def mono_svg(size: int = 22, color: str = "#000000") -> str:
             f'{glyph(0, 0, size, color, frac=0.95)}</svg>\n')
 
 
+def start_page_svg(part: str, color: str) -> str:
+    """Separate the two prompt strokes from the falcon for the new tab page."""
+    shapes = re.findall(r"M[^M]+", FALCON_PATH)
+    prompt_starts = ("M609 602L", "M672 674L")
+    if sum(shape.startswith(prompt_starts) for shape in shapes) != 2:
+        raise ValueError("Cannot locate the terminal prompt in merlin-pixel.svg")
+    path = "".join(shape for shape in shapes if shape.startswith(prompt_starts) == (part == "prompt"))
+    points = [xy for _, xy in _parse_polygon(path) if xy]
+    xs, ys = zip(*points)
+    side = max(max(xs) - min(xs), max(ys) - min(ys))
+    left = (min(xs) + max(xs) - side) / 2
+    top = (min(ys) + max(ys) - side) / 2
+    return (f'<svg xmlns="{SVG_NS}" viewBox="{_f(left)} {_f(top)} {_f(side)} {_f(side)}">'
+            f'{_falcon(path, color)}</svg>\n')
+
+
 def password_svg() -> str:
     """A key retains the password manager's distinct purpose in the new palette."""
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" '
@@ -152,6 +168,9 @@ def outputs(root: str) -> dict:
 
 
 def main() -> int:
+    if len(sys.argv) == 3 and sys.argv[1] in ("--start-falcon", "--start-prompt"):
+        sys.stdout.write(start_page_svg(sys.argv[1].removeprefix("--start-"), sys.argv[2]))
+        return 0
     if sys.argv[1:] == ["--app-icon"]:
         sys.stdout.write(app_icon_svg())
         return 0

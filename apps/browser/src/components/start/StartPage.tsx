@@ -8,12 +8,12 @@ import { Favicon } from '../favicon/Favicon';
 import { suggestionDetail, suggestionIcons, useSearch } from '../omnibox/useSearch';
 
 /**
- * A new tab shows the Merlin logo, one search card, and the window's other pages.
+ * The falcon is centered above the search card. Its terminal prompt is the Go button.
  */
 export function StartPage({ tab }: { tab: Tab }) {
   const snapshot = useSnapshot();
   const actions = useActions();
-  const { colors, reduceMotion } = useTheme();
+  const { colors, dark, reduceMotion } = useTheme();
   // As in Dia, the search card settles in on a soft spring over a slowly breathing light in the workspace colour.
   const settle = useSettle(reduceMotion);
   const search = useSearch();
@@ -30,8 +30,8 @@ export function StartPage({ tab }: { tab: Tab }) {
     <AreaLight style={{ position: 'absolute', top: geometry.newTabTop, left: 0, right: 0, height: geometry.areaLight }} />
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: geometry.newTabTop,
       paddingBottom: space.huge, paddingHorizontal: space.huge }}>
-      <Image source={require('./merlin-logo.png')} accessible={false} resizeMode="contain"
-        style={{ width: geometry.startLogo, height: geometry.startLogo, marginBottom: space.xl }} />
+      <Image source={dark ? require('./merlin-logo-light.png') : require('./merlin-logo.png')} accessible={false} resizeMode="contain"
+        style={{ width: geometry.startFalcon, height: geometry.startFalcon, marginBottom: space.md }} />
       <View style={{ width: geometry.palette, maxWidth: '100%' }}>
         <Animated.View style={{ opacity: settle.opacity, transform: [{ scale: settle.scale }] }}>
         <Panel fill="contentBackground" radius="popover" border="borderSubtle" elevation="card">
@@ -84,13 +84,15 @@ export function StartPage({ tab }: { tab: Tab }) {
 
 /** The round Go button: quiet until there is something to go to. */
 export function GoButton({ ready, onPress }: { ready: boolean; onPress(): void }) {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
+  const lightPrompt = ready ? !dark : dark;
   return <Pressable accessibilityRole="button" accessibilityLabel="Go" accessibilityState={{ disabled: !ready }} disabled={!ready}
     onPress={onPress}
     style={({ pressed }) => ({ width: geometry.button + space.xs, height: geometry.button + space.xs, borderRadius: radius.pill,
       alignItems: 'center', justifyContent: 'center', backgroundColor: colors[ready ? 'buttonPrimary' : 'fillControl'],
       opacity: pressed ? opacity.pressed : 1 })}>
-    <Icon name="arrow.up" tone={ready ? 'textOnPrimary' : 'iconSecondary'} size="small" weight="semibold" />
+    <Image source={lightPrompt ? require('./merlin-prompt-light.png') : require('./merlin-prompt.png')} accessible={false} resizeMode="contain"
+      style={{ width: geometry.startPrompt, height: geometry.startPrompt, opacity: ready ? 1 : opacity.dim }} />
   </Pressable>;
 }
 
