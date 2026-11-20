@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
 import type { PreferenceKey, Preferences } from '../../state/types';
 import { useUpdates } from '../../state/updates';
 import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
 import {
-  Box, Button, Field, FormGroup, FormHighlight, FormRow, Icon, ListRow, Notice, Pressable, SectionHeader, Sheet, SheetBody, Text, Toggle,
+  Box, Button, Field, FormGroup, FormHighlight, FormRow, Icon, ListRow, Notice, Pressable, SectionHeader, Shake, Sheet, SheetBody, Text, Toggle,
   geometry, radius, space, useInteraction, useTheme, type SheetSection,
 } from '../ui';
 import { searchSettings, type SettingsHit } from './searchIndex';
@@ -212,6 +211,8 @@ function ConfigEditor({ onSaved }: { onSaved(): void }) {
   const action = useAction();
   const [text, setText] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  // A save the config refuses (it doesn't parse) shakes the editor, every time.
+  const [refused, setRefused] = useState(0);
   useEffect(() => { if (file.data && !file.loading && text === null) setText(file.data.text); }, [file.data, file.loading, text]);
   const dirty = text !== null && file.data !== null && text !== file.data.text;
   return <>
@@ -223,6 +224,7 @@ function ConfigEditor({ onSaved }: { onSaved(): void }) {
         const saved = await action.run('settings.saveConfig', { text: text ?? '', revision: file.data?.revision ?? '' });
         if (!saved.ok) return;  // shown as action.error
         setResult(saved.value.error);
+        if (saved.value.error) setRefused(n => n + 1);
         if (!saved.value.error) {
           file.set({ ...file.data!, text: text ?? '', found: true, error: '', revision: saved.value.revision });
           onSaved();
@@ -234,11 +236,11 @@ function ConfigEditor({ onSaved }: { onSaved(): void }) {
       {file.data?.error && <Notice tone="error">{file.data.error}</Notice>}
       {result !== null && (result ? <Notice tone="error">{result}</Notice> : <Notice>Saved. Every window has reloaded the config.</Notice>)}
       {action.error && <Notice tone="error">{action.error}</Notice>}
-      <View style={{ minHeight: geometry.sheetHeight / 2 }}>
+      <Shake count={refused} radius={radius.field} style={{ minHeight: geometry.sheetHeight / 2 }}>
         <Field multiline mono grow accessibilityLabel="Config file" value={text ?? ''} editable={text !== null && !action.busy}
           placeholder={file.data && !file.data.found ? '# No config file yet. Anything you write here creates it.' : ''}
           onChangeText={value => { setText(value); setResult(null); }} style={{ textAlignVertical: 'top' }} />
-      </View>
+      </Shake>
     </Box>
   </>;
 }
