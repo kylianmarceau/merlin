@@ -25,6 +25,7 @@ type NativeWebKit = {
   focus(tabId: string): Promise<void>;
   close(tabId: string): Promise<void>;
   privateWindow(windowId: string, open: boolean): Promise<void>;
+  autoPip(on: boolean): Promise<void>;
   addListener(name: string, listener: (body: Record<string, unknown>) => void): Subscription;
 };
 
@@ -37,6 +38,8 @@ export const focusWebKitPage = (tabId: string) => module().focus(tabId);
 export const closeWebKitPage = (tabId: string) => module().close(tabId);
 /** A private window opened or closed: WebKit's private session ends with the last one. */
 export const setPrivateWindow = (windowId: string, open: boolean) => module().privateWindow(windowId, open);
+/** Settings › General › Float videos when you switch tabs, for WebKit's pages as for Chromium's. */
+export const setWebKitAutoPip = (on: boolean) => module().autoPip(on);
 
 const commands: readonly string[] = ['back', 'forward', 'reload', 'reloadFromOrigin', 'stop'];
 const str = (v: unknown) => (typeof v === 'string' ? v : '');

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { PreferenceKey, Preferences } from '../../state/types';
 import { useUpdates } from '../../state/updates';
+import { followAutoPip } from '../../state/webkit';
 import { useAction, useActions, useRequest, useSnapshot } from '../../state/window';
 import {
   Box, Button, Field, FormGroup, FormHighlight, FormRow, Icon, ListRow, Notice, Pressable, SectionHeader, Shake, Sheet, SheetBody, Text, Toggle,
@@ -48,7 +49,9 @@ export function Settings({ open }: { open: boolean }) {
   const action = useAction();
   const set: Set = async (key, value) => {
     const next = await action.run('settings.set', { key, value });
-    if (next.ok) prefs.set(next.value);
+    if (!next.ok) return;
+    prefs.set(next.value);
+    if (key === 'autoPip') followAutoPip(next.value.autoPip);
   };
   const openPage = (key: string) => void action.run('settings.openPage', { key });
   const p = prefs.data;

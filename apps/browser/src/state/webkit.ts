@@ -6,7 +6,7 @@ import { createStore } from 'zustand/vanilla';
 import { engineFor, siteOf, type PageEngine } from '../lib/engines';
 import type { EngineClient } from '../platform/protocol';
 import {
-  closeWebKitPage, focusWebKitPage, loadWebKitPage, setPrivateWindow, subscribeWebKit, webKitCommand, type WebKitCommand,
+  closeWebKitPage, focusWebKitPage, loadWebKitPage, setPrivateWindow, setWebKitAutoPip, subscribeWebKit, webKitCommand, type WebKitCommand,
   type WebKitEvent,
 } from '../platform/webkit';
 import { shellPrefs } from './shellPrefs';
@@ -28,6 +28,9 @@ let stopListening: (() => void) | null = null;
 /** A closed tab's page goes once no window has had the tab for this long (a tab moving windows leaves one first). */
 const closedTabGraceMs = 1000;
 const recheckSlackMs = 100;
+
+/** The Float videos setting has been read for WebKit (followAutoPip). */
+let autoPipRead = false;
 
 const engineOf = (url: string): PageEngine => engineFor(url, shellPrefs.getState());
 const pages = () => webkitTabs.getState();
@@ -56,6 +59,10 @@ export function attachWebKit(store: BrowserStore, engine: EngineClient, openTab:
   store.overlay = snapshot => overlaySnapshot(snapshot, pages(), cache);
   windows.set(store.windowId, { store, engine, openTab });
   listenToPages();
+  if (!autoPipRead) {
+    autoPipRead = true;
+    void engine.request('settings.get', {}).then(p => followAutoPip(p.autoPip), () => { autoPipRead = false; });
+  }
   const run = () => reconcile(store, engine);
   const offPrivate = followPrivateWindow(store);
   const offStore = store.subscribe((s, previous) => { if (s.engineSnapshot !== previous.engineSnapshot) run(); });
@@ -72,6 +79,21 @@ export function attachWebKit(store: BrowserStore, engine: EngineClient, openTab:
     store.overlay = snapshot => snapshot;
     pruneLater();
   };
+}
+
+/**
+ * Tells WebKit's pages Settings › General › Float videos when you switch
+ * tabs: read once when the first window connects, and again whenever
+ * Settings changes it. Chromium keeps the setting (merlin.auto_pip); until
+ * it is read, WebKit uses its default, on. Undefined: not offered here.
+ */
+export function followAutoPip(on: boolean | undefined) {
+  if (on === undefined || unavailable) return;
+  try {
+    void setWebKitAutoPip(on).catch(() => {});
+  } catch {
+    unavailable = true;
+  }
 }
 
 /**
