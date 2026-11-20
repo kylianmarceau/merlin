@@ -98,10 +98,18 @@ def tile_svg() -> str:
             f'{_falcon(FALCON_PATH, FALCON_INK)}</svg>\n')
 
 
-def composer_svg() -> str:
-    """The foreground layer for macOS, which fills and masks the icon itself."""
-    return (f'<svg xmlns="{SVG_NS}" viewBox="{VIEW_BOX}">'
-            f'{_falcon(FALCON_PATH, FALCON_INK)}</svg>\n')
+def app_icon_svg(layered: bool = False) -> str:
+    """The macOS icon, or its foreground layer for Icon Composer."""
+    # Match the 824 px body and 100 px margins of the other macOS app icons.
+    canvas, body = 1024, 824
+    inset = (canvas - body) // 2
+    background = ""
+    if not layered:
+        background = (f'<rect x="{inset}" y="{inset}" width="{body}" height="{body}" '
+                      f'rx="184" fill="{BACKGROUND.attrib["fill"]}"/>')
+    # Icon Composer supplies the background and mask for the layered version.
+    return (f'<svg xmlns="{SVG_NS}" viewBox="0 0 {canvas} {canvas}">{background}'
+            f'{glyph(inset, inset, body, FALCON_INK, frac=0.83)}</svg>\n')
 
 
 def mark_svg() -> str:
@@ -144,8 +152,11 @@ def outputs(root: str) -> dict:
 
 
 def main() -> int:
+    if sys.argv[1:] == ["--app-icon"]:
+        sys.stdout.write(app_icon_svg())
+        return 0
     if sys.argv[1:] == ["--composer"]:
-        sys.stdout.write(composer_svg())
+        sys.stdout.write(app_icon_svg(layered=True))
         return 0
     if sys.argv[1:] != ["--write"]:
         print(__doc__)

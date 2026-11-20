@@ -43,7 +43,11 @@ done
 
 render "$START/merlin-logo.png" 112
 render "$START/merlin-logo@2x.png" 224
-render "$ROOT/packages/shell/macos/AppIcons/MerlinAppIcon-default.png" 512
+
+# The Dock override and fallback app icons need the transparent macOS margin.
+python3 "$ROOT/scripts/merlin_mark.py" --app-icon > "$work/app-icon.svg"
+render_app_icon() { "$work/render_svg" "$work/app-icon.svg" "$1" "$2"; }
+render_app_icon "$ROOT/packages/shell/macos/AppIcons/MerlinAppIcon-default.png" 512
 
 # macOS 26+ supplies the icon mask and the background in icon.json.
 python3 "$ROOT/scripts/merlin_mark.py" --composer > "$work/composer.svg"
@@ -51,25 +55,25 @@ python3 "$ROOT/scripts/merlin_mark.py" --composer > "$work/composer.svg"
 
 # Pre-macOS 26 app icon and the document badge, in the asset catalog.
 for s in 16 32 64 128 256 512; do
-  render "$XC/AppIcon.appiconset/appicon_$s.png" "$s"
+  render_app_icon "$XC/AppIcon.appiconset/appicon_$s.png" "$s"
 done
-render "$XC/Icon.iconset/icon_256x256.png" 256
-render "$XC/Icon.iconset/icon_256x256@2x.png" 512
+render_app_icon "$XC/Icon.iconset/icon_256x256.png" 256
+render_app_icon "$XC/Icon.iconset/icon_256x256@2x.png" 512
 
 # A standalone .icns for the DMG and anywhere outside the build.
 mkdir "$work/merlin.iconset"
 for s in 16 32 128 256 512; do
-  render "$work/merlin.iconset/icon_${s}x${s}.png" "$s"
-  render "$work/merlin.iconset/icon_${s}x${s}@2x.png" $((s * 2))
+  render_app_icon "$work/merlin.iconset/icon_${s}x${s}.png" "$s"
+  render_app_icon "$work/merlin.iconset/icon_${s}x${s}@2x.png" $((s * 2))
 done
 iconutil -c icns "$work/merlin.iconset" -o "$ROOT/branding/merlin.icns"
-render "$ROOT/branding/merlin-app-icon-1024.png" 1024
+render_app_icon "$ROOT/branding/merlin-app-icon-1024.png" 1024
 
 # The bundle's app.icns, in Chromium's 1x-only layout (Chromium's //docs/mac/icons.md).
 # compile_car.py replaces it with actool's own when actool emits one.
 mkdir "$work/app.iconset"
 for s in 16 32 128 256 512; do
-  render "$work/app.iconset/icon_${s}x${s}.png" "$s"
+  render_app_icon "$work/app.iconset/icon_${s}x${s}.png" "$s"
 done
 iconutil -c icns "$work/app.iconset" -o "$MAC/app.icns"
 
