@@ -519,6 +519,9 @@ void ModalBrowserController::NewTab() {
 }
 
 void ModalBrowserController::CloseTab() {
+#if BUILDFLAG(IS_MAC)
+  if (ClosePinnedShellTab(browser_, browser_->GetTabStripModel()->active_index())) return;
+#endif
   chrome::CloseTab(browser_);
 }
 

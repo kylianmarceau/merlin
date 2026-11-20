@@ -46,6 +46,34 @@ class TabsTest(MerlinTestCase):
         self.press("gp")
         self.wait(lambda: not self.browser.tabs()[0]["pinned"], "gp again to unpin it")
 
+    def test_command_w_closes_the_page_of_the_only_pin(self) -> None:
+        def snapshot():
+            reply = self.browser.shell_call("window.snapshot")
+            self.assertTrue(reply.get("ok"), reply)
+            return reply["result"]
+
+        before = snapshot()
+        tab = before["tabs"][0]
+        self.press("gp")
+        self.wait(lambda: snapshot()["tabs"][0]["pinned"], "the tab to pin")
+        self.press("<D-w>")
+
+        asleep = self.wait(lambda: (s := snapshot())["tabs"][0]["discarded"] and s,
+                           "the pin's page to unload")
+        self.assertEqual(asleep["windowId"], before["windowId"])
+        self.assertEqual(len(asleep["tabs"]), 2)
+        pin, replacement = asleep["tabs"]
+        self.assertEqual((pin["id"], pin["url"], pin["pinned"]), (tab["id"], tab["url"], True))
+        self.assertEqual(asleep["activeTabId"], replacement["id"])
+        self.assertTrue(replacement["start"])
+
+        reply = self.browser.shell_call("tabs.activate", {"tabId": tab["id"]})
+        self.assertTrue(reply.get("ok"), reply)
+        # The harness never gives the test app keyboard focus. Chromium loads
+        # discarded contents when their tab is active in a focused window.
+        self.wait(lambda: snapshot()["activeTabId"] == tab["id"], "the pin to be selectable again")
+        self.assertEqual(snapshot()["tabs"][0]["url"], tab["url"])
+
     def test_vsplit_shows_two_pages(self) -> None:
         page = self.server.url("/page")
         doc = self.server.url("/doc")

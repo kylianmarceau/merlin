@@ -50,6 +50,9 @@ bool OpenShellPanel(BrowserWindowInterface* browser, const char* panel);
 // False when the setting is off or `browser` has no React window or no tabs;
 // the caller then opens a tab as usual.
 bool OpenNewTabPopup(BrowserWindowInterface* browser);
+// Closes the page in a pin so it can be loaded again from the same tile.
+// Returns false when the caller should perform its usual tab close.
+bool ClosePinnedShellTab(BrowserWindowInterface* browser, int index);
 // Ctrl-Tab (forward) or Ctrl-Shift-Tab in a React window: the tab switcher.
 // False when `browser` has no React window.
 bool CycleShellTabs(BrowserWindowInterface* browser, bool forward);

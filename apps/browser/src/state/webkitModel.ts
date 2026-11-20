@@ -14,6 +14,8 @@ export type WebKitTab = {
   favicon?: string; faviconKey?: string;
   /** The window that has the tab now. */
   windowId: string;
+  /** The pinned page was closed and will load again when selected. */
+  asleep?: boolean;
   /**
    * What Chromium's own tab shows behind the WebKit page once it has left
    * the site: the page before it, or the start page. Null until it has.
@@ -107,7 +109,7 @@ export function overlayTab(tab: Tab, wk: WebKitTab): Tab {
     ...tab, url, title: wk.title || hostTitle(url), loading: wk.loading, crashed: wk.crashed,
     canGoBack: wk.canGoBack || backLeavesWebKit(wk), canGoForward: wk.canGoForward,
     // Chromium's tab behind is on another page, or the start page; none of its state shows.
-    audible: false, start: false, color: wk.color, surface: wk.surface, favicon: wk.faviconKey ?? '', engine: 'webkit',
+    audible: false, start: false, discarded: !!wk.asleep, color: wk.color, surface: wk.surface, favicon: wk.faviconKey ?? '', engine: 'webkit',
     // Nor its address formatting or security, which describe that other page.
     displayUrl: undefined, displayHost: undefined, security: undefined, restoreInWebKit: undefined, userInitiated: undefined,
   };

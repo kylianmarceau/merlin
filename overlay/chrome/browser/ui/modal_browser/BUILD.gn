@@ -299,6 +299,7 @@ source_set("modal_browser") {
   if (is_mac) {
     deps += [
       "//chrome/browser/picture_in_picture",
+      "//chrome/browser/resource_coordinator",
       "//chrome/browser/ui:browser_command_controller",
       "//chrome/browser/ui:browser_window_state",
       "//chrome/browser/ui:unload_controller",

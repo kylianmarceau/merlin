@@ -1,8 +1,13 @@
-Merlin 0.5.0, a keyboard-driven browser for macOS built on
-Chromium 157.0.8103.26.
+Merlin 0.5.1, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.1
+
+* **Keep pinned tabs available.** ⌘W closes the page and keeps its pin and the browser window open. Click the pin to reload the page.
+* **A steady New Tab button.** The sidebar shows one New Tab button and keeps it visible when the tab list fills.
+* **Updated Dock icon.** Merlin’s default icon matches the size of other macOS Dock icons more closely.
 
 ## What's new in 0.5.0
 

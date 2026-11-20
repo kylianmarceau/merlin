@@ -263,6 +263,26 @@ class PageIdentityTest(WebKitCase):
         self.assertEqual(current["result"]["url"], url)
         self.assertIn(url, [t["url"] for t in self.browser.tabs()])
 
+    def test_closing_a_webkit_pin_reloads_it_on_activation(self) -> None:
+        path = "/page?closed-pin=1"
+        url = self.show_in_webkit(path)
+        tab_id = self.snapshot()["activeTabId"]
+        for method, args in (("tabs.pin", {"pinned": True}), ("tabs.close", {})):
+            reply = self.browser.shell_call(method, {"tabId": tab_id, **args})
+            self.assertTrue(reply.get("ok"), reply)
+
+        self.wait(lambda: (s := self.snapshot())["activeTabId"] != tab_id and
+                  any(t["id"] == tab_id and t["pinned"] and t["discarded"] for t in s["tabs"]),
+                  "the WebKit pin to close while the other tab becomes active")
+        self.assertIn(url, [t["url"] for t in self.browser.tabs() if t["pinned"]])
+        # The direct snapshot above can arrive before the shell's next frame,
+        # when React sees the discard and closes the WebKit view.
+        time.sleep(0.15)
+        loads = len(self.server.webkit_requests(path))
+        reply = self.browser.shell_call("tabs.activate", {"tabId": tab_id})
+        self.assertTrue(reply.get("ok"), reply)
+        self.wait(lambda: len(self.server.webkit_requests(path)) > loads, "the WebKit page to reload")
+
     def test_bookmark_saves_the_webkit_page(self) -> None:
         url = self.show_in_webkit("/page?bookmark=1")
         self.browser.command("bookmark")

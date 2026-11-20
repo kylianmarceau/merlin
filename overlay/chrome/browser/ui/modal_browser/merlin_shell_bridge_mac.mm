@@ -34,6 +34,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/sessions/exit_type_service.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
@@ -1167,7 +1168,10 @@ char* Call(const char* window, const char* method, const char* json) {
     }
     state->Changed();  // A restored WebKit page, now claimed, leaves the snapshot.
   } else if (name == shell::method::kTabsActivate) strip->ActivateTabAt(index);
-  else if (name == shell::method::kTabsClose) strip->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE | TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+  else if (name == shell::method::kTabsClose) {
+    if (!modal_browser::ClosePinnedShellTab(browser, index))
+      strip->CloseWebContentsAt(index, TabCloseTypes::CLOSE_USER_GESTURE | TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+  }
   else if (name == shell::method::kTabsPin) {
     auto pinned = args->FindBool("pinned");
     if (!pinned) return Error("Missing pinned state");
@@ -1575,6 +1579,41 @@ bool OpenNewTabPopup(BrowserWindowInterface* browser) {
   NSString* value = [NSUserDefaults.standardUserDefaults stringForKey:@"MerlinShell.newTabPopup"];
   if (![value isEqualToString:@"on"]) return false;
   GetRegistry().Emit(Dict().Set("type", "panel.open").Set("windowId", WindowId(browser)).Set("panel", "newTab"));
+  return true;
+}
+bool ClosePinnedShellTab(BrowserWindowInterface* browser, int index) {
+  if (!Enabled() || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL)
+    return false;
+  auto* strip = browser->GetTabStripModel();
+  if (!strip->ContainsIndex(index) || !strip->IsTabPinned(index)) return false;
+
+  const auto handle = strip->GetTabAtIndex(index)->GetHandle();
+  if (const auto split = strip->GetSplitForTab(index)) strip->RemoveSplit(*split);
+  if (strip->active_index() == index) {
+    // Select another live page first so Chromium will reload the pin only
+    // when it is selected again. A window with only sleeping pins gets a start page.
+    int next = TabStripModel::kNoTab;
+    for (int offset = 1; offset < strip->count(); ++offset) {
+      const int candidate = (index + offset) % strip->count();
+      if (!strip->GetWebContentsAt(candidate)->WasDiscarded()) {
+        next = candidate;
+        break;
+      }
+    }
+    if (next == TabStripModel::kNoTab) chrome::AddTabAt(browser, GURL("about:blank"), -1, true);
+    else strip->ActivateTabAt(next);
+  }
+  // The discard keeps the pin, ID and history. It can destroy the source
+  // WebContents, so wait until any keyboard event from that page has returned.
+  content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
+      [](base::WeakPtr<BrowserWindowInterface> window, tabs::TabHandle target) {
+        auto* tab = target.Get();
+        if (!window || !tab || tab->GetBrowserWindowInterface() != window.get() ||
+            !tab->IsPinned() || tab->IsVisible()) return;
+        auto* unit = resource_coordinator::TabLifecycleUnitExternal::FromWebContents(tab->GetContents());
+        if (unit && unit->GetTabState() != mojom::LifecycleUnitState::DISCARDED)
+          unit->DiscardTab(mojom::LifecycleUnitDiscardReason::EXTERNAL);
+      }, browser->GetWeakPtr(), handle));
   return true;
 }
 bool CycleShellTabs(BrowserWindowInterface* browser, bool forward) {

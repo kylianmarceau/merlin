@@ -128,10 +128,32 @@ function reconcile(store: BrowserStore, engine: EngineClient) {
   const snapshot = store.getState().engineSnapshot;
   if (!snapshot || unavailable) return;
   const now = Date.now();
+  const activeSplit = snapshot.tabs.find(t => t.id === snapshot.activeTabId)?.split;
   for (const tab of snapshot.tabs) {
     const wk = pages()[tab.id];
     if (wk && wk.windowId !== store.windowId) patch(tab.id, { windowId: store.windowId });
     if (!wk && !prefsReady) continue;
+    const visible = tab.id === snapshot.activeTabId || (!!activeSplit && activeSplit === tab.split);
+    if (wk?.asleep) {
+      if (visible) {
+        if (engineOf(wk.url) === 'webkit') {
+          patch(tab.id, { asleep: false, loading: true });
+          void loadWebKitPage(tab.id, wk.url, snapshot.private).catch(() => {});
+        } else {
+          remove(tab.id);
+          void engine.call('navigation.open', { tabId: tab.id, text: wk.url }).catch(() => {});
+        }
+      }
+      continue;
+    }
+    if (tab.pinned && tab.discarded && !visible) {
+      // Keep the address and icon in the pin while the actual WebKit page is gone.
+      if (wk) {
+        patch(tab.id, { asleep: true, loading: false, crashed: false, canGoBack: false, canGoForward: false });
+        void closeWebKitPage(tab.id).catch(() => {});
+      }
+      continue;
+    }
     const step = decide(tab, wk, engineOf, now);
     switch (step.kind) {
       case 'open': open(store, engine, tab.id, step.url, snapshot.private); break;
@@ -285,7 +307,7 @@ function listenToPages() {
 function onPageEvent(event: WebKitEvent) {
   const tabId = event.type === 'pageState' ? event.state.tabId : event.tabId;
   const wk = pages()[tabId];
-  if (!wk) return;
+  if (!wk || wk.asleep) return;
   const window = windows.get(wk.windowId);
   switch (event.type) {
     case 'pageState': {

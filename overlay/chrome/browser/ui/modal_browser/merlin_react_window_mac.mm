@@ -154,6 +154,9 @@ class ReactNativeWidget : public views::NativeWidgetMac {
     // Command-T and File > New Tab: the shell's pop-up when new tabs are
     // pop-ups, so no blank tab opens and closes again behind it.
     if (command == IDC_NEW_TAB && OpenNewTabPopup(browser_)) return true;
+    // Command-W and File > Close Tab preserve a pin and close its page.
+    if (command == IDC_CLOSE_TAB && ClosePinnedShellTab(browser_, browser_->GetTabStripModel()->active_index()))
+      return true;
     // Command-D and Bookmarks > Bookmark This Tab: into the Bookmarks Bar
     // folder, as the shell's star does, with no Chromium bubble.
     if (command == IDC_BOOKMARK_THIS_TAB) {
@@ -441,6 +444,9 @@ class ReactBrowserWindow final : public BrowserWindow,
       constexpr int kModifiers = blink::WebInputEvent::kControlKey | blink::WebInputEvent::kShiftKey |
           blink::WebInputEvent::kAltKey | blink::WebInputEvent::kMetaKey;
       const int modifiers = event.GetModifiers() & kModifiers;
+      if (event.windows_key_code == ui::VKEY_W && modifiers == blink::WebInputEvent::kMetaKey &&
+          ClosePinnedShellTab(browser_, browser_->GetTabStripModel()->active_index()))
+        return content::KeyboardEventProcessingResult::HANDLED;
       if (event.windows_key_code == ui::VKEY_TAB && (modifiers & ~blink::WebInputEvent::kShiftKey) == blink::WebInputEvent::kControlKey &&
           CycleShellTabs(browser_, !(modifiers & blink::WebInputEvent::kShiftKey)))
         return content::KeyboardEventProcessingResult::HANDLED;
