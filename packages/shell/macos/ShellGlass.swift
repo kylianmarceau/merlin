@@ -176,6 +176,10 @@ final class MerlinPopoverBubble: ExpoView {
     } else {
       let host = NSHostingView(rootView: view)
       host.sizingOptions = []
+      // The outline is drawn in this view's own bounds: under the title bar,
+      // SwiftUI would otherwise inset it by the safe area, and a page's dialog
+      // dropping from the top drew its glass lower than its content.
+      host.safeAreaRegions = []
       addSubview(host, positioned: .below, relativeTo: overlay)
       glassHost = host
     }

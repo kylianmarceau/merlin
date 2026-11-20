@@ -1,5 +1,6 @@
 import React from 'react';
 import { Animated, ScrollView, View } from 'react-native';
+import { Fade } from './Fade';
 import { Pressable } from './Pressable';
 import { RoundButton } from './Button';
 import { type SymbolName } from './Icon';
@@ -46,7 +47,11 @@ export function Dialog({ open = true, title, subtitle, actions, onClose, place =
             </View>
             {onClose && <RoundButton label="Close" icon="xmark" soft onPress={onClose} />}
           </View>}
-          <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: space.md }}>{body.children}</ScrollView>
+          {/* A page's dialog drops from the top of the window, under its title bar, where AppKit would inset the scroll
+              view's content and cut its last line off. */}
+          <Fade titlebar end={false} style={{ flexShrink: 1 }}>
+            <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: space.md }}>{body.children}</ScrollView>
+          </Fade>
           {body.actions && <View style={{ flexDirection: 'row', gap: space.sm, justifyContent: 'flex-end', flexWrap: 'wrap',
             paddingTop: space.xs }}>{body.actions}</View>}
         </View>

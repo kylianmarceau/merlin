@@ -47,7 +47,9 @@ export function PromptBody({ prompt, compact }: { prompt: Prompt; compact: boole
         <Text variant="label" weight="regular" tone="textSecondary" lines={1}>{prompt.origin}</Text>
       </Box>
     </Box> : <Box gap="xs">
-      {!!prompt.origin && <Text variant="label" weight="regular" tone="textSecondary" lines={1}>{`${prompt.origin} says`}</Text>}
+      {/* Chromium's page dialogs name themselves ("example.com says"); others give only the origin. */}
+      {!!prompt.origin && <Text variant="label" weight="regular" tone="textSecondary" lines={1}>{
+        / says$/.test(prompt.origin) ? prompt.origin : `${prompt.origin} says`}</Text>}
       <Text variant="title">{prompt.title}</Text>
     </Box>}
     {!!prompt.message && <ScrollView style={{ maxHeight: compact ? geometry.popover / 2 : geometry.sheetHeight / 2 }}>
