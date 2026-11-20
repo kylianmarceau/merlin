@@ -22,12 +22,10 @@ export const duration = {
   hoverWarm: 300,
   /** A press this long on Back or Forward shows the history. */
   holdMenu: 450,
-  /** How long a notice stays before it leaves on its own. */
-  toast: 5000,
+  /** How long a command result or error appears in the status line. */
+  statusMessage: 5000,
   /** How long a settings row a search led to glows before it fades. */
   highlight: 1600,
-  /** How long a HUD's confirmation ("Link copied") stays; an error stays as long as a notice. */
-  hud: 1800,
   /** The joined tab sliding to the newly active tab. */
   slide: 340,
   /** How long a dropped tab keeps its new place while the browser confirms it. */
@@ -162,7 +160,7 @@ export const spring = {
   hoverCardOut: responseSpring(0.2, 0.6),
   /** A control dipping under a press and coming back: quick, and never past its rest (response 0.2 s, ratio 0.9). */
   press: responseSpring(0.2, 0.9),
-  /** Something appearing in the middle of the window (a HUD, the command menu, a sheet): from 92%, barely past its size (response 0.3 s, ratio 0.82). */
+  /** A window surface scales up from 92% (response 0.3 s, ratio 0.82). */
   appear: responseSpring(0.3, 0.82),
   /**
    * The joined tab sliding to the newly active tab: about as long as the old
@@ -228,32 +226,6 @@ export function useHoverCardMotion(open: boolean, reduce: boolean) {
 
 /** Things appearing mid-window grow from this, never from nothing. */
 export const appearFrom = 0.92;
-
-/**
- * Something appearing in the middle of the window (a HUD, the command menu,
- * the new-tab pop-up, a sheet): it fades in over 0.1 s while its scale
- * springs from 92%, and leaves with a quick fade, shrinking a little.
- * `mounted` turns false once it has gone. Reduced motion only fades.
- */
-export function useAppear(open: boolean, reduce: boolean) {
-  const opacity = useRef(new Animated.Value(open ? 1 : 0)).current;
-  const scale = useRef(new Animated.Value(open || reduce ? 1 : appearFrom)).current;
-  const [mounted, setMounted] = useState(open);
-  useEffect(() => {
-    if (open) setMounted(true);
-    const fade = Animated.timing(opacity, { toValue: open ? 1 : 0, duration: open ? duration.fast : duration.base,
-      easing: open ? curve.enter : curve.exit, useNativeDriver: true });
-    const size = reduce
-      ? Animated.timing(scale, { toValue: 1, duration: duration.instant, useNativeDriver: true })
-      : open
-        ? Animated.spring(scale, { toValue: 1, ...spring.appear, useNativeDriver: true, restDisplacementThreshold: 0.001, restSpeedThreshold: 0.001 })
-        : Animated.timing(scale, { toValue: (1 + appearFrom) / 2, duration: duration.base, easing: curve.exit, useNativeDriver: true });
-    fade.start(({ finished }) => { if (finished && !open) setMounted(false); });
-    size.start();
-    return () => { fade.stop(); size.stop(); };
-  }, [open, reduce, opacity, scale]);
-  return { mounted: mounted || open, opacity, scale };
-}
 
 /**
  * Something mid-screen arriving (a centred pop-up): it fades in over 100 ms
@@ -409,7 +381,7 @@ export const presence = {
   menu: { enter: duration.fast, exit: duration.fast, scaleFrom: 0.98, shiftFrom: -2, springIn: false },
   dialog: { enter: duration.slow, exit: duration.base, scaleFrom: appearFrom, shiftFrom: 4, springIn: true },
   sheet: { enter: duration.slow, exit: duration.base, scaleFrom: appearFrom, shiftFrom: 6, springIn: true },
-  toast: { enter: duration.slow, exit: duration.base, scaleFrom: appearFrom, shiftFrom: 8, springIn: true },
+  mediaPlayer: { enter: duration.slow, exit: duration.base, scaleFrom: appearFrom, shiftFrom: 8, springIn: true },
   fade: { enter: duration.base, exit: duration.fast, scaleFrom: 1, shiftFrom: 0, springIn: false },
   dropZone: { enter: duration.dropZone, exit: duration.dropZone, scaleFrom: 1, shiftFrom: 0, springIn: false },
 } as const;

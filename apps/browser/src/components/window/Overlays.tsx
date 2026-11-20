@@ -1,7 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { useActions, useBrowser, useOverlays, useSnapshot } from '../../state/window';
-import { zoomChange } from '../../state/zoom';
-import { Layer, Popover, ToastStack, autoPlacement, geometry, usePresence, useTheme, type Frame } from '../ui';
+import { Layer, Popover, autoPlacement, geometry, usePresence, useTheme, type Frame } from '../ui';
 import { ExtensionPopupView } from '../extensions/ExtensionPopupView';
 import { ExtensionsPopover } from '../extensions/ExtensionsPopover';
 import { DownloadFlights } from '../library/DownloadFlights';
@@ -19,26 +18,16 @@ import { GroupNameDialog } from '../tabs/GroupNameDialog';
 import { TabDropOverlay } from '../tabs/TabDropOverlay';
 import { TabSwitcher } from '../tabs/TabSwitcher';
 import { HoverCardOverlay } from '../tabs/HoverCard';
-import { HudLayer } from './Hud';
 
 /**
  * Everything drawn over the window, in fixed layers: sheets, then dialogs,
- * then popovers, then notices. Which ones show is decided in state/surfaces.
+ * then popovers. Which ones show is decided in state/surfaces.
  */
-export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
+export function Overlays() {
   const snapshot = useSnapshot();
   const actions = useActions();
   const shown = useOverlays();
-  const toasts = useBrowser(s => s.toasts);
   const naming = useBrowser(s => !!s.groupDialog);
-  // The page in front zoomed: its zoom shows over the page for a moment, as Dia's HUD does, with Reset while it isn't the default.
-  const zoomedFrom = useRef(snapshot);
-  useEffect(() => {
-    const zoom = zoomChange(zoomedFrom.current, snapshot);
-    zoomedFrom.current = snapshot;
-    if (zoom) actions.showHud(`${zoom.percent}%`, 'info', 'magnifyingglass',
-      zoom.default ? undefined : { label: 'Reset', run: () => void actions.command('browser zoom-reset') });
-  }, [snapshot]);  // eslint-disable-line react-hooks/exhaustive-deps
   const anchors = useBrowser(s => s.anchors);
   const bounds = useBrowser(s => s.windowSize);
   const { reduceMotion } = useTheme();
@@ -81,10 +70,8 @@ export function Overlays({ pageTop = 0 }: { pageTop?: number }) {
         <DownloadsPopover />
       </Popover>
     </Layer>
-    <Layer level="toast">
+    <Layer level="activity">
       <DownloadFlights />
-      <HudLayer top={pageTop} />
-      <ToastStack toasts={toasts} onDismiss={actions.dismissToast} />
     </Layer>
   </>;
 }

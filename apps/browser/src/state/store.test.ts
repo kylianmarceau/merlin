@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EngineClient, type EngineEvent, type Snapshot } from '../platform/protocol';
-import { acceptSnapshot, attachEngine, createBrowserStore, openNativePanel, pushToast } from './store';
+import { acceptSnapshot, attachEngine, createBrowserStore, dismissStatusMessage, openNativePanel, showStatusMessage } from './store';
 import { awayFromHome } from './pinned';
 
 function snapshot(revision: number): Snapshot {
@@ -29,14 +29,21 @@ test('closing the window prevents an outstanding snapshot from updating its stor
   await new Promise(r => setImmediate(r));
   assert.equal(store.getState().snapshot, null); assert.equal(removed, true);
 });
-test('notices survive unrelated browser updates and stay few', () => {
+test('status messages survive unrelated browser updates and an earlier dismissal', () => {
   const store = createBrowserStore('w');
-  acceptSnapshot(store, snapshot(1));
-  pushToast(store, 'This download could not be opened');
-  acceptSnapshot(store, snapshot(2));
-  assert.deepEqual(store.getState().toasts.map(t => t.text), ['This download could not be opened']);
-  for (const text of ['a', 'b', 'c', 'a']) pushToast(store, text);
-  assert.deepEqual(store.getState().toasts.map(t => t.text), ['b', 'c', 'a']);
+  const first = snapshot(1);
+  first.modal.message = 'Saved workspace';
+  acceptSnapshot(store, first);
+  const command = store.getState().statusMessage!;
+  assert.deepEqual(command, { text: 'Saved workspace', isError: false });
+  showStatusMessage(store, 'This download could not be opened');
+  acceptSnapshot(store, { ...first, revision: 2 });
+  dismissStatusMessage(store, command);
+  const failure = store.getState().statusMessage!;
+  assert.deepEqual(failure, { text: 'This download could not be opened', isError: true });
+  dismissStatusMessage(store, failure);
+  acceptSnapshot(store, { ...first, revision: 3 });
+  assert.equal(store.getState().statusMessage, null);
 });
 test('suggestions for an older query are ignored', () => {
   let listener!: (event: EngineEvent) => void;

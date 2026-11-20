@@ -46,7 +46,7 @@ function Menu({ palette }: { palette: CommandPalette }) {
         setText(value); draft.current = value;
         const generation = ++editGeneration.current;
         actions.paletteText(value).catch(e => {
-          if (generation === editGeneration.current) { draft.current = null; actions.notify(String(e)); }
+          if (generation === editGeneration.current) { draft.current = null; actions.reportError(e); }
         });
       }}
       trailing={!!palette.prompt && !!palette.placeholder ? <KeyCap>{palette.prompt}</KeyCap> : undefined} />

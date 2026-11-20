@@ -15,7 +15,7 @@ import { groupColors, type Appearance, type Calls, type DownloadAction, type Eng
   type Requests } from '../platform/protocol';
 import { currentSuggestions, moveSelection, startQuery, suggestionChoice } from './omnibox';
 import {
-  dismissHud, dismissToast, pushToast, refreshOverlay, rememberFavicon, showHud, type Hud, type AnchorName, type BrowserStore, type GroupDialog, type HoverCard, type Panel, type PopoverName, type Rect,
+  dismissStatusMessage, refreshOverlay, rememberFavicon, showStatusMessage, type StatusMessage, type AnchorName, type BrowserStore, type GroupDialog, type HoverCard, type Panel, type PopoverName, type Rect,
   type SearchOwner,
 } from './store';
 import type { BookmarkItem, MediaAction } from '../platform/protocol';
@@ -45,7 +45,7 @@ const hoverTiming = { open: 500, warm: 300, close: 200, peekClose: 200 } as cons
 
 
 export function createActions(store: BrowserStore, engine: EngineClient) {
-  const fail = (e: unknown) => { pushToast(store, e instanceof Error ? e.message : String(e)); };
+  const fail = (e: unknown) => showStatusMessage(store, e instanceof Error ? e.message : String(e));
   /** Runs a browser command; false (with a notice) when it fails. */
   async function run<M extends Method>(method: M, args: Calls[M]['args']) {
     try { await engine.call(method, args); return true; } catch (e) { fail(e); return false; }
@@ -119,16 +119,11 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     moveTab: (tabId: string, beforeId: string | null) => run('tabs.move', { tabId, beforeId }),
     /**
      * The star: saves the tab's page into the Bookmarks Bar folder, or removes
-     * it when it is already bookmarked. Says which, as the star is small.
+     * it when it is already bookmarked.
      */
-    async bookmarkTab(tabId: string, bookmarked?: boolean) {
+    bookmarkTab(tabId: string, bookmarked?: boolean) {
       const tab = store.getState().snapshot?.tabs.find(t => t.id === tabId);
-      const on = bookmarked ?? !tab?.bookmarked;
-      if (!(await run('tabs.bookmark', { tabId, bookmarked: on }))) return false;
-      // Edit opens the Library's bookmarks, to rename it or move it to another folder.
-      if (on) showHud(store, 'Added to the Bookmarks bar', 'info', 'bookmark.fill', { label: 'Edit', run: () => actions.openPanel('bookmarks') });
-      else showHud(store, 'Bookmark removed', 'info', 'bookmark');
-      return true;
+      return run('tabs.bookmark', { tabId, bookmarked: bookmarked ?? !tab?.bookmarked });
     },
     muteTab: (tabId: string, muted: boolean) => run('tabs.mute', { tabId, muted }),
     /** Plays, pauses or skips a tab's media from the sidebar's player. */
@@ -498,7 +493,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       }
     },
     async copyAddress(url: string) {
-      try { await copyText(url); showHud(store, 'Link copied', 'info', 'link'); } catch (e) { fail(e); }
+      try { await copyText(url); } catch (e) { fail(e); }
     },
     async tabMenu(tabId: string) {
       const snap = store.getState().snapshot;
@@ -755,11 +750,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const old = store.getState().windowSize;
       if (old.width !== width || old.height !== height) store.setState({ windowSize: { width, height } });
     },
-    dismissToast: (id: number) => dismissToast(store, id),
-    /** A short confirmation over the page that leaves on its own (see Hud). */
-    showHud: (text: string, tone: Hud['tone'] = 'info', symbol?: Hud['symbol'], action?: Hud['action']) => showHud(store, text, tone, symbol, action),
-    dismissHud: (id: number) => dismissHud(store, id),
-    notify: (text: string) => pushToast(store, text, 'info'),
+    dismissStatusMessage: (message: StatusMessage) => dismissStatusMessage(store, message),
+    reportError: fail,
 
     // Browser questions. Errors are returned so the prompt can show them in place.
     answerPrompt: (promptId: string, actionId: string, extra: { text?: string; secret?: string; suppress?: boolean }) =>

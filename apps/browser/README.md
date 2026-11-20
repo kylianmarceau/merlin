@@ -71,7 +71,7 @@ wakeups, touches, text input and a 60 ms font scan at launch among them.
 passwords, autofill, translation, site information) are anchored popovers
 beside the address that leave the page usable; page and window questions are
 dialogs. Both take priority over the command menu and the shell's own
-popovers. Failures are toasts. Quiet requests wait behind a toolbar chip. Dialog callbacks, permitted actions and input
+popovers. Browser errors appear in the status line. Quiet requests wait behind a toolbar chip. Dialog callbacks, permitted actions and input
 drafts stay tied to native request IDs. A short input guard prevents a click
 that opened a prompt from also answering it.
 

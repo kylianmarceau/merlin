@@ -74,13 +74,11 @@ export const geometry = {
   /** A drop zone's dashed edge: how far inside the card it is drawn, and how thick, at rest and under the tab; the card's own edge. */
   dropZoneInset: 9.5, dropZoneDash: 2, dropZoneDashActive: 2.33, dropZoneEdge: 0.5,
   sheetWidth: 840, sheetHeight: 640, sheetTall: 780, sheetNav: 208, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
-  suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, startLogo: 112, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
-  /** A HUD's capsule, and how far below the window's top it sits. */
-  hud: 36, hudTop: 16,
+  suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, startLogo: 112, newTabInput: 52, newTabTop: 72, siteWidth: 64,
 } as const;
 
 /** Layer order inside the window, lowest first. */
-export const layer = { content: 0, chrome: 1, sheet: 10, dialog: 20, popover: 30, toast: 40 } as const;
+export const layer = { content: 0, chrome: 1, sheet: 10, dialog: 20, popover: 30, activity: 40 } as const;
 
 // Light keeps its sage-tinted neutrals. Dark uses an achromatic ramp.
 const ink = {
@@ -271,13 +269,11 @@ function roles(mode: Mode, accentName: AccentName) {
     surfaceSheetNav: pick(ink[0], darkInk[925]),
     surfaceSheetBody: pick('#F9FAF9', darkInk[900]),
     surfacePalette: pick(ink[0], darkInk[850]),
-    surfaceToast: pick(ink[900], darkInk[100]),
     surfaceCard: pick(ink[0], 'rgba(255, 255, 255, 0.04)'),
     surfaceCardHover: pick(ink[75], 'rgba(255, 255, 255, 0.07)'),
     surfaceInset: pick('rgba(255, 255, 255, 0.55)', 'rgba(255, 255, 255, 0.05)'),
     surfaceBorder: pick('rgba(20, 40, 30, 0.13)', 'rgba(255, 255, 255, 0.10)'),
     scrim: pick('rgba(0, 0, 0, 0.18)', 'rgba(0, 0, 0, 0.50)'),
-    textOnToast: pick(ink[50], darkInk[900]),
 
     // Status.
     danger: pick('#C42B3F', '#FF7A8A'),
@@ -287,7 +283,6 @@ function roles(mode: Mode, accentName: AccentName) {
     warningSoft: pick('#FBF0D9', '#3A2D12'),
     success: pick('#2F7D55', '#6FCF97'),
     successSoft: pick('#DFF2E6', '#173322'),
-    notice: pick('#FF8A7A', '#FF8A7A'),
     // A favourite's unread count, red as macOS's dock badges are, whatever the workspace colour.
     unreadBadge: pick('#E5484D', '#E5484D'),
     textOnUnread: pick(ink[0], darkInk[0]),
@@ -401,7 +396,6 @@ export const shadow = {
   popover: { opacity: 0.17, radius: 22, offsetY: 12 },
   menu: { opacity: 0.16, radius: 18, offsetY: 8 },
   dialog: { opacity: 0.30, radius: 36, offsetY: 20 },
-  toast: { opacity: 0.25, radius: 16, offsetY: 8 },
 } as const;
 export type ShadowName = keyof typeof shadow;
 

@@ -9,7 +9,7 @@ import { shellPrefs, useShellPrefs } from './shellPrefs';
 import type { Request, Requests } from '../platform/protocol';
 import { settle, type ActionResult } from '../lib/result';
 import { createActions, type Actions } from './actions';
-import { attachEngine, createBrowserStore, pushToast, snapshotAccepted, timeSnapshots, type BrowserState, type BrowserStore } from './store';
+import { attachEngine, createBrowserStore, snapshotAccepted, timeSnapshots, type BrowserState, type BrowserStore } from './store';
 import { traceNow, traceTiming, tracing } from './trace';
 import { followUpdateSetting } from './updates';
 import { overlays } from './surfaces';
@@ -20,17 +20,12 @@ timeSnapshots(tracing);
 type Window = { store: BrowserStore; actions: Actions };
 const WindowContext = createContext<Window | null>(null);
 
-// Open windows, newest last: app-wide notices (an update) go to one of them.
-const open: Window[] = [];
+const open = new Set<BrowserStore>();
 let updatesFollowed = false;
 function followUpdates() {
   if (updatesFollowed) return;
   updatesFollowed = true;
-  followUpdateSetting(update => {
-    const window = open[open.length - 1];
-    if (window) pushToast(window.store, `${update.name} is available.`, 'info',
-      { label: 'View', run: () => void window.actions.newTab(update.url) });
-  });
+  followUpdateSetting();
 }
 
 /**
@@ -78,10 +73,9 @@ export function useWindowConnection(windowId: string) {
     // WebKit first: Chromium's first snapshot already shows its WebKit tabs.
     const detachWebKit = attachWebKit(store, engine, url => void actions.newTab(url));
     const detachEngine = attachEngine(store, engine);
-    const window = { store, actions };
-    open.push(window);
+    open.add(store);
     followUpdates();
-    return () => { detachEngine(); detachWebKit(); open.splice(open.indexOf(window), 1); };
+    return () => { detachEngine(); detachWebKit(); open.delete(store); };
   }, [connection]);
   return connection;
 }
@@ -201,9 +195,9 @@ export function useViewMenu() {
   const split = useStore(store, s => !!s.snapshot?.tabs.find(t => t.id === s.snapshot?.activeTabId)?.split);
   const partner = useStore(store, s => s.recentTabs.find(id => id !== s.snapshot?.activeTabId && s.snapshot?.tabs.some(t => t.id === id)) ?? null);
   const addressInToolbar = useShellPrefs(p => p.addressBar === 'toolbar');
-  const front = () => store.getState().windowKey || open.length === 1;
+  const front = () => store.getState().windowKey || open.size === 1;
   useEffect(() => {
-    if (key || open.length === 1) setMenuState({ window: true, top, hidden, split, canSplit: !!partner, addressInToolbar });
+    if (key || open.size === 1) setMenuState({ window: true, top, hidden, split, canSplit: !!partner, addressInToolbar });
   }, [key, top, hidden, split, partner, addressInToolbar]);
   useEffect(() => {
     const listener = onMenuCommand(id => {

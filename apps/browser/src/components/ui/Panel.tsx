@@ -15,8 +15,8 @@ export type PanelProps = {
 };
 
 /**
- * A raised surface with a real layer shadow. Popovers, menus, dialogs, sheets
- * and toasts are all Panels, so they share one fill, edge and shadow model.
+ * A raised surface with a real layer shadow. Popovers, menus, dialogs and
+ * sheets share its fill, edge and shadow model.
  * A glass panel is Liquid Glass when Settings › Appearance chooses Glass, and
  * an opaque panel with an edge and a shadow when it chooses Classic.
  */

@@ -33,11 +33,11 @@ export function MediaPlayer() {
     was.current = new Map(snapshot.tabs.map(t => [t.id, mediaPlaying(t)]));
   }, [snapshot.tabs]);
   const tab = playerTab(snapshot.tabs, snapshot.activeTabId, recent, dismissed);
-  const { mounted, progress } = usePresence(!!tab, 'toast', reduceMotion);
+  const { mounted, progress } = usePresence(!!tab, 'mediaPlayer', reduceMotion);
   // The tab stays on the card while it goes.
   const shown = useLatest(tab);
   if (!mounted || !shown) return null;
-  return <Animated.View style={presenceStyle(progress, 'toast')}>
+  return <Animated.View style={presenceStyle(progress, 'mediaPlayer')}>
     <Player tab={shown} onDismiss={() => setDismissed(old => new Set(old).add(shown.id))} />
   </Animated.View>;
 }

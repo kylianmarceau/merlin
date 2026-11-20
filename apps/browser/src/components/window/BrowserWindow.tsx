@@ -46,8 +46,6 @@ export function BrowserWindow() {
   const side = tabs && !top;
   const { glass } = useTheme();
   const [macFullScreen, setMacFullScreen] = useState(false);
-  // Where the page itself starts, below the toolbar and bookmarks bar, so a HUD sits on the page.
-  const [pageTop, setPageTop] = useState(0);
   const borderless = useShellPrefs(p => p.borderlessMode);
   const frameSetting = useShellPrefs(p => p.pageFrame);
   const zeroInFullScreen = useShellPrefs(p => p.pageFrameZeroInFullScreen);
@@ -91,7 +89,7 @@ export function BrowserWindow() {
           // A toolbar in the page's own colour runs straight on into it.
           borderBottomColor: chrome.seamless ? chrome.bar : colors.toolbarDivider }}><Toolbar /></View>}
         {bookmarksBar && <BookmarksBar />}
-        <View style={{ flex: 1 }} onLayout={e => setPageTop(e.nativeEvent.layout.y + (tabs && top ? geometry.strip : frame))}><PageArea /></View>
+        <View style={{ flex: 1 }}><PageArea /></View>
         {!fullscreen && <StatusLine />}
       </View>
     </Panel>
@@ -122,7 +120,7 @@ export function BrowserWindow() {
       style={top ? { position: 'absolute', top: 0, left: 0, right: 0, height: edgeStrip }
         : { position: 'absolute', top: 0, bottom: 0, left: 0, width: edgeStrip }} />}
     {peekable && (top ? <StripPeek /> : <SidebarPeek width={sidebarWidth} />)}
-    <Overlays pageTop={pageTop} />
+    <Overlays />
   </View></TooltipLayer>;
 }
 

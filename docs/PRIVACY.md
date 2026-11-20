@@ -13,7 +13,7 @@ are opt-in: Settings › General › Updates asks GitHub Releases
 only when "Check Now" is pressed, or every eight hours once "Check for
 updates automatically" is turned on (off by default). The request names
 no person or machine (its User-Agent is "Merlin") and nothing is downloaded
-or installed; a newer version is announced with a link to its release page.
+or installed. Settings shows available updates with a link to the release page.
 Searches typed in the command line go to the user's default search engine through
 Chromium's own omnibox classifier, as if typed in the address bar.
 The address field asks Chromium's address-bar engine as Chromium's own

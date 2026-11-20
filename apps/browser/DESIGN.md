@@ -181,18 +181,9 @@ The stored accent names predate Tide and stay as the browser saves them:
   (`TooltipCover`): hover reaches what is drawn over too.
 - **Content card**: `contentBackground`, `radius.window`, `contentBorder`,
   `shadow.card`, inset 8 pt from the window edge (0 on the sidebar side).
-- **Status line** under the page, only outside Normal mode: the mode and
-  the keys typed so far. Half a second into an unfinished key sequence it
-  lists the keys that can follow. What a command has to say goes to the HUD.
-- **HUD** (`HudLayer`), as in Ardia: a short confirmation in a glass capsule
-  16 pt inside the top of the page ("Link copied", "Added to the Bookmarks
-  bar" with an Edit button, or a command's message, errors in
-  `textDanger`). It grows from 92% on the `appear` spring, stays 1.8 s (a
-  failure or one with a button the toast's 5 s) and goes by itself or on a
-  click. A newer one replaces it. Zooming the page in front (the menu,
-  Command-plus, a pinch, or the same site zoomed in another tab) shows its
-  zoom there, "125%", with Reset while it isn't the default (`zoomChange`;
-  a new tab or site showing a different zoom says nothing).
+- **Status line** under the page: the current key mode, pending keys, and the
+  keys that can follow an unfinished sequence. A command result or browser
+  error appears there for five seconds.
 - **A window not in front**: the shell turns an opaque, lighter tone
   (`shellInactive`) and the tabs fade back to 62% (`inactiveTabs`), as in
   Dia.
@@ -233,8 +224,6 @@ so the desktop still shows faintly through the tinted shell.
 | Command bar, new-tab and ⌘L pop-ups | glass panel | 18 | `dialog` | No dimming; a press outside cancels |
 | Dialog | glass, `surfaceDialog` | 18 | `dialog` | Yes, with `scrim` |
 | Sheet (Settings, Library) | `surfaceSheetBody` / `surfaceSheet` | 16 | `dialog` | Yes, with `scrim` |
-| Toast | `surfaceToast` capsule | pill | `toast` | No |
-| HUD | glass capsule, at least 72% colour | pill | `menu` | No |
 
 Popover content follows Ardia's downloads panel: popovers are 300 pt wide,
 centred on their control with a 20 × 9 pt arrow pointing at it, and grow
@@ -293,7 +282,7 @@ search field under it. Its history folds repeat visits to the same page
 within half an hour (a redirect, a reload) into one row (`foldRepeats`).
 
 Overlays are layers inside the window, never separate windows: content <
-sheets < dialogs < popovers < toasts. `Modal` is not used. **(tested)**
+sheets < dialogs < popovers < download activity. `Modal` is not used. **(tested)**
 
 ## Which surface to use
 
@@ -316,10 +305,7 @@ sheets < dialogs < popovers < toasts. `Modal` is not used. **(tested)**
   site refused comes back shaking, saying so; its password goes only with
   the answer, never kept as a draft.
 - **Sheet**: Settings and the Library.
-- **HUD**: a confirmation of something just done, or a short message from a
-  command. It never stays behind.
-- **Toast**: a failure or notice that needs no answer. Toasts leave after 5 s
-  or on click; at most three show.
+- **Status line**: command results and browser errors.
 
 Only one popover is open at a time. A browser question takes the popover
 layer, and the command menu waits until it is answered.
@@ -367,10 +353,8 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
   96% scale and 4 pt above.
 - Menus and suggestions: 100 ms, from 98%.
 - Things in the middle of the window grow in from 92% on the `appear`
-  spring while they fade in, and fade out in 150 ms: dialogs, sheets and
-  toasts (`presence` with `springIn`), and the centred pop-ups (command
-  menu, new-tab and ⌘L pop-ups, naming dialogs; `useEntrance`). Toasts rise
-  8 pt as they come.
+  spring while they fade in, and fade out in 150 ms: dialogs and sheets
+  (`presence` with `springIn`), and centred pop-ups (`useEntrance`).
 - Refused input shakes, as a wrong macOS password does: three swings of
   ±6 pt dying away over 0.35 s (`useShake`, `Shake`). The find bar shakes
   when a search finds nothing (its text turns red), and again on Return;
@@ -396,9 +380,7 @@ All timings live in `src/components/ui/motion.ts`. **(tested)**
   300 ms after one closes. A hover card arrives as Dia's: it fades over
   100 ms while its scale springs from 92% (response 0.25 s, damping 0.75)
   out of its corner nearest the tab, and leaves on a quicker spring
-  (`useHoverCardMotion`). The HUD appears the same way, from 92% on the
-  `appear` spring (response 0.3 s, damping 0.82; `useAppear`). Nothing
-  anywhere scales up from zero.
+  (`useHoverCardMotion`).
 - Presses: an icon button's glyph dips to 96%, a labelled button's contents
   to 98.5% and a round button to 94%, on the `press` spring, which never
   overshoots (`usePressScale`). Rows and tiles, used all day, hold still and

@@ -1,7 +1,11 @@
-Merlin 0.5.4, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.5, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.5
+
+* **Fewer interruptions.** Bookmarking, copying a link, and zooming no longer bring up floating notifications. The status line under the page shows command results and browser errors. Update availability appears in Settings › General › Updates.
 
 ## What's new in 0.5.4
 

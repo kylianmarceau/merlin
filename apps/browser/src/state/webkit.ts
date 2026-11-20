@@ -11,7 +11,7 @@ import {
 } from '../platform/webkit';
 import { shellPrefs } from './shellPrefs';
 import { loadEnginePrefs, setSiteEngine } from './shellPrefsStorage';
-import { acceptSnapshot, pushToast, refreshOverlay, rememberFavicon, type BrowserStore } from './store';
+import { acceptSnapshot, refreshOverlay, rememberFavicon, showStatusMessage, type BrowserStore } from './store';
 import {
   backLeavesWebKit, decide, engineOverlay, iconKey, leaveTimeoutMs, overlayCache, overlaySnapshot, type WebKitTab,
 } from './webkitModel';
@@ -244,7 +244,7 @@ function open(store: BrowserStore, engine: EngineClient, tabId: string, url: str
     // An older shell without the module: say so once and leave pages in Chromium.
     unavailable = true;
     remove(tabId);
-    pushToast(store, 'This copy of Merlin can’t open pages in WebKit, so protected video won’t play.');
+    showStatusMessage(store, 'This copy of Merlin can’t open pages in WebKit, so protected video won’t play.');
   });
   void leave(store, engine, tabId);
 }
@@ -321,11 +321,11 @@ function onPageEvent(event: WebKitEvent) {
     }
     case 'openTab':
       if (!window) break;
-      if (event.download) pushToast(window.store, 'Pages in WebKit can’t download files. Open the site in Chromium to download it.', 'info');
+      if (event.download) showStatusMessage(window.store, 'Pages in WebKit can’t download files. Open the site in Chromium to download it.', false);
       else window.openTab(event.url);
       break;
     case 'pageKey': runPageCommand(tabId, event.command); break;
-    case 'pageError': if (window) pushToast(window.store, event.message); break;
+    case 'pageError': if (window) showStatusMessage(window.store, event.message); break;
     default: break;
   }
 }

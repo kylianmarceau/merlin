@@ -4,7 +4,7 @@ import { layer } from './tokens';
 
 /**
  * One overlay layer over the whole window. Layers stack in a fixed order
- * (content < sheets < dialogs < popovers < toasts) and pass clicks through
+ * (content < sheets < dialogs < popovers < download activity) and pass clicks through
  * wherever nothing is drawn.
  */
 export function Layer({ level, children }: React.PropsWithChildren<{ level: keyof typeof layer }>) {

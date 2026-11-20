@@ -25,7 +25,6 @@ export { Popover, autoPlacement, placeBubble, placePopover, type Frame, type Pla
 export { PopoverSurface } from './PopoverSurface';
 export { Dialog } from './Dialog';
 export { Sheet, SheetBody, useSheetScroll, type SheetSection } from './Sheet';
-export { ToastStack, type ToastItem } from './Toast';
 export { AreaLight, Badge, EmptyState, Equaliser, IconTile, LoadingBar, Notice, ProgressRing, ProgressTrack, Spinner } from './Feedback';
 export { FormGroup, FormHighlight, FormRow, SectionHeader, useLit } from './Form';
 export { ContextMenu, DragRegion, FileDragArea, FullScreenWatch, tick, type WindowFacts } from './Native';

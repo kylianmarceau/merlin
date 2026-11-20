@@ -1,7 +1,7 @@
 // Settings › General › Updates: Merlin asks GitHub Releases whether a newer
 // version exists. Only when the person turns automatic checks on, or presses
 // Check Now (see docs/PRIVACY.md). It never downloads or installs anything;
-// a newer version is announced with a link to its release page.
+// Settings shows the result and links to the release page.
 import { createStore } from 'zustand/vanilla';
 import { useStore } from 'zustand';
 import { effectiveChannel, newestUpdate, type Release, type Update } from '../lib/updates';
@@ -52,11 +52,11 @@ let timer: ReturnType<typeof setInterval> | null = null;
  * Starts or stops the automatic checks as the setting says. One check when
  * the last was over eight hours ago, then one every eight hours.
  */
-export function followUpdateSetting(onFound: (update: Update) => void) {
+export function followUpdateSetting() {
   const apply = (on: boolean) => {
     if (timer) { clearInterval(timer); timer = null; }
     if (!on || !updates.getState().version) return;
-    const run = () => void checkForUpdates().then(update => { if (update) onFound(update); });
+    const run = () => void checkForUpdates();
     void preference('updateLastCheck').then(raw => {
       const last = Number(raw) || 0;
       updates.setState({ lastCheck: last });

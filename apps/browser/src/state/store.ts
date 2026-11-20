@@ -5,7 +5,7 @@
 // `snapshot` is what components show, `engineSnapshot` what Chromium sent.
 import { createStore } from 'zustand/vanilla';
 import { shellPrefs } from './shellPrefs';
-import type { IconTone, SymbolName } from '../platform/shell';
+import type { IconTone } from '../platform/shell';
 import { validateSnapshot, type EngineClient, type HistorySwipe, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
 import { acceptResults, type Omnibox } from './omnibox';
 import { rememberActive, type TabDrag } from './tabDrag';
@@ -23,13 +23,7 @@ export type HoverCard = { tabId: string; anchor: Rect; side: 'right' | 'below' }
 /** Naming a tab group: a new one for `tabId`, or renaming `groupId`. */
 export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string } | { kind: 'renameTab'; tabId: string }
   | { kind: 'renameFolder'; folderId: string };
-/**
- * A short confirmation over the page ("Link copied", a command's message),
- * gone on its own after a moment; `action` adds one button ("Edit").
- */
-export type Hud = { id: number; text: string; tone: 'info' | 'error'; symbol?: SymbolName; action?: { label: string; run(): void } };
-/** A notice; `action` adds one button to it ("View" on an update). */
-export type Toast = { id: number; tone: 'error' | 'info'; text: string; action?: { label: string; run(): void } };
+export type StatusMessage = { text: string; isError: boolean };
 export { currentSuggestions, type Omnibox, type SearchOwner } from './omnibox';
 
 export type BrowserState = {
@@ -42,8 +36,7 @@ export type BrowserState = {
   popover: PopoverName | null;
   /** A quiet request the person chose to see. */
   revealedPromptId: string | null;
-  toasts: Toast[];
-  hud: Hud | null;
+  statusMessage: StatusMessage | null;
   addressFocus: number;
   addressRevert: number;
   omnibox: Omnibox | null;
@@ -88,7 +81,7 @@ export type BrowserState = {
 
 export function initialState(): BrowserState {
   return {
-    snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, toasts: [], hud: null,
+    snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, statusMessage: null,
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
     downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, openFolder: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, historySwipe: null, tabLooks: {}, pinnedHomes: {},
     failInRender: false,
@@ -130,7 +123,12 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
     (!before.find?.visible && !!snapshot.find?.visible) || before.modal.pending !== snapshot.modal.pending);
   const hoverCard = state.hoverCard && !keyed && snapshot.tabs.some(t => t.id === state.hoverCard?.tabId) ? state.hoverCard : null;
   const peeking = state.peeking && !!snapshot.modal.sidebarHidden;
-  store.setState({ engineSnapshot, snapshot, connectionError: null, recentTabs, pinnedHomes, hoverCard, peeking });
+  const modal = snapshot.modal;
+  const modalMessageChanged = modal.message !== before?.modal.message || modal.messageIsError !== before?.modal.messageIsError;
+  const statusMessage = modal.message && modalMessageChanged
+    ? { text: modal.message, isError: !!modal.messageIsError }
+    : state.statusMessage;
+  store.setState({ engineSnapshot, snapshot, connectionError: null, recentTabs, pinnedHomes, hoverCard, peeking, statusMessage });
 }
 
 /**
@@ -186,23 +184,12 @@ function shallowEqual(a: object, b: object) {
   return keys.length === Object.keys(y).length && keys.every(k => x[k] === y[k]);
 }
 
-let toastCounter = 0;
-export function pushToast(store: BrowserStore, text: string, tone: Toast['tone'] = 'error', action?: Toast['action']) {
-  const id = ++toastCounter;
-  // The newest three; an identical notice replaces its older copy.
-  store.setState(s => ({ toasts: [...s.toasts.filter(t => t.text !== text), { id, tone, text, ...(action ? { action } : {}) }].slice(-3) }));
-  return id;
+export function showStatusMessage(store: BrowserStore, text: string, isError = true) {
+  store.setState({ statusMessage: { text, isError } });
 }
-let hudCounter = 0;
-/** Shows a HUD, replacing any that is showing. */
-export function showHud(store: BrowserStore, text: string, tone: Hud['tone'] = 'info', symbol?: SymbolName, action?: Hud['action']) {
-  store.setState({ hud: { id: ++hudCounter, text, tone, ...(symbol ? { symbol } : {}), ...(action ? { action } : {}) } });
-}
-export function dismissHud(store: BrowserStore, id: number) {
-  if (store.getState().hud?.id === id) store.setState({ hud: null });
-}
-export function dismissToast(store: BrowserStore, id: number) {
-  store.setState(s => ({ toasts: s.toasts.filter(t => t.id !== id) }));
+
+export function dismissStatusMessage(store: BrowserStore, message: StatusMessage) {
+  if (store.getState().statusMessage === message) store.setState({ statusMessage: null });
 }
 
 /** Native requests to open a panel. Extensions is a popover in this shell. */
@@ -227,7 +214,7 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
   const fail = (e: unknown) => {
     if (disposed) return;
     const message = e instanceof Error ? e.message : String(e);
-    if (store.getState().snapshot) pushToast(store, message);
+    if (store.getState().snapshot) showStatusMessage(store, message);
     else store.setState({ connectionError: message });
   };
   // Subscribe before reading, so a tab event cannot fall between snapshot and subscription.
@@ -252,7 +239,7 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
           if (next) store.setState({ omnibox: next });
           break;
         }
-        case 'engine.error': pushToast(store, event.message); break;
+        case 'engine.error': showStatusMessage(store, event.message); break;
         // Only a test instance sends this (test.shell): the error boundary
         // catches a failure while drawing; the host reloads the bridge after
         // one no boundary sees.
