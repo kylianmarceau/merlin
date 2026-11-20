@@ -6,7 +6,7 @@ export type SettingsHit = { section: string; title: string; words?: string };
 
 export const settingsIndex: readonly SettingsHit[] = [
   { section: 'appearance', title: 'Appearance Theme', words: 'dark light mode colour scheme' },
-  { section: 'appearance', title: 'Workspace colour', words: 'sage ocean ember tint accent' },
+  { section: 'appearance', title: 'Workspace colour', words: 'tint accent graphite sage ocean ember gold teal indigo lavender rose ruby' },
   { section: 'appearance', title: 'Reduce motion', words: 'animation accessibility' },
   { section: 'appearance', title: 'Interface Style', words: 'glass classic liquid' },
   { section: 'appearance', title: 'Transparency', words: 'glass clear frosted' },

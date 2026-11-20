@@ -245,7 +245,14 @@ namespace appearance_accent {
 inline constexpr char kOcean[] = "ocean";
 inline constexpr char kIris[] = "iris";
 inline constexpr char kFern[] = "fern";
-inline constexpr std::array<std::string_view, 3> kAll = {kOcean, kIris, kFern};
+inline constexpr char kGraphite[] = "graphite";
+inline constexpr char kGold[] = "gold";
+inline constexpr char kTeal[] = "teal";
+inline constexpr char kIndigo[] = "indigo";
+inline constexpr char kLavender[] = "lavender";
+inline constexpr char kRose[] = "rose";
+inline constexpr char kRuby[] = "ruby";
+inline constexpr std::array<std::string_view, 10> kAll = {kOcean, kIris, kFern, kGraphite, kGold, kTeal, kIndigo, kLavender, kRose, kRuby};
 }  // namespace appearance_accent
 
 namespace boolean_option {

@@ -7,7 +7,7 @@ import { useAppIcons } from '../../state/system';
 import type { Preferences, PreferenceKey } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import {
-  Button, FormGroup, FormRow, GlassFill, GlassScope, PictureChoice, PopUp, Segmented, Slider, Text, Toggle, accentSwatch,
+  Button, FormGroup, FormRow, GlassFill, GlassScope, PictureChoice, PopUp, Segmented, Slider, Text, Toggle, accents, accentSwatch,
   geometry, radius, space, toolbarColorLabels, toolbarColors, useLit, useTheme,
 } from '../ui';
 import { Swatch, ThemeChoice } from './Previews';
@@ -31,9 +31,9 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
           selected={appearance.mode === mode} onPress={() => void actions.setAppearance({ mode })} />)}
       </View>
       <FormGroup>
-        <FormRow title="Workspace colour" detail="Tints the window around the page.">
-          <View accessibilityRole="radiogroup" accessibilityLabel="Workspace colour" style={{ flexDirection: 'row', gap: space.md }}>
-            {(['fern', 'ocean', 'iris'] as const).map(a => <Swatch key={a} name={a} selected={appearance.accent === a}
+        <FormRow stacked title="Workspace colour" detail="Colours highlights in both modes and tints the window in Light mode.">
+          <View accessibilityRole="radiogroup" accessibilityLabel="Workspace colour" style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: space.md }}>
+            {accents.map(a => <Swatch key={a} name={a} selected={appearance.accent === a}
               onPress={() => void actions.setAppearance({ accent: a })} />)}
           </View>
         </FormRow>
@@ -93,7 +93,7 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
           <Segmented label="Site colour" value={prefs.toolbarColor} onChange={style => void setToolbarColor(style)}
             options={toolbarColors.map(value => ({ value, label: toolbarColorLabels[value] }))} /></FormRow>}
         {prefs.toolbarColor !== 'white' && <FormRow title="Tint the window with the site colour"
-          detail="The space around the page takes the site's colour instead of the workspace colour.">
+          detail="The space around the page follows the site's colour in Light and Dark mode.">
           <Toggle label="Tint the window with the site colour" value={prefs.shellFollowsSite} onChange={on => void setShellFollowsSite(on)} /></FormRow>}
         <FormRow title="Open new tabs as a pop-up" detail="Search over the current page; the tab opens once you choose where to go.">
           <Toggle label="Open new tabs as a pop-up" value={prefs.newTabPopup} onChange={on => void setNewTabPopup(on)} /></FormRow>

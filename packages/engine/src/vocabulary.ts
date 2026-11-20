@@ -99,7 +99,18 @@ export const groupColors = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'p
 export type GroupColor = typeof groupColors[number];
 export const appearanceModes = ['system', 'light', 'dark'] as const;
 export type AppearanceMode = typeof appearanceModes[number];
-export const appearanceAccents = ['ocean', 'iris', 'fern'] as const;
+export const appearanceAccents = [
+  'ocean',
+  'iris',
+  'fern',
+  'graphite',
+  'gold',
+  'teal',
+  'indigo',
+  'lavender',
+  'rose',
+  'ruby',
+] as const;
 export type AppearanceAccent = typeof appearanceAccents[number];
 export const booleanOptions = ['modal_browsing', 'auto_insert', 'smooth_scroll', 'browserctl'] as const;
 export type BooleanOption = typeof booleanOptions[number];

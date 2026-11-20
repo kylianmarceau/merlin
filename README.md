@@ -161,12 +161,13 @@ records a macro and `@a` replays it. Counts work too, as in `5j`.
 **Scripting.** `browserctl` controls the running browser from a terminal,
 Neovim or a script. See [browserctl](#browserctl).
 
-**Looks.** **Settings › Appearance** has a workspace colour, Glass (Liquid
+**Looks.** **Settings › Appearance** offers ten workspace colours, Glass (Liquid
 Glass, on macOS 26) or Classic surfaces (macOS 14 and 15 always draw
 Classic panels, over a translucent window), the address bar in the sidebar or the
 toolbar, toolbars that take the site's colour, a bookmarks bar, a frame
 around the page, a pixel falcon app icon, and eight painted alternatives.
-Merlin follows macOS's light and dark mode and Reduce Motion.
+Dark mode uses neutral charcoal surfaces. Merlin follows macOS's light and
+dark mode and Reduce Motion.
 
 ## Keys
 

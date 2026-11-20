@@ -1,9 +1,29 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { anchoredGlass, classicLook, controlGlass, legibleGlass, panelGlass, shellTintFor, type GlassLook } from './tokens';
+import { accents, anchoredGlass, classicLook, contrastRatio, controlGlass, legibleGlass, palette, panelGlass, shellTintFor, themePreview,
+  type GlassLook } from './tokens';
 
 const look = (transparency: number, tint = 0): GlassLook => ({ on: true, translucent: true, tint, transparency });
 const alpha = (rgba: string) => Number(/,\s*([\d.]+)\)$/.exec(rgba)![1]);
+
+test('dark surfaces stay neutral across workspace colours', () => {
+  for (const accent of accents) {
+    const { shellTint, startBackground, areaLight, surfaceSheetBody, surfacePalette } = palette('dark', accent);
+    const colours = [shellTint, startBackground, areaLight, surfaceSheetBody, surfacePalette,
+      panelGlass('dark', accent, look(0.2)).fill, ...Object.values(themePreview('dark', accent))];
+    for (const colour of colours) {
+      const rgb = colour.startsWith('#') ? colour.slice(1).match(/../g)! : colour.match(/\d+/g)!.slice(0, 3);
+      assert.equal(new Set(rgb).size, 1, `${accent}: ${colour}`);
+    }
+  }
+});
+
+test('each workspace colour keeps selected command text readable in both modes', () => {
+  for (const accent of accents) for (const mode of ['light', 'dark'] as const) {
+    const { paletteSelected, paletteSelectedText } = palette(mode, accent);
+    assert.ok(contrastRatio(paletteSelected, paletteSelectedText) >= 4.5, `${accent} in ${mode}`);
+  }
+});
 
 test('transparency thickens the glass below the middle and clears it above', () => {
   // Nearly solid at 0, plain regular glass (Ardia's look) in the middle, clear glass at 1.

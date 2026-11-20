@@ -1,7 +1,12 @@
-Merlin 0.5.2, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.3, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.3
+
+* **Neutral Dark mode.** The window, sidebar, Settings and new tab page now use charcoal gray. The workspace colour still appears on highlights and controls.
+* **Ten workspace colours.** Graphite, Gold, Teal, Indigo, Lavender, Rose and Ruby join Sage, Ocean and Ember under Settings › Appearance. Choose Graphite for gray accents.
 
 ## What's new in 0.5.2
 

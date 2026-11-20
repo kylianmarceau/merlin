@@ -341,8 +341,9 @@ directly. **(tested)**
 
 ## Colour
 
-Colours are named roles in `src/components/ui/tokens.ts`, built for light and
-dark from one sage-tinted neutral ramp and the chosen workspace colour. Use
+Colours are named roles in `src/components/ui/tokens.ts`. Light mode uses
+sage-tinted neutrals and a workspace-tinted window. Dark mode uses neutral
+greys for its surfaces, with workspace colours for accents. Use
 roles by purpose: `textPrimary`/`textSecondary`/`textTertiary` for text,
 `fillHover`/`fillPressed`/`fillSelected` for interaction (`fillShell*` and
 `tabHover` on the tinted shell), `buttonPrimary` for primary buttons,

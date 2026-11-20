@@ -43,6 +43,17 @@ class ShellApiTest(MerlinTestCase):
         self.assertEqual(self.error("downloads.act", {"downloadId": "1", "action": "explode"}),
                          "Invalid download action")
 
+    def test_workspace_colour_survives_a_restart(self):
+        original = self.ok("window.snapshot")["appearance"]
+        try:
+            appearance = {**original, "mode": "dark", "accent": "graphite"}
+            self.ok("appearance.set", appearance)
+            self.assertEqual(self.ok("window.snapshot")["appearance"], appearance)
+            self.browser.restart()
+            self.assertEqual(self.ok("window.snapshot")["appearance"], appearance)
+        finally:
+            self.ok("appearance.set", original)
+
     def test_requests_answer_with_their_reply(self):
         # Requests answer with a "reply" event after the call returns;
         # shell_call waits for it, as EngineClient.request does.

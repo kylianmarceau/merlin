@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import type { Appearance } from '../../state/types';
-import { Text, accentLabels, accentSwatch, geometry, opacity, radius, space, themePreview, useTheme, type AccentName, Pressable } from '../ui';
+import { Text, accentLabel, accentSwatch, geometry, opacity, radius, space, themePreview, useTheme, type AccentName, Pressable } from '../ui';
 
 /** A colour-scheme choice drawn as a small Merlin window. */
 export function ThemeChoice({ mode, accent, selected, onPress }: {
@@ -29,12 +29,13 @@ export function ThemeChoice({ mode, accent, selected, onPress }: {
   </Pressable>;
 }
 
-/** A workspace colour: the tint it gives the window, with its name. */
+/** A labelled workspace colour and its accent. */
 export function Swatch({ name, selected, onPress }: { name: AccentName; selected: boolean; onPress(): void }) {
   const { colors, dark } = useTheme();
   const swatch = accentSwatch(dark ? 'dark' : 'light', name);
-  return <Pressable accessibilityRole="radio" accessibilityLabel={accentLabels[name]} accessibilityState={{ selected }} onPress={onPress}
-    style={{ alignItems: 'center', gap: space.xs + space.hair }}>
+  const label = accentLabel(name);
+  return <Pressable accessibilityRole="radio" accessibilityLabel={label} accessibilityState={{ selected }} onPress={onPress}
+    style={{ flexBasis: '20%', minWidth: space.huge + space.md, alignItems: 'center', gap: space.xs + space.hair }}>
     <View style={{ padding: space.hair, borderRadius: radius.pill, borderWidth: geometry.focusRing,
       borderColor: colors[selected ? 'accent' : 'fillTransparent'] }}>
       <View style={{ width: geometry.swatch, height: geometry.swatch, borderRadius: radius.pill, backgroundColor: swatch.fill,
@@ -43,6 +44,6 @@ export function Swatch({ name, selected, onPress }: { name: AccentName; selected
           backgroundColor: swatch.accent, borderWidth: geometry.hairline, borderColor: colors.contentBackground }} />
       </View>
     </View>
-    <Text variant="label" tone={selected ? 'textPrimary' : 'textSecondary'}>{accentLabels[name]}</Text>
+    <Text variant="label" tone={selected ? 'textPrimary' : 'textSecondary'}>{label}</Text>
   </Pressable>;
 }

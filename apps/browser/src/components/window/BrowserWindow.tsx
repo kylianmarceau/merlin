@@ -20,8 +20,8 @@ import { Toolbar } from './Toolbar';
 const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
 
 /**
- * A browser window in Tide: the workspace colour tints the whole window, and
- * the page sits in one white card on it. Tabs run down a sidebar (which also
+ * A browser window in Tide: the page sits in a card on a light, tinted or
+ * dark grey shell. Tabs run down a sidebar (which also
  * holds navigation and the address, so the card has no toolbar) or across the
  * top (the card gets one quiet toolbar row, joined by the active tab, both in
  * the site's colour). Command-S hides the tabs either way: the sidebar slides
@@ -179,9 +179,8 @@ function FloatingShell({ style, children }: React.PropsWithChildren<{ style: obj
 }
 
 /**
- * The tint over the shell's vibrancy: the workspace colour, or the site's
- * when chosen in Settings, in either layout. Its strength follows the glass
- * transparency; with Classic it is opaque.
+ * The base colour over the shell's vibrancy, with an optional site tint in
+ * either layout. Its strength follows the glass transparency. Classic is opaque.
  */
 function ShellTint() {
   const { colors, reduceMotion, glass } = useTheme();

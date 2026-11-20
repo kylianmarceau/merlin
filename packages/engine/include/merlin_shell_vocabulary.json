@@ -139,7 +139,14 @@
     "appearanceAccent": [
       "ocean",
       "iris",
-      "fern"
+      "fern",
+      "graphite",
+      "gold",
+      "teal",
+      "indigo",
+      "lavender",
+      "rose",
+      "ruby"
     ],
     "booleanOption": [
       "modal_browsing",

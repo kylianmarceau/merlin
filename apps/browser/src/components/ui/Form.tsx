@@ -27,12 +27,15 @@ export function FormGroup({ title, detail, children }: React.PropsWithChildren<{
   </View>;
 }
 
-/** One setting: title and description on the left, its control on the right. */
-export function FormRow({ title, detail, children }: React.PropsWithChildren<{ title: string; detail?: string }>) {
+/** A setting with its control alongside the label, or below it for wider controls. */
+export function FormRow({ title, detail, stacked = false, children }: React.PropsWithChildren<{ title: string; detail?: string; stacked?: boolean }>) {
   const lit = useLit(title);
-  return <View ref={lit.ref} style={{ flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingVertical: space.md, minHeight: geometry.rowTall }}>
+  return <View ref={lit.ref} style={{
+    flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'center',
+    gap: stacked ? space.md : space.lg, paddingVertical: space.md, minHeight: geometry.rowTall,
+  }}>
     {lit.glow}
-    <View style={{ flex: 1, gap: space.hair }}>
+    <View style={{ flex: stacked ? undefined : 1, gap: space.hair }}>
       <Text>{title}</Text>
       {!!detail && <Text variant="label" weight="regular" tone="textSecondary">{detail}</Text>}
     </View>
