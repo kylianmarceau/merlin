@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { Tab, TabGroup } from '../../state/types';
 import { dropBefore, dropPlace, itemSlot, layoutStrip, reflow, stripItems, type StripMetrics } from './stripLayout';
 
-const m: StripMetrics = { tab: 148, tabMin: 96, icon: 40, gap: 1, pinnedGap: 8, overflow: 44, trailing: 32, chipWidth: () => 22 };
+const m: StripMetrics = { tab: 148, tabMin: 96, floor: 64, active: 128, icon: 40, gap: 1, pinnedGap: 8, trailing: 32, chipWidth: () => 22 };
 const tab = (id: string, extra: Partial<Tab> = {}): Tab => ({ id, title: id, url: `https://${id}.test/`, loading: false, pinned: false,
   audible: false, canGoBack: false, canGoForward: false, ...extra });
 
@@ -22,10 +22,10 @@ test('a split takes two cells, side by side, and the item spans both', () => {
   assert.equal(layout.slots.b.width, m.tab);
   assert.equal(layout.slots.c.x, layout.slots.b.x + m.tab + m.gap);
   assert.deepEqual(itemSlot(layout.open[1], layout.slots), { x: layout.slots.b.x, width: m.tab * 2 + m.gap });
-  // Crowded, the cells share the room evenly.
-  const crowded = layoutStrip(tabs, [], 'a', 300, m);
+  // Crowded, the cells of tabs that aren't active share the room evenly.
+  const crowded = layoutStrip(tabs, [], 'x', 300, m);
   assert.equal(crowded.slots.a.width, crowded.slots.b.width);
-  assert.ok(crowded.compact);
+  assert.ok(crowded.slots.a.width < m.tabMin);
 });
 
 test('leaving an item out closes the others up', () => {
@@ -36,14 +36,34 @@ test('leaving an item out closes the others up', () => {
   assert.equal(lifted.slots.c.x, full.slots.b.x);
 });
 
-test('too many to show: the first ones and the active item stay, the rest go behind +N', () => {
-  const tabs = Array.from({ length: 30 }, (_, i) => tab(`t${i}`));
-  const layout = layoutStrip(tabs, [], 't25', 400, m);
-  assert.ok(layout.slots.t0 && layout.slots.t25);
-  assert.ok(layout.hidden.includes('t24') && !layout.hidden.includes('t25'));
-  const shown = layout.open.map(i => i.key);
-  assert.equal(shown[shown.length - 1], 't25');
-  assert.deepEqual(shown.slice(0, -1), tabs.slice(0, shown.length - 1).map(t => t.id));
+test('crowded, the active tab keeps a wider minimum than the others, which stop at theirs and scroll', () => {
+  const few = [tab('a'), tab('b'), tab('c'), tab('d')];
+  const roomy = layoutStrip(few, [], 'b', 1000, m);
+  assert.ok(Object.values(roomy.slots).every(s => s.width === m.tab));
+  assert.equal(roomy.scrolls, false);
+  // 4 cells in 440 - 32: the active one keeps 128, the rest share the remainder.
+  const tight = layoutStrip(few, [], 'b', 440, m);
+  assert.equal(tight.slots.b.width, m.active);
+  assert.equal(tight.slots.a.width, Math.floor((440 - 32 - 128 - 3) / 3));
+  assert.equal(tight.scrolls, false);
+  const many = Array.from({ length: 30 }, (_, i) => tab(`t${i}`));
+  const layout = layoutStrip(many, [], 't25', 400, m);
+  assert.equal(layout.open.length, 30);
+  assert.equal(layout.slots.t0.width, m.floor);
+  assert.equal(layout.slots.t25.width, m.active);
+  assert.ok(layout.scrolls && layout.end > layout.lane);
+});
+
+test('after a close, held widths stay as they were until released', () => {
+  const tabs = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => tab(id));
+  const before = layoutStrip(tabs, [], 'a', 600, m);
+  const closed = tabs.filter(t => t.id !== 'c');
+  const held = layoutStrip(closed, [], 'a', 600, m, null, before.cells);
+  assert.equal(held.slots.d.width, before.slots.d.width);
+  assert.equal(held.slots.d.x, before.slots.c.x);
+  assert.equal(held.slots.a.width, before.slots.a.width);
+  const released = layoutStrip(closed, [], 'a', 600, m);
+  assert.ok(released.slots.d.width > before.slots.d.width);
 });
 
 test("a collapsed group shows its chip, and only the item with the active tab", () => {

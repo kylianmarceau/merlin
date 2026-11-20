@@ -28,7 +28,9 @@ export const font = {
 /** Sizes of recurring shell pieces, in points. */
 export const geometry = {
   sidebar: 252, sidebarCollapsedInset: 84, stripTab: 148, stripTabMin: 96, stripTabIcon: 40, titlebar: 40, strip: 48, toolbar: 46,
-  joinedTab: 38, joinedEar: 10, overflowButton: 44,
+  joinedTab: 38, joinedEar: 10,
+  /** Crowded tabs on top, as in Dia: none narrower than this, and the active one never narrower than its own minimum. */
+  stripTabFloor: 64, stripTabActive: 128,
   control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, stripTabHeight: 32, address: 36, favourite: 44, favouriteSmall: 28,
   /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
   tabRowGap: 3, tileRing: 2.5,

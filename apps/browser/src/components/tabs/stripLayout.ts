@@ -11,12 +11,16 @@ export type Chip = { group: TabGroup; x: number; width: number; end: number };
 /** One tab, or the tabs of a split view, which show and move as one. */
 export type StripItem = { key: string; tabs: Tab[]; pinned: boolean };
 export type StripMetrics = {
-  /** A tab's widest, narrowest with a title, and its width as an icon. */
-  tab: number; tabMin: number; icon: number;
+  /**
+   * A tab's widest; the narrowest that still shows its × (narrower, only the
+   * active tab does); the narrowest any tab gets; the active tab's own,
+   * wider, minimum; and a pinned tab, an icon.
+   */
+  tab: number; tabMin: number; floor: number; active: number; icon: number;
   /** Between cells; between the pinned tabs and the rest. */
   gap: number; pinnedGap: number;
-  /** The "+N" button, and the room kept after the tabs for the New Tab button. */
-  overflow: number; trailing: number;
+  /** The room kept after the tabs for the New Tab button. */
+  trailing: number;
   chipWidth(group: TabGroup): number;
 };
 export type StripLayout = {
@@ -25,11 +29,14 @@ export type StripLayout = {
   chips: Chip[];
   /** The shown items in order: pinned ones, then the rest. */
   pinned: StripItem[]; open: StripItem[];
-  /** Tabs too narrow to show titles. */
-  compact: boolean;
-  /** Tabs that don't fit, behind the "+N" menu. */
-  hidden: string[];
+  /** How many cells the open tabs show, and how many their width was shared between (to hold it after a close). */
+  count: number; cells: number;
+  /** Where the tabs end, and the pinned ones. */
   end: number; pinnedEnd: number;
+  /** The tabs are wider than the lane, which scrolls. */
+  scrolls: boolean;
+  /** The lane's width: the room less the New Tab button's. */
+  lane: number;
 };
 
 /** The tabs as items: a split view's tabs together, every other tab alone. */
@@ -45,15 +52,18 @@ export function itemSlot(item: StripItem, slots: Record<string, Slot>): Slot | n
 }
 
 /**
- * Where each tab sits in a lane `room` wide: pinned tabs as icons, then the
- * rest sharing the width, each group led by its chip. A collapsed group
- * shows only its chip (and the item with the active tab). Past the point
- * where even icons don't fit, the items that don't go behind "+N", always
- * keeping the active one. `without` leaves an item out, as when it has been
- * dragged out of the tabs, so the others close up.
+ * Where each tab sits in a lane `room` wide, as in Dia: pinned tabs as
+ * icons, then the rest sharing the width, each group led by its chip. A
+ * collapsed group shows only its chip (and the item with the active tab).
+ * Crowded, the active tab keeps a wider minimum than the others; past the
+ * point where they reach their own minimum they stop shrinking and the
+ * lane scrolls. `hold` shares the width between at least that many cells,
+ * so after a close the tabs keep their widths (and the next × comes under
+ * the pointer) until the pointer leaves. `without` leaves an item out, as
+ * when it has been dragged out of the tabs, so the others close up.
  */
 export function layoutStrip(tabs: Tab[], groups: TabGroup[], activeId: string | null, room: number, m: StripMetrics,
-  without: string | null = null): StripLayout {
+  without: string | null = null, hold = 0): StripLayout {
   const slots: Record<string, Slot> = {};
   const chips: Chip[] = [];
   const items = stripItems(tabs).filter(item => item.key !== without);
@@ -67,22 +77,22 @@ export function layoutStrip(tabs: Tab[], groups: TabGroup[], activeId: string | 
   const groupOf = (item: StripItem) => (item.tabs[0].group && byId.get(item.tabs[0].group)) || null;
   const holdsActive = (item: StripItem) => item.tabs.some(t => t.id === activeId);
   const visible = open.filter(i => !groupOf(i)?.collapsed || holdsActive(i));
-  const cells = (list: StripItem[]) => list.reduce((n, i) => n + i.tabs.length, 0);
+  const count = visible.reduce((n, i) => n + i.tabs.length, 0);
+  const lane = Math.max(0, room - m.trailing);
   const leading = [...new Set(open.map(groupOf).filter((g): g is TabGroup => !!g))];
   const chipRoom = leading.reduce((sum, g) => sum + m.chipWidth(g) + m.gap, 0);
-  const available = Math.max(0, room - start - chipRoom - m.trailing);
-  const count = cells(visible);
-  let shown = visible;
-  let width = count ? Math.floor((available - m.gap * (count - 1)) / count) : m.tab;
-  if (count > 1 && width < m.icon) {
-    // Too many to show even as icons: keep as many as fit, always with the active one.
-    const fit = Math.max(1, Math.floor((available - m.overflow + m.gap) / (m.icon + m.gap)));
-    shown = leadingRun(visible, fit, visible.find(holdsActive) ?? null);
-    const n = Math.max(1, cells(shown));
-    width = Math.floor((available - m.overflow - m.gap * (n - 1)) / n);
+  const available = Math.max(0, lane - start - chipRoom);
+  const shared = Math.max(count, hold);
+  const share = (space: number, n: number) => (n > 0 ? Math.floor((space - m.gap * (n - 1)) / n) : m.tab);
+  let width = Math.min(m.tab, share(available, shared));
+  // The active tab's cells keep their wider minimum; the others share what is left.
+  const activeCells = visible.find(holdsActive)?.tabs.length ?? 0;
+  let activeWidth = width;
+  if (activeCells && width < m.active && shared > activeCells) {
+    activeWidth = m.active;
+    width = Math.min(m.tab, Math.floor((available - m.active * activeCells - m.gap * (shared - 1)) / (shared - activeCells)));
   }
-  width = Math.max(Math.min(m.tab, width), Math.min(m.icon, available));
-  const showing = new Set(shown);
+  width = Math.max(m.floor, width);
   cursor = start;
   let chip = null as Chip | null;
   for (const item of open) {
@@ -92,36 +102,13 @@ export function layoutStrip(tabs: Tab[], groups: TabGroup[], activeId: string | 
       chips.push(chip);
       cursor += chip.width + m.gap;
     } else if (!group) chip = null;
-    if (!showing.has(item)) continue;
-    for (const t of item.tabs) { slots[t.id] = { x: cursor, width }; cursor += width + m.gap; }
+    if (!visible.includes(item)) continue;
+    const w = holdsActive(item) ? activeWidth : width;
+    for (const t of item.tabs) { slots[t.id] = { x: cursor, width: w }; cursor += w + m.gap; }
     if (chip) chip.end = cursor - m.gap;
   }
   const end = cursor > start ? cursor - m.gap : start;
-  return {
-    slots, chips, pinned, open: open.filter(i => showing.has(i)), compact: width < m.tabMin, end, pinnedEnd,
-    hidden: visible.filter(i => !showing.has(i)).flatMap(i => i.tabs.map(t => t.id)),
-  };
-}
-
-/**
- * The items that fit in `fit` cells: the active one, and as many of the
- * others as fit, first ones first, in their order. Nothing after an item
- * that doesn't fit is shown, so the order never skips.
- */
-function leadingRun(visible: StripItem[], fit: number, active: StripItem | null) {
-  const room = fit - (active ? active.tabs.length : 0);
-  const run: StripItem[] = [];
-  let used = 0;
-  for (const item of visible) {
-    if (item === active) continue;
-    if (used + item.tabs.length > room) break;
-    used += item.tabs.length;
-    run.push(item);
-  }
-  if (!active) return run;
-  const at = visible.indexOf(active);
-  const before = run.filter(i => visible.indexOf(i) < at);
-  return [...before, active, ...run.filter(i => visible.indexOf(i) > at)];
+  return { slots, chips, pinned, open: visible, count, cells: shared, end, pinnedEnd, scrolls: end > lane, lane };
 }
 
 /**

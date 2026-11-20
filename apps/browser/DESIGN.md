@@ -67,9 +67,13 @@ The stored accent names predate Tide and stay as the browser saves them:
   over 380 ms. Inactive tabs have no fill: a favicon, the title at body size
   fading out at its end (`Fade`, no ellipsis), a soft inset pill on hover
   and, as in Dia, no dividers between tabs; the close button shows on hover
-  and on the active tab. Tabs share the width up to 148 pt, become icons
-  below 96 pt and, past 40 pt, the rest collect behind a "+N" native menu
-  (the active tab always stays in the strip). Pinned tabs are icons in a
+  and on the active tab. Tabs share the width up to 148 pt; crowded, as in
+  Dia, the active tab keeps at least 128 pt while the others shrink to
+  64 pt, those under 96 pt drop their close button (and a split its
+  titles), and past that the tabs scroll sideways behind a faded edge
+  (`ScrolledLane`), bringing the active tab into view. After a close under
+  the pointer the tabs keep their widths, so the next close button comes
+  under it, until the pointer leaves the strip. Pinned tabs are icons in a
   soft group. While tabs slide after a close, a tab's close button fades and
   moves with it, and the hover card follows the tab that ends up under the
   pointer. A background tab that is loading breathes its icon

@@ -550,19 +550,6 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       }
     },
 
-    /** The tabs that no longer fit across the top, as a native menu; the chosen one becomes active. */
-    async hiddenTabsMenu(tabIds: string[]) {
-      const tabs = store.getState().snapshot?.tabs ?? [];
-      const items: MenuItem[] = tabIds.flatMap(id => {
-        const tab = tabs.find(t => t.id === id);
-        return tab ? [{ id: tab.id, title: pageLabel(tab.title, tab.url) }] : [];
-      });
-      if (!items.length) return;
-      let choice: string | null;
-      try { choice = await menu(items); } catch (e) { fail(e); return; }
-      if (choice) await actions.activateTab(choice);
-    },
-
     // The active page.
     // A tab shown in WebKit goes to its WebKit page instead (state/webkit.ts).
     back: () => {

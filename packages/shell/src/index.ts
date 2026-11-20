@@ -77,8 +77,12 @@ export type ProgressRingProps = ViewProps & {
 export const ProgressRing = view<ProgressRingProps>('ProgressRing');
 
 /** "orb": four stops, highlight to deep, then horizon glow and shadow. "glow": one colour fading out. */
-/** Fades its content out over the last `fadeLength` points, instead of an ellipsis. */
-export const Fade = view<ViewProps & { fadeLength: number }>('Fade');
+/**
+ * Fades its content out over the last `fadeLength` points, instead of an
+ * ellipsis, and over the first `fadeLeading` if set. `flushScroll`: a scroll
+ * view inside sits in the title bar, and AppKit mustn't inset it for it.
+ */
+export const Fade = view<ViewProps & { fadeLength: number; fadeLeading?: number; flushScroll?: boolean }>('Fade');
 
 export type GradientProps = ViewProps & { gradientKind: 'orb' | 'glow'; gradientColors: string[] };
 export const Gradient = view<GradientProps>('Gradient');

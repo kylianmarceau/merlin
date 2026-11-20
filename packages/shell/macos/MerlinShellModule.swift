@@ -185,6 +185,8 @@ public final class MerlinShellFadeModule: Module {
     Name("MerlinShellFade")
     View(MerlinFade.self) {
       Prop("fadeLength") { (view, value: Double) in view.length = value }
+      Prop("fadeLeading") { (view, value: Double) in view.leading = value }
+      Prop("flushScroll") { (view, value: Bool) in view.flushScroll = value }
     }
   }
 }
