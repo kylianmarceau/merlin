@@ -110,6 +110,10 @@
 #include "ui/native_theme/native_theme.h"
 #include "ui/native_theme/native_theme_observer.h"
 #include "base/timer/timer.h"
+#include "content/public/browser/media_session.h"
+#include "mojo/public/cpp/bindings/receiver.h"
+#include "services/media_session/public/cpp/media_metadata.h"
+#include "services/media_session/public/mojom/media_session.mojom.h"
 
 namespace {
 using Dict = base::DictValue;
@@ -193,6 +197,31 @@ bool ValidToken(const std::string* token) {
            return base::IsAsciiAlphaNumeric(c) || c == '-' || c == '_';
          });
 }
+// Listens to one tab's media session, so a track change, a pause or a play
+// in a tab in the background refreshes the snapshot (its `media`). Sound
+// starting and stopping reaches the window as a tab change already, but a
+// paused session is silent and its metadata changes say nothing.
+class MediaWatch : public media_session::mojom::MediaSessionObserver {
+ public:
+  MediaWatch(content::MediaSession* session, base::RepeatingClosure changed)
+      : changed_(std::move(changed)) {
+    session->AddObserver(receiver_.BindNewPipeAndPassRemote());
+    receiver_.set_disconnect_handler(base::BindOnce(&MediaWatch::Gone, base::Unretained(this)));
+  }
+  // The session went with its page or its tab: a new one needs a new watch.
+  bool connected() const { return receiver_.is_bound(); }
+  void MediaSessionInfoChanged(media_session::mojom::MediaSessionInfoPtr) override { changed_.Run(); }
+  void MediaSessionMetadataChanged(const std::optional<media_session::MediaMetadata>&) override { changed_.Run(); }
+  void MediaSessionActionsChanged(const std::vector<media_session::mojom::MediaSessionAction>&) override { changed_.Run(); }
+  void MediaSessionImagesChanged(
+      const base::flat_map<media_session::mojom::MediaSessionImageType, std::vector<media_session::MediaImage>>&) override {}
+  void MediaSessionPositionChanged(const std::optional<media_session::MediaPosition>&) override {}
+ private:
+  void Gone() { receiver_.reset(); }
+  base::RepeatingClosure changed_;
+  mojo::Receiver<media_session::mojom::MediaSessionObserver> receiver_{this};
+};
+
 struct Listener { MerlinEventCallback callback; raw_ptr<void> context; };
 class Registry;
 Registry& GetRegistry();
@@ -358,6 +387,11 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   base::OneShotTimer paint_timeout_;
   // Icon colours by icon key (see SiteColor).
   std::map<std::string, std::string> icon_colors_;
+  // The tab's media, for the sidebar's player and its icon's badge: absent
+  // when it has none that can be played or paused.
+  base::Value Media(content::WebContents* contents);
+  // Keyed by the tab's contents only to find a watch again; never followed.
+  std::map<const content::WebContents*, std::unique_ptr<MediaWatch>> media_;
   PrefChangeRegistrar prefs_;
   std::unique_ptr<download::AllDownloadItemNotifier> downloads_;
   base::WeakPtrFactory<WindowState> weak_factory_{this};
@@ -545,6 +579,28 @@ void WindowState::SyncSplitVisibility() {
     else if (!shown && visibility == content::Visibility::VISIBLE) contents->WasHidden();
   }
 }
+base::Value WindowState::Media(content::WebContents* contents) {
+  using media_session::mojom::MediaPlaybackState;
+  using media_session::mojom::MediaSessionAction;
+  using media_session::mojom::MediaSessionInfo;
+  auto* session = content::MediaSession::GetIfExists(contents);
+  if (!session) return base::Value();
+  auto& watch = media_[contents];
+  if (!watch || !watch->connected())
+    watch = std::make_unique<MediaWatch>(session, base::BindRepeating(&WindowState::Changed, weak_factory_.GetWeakPtr()));
+  const auto info = session->GetMediaSessionInfoSync();
+  // A session that has ended, or one only a page script can resume (a
+  // transient sound, a muted autoplay), has nothing for the player.
+  if (!info || info->state == MediaSessionInfo::SessionState::kInactive || !info->is_controllable) return base::Value();
+  const auto& metadata = session->GetMediaSessionMetadata();
+  const auto actions = session->GetMediaSessionActionsSync();
+  return base::Value(Dict()
+      .Set("playing", info->playback_state == MediaPlaybackState::kPlaying)
+      .Set("title", base::UTF16ToUTF8(metadata.title))
+      .Set("artist", base::UTF16ToUTF8(metadata.artist))
+      .Set("canNext", std::ranges::contains(actions, MediaSessionAction::kNextTrack))
+      .Set("canPrevious", std::ranges::contains(actions, MediaSessionAction::kPreviousTrack)));
+}
 Dict WindowState::Snapshot() {
   auto* strip = browser_->GetTabStripModel();
   List tabs;
@@ -566,6 +622,7 @@ Dict WindowState::Snapshot() {
       .Set("canGoBack", contents->GetController().CanGoBack())
       .Set("canGoForward", contents->GetController().CanGoForward())
       .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
+    if (auto media = Media(contents); !media.is_none()) entry.Set("media", std::move(media));
     if (const auto group = strip->GetTabGroupForTab(i)) entry.Set("group", modal_browser::GroupKey(*group));
     // Every split, not only the one on screen, so the tabs can show each as one piece.
     if (const auto split = strip->GetSplitForTab(i)) entry.Set("split", split->ToString());
@@ -577,6 +634,12 @@ Dict WindowState::Snapshot() {
       entry.Set("restoreInWebKit", Dict().Set("url", restored->url.spec()).Set("title", base::UTF16ToUTF8(restored->title)));
     tabs.Append(std::move(entry));
   }
+  // Watches of tabs that have gone (closed, or moved to another window).
+  std::erase_if(media_, [&](const auto& watch) {
+    for (int i = 0; i < strip->count(); ++i)
+      if (strip->GetWebContentsAt(i) == watch.first) return !watch.second->connected();
+    return true;
+  });
   // Running downloads and the most recent others; the Library asks for all
   // of them with downloads.list. The history can hold thousands.
   List downloads = modal_browser::MerlinDownloadsList(browser_->GetProfile(), 10);
@@ -1036,6 +1099,20 @@ char* Call(const char* window, const char* method, const char* json) {
     const auto muted = args->FindBool("muted");
     if (!muted) return Error("Missing muted state");
     SetTabAudioMuted(contents, *muted, TabMutedReason::kAudioIndicator, std::string());
+    state->Changed();
+  } else if (name == shell::method::kTabsMedia) {
+    // The sidebar's player: the same as the page's own controls, or the
+    // keyboard's media keys, would do.
+    const auto* action = args->FindString("action");
+    auto* session = content::MediaSession::GetIfExists(contents);
+    if (!action) return Error("Missing media action");
+    if (!session) return Error("This tab has no media");
+    using Suspend = content::MediaSession::SuspendType;
+    if (*action == shell::media_action::kPlay) session->Resume(Suspend::kUI);
+    else if (*action == shell::media_action::kPause) session->Suspend(Suspend::kUI);
+    else if (*action == shell::media_action::kNext) session->NextTrack();
+    else if (*action == shell::media_action::kPrevious) session->PreviousTrack();
+    else return Error("Unknown media action");
     state->Changed();
   } else if (name == shell::method::kNavigationHistory) {
     // The back and forward lists, for the menu a held or right-clicked

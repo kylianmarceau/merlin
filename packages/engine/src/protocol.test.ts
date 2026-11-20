@@ -238,3 +238,13 @@ test('a test instance’s request to fail is read only as render or timer', () =
     { type: 'test.throw', windowId: 'w', where: 'timer' });
   assert.throws(() => parseEngineEvent('{"type":"test.throw","windowId":"w","where":"exit"}'));
 });
+test('a tab\'s media is described exactly', () => {
+  const tab = { id: 't', title: '', url: 'https://music.test/', loading: false, pinned: false, audible: true,
+    canGoBack: false, canGoForward: false };
+  const valid = (media: unknown) => validateSnapshot({ ...snapshot(), tabs: [{ ...tab, media } as never] }, 'window-one');
+  const media = { playing: false, title: 'Song', artist: '', canNext: true, canPrevious: false };
+  assert.deepEqual(valid(media).tabs[0].media, media);
+  assert.equal(valid(undefined).tabs[0].media, undefined);
+  assert.throws(() => valid({ ...media, playing: 'yes' }));
+  assert.throws(() => valid({ playing: true }));
+});

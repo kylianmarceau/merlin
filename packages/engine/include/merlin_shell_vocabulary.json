@@ -21,6 +21,7 @@
       "tabs.pin",
       "tabs.bookmark",
       "tabs.mute",
+      "tabs.media",
       "tabs.move",
       "tabs.group",
       "tabs.ungroup",
@@ -106,6 +107,7 @@
       "discard",
       "forget"
     ],
+    "mediaAction": ["play", "pause", "next", "previous"],
     "splitSide": [
       "left",
       "right",

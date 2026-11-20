@@ -1,7 +1,7 @@
 import {
   appearanceAccents, appearanceModes, groupColors, panels, protections, securities,
   type AppearanceAccent, type AppearanceMode, type BooleanOption, type CallMethod, type ClearDataType, type DownloadAction, type GroupColor,
-  type PaletteKey, type Panel, type PreferenceKey, type Protection, type RequestMethod, type Security, type ShellReport, type SplitSide, type StringOption,
+  type MediaAction, type PaletteKey, type Panel, type PreferenceKey, type Protection, type RequestMethod, type Security, type ShellReport, type SplitSide, type StringOption,
 } from './vocabulary';
 // Method names and argument values come from merlin_shell_vocabulary.json, shared with native code.
 export * from './vocabulary';
@@ -23,6 +23,12 @@ export type Tab = {
   audible: boolean; canGoBack: boolean; canGoForward: boolean;
   /** Its sound is muted (tabs.mute). Absent from older engines. */
   muted?: boolean;
+  /**
+   * Media the page plays that can be paused and resumed from outside it,
+   * from Chromium's media session: what the sidebar's player shows and
+   * tabs.media controls. Absent when it has none, and from older engines.
+   */
+  media?: TabMedia;
   /** The page it shows (WebKit's, on a WebKit tab) is bookmarked. Absent from older engines. */
   bookmarked?: boolean;
   /** Memory Saver put it to sleep; it reloads when shown. Absent from older engines. */
@@ -138,6 +144,12 @@ export type Snapshot = {
     tabLayout?: 'sidebar' | 'top'; whichKey?: WhichKey[]; palette?: CommandPalette | null; hints?: Hint[]; hintPrefix?: string;
   };
 };
+export type TabMedia = {
+  playing: boolean;
+  /** From the page's media session metadata; empty when it gives none. */
+  title: string; artist: string;
+  canNext: boolean; canPrevious: boolean;
+};
 export type Calls = {
   'window.snapshot': { args: {}; result: Snapshot };
   'find.query': { args: { tabId: string; text: string; forward: boolean }; result: null };
@@ -152,6 +164,8 @@ export type Calls = {
   /** Saves the page into the Bookmarks Bar folder, or with `bookmarked` false removes its bookmarks; without it, toggles. */
   'tabs.bookmark': { args: { tabId: string; bookmarked?: boolean }; result: null };
   'tabs.mute': { args: { tabId: string; muted: boolean }; result: null };
+  /** Plays, pauses or skips the tab's media (its `media`), as the page's own controls would. */
+  'tabs.media': { args: { tabId: string; action: MediaAction }; result: null };
   /** Moves the tab before `beforeId` (null: the end). A tab in a split view moves with the tab beside it. */
   'tabs.move': { args: { tabId: string; beforeId: string | null }; result: null };
   /** Adds the tab to a group, or to a new one (titled `title`) when `groupId` is null. Pinned tabs aren't grouped. */
@@ -442,6 +456,8 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.split !== undefined && (typeof tab.split !== 'string' || !tab.split)) ||
         (tab.restoreInWebKit !== undefined && !fields(tab.restoreInWebKit, { url: isString, title: isString })) ||
         (tab.userInitiated !== undefined && typeof tab.userInitiated !== 'boolean') ||
+        (tab.media !== undefined && !fields(tab.media, {
+          playing: isBool, title: isString, artist: isString, canNext: isBool, canPrevious: isBool })) ||
         [tab.muted, tab.bookmarked, tab.discarded].some(x => x !== undefined && typeof x !== 'boolean')) {
       throw new Error('Invalid tab snapshot');
     }

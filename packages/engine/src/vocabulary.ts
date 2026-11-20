@@ -12,6 +12,7 @@ export const callMethods = [
   'tabs.pin',
   'tabs.bookmark',
   'tabs.mute',
+  'tabs.media',
   'tabs.move',
   'tabs.group',
   'tabs.ungroup',
@@ -88,6 +89,8 @@ export const nativeOnlyMethods = ['application.windows', 'test.shell'] as const;
 export type NativeOnlyMethod = typeof nativeOnlyMethods[number];
 export const downloadActions = ['open', 'show', 'cancel', 'pause', 'retry', 'discard', 'forget'] as const;
 export type DownloadAction = typeof downloadActions[number];
+export const mediaActions = ['play', 'pause', 'next', 'previous'] as const;
+export type MediaAction = typeof mediaActions[number];
 export const splitSides = ['left', 'right', 'top', 'bottom'] as const;
 export type SplitSide = typeof splitSides[number];
 export const paletteKeys = ['accept', 'cancel', 'next', 'previous'] as const;

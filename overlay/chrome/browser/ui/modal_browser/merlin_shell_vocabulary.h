@@ -25,6 +25,7 @@ inline constexpr char kTabsClose[] = "tabs.close";
 inline constexpr char kTabsPin[] = "tabs.pin";
 inline constexpr char kTabsBookmark[] = "tabs.bookmark";
 inline constexpr char kTabsMute[] = "tabs.mute";
+inline constexpr char kTabsMedia[] = "tabs.media";
 inline constexpr char kTabsMove[] = "tabs.move";
 inline constexpr char kTabsGroup[] = "tabs.group";
 inline constexpr char kTabsUngroup[] = "tabs.ungroup";
@@ -96,7 +97,7 @@ inline constexpr char kPrivacyClearData[] = "privacy.clearData";
 // nativeOnly
 inline constexpr char kApplicationWindows[] = "application.windows";
 inline constexpr char kTestShell[] = "test.shell";
-inline constexpr std::array<std::string_view, 53> kCalls = {
+inline constexpr std::array<std::string_view, 54> kCalls = {
     kWindowSnapshot,
     kFindQuery,
     kFindClose,
@@ -108,6 +109,7 @@ inline constexpr std::array<std::string_view, 53> kCalls = {
     kTabsPin,
     kTabsBookmark,
     kTabsMute,
+    kTabsMedia,
     kTabsMove,
     kTabsGroup,
     kTabsUngroup,
@@ -194,6 +196,14 @@ inline constexpr char kDiscard[] = "discard";
 inline constexpr char kForget[] = "forget";
 inline constexpr std::array<std::string_view, 7> kAll = {kOpen, kShow, kCancel, kPause, kRetry, kDiscard, kForget};
 }  // namespace download_action
+
+namespace media_action {
+inline constexpr char kPlay[] = "play";
+inline constexpr char kPause[] = "pause";
+inline constexpr char kNext[] = "next";
+inline constexpr char kPrevious[] = "previous";
+inline constexpr std::array<std::string_view, 4> kAll = {kPlay, kPause, kNext, kPrevious};
+}  // namespace media_action
 
 namespace split_side {
 inline constexpr char kLeft[] = "left";
