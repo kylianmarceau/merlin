@@ -1,7 +1,11 @@
-Merlin 0.5.1, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.2, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.2
+
+* **Wider tabs on top.** Standard tabs now reach 173 points when there’s room, giving page titles more space.
 
 ## What's new in 0.5.1
 

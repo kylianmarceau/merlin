@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Tab, TabGroup } from '../../state/types';
+import { geometry } from '../ui/tokens';
 import { dropBefore, dropPlace, itemSlot, layoutStrip, reflow, stripItems, type StripMetrics } from './stripLayout';
 
-const m: StripMetrics = { tab: 148, tabMin: 96, floor: 64, active: 128, icon: 40, gap: 1, pinnedGap: 8, trailing: 32, chipWidth: () => 22 };
+const m: StripMetrics = { tab: geometry.stripTab, tabMin: 96, floor: 64, active: 128, icon: 40, gap: 1, pinnedGap: 8, trailing: 32, chipWidth: () => 22 };
 const tab = (id: string, extra: Partial<Tab> = {}): Tab => ({ id, title: id, url: `https://${id}.test/`, loading: false, pinned: false,
   audible: false, canGoBack: false, canGoForward: false, ...extra });
 
@@ -39,7 +40,7 @@ test('leaving an item out closes the others up', () => {
 test('crowded, the active tab keeps a wider minimum than the others, which stop at theirs and scroll', () => {
   const few = [tab('a'), tab('b'), tab('c'), tab('d')];
   const roomy = layoutStrip(few, [], 'b', 1000, m);
-  assert.ok(Object.values(roomy.slots).every(s => s.width === m.tab));
+  assert.deepEqual(Object.values(roomy.slots).map(s => s.width), [173, 173, 173, 173]);
   assert.equal(roomy.scrolls, false);
   // 4 cells in 440 - 32: the active one keeps 128, the rest share the remainder.
   const tight = layoutStrip(few, [], 'b', 440, m);

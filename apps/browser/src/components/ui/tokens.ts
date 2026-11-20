@@ -27,10 +27,11 @@ export const font = {
 
 /** Sizes of recurring shell pieces, in points. */
 export const geometry = {
-  sidebar: 252, sidebarCollapsedInset: 84, stripTab: 148, stripTabMin: 96, stripTabIcon: 40, titlebar: 40, strip: 48, toolbar: 46,
+  sidebar: 252, sidebarCollapsedInset: 84, stripTab: 173, stripTabMin: 96, stripTabIcon: 40, titlebar: 40, strip: 48, toolbar: 46,
   joinedTab: 38, joinedEar: 10,
   /** Crowded tabs on top, as in Dia: none narrower than this, and the active one never narrower than its own minimum. */
   stripTabFloor: 64, stripTabActive: 128,
+  tabDragCardMax: 188, pageLinkMax: 172,
   /** A favourite's unread count, as a dock badge: this tall, and at least this wide. */
   unreadBadge: 15,
   /** A swipe back or forward's round arrow at the page's edge, and how far in it comes when letting go would navigate. */

@@ -59,7 +59,7 @@ function BarItem({ item, large, onChanged }: { item: BookmarkItem; large: boolea
       }}>
       {({ pressed }) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair,
         height: large ? geometry.control : geometry.controlCompact - space.hair, paddingHorizontal: space.sm, borderRadius: radius.sm,
-        maxWidth: geometry.stripTab + space.xl }}>
+        maxWidth: geometry.pageLinkMax }}>
         <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
           borderRadius: radius.sm, backgroundColor: colors[pressed ? 'fillPressed' : 'fillHover'], opacity: pressed ? 1 : wash }} />
         {item.folder ? <Icon name="folder" tone="iconSecondary" size="small" /> : <PageFavicon url={item.url} />}

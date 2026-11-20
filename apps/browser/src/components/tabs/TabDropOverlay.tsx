@@ -67,7 +67,7 @@ function DragCard({ tabId, x, y, progress, outcome }: {
   if (!tab) return null;
   return <Animated.View style={{ position: 'absolute', left: x + space.md, top: y + space.md, opacity: progress }}>
     <Panel elevation="menu" radius="control" style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm,
-      maxWidth: geometry.stripTab + geometry.stripTabIcon, paddingHorizontal: space.md, height: geometry.control + space.xs }}>
+      maxWidth: geometry.tabDragCardMax, paddingHorizontal: space.md, height: geometry.control + space.xs }}>
       <Favicon tab={tab} />
       <Text lines={1} weight="medium" style={{ flexShrink: 1 }}>{tabTitle(tab)}</Text>
       {outcome && <Icon name={outcome === 'split' ? 'rectangle.split.2x1' : 'arrow.up.forward.app'} size="small"

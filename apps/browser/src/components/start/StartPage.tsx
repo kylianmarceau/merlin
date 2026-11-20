@@ -103,7 +103,7 @@ function PageLink({ tab, onPress }: { tab: Tab; onPress(): void }) {
   const { colors } = useTheme();
   const { hovered, handlers } = useInteraction();
   return <Pressable accessibilityRole="button" accessibilityLabel={tab.title || tab.url} onPress={onPress} {...handlers}
-    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair, maxWidth: geometry.stripTab + space.xl,
+    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair, maxWidth: geometry.pageLinkMax,
       height: geometry.control, paddingHorizontal: space.sm + space.hair, borderRadius: radius.pill,
       backgroundColor: colors[pressed ? 'fillPressed' : hovered ? 'fillHover' : 'fillTransparent'] })}>
     <Favicon tab={tab} />
