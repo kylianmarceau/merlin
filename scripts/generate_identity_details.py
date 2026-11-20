@@ -26,7 +26,7 @@ def generate(src):
     edit('chrome/browser/resources/print_preview/ui/app.css',lambda s:rep(s,'background: var(--google-grey-900);','background: var(--bg, var(--google-grey-900));'))
     # These are product marks, not the third-party Web Store logo.
     for name in ('chrome_product_cr23','chrome_product_cr23_old'):
-        edit(f'ui/webui/resources/cr_components/searchbox/icons/{name}.svg',lambda s:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16"><path d="'+merlin_mark.glyph_path(0,0,16)+'"/></svg>\n')
+        edit(f'ui/webui/resources/cr_components/searchbox/icons/{name}.svg',lambda _:merlin_mark.mono_svg(16))
     page_css=(ROOT/'branding/generated/merlin_page_tokens.css').read_text().replace('"',"'")
     guarded='\n/* Generated Merlin page tokens; private disclosures and actions are upstream. */\n@media (forced-colors: none) and (prefers-contrast: no-preference) {\n'+page_css+'}\n'
     def incognito(s):

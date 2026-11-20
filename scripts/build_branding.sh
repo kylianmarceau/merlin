@@ -1,51 +1,37 @@
 #!/usr/bin/env bash
-# Regenerates every Merlin icon file:
-#   * from the falcon SVGs in branding/: product tiles, favicons, the mono
-#     glyph and the wordmarks
-#   * from the painted app icon, branding/app-icons/daylight.png (Apple grid)
-#     and daylight-tile.png (full bleed): branding/merlin-app-icon-1024.png,
-#     branding/merlin.icns, the asset catalog PNGs and the Icon Composer layer
-#     in overlay/chrome/app/theme/merlin/mac/
-#   * overlay/.../mac/Assets.car and app.icns, compiled with Chromium's
-#     tools/mac/icons/compile_car.py (needs Xcode 26+ and the checkout)
-#
-# The macOS 26+ icon comes from overlay/.../mac/AppIcon.icon (Icon Composer
-# format), whose one layer is the full-bleed Daylight painting.
-# branding/impasto/export_app_icons.py renders the painted icons.
-#
-# Run after changing an app icon or the falcon, then commit the outputs:
-# Chromium checks its compiled icons in, and so do we.
+# Regenerates Merlin's product tiles, favicons, glyphs, wordmarks and default
+# app icon from branding/merlin-pixel.svg. The macOS asset catalog is compiled
+# with Chromium's tools/mac/icons/compile_car.py (Xcode 26+ and the checkout).
+# Commit the in-tree build outputs after changing the artwork.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
 CHROMIUM_DIR="${CHROMIUM_DIR:-$HOME/chromium}"
 SRC="$CHROMIUM_DIR/src"
-ICON="$ROOT/branding/app-icons/daylight.png"
-ICON_TILE="$ROOT/branding/app-icons/daylight-tile.png"
 MAC="$ROOT/overlay/chrome/app/theme/merlin/mac"
 XC="$MAC/Assets.xcassets"
+START="$ROOT/apps/browser/src/components/start"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 python3 "$ROOT/scripts/merlin_mark.py" --write
 swiftc -module-cache-path "$work/swift-cache" -O "$ROOT/scripts/render_svg.swift" -o "$work/render_svg"
 swiftc -module-cache-path "$work/swift-cache" -O "$ROOT/scripts/render_wordmark.swift" -o "$work/render_wordmark"
-# The painted app icon is raster: scale it down with sips.
-render() { sips -s format png -z "$2" "$2" "$ICON" --out "$1" >/dev/null; }
+TILE="$ROOT/branding/merlin-favicon.svg"
+render() { "$work/render_svg" "$TILE" "$1" "$2"; }
 
 # Product tiles, template glyph and password favicon at every resource scale.
-TILE="$ROOT/branding/merlin-favicon.svg"
 for s in 64 128 256; do
-  "$work/render_svg" "$TILE" "$ROOT/overlay/chrome/app/theme/merlin/product_logo_$s.png" "$s"
+  render "$ROOT/overlay/chrome/app/theme/merlin/product_logo_$s.png" "$s"
 done
 "$work/render_svg" "$ROOT/branding/merlin-mono.svg" "$ROOT/overlay/chrome/app/theme/merlin/product_logo_22_mono.png" 22
 for scale in 1 2; do
   theme="$ROOT/overlay/chrome/app/theme/default_$((scale * 100))_percent/merlin"
   components="$ROOT/overlay/components/resources/default_$((scale * 100))_percent/merlin"
   for s in 16 32; do
-    "$work/render_svg" "$TILE" "$theme/product_logo_$s.png" $((s * scale))
+    render "$theme/product_logo_$s.png" $((s * scale))
   done
-  "$work/render_svg" "$TILE" "$components/favicon_product.png" $((16 * scale))
+  render "$components/favicon_product.png" $((16 * scale))
   "$work/render_svg" "$ROOT/branding/merlin-password-favicon.svg" "$theme/favicon_password_manager.png" $((16 * scale))
   for variant in normal white; do
     suffix=""; ink="AA4C32"
@@ -55,11 +41,13 @@ for scale in 1 2; do
   done
 done
 
-# macOS 26+: the Icon Composer layer is the full-bleed painting; macOS
-# applies the icon shape itself.
-mkdir -p "$MAC/AppIcon.icon/Assets"
-rm -f "$MAC/AppIcon.icon/Assets/"*
-cp "$ICON_TILE" "$MAC/AppIcon.icon/Assets/daylight.png"
+render "$START/merlin-logo.png" 112
+render "$START/merlin-logo@2x.png" 224
+render "$ROOT/packages/shell/macos/AppIcons/MerlinAppIcon-default.png" 512
+
+# macOS 26+ supplies the icon mask and the background in icon.json.
+python3 "$ROOT/scripts/merlin_mark.py" --composer > "$work/composer.svg"
+"$work/render_svg" "$work/composer.svg" "$MAC/AppIcon.icon/Assets/mark.png" 1024
 
 # Pre-macOS 26 app icon and the document badge, in the asset catalog.
 for s in 16 32 64 128 256 512; do

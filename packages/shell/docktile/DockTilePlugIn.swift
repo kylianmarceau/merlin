@@ -53,7 +53,7 @@ final class MerlinDockTilePlugIn: NSObject, NSDockTilePlugIn {
 
   private func show() {
     guard let dockTile else { return }
-    // Daylight too, so the Dock doesn't fall back to an older cached icon.
+    // Load the default from resources too, to avoid using a stale cached icon.
     if let image = AppIcons.dockImage(for: saved) {
       let view = NSImageView(frame: NSRect(origin: .zero, size: dockTile.size))
       view.image = image

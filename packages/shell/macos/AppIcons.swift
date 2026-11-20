@@ -1,9 +1,8 @@
 import AppKit
 
-// Merlin's app icons: the painted 'Wrapped' falcon-and-globe in nine colour
-// themes. Daylight ("default") is the bundle's own icon; the others are PNGs
-// in the app's Resources (MerlinAppIcon-<id>.png, from packages/shell/macos/
-// AppIcons). Partly adapted from Ardia's AppIcons (packages/shell/ios,
+// Merlin's app icons include the default pixel falcon and eight painted
+// alternatives. The PNGs are in the app's Resources (MerlinAppIcon-<id>.png,
+// from packages/shell/macos/AppIcons). Partly adapted from Ardia's AppIcons (packages/shell/ios,
 // Apache License 2.0, Copyright 2026 Mantra Patel; see NOTICE). As in
 // Ardia, the chosen icon is a preference: the Dock shows it
 // while Merlin runs (NSApp.applicationIconImage) and, through the Dock tile
@@ -16,14 +15,14 @@ import AppKit
 enum AppIcons {
   struct Variant { let id: String; let name: String }
 
-  /// The shell preference that stores the choice; absent or unknown means Daylight.
+  /// The shell preference that stores the choice. An absent or unknown choice uses the default.
   static let defaultsKey = "MerlinShell.appIcon"
   /// Posted to the Dock plug-in when the choice changes.
   static func changedNotification(bundleId: String) -> Notification.Name { .init("\(bundleId).AppIconChanged") }
 
-  /// In Settings order. "default" is the bundle's icon, Daylight.
+  /// In Settings order. "default" is the bundle's icon.
   static let variants: [Variant] = [
-    Variant(id: "default", name: "Daylight"),
+    Variant(id: "default", name: "Default"),
     Variant(id: "midnight", name: "Midnight"),
     Variant(id: "cobalt", name: "Cobalt"),
     Variant(id: "ember", name: "Ember"),
@@ -48,7 +47,7 @@ enum AppIcons {
 
   /// What the Dock should show for a choice, or nil for the bundle's own icon.
   /// macOS's Tinted and Clear icon styles restyle only the bundle's icon, so
-  /// every choice steps aside for them. Otherwise even Daylight, which is the
+  /// every choice steps aside for them. Otherwise even the default, which is the
   /// bundle's icon, is drawn from its picture: given nil, AppKit and the Dock
   /// show the icon macOS cached for the bundle, and that can be an older
   /// Merlin's (the bundle version is Chromium's, the same across releases).
@@ -66,7 +65,7 @@ enum AppIcons {
 
   static func set(_ id: String) {
     let id = validated(id)
-    // Stored even for Daylight, so the Dock plug-in can tell "Daylight" from
+    // Stored even for the default, so the Dock plug-in can tell "default" from
     // "couldn't read Merlin's preferences".
     UserDefaults.standard.set(id, forKey: defaultsKey)
     apply()
@@ -89,9 +88,9 @@ enum AppIcons {
 
   private static var cache: [String: NSImage] = [:]
 
-  static func fileName(_ id: String) -> String { "MerlinAppIcon-\(id == "default" ? "daylight" : id)" }
+  static func fileName(_ id: String) -> String { "MerlinAppIcon-\(id)" }
 
-  /// The icon on Apple's 1024 grid (transparent margin and shadow included).
+  /// The icon with its transparent margin.
   static func image(_ id: String) -> NSImage? {
     if let hit = cache[id] { return hit }
     let made = resources.url(forResource: fileName(id), withExtension: "png").flatMap(NSImage.init(contentsOf:))

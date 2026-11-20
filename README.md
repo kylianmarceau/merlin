@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="packages/shell/macos/AppIcons/MerlinAppIcon-daylight.png" alt="Merlin icon" width="112">
+<img src="branding/merlin-pixel.svg" alt="Merlin pixel falcon" width="112">
 
 <h1>Merlin</h1>
 
@@ -165,8 +165,8 @@ Neovim or a script. See [browserctl](#browserctl).
 Glass, on macOS 26) or Classic surfaces (macOS 14 and 15 always draw
 Classic panels, over a translucent window), the address bar in the sidebar or the
 toolbar, toolbars that take the site's colour, a bookmarks bar, a frame
-around the page and nine painted app icons. Merlin follows macOS's light and
-dark mode and Reduce Motion.
+around the page, a pixel falcon app icon, and eight painted alternatives.
+Merlin follows macOS's light and dark mode and Reduce Motion.
 
 ## Keys
 

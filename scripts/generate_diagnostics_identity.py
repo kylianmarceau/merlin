@@ -40,7 +40,7 @@ def edits(src):
         palette = DATA['native']['light']
         content = ''
         if part == 'Left':
-            content = '<path d="' + merlin_mark.glyph_path(78, 28, 24) + '" fill="' + palette['on_surface'] + '"/>'
+            content = merlin_mark.glyph(78, 28, 24, palette['on_surface'])
             content += '<circle cx="18" cy="18" r="4" fill="' + palette['outline'] + '"/>'
             content += '<circle cx="34" cy="18" r="4" fill="' + palette['outline'] + '"/>'
             content += '<circle cx="50" cy="18" r="4" fill="' + palette['outline'] + '"/>'

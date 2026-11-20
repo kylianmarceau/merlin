@@ -2,30 +2,46 @@
 # Copyright 2026 The modal_browser Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-"""Merlin's approved swept-back falcon, in rust on cream.
-
-The vector contours in branding/merlin-falcon.json were traced from the approved
-artwork, retaining its wing channel, eye and beak. All SVG, WebUI and native
-Views representations use those same contours; no surface draws its own mark.
-The macOS app icon is the exception: it is the painted 'Wrapped' artwork in
-branding/app-icons/ (see branding/README.md).
+"""Generate Merlin's product tiles and glyphs from the pixel falcon SVG.
 
     python3 scripts/merlin_mark.py --write
 
 scripts/build_branding.sh renders all PNG, ICNS and macOS asset catalog files.
 """
 
-import json
+from __future__ import annotations
+
 from pathlib import Path
+import re
 import sys
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent.parent
 CREAM = "#F5E9D7"
 RUST = "#AA4C32"
-TILE = 120
-GEOMETRY = json.loads((ROOT / "branding/merlin-falcon.json").read_text())
-UNIT = TILE / GEOMETRY["canvas"]
-BOX = tuple(value * UNIT for value in GEOMETRY["bounds"])
+SVG_NS = "http://www.w3.org/2000/svg"
+SOURCE = ET.parse(ROOT / "branding/merlin-pixel.svg").getroot()
+VIEW_BOX = SOURCE.attrib["viewBox"]
+BACKGROUND, FALCON = SOURCE.findall(f"{{{SVG_NS}}}path")
+FALCON_PATH = FALCON.attrib["d"]
+FALCON_INK = FALCON.attrib["fill"]
+FILL_RULE = FALCON.attrib["fill-rule"]
+
+
+def _parse_polygon(path: str) -> list[tuple[str, list[float]]]:
+    """Read the source's absolute move, line and close commands."""
+    commands = []
+    for command, coordinates in re.findall(r"([A-Za-z])([^A-Za-z]*)", path):
+        values = [float(value) for value in coordinates.split()]
+        if (command, len(values)) not in {("M", 2), ("L", 2), ("Z", 0)}:
+            raise ValueError(f"Unexpected command in pixel falcon: {command}{coordinates}")
+        commands.append((command, values))
+    return commands
+
+
+CONTOURS = _parse_polygon(FALCON_PATH)
+X, Y = zip(*(values for _, values in CONTOURS if values))
+BOX = (min(X), min(Y), max(X), max(Y))
 
 
 def _f(value: float) -> str:
@@ -33,8 +49,8 @@ def _f(value: float) -> str:
 
 
 def _commands(k=1.0, ox=0.0, oy=0.0):
-    for command, *values in GEOMETRY["commands"]:
-        yield command, [value * UNIT * k + (ox if i % 2 == 0 else oy)
+    for command, values in CONTOURS:
+        yield command, [value * k + (ox if i % 2 == 0 else oy)
                         for i, value in enumerate(values)]
 
 
@@ -43,9 +59,9 @@ def _path(k=1.0, ox=0.0, oy=0.0):
                    for command, values in _commands(k, ox, oy))
 
 
-def mark(k: float = 1, ox: float = 0, oy: float = 0) -> str:
-    """The approved falcon, on its original square canvas, scaled and offset."""
-    return f'<path d="{_path(k, ox, oy)}" fill="{RUST}"/>'
+def _falcon(path: str, color: str | None) -> str:
+    fill = f' fill="{color}"' if color is not None else ""
+    return f'<path d="{path}" fill-rule="{FILL_RULE}"{fill}/>'
 
 
 def _fit(x0: float, y0: float, size: float, frac: float) -> tuple:
@@ -54,15 +70,16 @@ def _fit(x0: float, y0: float, size: float, frac: float) -> tuple:
     return k, x0 + (size - width * k) / 2 - BOX[0] * k, y0 + (size - height * k) / 2 - BOX[1] * k
 
 
-def glyph_path(x0: float, y0: float, size: float, frac: float = 0.9) -> str:
-    """The bare falcon, including its negative-space eye, fitted in a square."""
-    return _path(*_fit(x0, y0, size, frac))
+def glyph(x0: float, y0: float, size: float, color: str | None = None, frac: float = 0.9) -> str:
+    """The foreground mark fitted to a square, optionally in a surface's ink color."""
+    return _falcon(_path(*_fit(x0, y0, size, frac)), color)
 
 
 def vector_icon(size: int, frac: float = 0.92) -> str:
     """The same contours in Chromium's native .icon path language."""
-    names = {"M": "MOVE_TO", "C": "CUBIC_TO", "Z": "CLOSE"}
-    lines = [f"CANVAS_DIMENSIONS, {size},", "FILL_RULE_NONZERO,"]
+    names = {"M": "MOVE_TO", "L": "LINE_TO", "Z": "CLOSE"}
+    # Views uses even-odd fill by default, matching the pixel artwork.
+    lines = [f"CANVAS_DIMENSIONS, {size},"]
     for command, values in _commands(*_fit(0, 0, size, frac)):
         # Explicit f suffixes avoid narrowing decimal doubles in C++ arrays.
         args = ", " + ", ".join(f"{value:.3f}f" for value in values) if values else ""
@@ -70,29 +87,34 @@ def vector_icon(size: int, frac: float = 0.92) -> str:
     return ("// Copyright 2026 The modal_browser Authors\n"
             "// Use of this source code is governed by a BSD-style license that can be\n"
             "// found in the LICENSE file.\n//\n"
-            "// Merlin's swept-back falcon (scripts/merlin_mark.py).\n\n"
+            "// Merlin's pixel falcon (scripts/merlin_mark.py).\n\n"
             + "\n".join(lines) + "\n")
 
 
-def tile_svg(size: float = 200, label: str = "Merlin") -> str:
-    """The selected rust falcon on a cream tile: pages and browser favicons."""
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_f(size)} {_f(size)}" '
-            f'role="img" aria-label="{label}">'
-            f'<rect width="{_f(size)}" height="{_f(size)}" rx="{_f(size * 0.23)}" fill="{CREAM}"/>'
-            f'{mark(size / TILE)}</svg>\n')
+def tile_svg() -> str:
+    """The supplied full-color artwork with a fluid SVG viewport."""
+    return (f'<svg xmlns="{SVG_NS}" viewBox="{VIEW_BOX}" role="img" aria-label="Merlin">'
+            f'<path d="{BACKGROUND.attrib["d"]}" fill="{BACKGROUND.attrib["fill"]}"/>'
+            f'{_falcon(FALCON_PATH, FALCON_INK)}</svg>\n')
+
+
+def composer_svg() -> str:
+    """The foreground layer for macOS, which fills and masks the icon itself."""
+    return (f'<svg xmlns="{SVG_NS}" viewBox="{VIEW_BOX}">'
+            f'{_falcon(FALCON_PATH, FALCON_INK)}</svg>\n')
 
 
 def mark_svg() -> str:
-    margin = 6
+    margin = 40
     x, y = BOX[0] - margin, BOX[1] - margin
     width, height = BOX[2] - BOX[0] + 2 * margin, BOX[3] - BOX[1] + 2 * margin
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{_f(x)} {_f(y)} {_f(width)} {_f(height)}" '
-            f'role="img" aria-label="Merlin">{mark()}</svg>\n')
+            f'role="img" aria-label="Merlin">{_falcon(FALCON_PATH, FALCON_INK)}</svg>\n')
 
 
 def mono_svg(size: int = 22, color: str = "#000000") -> str:
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {size} {size}">'
-            f'<path d="{glyph_path(0, 0, size, 0.95)}" fill="{color}"/></svg>\n')
+            f'{glyph(0, 0, size, color, frac=0.95)}</svg>\n')
 
 
 def password_svg() -> str:
@@ -122,6 +144,9 @@ def outputs(root: str) -> dict:
 
 
 def main() -> int:
+    if sys.argv[1:] == ["--composer"]:
+        sys.stdout.write(composer_svg())
+        return 0
     if sys.argv[1:] != ["--write"]:
         print(__doc__)
         return 2

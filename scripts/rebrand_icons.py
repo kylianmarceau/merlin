@@ -14,7 +14,7 @@ them. Patch 0009 is the output of this script:
     python3 scripts/rebrand_icons.py --apply ~/chromium/src
 
 Each `<g id="chrome-product">` keeps its id and viewBox; only the path
-inside changes, so every page that names the icon shows the swept-back falcon.
+inside changes, so every page that names the icon shows the pixel falcon.
 WHOLE_FILES are logo images and ICON_FILES Views vector icons, replaced
 outright.
 """
@@ -54,11 +54,6 @@ GROUP = re.compile(r'(<g id="chrome-product"(?: viewBox="([^"]+)")?>)(.*?)(</g>)
                    re.S)
 
 
-def glyph(x0: float, y0: float, size: float) -> str:
-    """The swept-back falcon as one path, centred in the box."""
-    return f'<path d="{merlin_mark.glyph_path(x0, y0, size)}"></path>'
-
-
 def vector_icon(size: int) -> str:
     """The glyph in Chromium's .icon path language."""
     return merlin_mark.vector_icon(size)
@@ -76,7 +71,7 @@ def rebrand(text: str) -> tuple[str, int]:
                                text[:m.start()])
             x0, y0, w = 0.0, 0.0, float(sizes[-1] if sizes else 24)
         count += 1
-        return m.group(1) + glyph(x0, y0, w) + m.group(4)
+        return m.group(1) + merlin_mark.glyph(x0, y0, w) + m.group(4)
 
     return GROUP.sub(one, text), count
 

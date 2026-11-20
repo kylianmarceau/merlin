@@ -71,7 +71,7 @@ export const geometry = {
   /** A drop zone's dashed edge: how far inside the card it is drawn, and how thick, at rest and under the tab; the card's own edge. */
   dropZoneInset: 9.5, dropZoneDash: 2, dropZoneDashActive: 2.33, dropZoneEdge: 0.5,
   sheetWidth: 840, sheetHeight: 640, sheetTall: 780, sheetNav: 208, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
-  suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, paintWidth: 400, paintHeight: 172, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
+  suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, startLogo: 112, newTabInput: 52, newTabTop: 72, siteWidth: 64, toastWidth: 360, toastHeight: 40,
   /** A HUD's capsule, and how far below the window's top it sits. */
   hud: 36, hudTop: 16,
 } as const;
@@ -366,7 +366,7 @@ export const inactiveTabs = 0.62;
 export const flashOpacity = 0.22;
 
 /** Opacity for disabled and pressed controls. */
-export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, paintDark: 0.82, groupWash: 0.16, sleeping: 0.5 } as const;
+export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, groupWash: 0.16, sleeping: 0.5 } as const;
 
 // Site colours. In the tabs-on-top layout the active tab joins the toolbar,
 // and both take a colour from the site. Four treatments, chosen in Settings:
