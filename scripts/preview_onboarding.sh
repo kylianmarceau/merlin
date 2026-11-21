@@ -2,7 +2,7 @@
 # Replay first launch in its own profile, settings and workspace.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-app="${1:-$root/apps/browser/build/assembled-coastal-surf/Merlin.app}"
+app="${1:-$root/apps/browser/build/assembled-night-watch/Merlin.app}"
 if [[ ! -x "$app/Contents/MacOS/Merlin" ]]; then
   echo "Pass the path to an assembled Merlin.app as the first argument." >&2
   exit 1

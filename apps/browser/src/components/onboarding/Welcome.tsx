@@ -8,7 +8,7 @@ import {
 } from '../ui';
 import { Lookout, WorkspacePreview, cue } from './WorkspacePreview';
 
-const poster = require('./first-light-poster.jpg');
+const poster = require('./night-watch-poster.jpg');
 const stages = ['intro', 'appearance', 'workspace', 'practice', 'ready'] as const;
 type Stage = typeof stages[number];
 type Page = Exclude<Stage, 'intro'>;
@@ -152,7 +152,7 @@ export function Welcome({ stage }: { stage: Stage }) {
     {(intro || fromIntro) && !reduceMotion && <Animated.View accessibilityElementsHidden={!intro} pointerEvents={intro ? 'auto' : 'none'}
       style={[fill, { opacity: intro ? 1 : cue(progress, 0, .9, 1, 0) }]}>
       <Image accessible={false} source={poster} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-      <WelcomeFilm key={take} accessible accessibilityRole="image" accessibilityLabel="Merlin at first light" style={fill} soundEnabled={intro && !muted} onFinished={finishFilm} />
+      <WelcomeFilm key={take} accessible accessibilityRole="image" accessibilityLabel="Night Watch, an aurora above the Merlin observatory" style={fill} soundEnabled={intro && !muted} onFinished={finishFilm} />
       <DragRegion style={fill} />
       <View style={{ position: 'absolute', left: space.xl, right: space.xl, bottom: space.xl,
         flexDirection: 'row', justifyContent: 'space-between' }} pointerEvents="box-none">

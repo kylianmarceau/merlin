@@ -22,8 +22,8 @@ class WelcomeTests(unittest.TestCase):
     def lesson(self, browser):
         wait_until(lambda: browser.active_tab()["url"].split("#")[0].endswith("/MerlinTutorial.html"),
                    message="the bundled field guide")
-        wait_until(lambda: browser.eval("document.title") == "The coast path · Merlin field guide",
-                   message="the coast path to load")
+        wait_until(lambda: browser.eval("document.title") == "The observatory trail · Merlin field guide",
+                   message="the observatory trail to load")
 
     def follow_hint(self, browser):
         browser.press("f")
@@ -58,7 +58,7 @@ class WelcomeTests(unittest.TestCase):
         before = len(browser.tabs())
         self.advance(browser, "tutorial")
         self.lesson(browser)
-        for filename in ("MerlinDawn.jpg", "MerlinNight.jpg"):
+        for filename in ("MerlinAlpenglow.jpg", "MerlinAurora.jpg"):
             with self.subTest(artwork=filename):
                 self.assertTrue(browser.eval(f"""new Promise(resolve => {{
                   const image = new Image();

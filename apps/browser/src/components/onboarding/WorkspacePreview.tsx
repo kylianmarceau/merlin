@@ -3,8 +3,8 @@ import { Animated, Image, StyleSheet, View } from 'react-native';
 import { useSnapshot } from '../../state/window';
 import { Icon, Panel, Text, geometry, guideArt, radius, space, useGuideSelection, useTheme } from '../ui';
 
-const dawn = require('../../../../../packages/shell/macos/Onboarding/MerlinDawn.jpg');
-const nightCoast = require('../../../../../packages/shell/macos/Onboarding/MerlinNight.jpg');
+const alpenglow = require('../../../../../packages/shell/macos/Onboarding/MerlinAlpenglow.jpg');
+const aurora = require('../../../../../packages/shell/macos/Onboarding/MerlinAurora.jpg');
 const falcon = require('../start/merlin-logo.png');
 const fill = StyleSheet.absoluteFillObject;
 
@@ -14,8 +14,8 @@ export function cue(value: Animated.Value, start: number, end: number, from = 0,
 
 function Scenery({ night }: { night: Animated.Value }) {
   return <View pointerEvents="none" style={fill}>
-    <Image accessible={false} source={dawn} resizeMode="cover" style={styles.photo} />
-    <Animated.Image accessible={false} source={nightCoast} resizeMode="cover" style={[styles.photo, { opacity: night }]} />
+    <Image accessible={false} source={alpenglow} resizeMode="cover" style={styles.photo} />
+    <Animated.Image accessible={false} source={aurora} resizeMode="cover" style={[styles.photo, { opacity: night }]} />
   </View>;
 }
 const styles = StyleSheet.create({ photo: { position: 'absolute', width: '100%', height: '100%' } });
@@ -68,7 +68,7 @@ export function WorkspacePreview({ compact }: { compact: boolean }) {
 export function Lookout() {
   const { dark, reduceMotion } = useTheme();
   const night = useGuideSelection(dark, reduceMotion);
-  return <View accessible accessibilityLabel="The coastal lookout" style={{ flex: 1, overflow: 'hidden', borderRadius: radius.panel }}>
+  return <View accessible accessibilityLabel="The alpine observatory" style={{ flex: 1, overflow: 'hidden', borderRadius: radius.panel }}>
     <Scenery night={night} />
   </View>;
 }

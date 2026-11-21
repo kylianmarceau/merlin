@@ -36,7 +36,7 @@ final class MerlinWelcomeFilm: ExpoView {
     super.viewDidMoveToWindow()
     guard window != nil else { stop(); return }
     guard player == nil, !finished else { return }
-    guard let url = Bundle.main.url(forResource: "MerlinFirstLight", withExtension: "mp4") else {
+    guard let url = Bundle.main.url(forResource: "MerlinNightWatch", withExtension: "mp4") else {
       DispatchQueue.main.async { [weak self] in self?.finish() }
       return
     }
