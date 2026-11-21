@@ -152,7 +152,7 @@ export function Welcome({ stage }: { stage: Stage }) {
     {(intro || fromIntro) && !reduceMotion && <Animated.View accessibilityElementsHidden={!intro} pointerEvents={intro ? 'auto' : 'none'}
       style={[fill, { opacity: intro ? 1 : cue(progress, 0, .9, 1, 0) }]}>
       <Image accessible={false} source={poster} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-      <WelcomeFilm key={take} accessible accessibilityRole="image" accessibilityLabel="Night Watch, an aurora above the Merlin observatory" style={fill} soundEnabled={intro && !muted} onFinished={finishFilm} />
+      <WelcomeFilm key={take} accessible accessibilityRole="image" accessibilityLabel="Night Watch, an aurora above a Norwegian fjord" style={fill} soundEnabled={intro && !muted} onFinished={finishFilm} />
       <DragRegion style={fill} />
       <View style={{ position: 'absolute', left: space.xl, right: space.xl, bottom: space.xl,
         flexDirection: 'row', justifyContent: 'space-between' }} pointerEvents="box-none">

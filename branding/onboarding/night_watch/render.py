@@ -10,6 +10,8 @@ import imageio_ffmpeg
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from fjord import Fjord, skyline
+
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -35,52 +37,7 @@ class Sky:
         self.s = np.linspace(-0.25, 1.25, 1500, dtype="float32")[None, :]
         self.alt = np.linspace(0, 1, 120, dtype="float32")[:, None]
         self.row, self.col = np.mgrid[:H, :W].astype("float32")
-        # Keep lights behind the dome, spruces and mountain crests. A soft
-        # horizon fade gives the near-summit atmosphere its distance.
-        self.skyline = np.interp(
-            self.col[0] / W,
-            [
-                0,
-                0.018,
-                0.034,
-                0.06,
-                0.09,
-                0.12,
-                0.15,
-                0.19,
-                0.22,
-                0.26,
-                0.31,
-                0.40,
-                0.48,
-                0.60,
-                0.68,
-                0.77,
-                0.89,
-                1,
-            ],
-            [
-                0.47,
-                0.46,
-                0.53,
-                0.52,
-                0.60,
-                0.54,
-                0.522,
-                0.55,
-                0.66,
-                0.67,
-                0.735,
-                0.71,
-                0.73,
-                0.694,
-                0.68,
-                0.645,
-                0.59,
-                0.60,
-            ],
-        )
-        self.sky = ease((self.skyline - self.row / H) / 0.06).astype("float32")
+        self.sky = skyline(base)
         luma = cv2.cvtColor(base, cv2.COLOR_RGB2GRAY).astype("float32")
         self.tooth = np.clip((luma - cv2.GaussianBlur(luma, (0, 0), 2.8)) / 13, -1, 1)
         rng = np.random.default_rng(7428)
@@ -94,14 +51,14 @@ class Sky:
 
     def curtain(self, t, distant):
         s, z = self.s, self.alt
-        phase = 0.34 * t + (1.65 if distant else 0)
+        phase = 0.58 * t + (1.65 if distant else 0)
         # The lower hem doubles back across the line of sight. Multiple
         # strands then land on the same pixel and the thin folds shine.
-        x = s + 0.073 * np.sin(12.5 * s + phase) + 0.035 * np.sin(23 * s - 0.57 * t)
-        y = 0.20 + 0.28 * s + 0.121 * np.sin(7.9 * s + 0.44 * t) + 0.055 * np.cos(16 * s - phase)
+        x = s + 0.099 * np.sin(12.5 * s + phase) + 0.035 * np.sin(23 * s - 0.57 * t)
+        y = 0.20 + 0.20 * s + 0.15 * np.sin(7.9 * s + 0.67 * t) + 0.055 * np.cos(16 * s - phase)
         if distant:
             y = 0.53 - 0.15 * s + 0.069 * np.cos(8 * s - phase)
-        height = (0.19 if distant else 0.365) * (0.81 + 0.24 * np.sin(9 * s - phase))
+        height = (0.19 if distant else 0.44) * (0.81 + 0.24 * np.sin(9 * s - phase))
         xx = (x + z * (0.095 + 0.038 * np.sin(5 * s)) + 0.025 * z * z) * self.width
         yy = (y - z * height) * self.height
         filament = (
@@ -134,7 +91,7 @@ class Sky:
         light = cv2.GaussianBlur(
             radiance.reshape(self.height, self.width).astype("float32"), (0, 0), 1.12
         )
-        light = 1 - np.exp(-light * (0.39 if distant else 0.62))
+        light = 1 - np.exp(-light * (0.52 if distant else 0.89))
         haze = cv2.GaussianBlur(light, (0, 0), 6.3)
         return cv2.resize(light * 0.82 + haze * 0.35, (W, H), interpolation=cv2.INTER_LINEAR)
 
@@ -144,9 +101,10 @@ class Sky:
         density = (0.52 + 0.48 * ease(t / 1.8)) * self.sky * (1 + 0.095 * self.tooth)
         jade *= density
         violet *= density
-        image += jade[..., None] * np.float32([49, 205, 133])
-        image += (jade**2)[..., None] * np.float32([126, 68, 81])
-        image += violet[..., None] * np.float32([119, 76, 153])
+        emission = jade[..., None] * np.float32([53, 223, 143])
+        emission += (jade**2)[..., None] * np.float32([126, 68, 81])
+        emission += violet[..., None] * np.float32([128, 81, 165])
+        image += emission
         for x, y, radius, phase, frequency in self.stars:
             visibility = (0.54 + 0.37 * math.sin(frequency * t + phase) ** 2) * (
                 1 - 0.46 * jade[y, x]
@@ -155,60 +113,7 @@ class Sky:
             cv2.circle(
                 image, (int(x * 16), int(y * 16)), round(radius * 16), colour, -1, cv2.LINE_8, 4
             )
-
-
-class Valley:
-    def __init__(self, base):
-        # Only lift the low lavender mist between the ridges. Transport its
-        # pigment over a clean ground, keeping the black pines sharply still.
-        self.top = 746
-        original = base[self.top :].astype("float32")
-        y, x = np.mgrid[self.top : H, :W].astype("float32")
-        ridge = (
-            np.interp(
-                x[0] / W,
-                [0, 0.3, 0.37, 0.45, 0.54, 0.64, 0.73, 0.81, 0.94, 1],
-                [0.8, 0.79, 0.785, 0.813, 0.855, 0.904, 0.925, 0.917, 0.859, 0.83],
-            )
-            * H
-        )
-        value = cv2.cvtColor(original, cv2.COLOR_RGB2GRAY)
-        self.fog_mask = (np.exp(-(((y - ridge) / 43) ** 2)) * ease((value - 52) / 46)).astype(
-            "float32"
-        )
-        blur = cv2.GaussianBlur(original, (0, 0), 12)
-        self.fog = (original - blur + np.float32([24, 21, 26])) * self.fog_mask[..., None]
-        self.ground = original - self.fog
-        # Map the original dome onto a hemisphere. Moving the telescope
-        # rotates the copper ribs while the stone drum below stays registered.
-        self.box = np.s_[520:620, 151:337]
-        self.dome = base[self.box].copy()
-        dy, dx = np.mgrid[520:620, 151:337].astype("float32")
-        span = 85 * np.sqrt(np.maximum(0.0001, 1 - ((dy - 614) / 88) ** 2))
-        self.longitude = np.arcsin(np.clip((dx - 244) / span, -1, 1))
-        self.span = span
-        self.dome_y = dy - 520
-        self.dome_mask = (
-            ease((span - abs(dx - 244)) / 3) * ease((614 - dy) / 5) * ease((dy - 525) / 4)
-        ).astype("float32")
-
-    def paint(self, image, t):
-        rows, cols = self.fog.shape[:2]
-        moving = cv2.warpAffine(
-            self.fog,
-            np.float32([[1, 0, 13 * t], [0, 1, -1.3 * t]]),
-            (cols, rows),
-            borderMode=cv2.BORDER_REFLECT_101,
-        )
-        # Feather into the original boundaries where a ridge cuts through fog.
-        image[self.top :] += (self.ground + moving - image[self.top :]) * self.fog_mask[..., None]
-        angle = 0.44 * ease((t - 0.22) / 4.6)
-        source = (244 - 151 + self.span * np.sin(self.longitude - angle)).astype("float32")
-        metal = cv2.remap(
-            self.dome, source, self.dome_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE
-        )
-        view = image[self.box]
-        view += (metal - view) * self.dome_mask[..., None]
+        return emission
 
 
 class Constellation:
@@ -220,7 +125,7 @@ class Constellation:
         )
         alpha = alpha.crop(alpha.getbbox())
         alpha.thumbnail((103, 81), Image.Resampling.LANCZOS)
-        x, y = (W - alpha.width) // 2, round(0.305 * H) - alpha.height // 2
+        x, y = (W - alpha.width) // 2, round(0.267 * H) - alpha.height // 2
         self.bounds = np.s_[y : y + alpha.height, x : x + alpha.width]
         self.mark = np.asarray(alpha, dtype="float32") / 255
         # Use the actual extremities of Merlin's inked silhouette for the
@@ -245,11 +150,11 @@ class Constellation:
         self.text = np.asarray(mask, dtype="float32") / 255
         self.tx = np.linspace(0, 1, W, dtype="float32")[None, :]
 
-    def paint(self, image, t):
+    def paint(self, image, t, opacity):
         ink = np.float32([253, 241, 214])
         take = ease((t - 0.62) / 1.05)
         settle = ease((t - 1.90) / 0.82)
-        points = np.array([W * 0.5, H * 0.305]) + (self.points - [W * 0.5, H * 0.305]) * (
+        points = np.array([W * 0.5, H * 0.267]) + (self.points - [W * 0.5, H * 0.267]) * (
             2.4 - 1.4 * ease((t - 0.95) / 1.58)
         )
         lines = image.copy() if 0.62 < t < 2.72 else None
@@ -272,10 +177,10 @@ class Constellation:
                 dst=image,
             )
         area = image[self.bounds]
-        area += (ink - area) * (self.mark * settle)[..., None]
-        lettering = image[344:514]
+        area += (ink - area) * (self.mark * settle * opacity)[..., None]
+        lettering = image[305:475]
         reveal = ease((t - 2.00 - (self.tx - 0.37) * 2.7) / 0.74)
-        lettering += (ink - lettering) * (self.text * reveal)[..., None]
+        lettering += (ink - lettering) * (self.text * reveal * opacity)[..., None]
 
 
 def score(path):
@@ -310,6 +215,15 @@ def score(path):
         )
         signal = bell * gain * (1 - np.exp(-dt / 0.018)) * np.exp(-dt / 1.35)
         stereo[-len(dt) :] += signal[:, None] * np.sqrt([(1 - pan) / 2, (1 + pan) / 2])
+    # Low water against the hull, heard under the existing glass cue.
+    rng = np.random.default_rng(630)
+    frequencies = np.fft.rfftfreq(len(time), 1 / rate)
+    for channel in range(2):
+        noise = np.fft.rfft(rng.normal(size=len(time)))
+        band = (1 - np.exp(-((frequencies / 270) ** 2))) / (1 + (frequencies / 1700) ** 3)
+        lap = np.fft.irfft(noise * band, n=len(time))
+        wash = (0.5 + 0.5 * np.sin(2.05 * time + 0.5 * channel + 0.28 * np.sin(3 * time))) ** 3
+        stereo[:, channel] += 0.0048 * envelope * (0.2 + wash) * lap / np.std(lap)
     dry = stereo.copy()
     for delay, gain in [(0.13, 0.17), (0.243, 0.1), (0.385, 0.062)]:
         n = round(delay * rate)
@@ -321,11 +235,11 @@ def score(path):
 
 
 def render():
-    base = painting(HERE / "observatory.jpg")
+    base = painting(HERE / "fjord.jpg")
     day = painting(ASSETS / "MerlinAlpenglow.jpg").astype("float32")
-    sky, valley, stars = Sky(base), Valley(base), Constellation()
+    sky, fjord, stars = Sky(base), Fjord(base), Constellation()
     # The day painting is revealed from the high right-hand peaks across
-    # the valley, as the last bell fades into the appearance question.
+    # the water, as the last bell fades into the appearance question.
     front = 0.30 * (1 - sky.col / W) + 0.38 * sky.row / H + 0.043 * sky.tooth
     with TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -356,15 +270,17 @@ def render():
             for n in range(round(DURATION * FPS)):
                 t = n / FPS
                 image = base.astype("float32")
-                valley.paint(image, t)
-                sky.paint(image, t)
+                emission = sky.paint(image, t)
+                wash = ease((t - 5.59 - front) / 0.80)
+                image += (day - image) * wash[..., None]
+                fjord.water(image, emission, t, 1 - wash[fjord.top :])
+                fjord.waterfall(image, t)
+                fjord.boat(image, t, 1 - float(wash[758, 900]))
                 if n == 124:
                     Image.fromarray(np.uint8(np.clip(image, 0, 255))).save(
                         folder / "night.jpg", quality=92
                     )
-                stars.paint(image, t)
-                wash = ease((t - 5.59 - front) / 0.80)
-                image += (day - image) * wash[..., None]
+                stars.paint(image, t, 1 - ease((t - 5.72) / 0.73))
                 frame = np.uint8(np.clip(image, 0, 255))
                 if n == 0:
                     Image.fromarray(frame).resize((1200, 750), Image.Resampling.LANCZOS).save(

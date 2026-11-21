@@ -258,13 +258,13 @@ There is no need to disable Gatekeeper globally. If the exception is
 unavailable or the app still fails to launch, report the exact message,
 macOS version and release version.
 
-A fresh profile opens on a painted alpine observatory under the aurora with a short stereo soundtrack,
+A fresh profile opens on a painted Norwegian fjord under the northern lights with a short stereo soundtrack,
 then moves directly into setup. **Mute** silences the film and keeps it muted
 on replay. **Skip intro** jumps to appearance, and **Replay intro** on that
 screen plays the film again. Reduce Motion takes you straight to setup.
 Choose a light, dark or system appearance, then your tab placement and
 workspace colour. In the offline field guide, press `f` and type the
-displayed hint to follow the path. Press `Shift-G` to reach the observation deck.
+displayed hint to board the boat. Press `Shift-G` to reach the landing.
 Both exercises also support a mouse. **Finish practice** leads to the
 finish screen, where **Start browsing** returns to your tabs and **Import
 bookmarks…** opens the importer. Interrupted setup resumes at its saved

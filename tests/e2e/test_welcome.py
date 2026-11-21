@@ -22,8 +22,8 @@ class WelcomeTests(unittest.TestCase):
     def lesson(self, browser):
         wait_until(lambda: browser.active_tab()["url"].split("#")[0].endswith("/MerlinTutorial.html"),
                    message="the bundled field guide")
-        wait_until(lambda: browser.eval("document.title") == "The observatory trail · Merlin field guide",
-                   message="the observatory trail to load")
+        wait_until(lambda: browser.eval("document.title") == "The fjord crossing · Merlin field guide",
+                   message="the fjord crossing to load")
 
     def follow_hint(self, browser):
         browser.press("f")

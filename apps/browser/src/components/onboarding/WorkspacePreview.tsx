@@ -68,7 +68,7 @@ export function WorkspacePreview({ compact }: { compact: boolean }) {
 export function Lookout() {
   const { dark, reduceMotion } = useTheme();
   const night = useGuideSelection(dark, reduceMotion);
-  return <View accessible accessibilityLabel="The alpine observatory" style={{ flex: 1, overflow: 'hidden', borderRadius: radius.panel }}>
+  return <View accessible accessibilityLabel="Fishing cabins beside the fjord" style={{ flex: 1, overflow: 'hidden', borderRadius: radius.panel }}>
     <Scenery night={night} />
   </View>;
 }
