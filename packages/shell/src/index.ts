@@ -56,7 +56,7 @@ export type SurfaceProps = ViewProps & {
 };
 export const Surface = view<SurfaceProps>('Surface');
 
-export const WelcomeFilm = view<ViewProps & { onFinished(): void }>('WelcomeFilm');
+export const WelcomeFilm = view<ViewProps & { soundEnabled: boolean; onFinished(): void }>('WelcomeFilm');
 
 export const WindowDragRegion = view<ViewProps>('WindowDragRegion');
 

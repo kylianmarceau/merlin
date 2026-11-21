@@ -3,7 +3,7 @@ import { Animated, Image, StyleSheet, View } from 'react-native';
 import { useSnapshot } from '../../state/window';
 import { Icon, Panel, Text, geometry, guideArt, radius, space, useGuideSelection, useTheme } from '../ui';
 
-export const dawn = require('../../../../../packages/shell/macos/Onboarding/MerlinDawn.jpg');
+const dawn = require('../../../../../packages/shell/macos/Onboarding/MerlinDawn.jpg');
 const nightCoast = require('../../../../../packages/shell/macos/Onboarding/MerlinNight.jpg');
 const falcon = require('../start/merlin-logo.png');
 const fill = StyleSheet.absoluteFillObject;

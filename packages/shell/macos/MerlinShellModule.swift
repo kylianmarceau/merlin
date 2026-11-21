@@ -280,6 +280,9 @@ private enum ShellTrace {
 public final class MerlinShellWelcomeFilmModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MerlinShellWelcomeFilm")
-    View(MerlinWelcomeFilm.self) { Events("onFinished") }
+    View(MerlinWelcomeFilm.self) {
+      Prop("soundEnabled") { (view, value: Bool) in view.soundEnabled = value }
+      Events("onFinished")
+    }
   }
 }

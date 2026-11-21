@@ -5,6 +5,9 @@ import ExpoModulesCore
 /// The bundled opening plays in the browser window without creating a web tab.
 final class MerlinWelcomeFilm: ExpoView {
   let onFinished = EventDispatcher()
+  var soundEnabled = false {
+    didSet { player?.isMuted = !soundEnabled }
+  }
   private let picture = AVPlayerLayer()
   private var player: AVPlayer?
   private var observations: [NSObjectProtocol] = []
@@ -39,7 +42,7 @@ final class MerlinWelcomeFilm: ExpoView {
     }
     let item = AVPlayerItem(url: url)
     let movie = AVPlayer(playerItem: item)
-    movie.isMuted = true
+    movie.isMuted = !soundEnabled
     movie.actionAtItemEnd = .pause
     player = movie
     picture.player = movie
@@ -57,6 +60,7 @@ final class MerlinWelcomeFilm: ExpoView {
     guard window != nil, !finished else { return }
     finished = true
     deadline?.cancel()
+    player?.pause()
     onFinished([:])
   }
 

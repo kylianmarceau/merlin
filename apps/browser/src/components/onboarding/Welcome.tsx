@@ -6,8 +6,9 @@ import {
   Button, DragRegion, Icon, KeyCap, Pressable, Text, WelcomeFilm, accentLabel, accentSwatch, accents, geometry,
   guideArt, leaveGuide, radius, space, useGuideTurn, useInteraction, useTheme, type SymbolName,
 } from '../ui';
-import { Lookout, WorkspacePreview, cue, dawn } from './WorkspacePreview';
+import { Lookout, WorkspacePreview, cue } from './WorkspacePreview';
 
+const poster = require('./first-light-poster.jpg');
 const stages = ['intro', 'appearance', 'workspace', 'practice', 'ready'] as const;
 type Stage = typeof stages[number];
 type Page = Exclude<Stage, 'intro'>;
@@ -103,6 +104,7 @@ export function Welcome({ stage }: { stage: Stage }) {
   const [error, setError] = useState('');
   const [replay, setReplay] = useState(false);
   const [take, setTake] = useState(0);
+  const [muted, setMuted] = useState(false);
   const current = replay ? 'intro' : stage;
   const pending = useRef(false);
   const exit = useRef(new Animated.Value(0)).current;
@@ -148,10 +150,13 @@ export function Welcome({ stage }: { stage: Stage }) {
     <DragRegion style={fill} />
     {(intro || fromIntro) && !reduceMotion && <Animated.View accessibilityElementsHidden={!intro} pointerEvents={intro ? 'auto' : 'none'}
       style={[fill, { opacity: intro ? 1 : cue(progress, 0, .9, 1, 0) }]}>
-      <Image accessible={false} source={dawn} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-      <WelcomeFilm key={take} accessible accessibilityRole="image" accessibilityLabel="Merlin at first light" style={fill} onFinished={finishFilm} />
+      <Image accessible={false} source={poster} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
+      <WelcomeFilm key={take} accessible accessibilityRole="image" accessibilityLabel="Merlin at first light" style={fill} soundEnabled={intro && !muted} onFinished={finishFilm} />
       <DragRegion style={fill} />
-      <View style={{ position: 'absolute', right: space.xl, bottom: space.xl }}>
+      <View style={{ position: 'absolute', left: space.xl, right: space.xl, bottom: space.xl,
+        flexDirection: 'row', justifyContent: 'space-between' }} pointerEvents="box-none">
+        <Button label={muted ? 'Unmute' : 'Mute'} accessibilityLabel={muted ? 'Unmute intro sound' : 'Mute intro sound'}
+          icon={muted ? 'speaker.slash' : 'speaker.wave.2'} variant="secondary" onPress={() => setMuted(value => !value)} />
         <Button label="Skip intro" variant="secondary" onPress={finishFilm} />
       </View>
     </Animated.View>}
