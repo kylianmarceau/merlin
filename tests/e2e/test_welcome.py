@@ -20,6 +20,9 @@ class WelcomeTests(unittest.TestCase):
         browser.write_config('[options]\nhint_chars = "sdfjkl"\n')
         appearance = dict(browser.snapshot()["appearance"], mode="dark", accent="ocean")
         self.assertTrue(browser.shell_call("appearance.set", appearance)["ok"])
+        health = browser.shell_call("test.shell", {"action": "state"})["result"]
+        self.assertGreater(health["ready"], 0)
+        self.assertEqual(health["failures"], 0, health["lastError"])
         self.assertTrue(browser.shell_call("welcome.advance", {"next": "tutorial"})["ok"])
         wait_until(lambda: browser.active_tab()["url"].endswith("/MerlinTutorial.html"), message="local tutorial")
         wait_until(lambda: browser.eval("document.title") == "Link hints · Merlin", message="tutorial to load")
@@ -38,6 +41,17 @@ class WelcomeTests(unittest.TestCase):
         self.assertEqual(browser.snapshot()["welcome"], "")
         self.assertTrue(browser.shell_call("welcome.advance", {"next": "tutorial"})["ok"])
         wait_until(lambda: browser.active_tab()["url"].endswith("/MerlinTutorial.html"), message="tutorial replay")
+        session = browser.active_session()
+        point = wait_until(lambda: browser.eval(
+            "(() => { const box = document.querySelector('a')?.getBoundingClientRect(); "
+            "return box && {x: box.x + box.width / 2, y: box.y + box.height / 2}; })()", session),
+            message="the practice link to appear")
+        before = len(browser.tabs())
+        for event in ("mousePressed", "mouseReleased"):
+            browser.cdp.call("Input.dispatchMouseEvent",
+                             {"type": event, "button": "left", "clickCount": 1, **point}, session)
+        wait_until(lambda: len(browser.tabs()) == before + 1 and browser.active_tab()["url"] == "about:blank",
+                   message="clicking the link to open a new tab")
         browser.restart()
         self.assertEqual(browser.snapshot()["welcome"], "")
 
