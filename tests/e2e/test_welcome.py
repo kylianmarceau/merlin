@@ -70,9 +70,9 @@ class WelcomeTests(unittest.TestCase):
         wait_until(lambda: browser.active_tab()["url"].endswith("#lookout"), message="the second exercise")
         self.stage(browser, "practice")
         browser.press("G")
-        wait_until(lambda: browser.scroll_y() > 0 and browser.eval(
-            "document.querySelector('[href=\"#complete\"]').getBoundingClientRect().bottom <= innerHeight"),
-            message="the real end-of-page shortcut to reveal the finish link")
+        wait_until(lambda: browser.eval("""
+            scrollY > 0 && Math.abs(document.scrollingElement.scrollHeight - innerHeight - scrollY) <= 1
+        """), message="the real end-of-page shortcut to finish scrolling to the lookout")
         self.follow_hint(browser)
         self.stage(browser, "ready")
         self.assertEqual(len(browser.tabs()), before + 1)

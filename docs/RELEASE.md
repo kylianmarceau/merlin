@@ -266,7 +266,9 @@ displayed hint to follow the path. Press `Shift-G` to reach the lookout.
 Both exercises also support a mouse. **Finish practice** leads to the
 finish screen, where **Start browsing** returns to your tabs and **Import
 bookmarks…** opens the importer. Interrupted setup resumes at its saved
-step. **Help › Keyboard Tutorial** reopens the guide.
+step. **Help › Keyboard Tutorial** reopens the guide. To replay first launch
+from a checkout, run `scripts/preview_onboarding.sh /path/to/Merlin.app`.
+Each run uses a fresh temporary profile, configuration and workspace.
 
 To update, quit Merlin, download the newer GitHub release and replace the
 app in Applications. Keep the existing profile and configuration folders.
