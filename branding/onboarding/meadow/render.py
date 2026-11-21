@@ -10,6 +10,7 @@ import imageio_ffmpeg
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from grasses import Meadow
 from score import write_score
 
 
@@ -128,8 +129,7 @@ def render(soundtrack, output, poster):
     relief = np.clip((luma - cv2.GaussianBlur(luma, (0, 0), 4.5)) / 22, -1.5, 1.5)
     # Neighbouring strokes pick up the sun at slightly different moments.
     tooth = marks * .65 + relief * .60
-    field_edge = np.interp(u[0], [0, .20, .43, .72, 1], [.67, .74, .78, .79, .75]).astype('float32')
-    depth = ease((v - field_edge) / (1 - field_edge))
+    meadow = Meadow(base)
     light_arrival = .8 + 1.65 * (1 - u) + 1.25 * v + .24 * tooth + .14 * np.sin(u * 21 + v * 13)
     wash_order = .55 * (1 - u) + .45 * v + .15 * tooth
     paper = np.array([249, 246, 235], np.float32) + relief[..., None] * 1.7
@@ -142,15 +142,7 @@ def render(soundtrack, output, poster):
     try:
         for frame in range(round(SECONDS * FPS)):
             t = frame / FPS
-            pullback = ease(t / 4.7)
-            zoom = 1.105 - .085 * pullback
-            world_u = (u - .5) / zoom + .5 - .014 * (1 - pullback)
-            world_v = (v - .5) / zoom + .5 + .022 * (1 - pullback)
-            wind = np.sin(10 * u + 3 * v - 2.5 * t) + .32 * np.sin(22 * u - 3.7 * t + 8 * v)
-            mx = world_u * W + depth * (15 * wind + 12 * (1 - pullback))
-            my = world_v * H + depth * wind * 4
-            image = cv2.remap(base, mx.astype('float32'), my.astype('float32'), cv2.INTER_LINEAR,
-                              borderMode=cv2.BORDER_REFLECT).astype('float32')
+            image = meadow.paint(t).astype('float32')
             # A violet underpainting shows through first. Warm colour returns in
             # patches following the dry marks across sky, cliff, sea and meadow.
             value = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)[..., None]
@@ -158,9 +150,7 @@ def render(soundtrack, output, poster):
             underpaint += np.array([18, 9, 31], np.float32)
             light = ease((t - light_arrival) / 1.35)[..., None]
             image = underpaint + (image - underpaint) * light
-            pigment = cv2.remap(tooth, mx.astype('float32'), my.astype('float32'), cv2.INTER_LINEAR,
-                                borderMode=cv2.BORDER_REFLECT)
-            painted_sun(image, world_u, world_v, pigment, t)
+            painted_sun(image, u, v, tooth, t)
             image = np.clip(image, 0, 255).astype('uint8')
             draw_falcon(image, t)
             image = image.astype('float32')
