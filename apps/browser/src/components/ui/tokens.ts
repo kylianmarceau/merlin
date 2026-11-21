@@ -11,7 +11,11 @@ import type { Appearance } from '../../state/types';
 export const space = { none: 0, hair: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, huge: 48 } as const;
 export type Space = keyof typeof space;
 
-export const flightColors = { paper: '#F5E9D7', ink: '#AA4C32', night: '#231D1B', moon: '#F5E9D7' } as const;
+export const guideArt = {
+  sky: '#F8D7A7', pine: '#183C39', ivory: '#FFF5DC',
+  shade: 'rgba(12, 39, 37, 0.35)', shadeDark: 'rgba(8, 24, 29, 0.66)',
+  width: 1000, height: 578, compact: 750, preview: 306, inset: 36, tracking: -1.9,
+} as const;
 
 export const radius = {
   none: 0, xs: 4, sm: 6, control: 8, row: 9, field: 10, tile: 10, tab: 10, card: 12, window: 12, panel: 16, popover: 18, dialog: 18,

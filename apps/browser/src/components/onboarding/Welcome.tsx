@@ -1,112 +1,210 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { Animated, Image, ScrollView, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useActions, useSnapshot } from '../../state/window';
-import { Swatch, ThemeChoice } from '../settings/Previews';
+import { PageArea } from '../window/PageArea';
 import {
-  Button, DragRegion, Icon, Panel, Text, accents, flightColors, geometry,
-  radius, space, useTheme, useWelcomeFlight,
+  Button, DragRegion, Icon, KeyCap, Panel, Pressable, Segmented, Text, accentLabel, accentSwatch,
+  accents, geometry, guideArt, leaveGuide, radius, space, useGuideTurn, useTheme, useWelcomeFlight,
 } from '../ui';
 
+const coast = require('../../../../../packages/shell/macos/Onboarding/MerlinCoast.jpg');
 const falcon = require('../start/merlin-logo.png');
+const wordmark = require('./merlin-wordmark.png');
+const stages = ['intro', 'appearance', 'workspace', 'practice', 'ready'] as const;
+type Stage = typeof stages[number];
+const titles = { appearance: 'Appearance', workspace: 'Workspace', practice: 'Field guide', ready: 'Finish' };
+const modes = [{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }] as const;
+const layouts = [{ value: 'side', label: 'Sidebar' }, { value: 'top', label: 'Across the top' }] as const;
+const fill = StyleSheet.absoluteFillObject;
+
+function Landscape({ dark = false, distant = false }: { dark?: boolean; distant?: boolean }) {
+  return <View pointerEvents="none" style={fill}>
+    <Image accessible={false} source={coast} resizeMode="cover" blurRadius={distant ? space.sm : 0} style={{ width: '100%', height: '100%' }} />
+    {dark && <View style={[fill, { backgroundColor: guideArt.shadeDark }]} />}
+  </View>;
+}
 
 function Flight({ onLand }: { onLand(): void }) {
   const { dark, reduceMotion } = useTheme();
   const [width, setWidth] = useState(0);
-  const time = useWelcomeFlight(reduceMotion, onLand);
-  const ink = dark ? flightColors.moon : flightColors.ink;
-  return <View onLayout={e => setWidth(e.nativeEvent.layout.width)} style={{ flex: 1, alignItems: 'center',
-    paddingTop: geometry.newTabTop, backgroundColor: dark ? flightColors.night : flightColors.paper }}>
-    <Image accessible={false} resizeMode="stretch" source={require('./hills.png')}
-      style={{ position: 'absolute', bottom: 0, width: '100%', height: '40%', tintColor: ink }} />
-    <DragRegion style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} />
-    <Animated.View pointerEvents="none" style={{ opacity: time.interpolate({ inputRange: [0, 0.08, 1], outputRange: [0, 1, 1] }),
-      transform: [
-        { translateX: time.interpolate({ inputRange: [0, 0.28, 0.48, 0.58, 1], outputRange: [-width / 2, -width / 8, space.xs, 0, 0] }) },
-        { translateY: time.interpolate({ inputRange: [0, 0.28, 0.48, 0.58, 1], outputRange: [geometry.areaLight, space.huge, -space.xs, 0, 0] }) },
-        { rotate: time.interpolate({ inputRange: [0, 0.28, 0.58, 1], outputRange: ['-12deg', '-6deg', '0deg', '0deg'] }) },
-      ] }}>
-      <Image accessible={false} source={falcon} resizeMode="contain"
-        style={{ width: geometry.startFalcon, height: geometry.startFalcon, tintColor: ink }} />
+  const t = useWelcomeFlight(reduceMotion, onLand);
+  return <View style={{ flex: 1, overflow: 'hidden', backgroundColor: guideArt.pine }} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
+    <Animated.View style={[fill, { transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [1.11, 1] }) }] }]}>
+      <Landscape dark={dark} />
     </Animated.View>
-    <Animated.View style={{ marginTop: space.md, opacity: time.interpolate({ inputRange: [0, 0.48, 0.7, 1], outputRange: [0, 0, 1, 1] }) }}>
-      <Image source={require('./merlin-wordmark.png')} accessibilityLabel="Merlin" resizeMode="contain"
-        style={{ width: geometry.slider, height: geometry.titlebar, tintColor: ink }} />
+    <DragRegion style={fill} />
+    <Animated.Image accessible={false} resizeMode="contain" source={falcon} style={{ position: 'absolute', top: '23%', left: '50%',
+      tintColor: dark ? guideArt.ivory : guideArt.pine, width: geometry.startFalcon, height: geometry.startFalcon,
+      transform: [{ translateX: t.interpolate({ inputRange: [0, .48, .8, 1], outputRange: [-width * .63, -width * .17, 0, width * .035] }) },
+        { translateY: t.interpolate({ inputRange: [0, .48, .8, 1], outputRange: [geometry.switcherThumb, -space.xl, 0, -space.xs] }) },
+        { rotate: t.interpolate({ inputRange: [0, .5, 1], outputRange: ['-14deg', '-4deg', '4deg'] }) }] }} />
+    <Animated.View pointerEvents="none" style={{ position: 'absolute', left: '8%', bottom: '12%',
+      opacity: t.interpolate({ inputRange: [0, .3, .63, 1], outputRange: [0, 0, 1, 1] }) }}>
+      <Text variant="greeting" style={{ color: guideArt.ivory }}>Welcome to</Text>
+      <Image source={wordmark} accessibilityLabel="Merlin" resizeMode="contain"
+        style={{ width: geometry.sidebar, height: geometry.paletteInput, tintColor: guideArt.ivory }} />
     </Animated.View>
-    <View style={{ position: 'absolute', bottom: space.xl, right: space.xl }}>
-      <Button label="Skip intro" onPress={onLand} />
-    </View>
+    <View style={{ position: 'absolute', right: space.xl, bottom: space.xl }}><Button label="Skip intro" onPress={onLand} /></View>
   </View>;
 }
 
-function WindowPreview() {
-  const { colors } = useTheme();
-  return <View accessible accessibilityLabel="Preview of your Merlin window" style={{ backgroundColor: colors.accentSoft,
-    alignItems: 'center', justifyContent: 'center', padding: space.xl, borderRadius: radius.panel, flexGrow: 1 }}>
-    <Panel fill="sidebarFallback" border="borderDefault" radius="window" elevation="card" style={{ width: '100%', maxWidth: geometry.palette }}>
-      <View style={{ height: geometry.titlebar, flexDirection: 'row', gap: space.xs, alignItems: 'center', paddingHorizontal: space.md }}>
-        {[0, 1, 2].map(i => <View key={i} style={{ width: space.sm, height: space.sm, borderRadius: radius.pill, backgroundColor: colors.iconSecondary }} />)}
-      </View>
-      <View style={{ flexDirection: 'row', padding: space.sm, gap: space.sm }}>
-        <View style={{ flex: 1, gap: space.md }}>
-          <View style={{ padding: space.sm, backgroundColor: colors.accentSoft, borderRadius: radius.tab }}><Text weight="semibold">New Tab</Text></View>
-          <View style={{ flexDirection: 'row', gap: space.xs, paddingHorizontal: space.sm }}><Icon name="bookmark" size="small" /><Text variant="label">Bookmarks</Text></View>
-        </View>
-        <View style={{ flex: 2, backgroundColor: colors.contentBackground, alignItems: 'center', justifyContent: 'center',
-          minHeight: geometry.pictureChoice, borderRadius: radius.card, gap: space.sm, padding: space.sm }}>
-          <Image accessible={false} source={falcon} resizeMode="contain" style={{ width: geometry.titlebar, height: geometry.titlebar, tintColor: colors.accent }} />
-          <View style={{ borderRadius: radius.field, borderWidth: geometry.hairline, borderColor: colors.borderDefault, padding: space.sm }}>
-            <Text variant="label" tone="textSecondary">Search or enter an address</Text>
+function WindowPrint({ ready }: { ready: boolean }) {
+  const { colors, dark } = useTheme();
+  const { modal } = useSnapshot();
+  const side = modal.tabLayout !== 'top';
+  return <View accessible accessibilityLabel="Live preview of your workspace" style={{ flex: 1, alignItems: 'center',
+    justifyContent: 'center', backgroundColor: guideArt.sky, overflow: 'hidden', padding: space.xl }}>
+    <Landscape dark={dark} />
+    {ready ? <Image accessible={false} source={falcon} resizeMode="contain" style={{ width: geometry.startFalcon, height: geometry.startFalcon,
+      alignSelf: 'center', marginBottom: geometry.switcherThumb, tintColor: dark ? guideArt.ivory : guideArt.pine }} /> :
+      <Panel fill="contentBackground" elevation="dialog" radius="window" style={{ width: '100%', maxWidth: guideArt.preview }}>
+        <View style={{ overflow: 'hidden', borderRadius: radius.window, backgroundColor: colors.accentSoft }}>
+          <View style={{ height: geometry.controlCompact, alignItems: 'center', flexDirection: 'row', gap: space.xs, paddingHorizontal: space.md }}>
+            {[0,1,2].map(i => <View key={i} style={{ width: space.xs, height: space.xs, borderRadius: radius.pill, backgroundColor: colors.iconSecondary }} />)}
+          </View>
+          <View style={{ flexDirection: side ? 'row' : 'column', padding: space.xs, gap: space.xs }}>
+            <View style={{ flexDirection: side ? 'column' : 'row', gap: space.sm, padding: space.xs }}>
+              <View style={{ backgroundColor: colors.contentBackground, borderRadius: radius.sm, padding: space.xs }}>
+                <Text variant="micro">New Tab</Text>
+              </View>
+              <Icon name="plus" size="small" />
+            </View>
+            <View style={{ flexGrow: 1, minHeight: geometry.switcherThumb, borderRadius: radius.card, backgroundColor: colors.startBackground,
+              alignItems: 'center', justifyContent: 'center', gap: space.sm }}>
+              <Image accessible={false} source={falcon} style={{ width: geometry.titlebar, height: geometry.titlebar, tintColor: colors.accent }} />
+              <View style={{ width: '65%', height: space.md, borderRadius: radius.pill, borderWidth: geometry.hairline, borderColor: colors.borderDefault }} />
+            </View>
           </View>
         </View>
-      </View>
-    </Panel>
+      </Panel>}
   </View>;
 }
 
-export function Welcome({ stage }: { stage: 'intro' | 'appearance' }) {
+function Heading({ title, children }: React.PropsWithChildren<{ title: string }>) {
+  return <View style={{ gap: space.md }}>
+    <Text variant="greeting" accessibilityRole="header" style={{ letterSpacing: guideArt.tracking }}>{title}</Text>
+    <Text variant="callout" tone="textSecondary">{children}</Text>
+  </View>;
+}
+
+function Choices({ page, onError }: { page: 'appearance' | 'workspace' | 'ready'; onError(): void }) {
   const actions = useActions();
-  const { appearance } = useSnapshot();
-  const { colors } = useTheme();
-  const [width, setWidth] = useState(useWindowDimensions().width);
-  const pending = useRef(false);
+  const { appearance, modal } = useSnapshot();
+  const { colors, dark } = useTheme();
+  if (page === 'ready') return <>
+    <Heading title="The browser is yours.">Open a tab and take it somewhere. These two shortcuts are a good place to start.</Heading>
+    {([['⌘ T', 'Open a new tab'], ['⌘ L', 'Search or enter an address']] as const).map(([key, label]) =>
+      <View key={key} style={{ flexDirection: 'row', gap: space.md, alignItems: 'center' }}><KeyCap>{key}</KeyCap><Text>{label}</Text></View>)}
+    <Text variant="caption">Find the field guide again in Help › Keyboard Tutorial.</Text>
+  </>;
+  if (page === 'appearance') return <>
+    <Heading title="Find your light.">Choose how Merlin looks. System follows your Mac from day to night.</Heading>
+    <Segmented label="Appearance" value={appearance.mode} options={modes}
+      onChange={mode => { void actions.setAppearance({ mode }).then(ok => { if (!ok) onError(); }); }} />
+  </>;
+  return <>
+    <Heading title="Settle in.">Choose where your tabs live and a colour for your workspace.</Heading>
+    <View style={{ gap: space.sm }}><Text variant="group">Tab placement</Text>
+      <Segmented label="Tab placement" value={modal.tabLayout === 'top' ? 'top' : 'side'} options={layouts}
+        onChange={value => { void actions.request('settings.set', { key: 'tabs', value }).catch(onError); }} />
+    </View>
+    <View style={{ gap: space.sm }}><Text variant="group">Workspace colour · {accentLabel(appearance.accent)}</Text>
+      <View accessibilityRole="radiogroup" accessibilityLabel="Workspace colour" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs }}>
+        {accents.map(name => {
+          const selected = appearance.accent === name;
+          return <Pressable key={name} accessibilityRole="radio" accessibilityLabel={accentLabel(name)} accessibilityState={{ selected }}
+            onPress={() => void actions.setAppearance({ accent: name }).then(ok => { if (!ok) onError(); })}
+            style={{ padding: space.hair, borderRadius: radius.pill, borderWidth: geometry.focusRing, borderColor: selected ? colors.accent : colors.fillTransparent }}>
+            <View style={{ width: geometry.iconLarge, height: geometry.iconLarge, borderRadius: radius.pill, backgroundColor: accentSwatch(dark ? 'dark' : 'light', name).fill }} />
+          </Pressable>;
+        })}
+      </View>
+    </View>
+  </>;
+}
+
+export function Welcome({ stage }: { stage: Stage }) {
+  const actions = useActions();
+  const snapshot = useSnapshot();
+  const { colors, dark, reduceMotion } = useTheme();
+  const [size, setSize] = useState({ width: 0, height: 0 });
   const [error, setError] = useState('');
+  const pending = useRef(false);
+  const exit = useRef(new Animated.Value(0)).current;
+  const onError = useCallback(() => setError('That change didn’t go through. Please try again.'), []);
   const advance = useCallback(async (next: Parameters<typeof actions.advanceWelcome>[0]) => {
     if (pending.current) return;
     pending.current = true;
-    const ok = await actions.advanceWelcome(next);
-    if (!ok) setError('Merlin couldn’t open that step. Try again or start browsing.');
-    pending.current = false;
-  }, [actions]);
+    setError('');
+    try {
+      if (next === 'browse' || next === 'import') await leaveGuide(exit, reduceMotion);
+      if (!await actions.advanceWelcome(next)) { exit.setValue(0); onError(); }
+    } finally { pending.current = false; }
+  }, [actions, exit, onError, reduceMotion]);
   const land = useCallback(() => { void advance('appearance'); }, [advance]);
-  if (stage === 'intro') return <Flight onLand={land} />;
-  const wide = width >= geometry.sheetWidth;
-  return <View style={{ flex: 1, backgroundColor: colors.windowBackground }} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
-    <DragRegion style={{ height: geometry.titlebar }} />
-    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: wide ? space.huge : space.lg }}>
-      <View style={{ width: '100%', maxWidth: geometry.sheetWidth + geometry.sidebar, alignSelf: 'center',
-        flexDirection: wide ? 'row' : 'column', gap: space.xxl }}>
-        <View style={{ flexGrow: 1, flexBasis: wide ? geometry.sidebar : 'auto', gap: space.xl }}>
-          <Text variant="display">Make Merlin yours</Text>
-          <View accessibilityRole="radiogroup" accessibilityLabel="Appearance" style={{ flexDirection: 'row', gap: space.sm }}>
-            {(['system', 'light', 'dark'] as const).map(mode => <ThemeChoice key={mode} mode={mode} accent={appearance.accent}
-              selected={appearance.mode === mode} onPress={() => void actions.setAppearance({ mode })} />)}
-          </View>
-          <View style={{ gap: space.md }}>
-            <Text variant="title">Workspace colour</Text>
-            <View accessibilityRole="radiogroup" accessibilityLabel="Workspace colour" style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: space.md }}>
-              {accents.map(name => <Swatch key={name} name={name} selected={name === appearance.accent}
-                onPress={() => void actions.setAppearance({ accent: name })} />)}
+  useEffect(() => {
+    if (stage === 'practice' && !snapshot.welcomeTabId) void advance('tutorial');
+  }, [stage, snapshot.welcomeTabId, advance]);
+  const { outgoing, direction, progress } = useGuideTurn(stage, stages, reduceMotion);
+  const compact = size.width < guideArt.compact;
+  const frameWidth = Math.min(guideArt.width, Math.max(0, size.width - (compact ? space.lg : space.huge * 2)));
+  const pageTurn = (page: Exclude<Stage, 'intro'>, leaving: boolean) => {
+    const shift = direction * frameWidth;
+    return <Animated.View key={page} pointerEvents={leaving ? 'none' : 'auto'} accessibilityElementsHidden={leaving}
+      style={[fill, { backgroundColor: colors.contentBackground, transform: [{ translateX: progress.interpolate({
+        inputRange: [0, 1], outputRange: leaving ? [0, -shift] : [shift, 0],
+      }) }] }]}>
+      {page === 'practice' ?
+        snapshot.welcomeTabId && snapshot.welcomeTabId === snapshot.activeTabId ? <PageArea /> :
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><Button label="Return to the lesson" onPress={() => void advance('tutorial')} /></View>
+        : <View style={{ flex: 1, flexDirection: compact ? 'column' : 'row' }}>
+          {(!compact || size.height >= geometry.sheetHeight) && <View style={compact ? { height: geometry.switcherThumb } : { flex: 0.94 }}>
+            <WindowPrint ready={page === 'ready'} />
+          </View>}
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center',
+            padding: compact ? space.xl : guideArt.inset, gap: space.xl }}>
+            <Choices page={page} onError={onError} />
+          </ScrollView>
+        </View>}
+    </Animated.View>;
+  };
+  const next = stage === 'appearance' ? 'workspace' : stage === 'workspace' ? 'tutorial' : 'browse';
+  return <View onLayout={e => { const { width, height } = e.nativeEvent.layout; setSize({ width, height }); }}
+    style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: guideArt.pine }}>
+    <Landscape dark={dark} distant />
+    <View pointerEvents="none" style={[fill, { backgroundColor: guideArt.shade }]} />
+    <DragRegion style={fill} />
+    {stage === 'intro' ? <View style={fill}><Flight onLand={land} /></View> :
+      <Animated.View style={{ width: frameWidth, height: Math.max(0, Math.min(guideArt.height, size.height - geometry.titlebar * 2)),
+        opacity: exit.interpolate({ inputRange: [0,1], outputRange: [1,0] }),
+        transform: [{ scale: exit.interpolate({ inputRange: [0,1], outputRange: [1, reduceMotion ? 1 : .97] }) }] }}>
+      <Panel fill="contentBackground" radius="panel" elevation="dialog" style={{ flex: 1 }}>
+        <View style={{ flex: 1, borderRadius: radius.panel, overflow: 'hidden' }}>
+          <View style={{ minHeight: geometry.paletteInput, paddingHorizontal: compact ? space.lg : space.xl,
+            flexDirection: 'row', gap: space.lg, alignItems: 'center', justifyContent: 'space-between',
+            borderBottomWidth: geometry.hairline, borderColor: colors.borderDefault }}>
+            <Image accessibilityLabel="Merlin" source={wordmark} resizeMode="contain" style={{ width: geometry.startFalcon, height: geometry.control, tintColor: colors.textPrimary }} />
+            <View accessibilityLabel={titles[stage]} style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+              {stages.slice(1).map(s => <View key={s} style={{ width: s === stage ? geometry.iconButton : geometry.dot,
+                height: geometry.dot, borderRadius: radius.pill, backgroundColor: stages.indexOf(s) <= stages.indexOf(stage) ? colors.accent : colors.borderDefault }} />)}
+              <Text variant="label">{titles[stage]}</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            <Button variant="primary" label="Try link hints" onPress={() => void advance('tutorial')} />
-            <Button label="Skip tutorial" onPress={() => void advance('browse')} />
+          <View style={{ flex: 1, overflow: 'hidden' }}>
+            {outgoing && outgoing !== 'intro' && outgoing !== stage && pageTurn(outgoing, true)}
+            {pageTurn(stage, false)}
           </View>
-          <View style={{ alignSelf: 'flex-start' }}><Button variant="ghost" label="Bring bookmarks over…" onPress={() => void advance('import')} /></View>
-          {!!error && <Text tone="textDanger">{error}</Text>}
+          {!!error && <Text align="center" tone="textDanger">{error}</Text>}
+          <View style={{ minHeight: geometry.paletteInput, paddingHorizontal: compact ? space.md : space.xl, paddingVertical: space.sm,
+            borderTopWidth: geometry.hairline, borderColor: colors.borderDefault, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            {stage === 'appearance' ? <Button variant="ghost" label="Skip setup" onPress={() => void advance('browse')} /> :
+              stage === 'ready' ? <Button variant="ghost" label="Import bookmarks…" onPress={() => void advance('import')} /> :
+              <Button variant="ghost" label="Back" icon="chevron.left" onPress={() => void advance(stage === 'workspace' ? 'appearance' : 'workspace')} />}
+            {stage === 'practice' ? <Button label="Skip practice" onPress={() => void advance('ready')} /> :
+              <Button variant="primary" size="large" trailingIcon="arrow.right" label={stage === 'appearance' ? 'Continue' : stage === 'workspace' ? 'Try the field guide' : 'Start browsing'}
+                onPress={() => void advance(next)} />}
+          </View>
         </View>
-        <View style={{ flexGrow: 1, flexBasis: wide ? geometry.sidebar : 'auto' }}><WindowPreview /></View>
-      </View>
-    </ScrollView>
+      </Panel></Animated.View>}
   </View>;
 }

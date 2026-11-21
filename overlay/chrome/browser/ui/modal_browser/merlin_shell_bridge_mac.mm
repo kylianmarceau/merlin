@@ -128,6 +128,10 @@ namespace shell = modal_browser::shell;
 std::string WindowId(BrowserWindowInterface* b) {
   return base::NumberToString(b->GetSessionID().id());
 }
+GURL TutorialURL() {
+  NSURL* resource = [NSBundle.mainBundle URLForResource:@"MerlinTutorial" withExtension:@"html"];
+  return resource ? GURL(resource.absoluteString.UTF8String) : GURL();
+}
 std::string TabId(tabs::TabInterface* tab) {
   return base::NumberToString(tab->GetHandle().raw_value());
 }
@@ -279,6 +283,13 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   }
   // Only the normal window presenting setup has a stage.
   std::string welcome;
+  std::string lesson_tab;
+  bool replaying_lesson = false;
+  void SetWelcome(std::string stage) {
+    welcome = std::move(stage);
+    if (!replaying_lesson)
+      browser_->GetProfile()->GetPrefs()->SetString("merlin.shell.onboarding", welcome.empty() ? "done" : welcome);
+  }
   std::deque<ShellPrompt> prompts;
   // What this window's interface last said about itself (shell.report): how
   // many times a root has shown its first snapshot, how many times its error
@@ -432,8 +443,8 @@ class Registry : public BrowserCollectionObserver {
       const bool already_showing = std::ranges::any_of(windows, [&](const auto& entry) {
         return entry.second->browser()->GetProfile() == profile && !entry.second->welcome.empty();
       });
-      if (!already_showing && saved == "appearance") {
-        state->welcome = "appearance";
+      if (!already_showing && (saved == "appearance" || saved == "workspace" || saved == "practice" || saved == "ready")) {
+        state->welcome = saved;
       } else if (saved.empty() && first_run::IsChromeFirstRun() && profile->IsNewProfile()) {
         state->welcome = "intro";
         // An interrupted launch resumes at the first choice without replaying the flight.
@@ -521,6 +532,14 @@ void WindowState::SampleEdgeSoon() {
       base::BindOnce(&WindowState::SampleEdge, base::Unretained(this)));
 }
 void WindowState::DidFinishNavigation(content::NavigationHandle* navigation) {
+  if (welcome == "practice" && navigation->HasCommitted() && navigation->IsInPrimaryMainFrame() &&
+      navigation->GetURL().ref() == "complete" && navigation->GetURL().GetWithoutRef() == TutorialURL()) {
+    auto* strip = browser_->GetTabStripModel();
+    if (strip->active_index() >= 0 && TabId(strip->GetTabAtIndex(strip->active_index())) == lesson_tab) {
+      SetWelcome("ready");
+      Changed();
+    }
+  }
   if (navigation->IsInPrimaryMainFrame() && !navigation->IsSameDocument() && navigation->HasCommitted())
     modal_browser::PageEdgeColor::PageChanged(web_contents());
   if (!navigation->IsInPrimaryMainFrame() || navigation->IsSameDocument() ||
@@ -697,7 +716,7 @@ Dict WindowState::Snapshot() {
   return Dict().Set("session", GetRegistry().session).Set("windowId", WindowId(browser_))
     .Set("revision", revision_).Set("private", browser_->GetProfile()->IsOffTheRecord())
     .Set("kind", browser_->GetType() == BrowserWindowInterface::TYPE_POPUP ? "popup" : "normal")
-    .Set("welcome", welcome)
+    .Set("welcome", welcome).Set("welcomeTabId", lesson_tab)
     .Set("extensionPopup", modal_browser::ShellExtensionPopupState(browser_))
     .Set("tabs", std::move(tabs)).Set("groups", modal_browser::GroupsSnapshot(strip))
     .Set("peek", modal_browser::MerlinPeekState(browser_))
@@ -837,24 +856,57 @@ char* Call(const char* window, const char* method, const char* json) {
     const auto* next = args->FindString("next");
     if (!next || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL)
       return Error("Setup needs a normal browser window");
-    if (*next == "appearance" && state->welcome == "intro") {
-      state->welcome = "appearance";
+    if (*next != "tutorial" && state->welcome.empty()) return Error("Setup has closed");
+    const GURL page = TutorialURL();
+    int lesson = FindTab(strip, &state->lesson_tab);
+    if (lesson >= 0 && strip->GetWebContentsAt(lesson)->GetVisibleURL().GetWithoutRef() != page)
+      lesson = -1;  // The user navigated away. Leave that tab alone.
+    if (lesson < 0 && page.is_valid() && state->lesson_tab.empty() &&
+        (state->welcome == "practice" || state->welcome == "ready")) {
+      // Reconnect to a lesson tab restored with an interrupted setup.
+      for (int i = 0; i < strip->count(); ++i) {
+        if (strip->GetWebContentsAt(i)->GetVisibleURL().GetWithoutRef() == page) {
+          lesson = i;
+          break;
+        }
+      }
+    }
+    if (*next == "tutorial") {
+      if (!page.is_valid()) return Error("The keyboard tutorial is missing from this build");
+      if (state->welcome.empty()) state->replaying_lesson = true;
+      if (lesson < 0) {
+        chrome::AddTabAt(browser, page, -1, true);
+        lesson = strip->active_index();
+        if (lesson < 0) return Error("The lesson could not open");
+      } else {
+        strip->ActivateTabAt(lesson);
+        if (state->welcome != "practice")
+          strip->GetWebContentsAt(lesson)->GetController().LoadURL(page, content::Referrer(), ui::PAGE_TRANSITION_TYPED, {});
+      }
+      state->lesson_tab = TabId(strip->GetTabAtIndex(lesson));
+      state->SetWelcome("practice");
+      if (strip->GetWebContentsAt(lesson)->GetVisibleURL().ref() == "complete")
+        state->SetWelcome("ready");
+    } else if (*next == "appearance" || *next == "workspace" || *next == "ready") {
+      state->SetWelcome(*next);
+    } else if (*next == "browse" || *next == "import") {
+      auto* lesson_contents = lesson >= 0 ? strip->GetWebContentsAt(lesson) : nullptr;
+      state->SetWelcome("");
+      state->lesson_tab.clear();
+      state->replaying_lesson = false;
+      if (*next == "import") chrome::AddTabAt(browser, GURL("chrome://settings/importData"), -1, true);
+      if (lesson >= 0) {
+        if (strip->count() == 1) chrome::AddTabAt(browser, GURL("about:blank"), -1, true);
+        // Adding a tab can change indexes (new-tabs-at-top).
+        for (int i = 0; i < strip->count(); ++i) {
+          if (strip->GetWebContentsAt(i) == lesson_contents) {
+            strip->CloseWebContentsAt(i, TabCloseTypes::CLOSE_NONE);
+            break;
+          }
+        }
+      }
     } else {
-      // Help can open the practice page in its own tab, including in private windows.
-      if (state->welcome.empty() && *next != "tutorial") return Error("Setup has closed");
-      if (*next == "tutorial") {
-        NSURL* page = [NSBundle.mainBundle URLForResource:@"MerlinTutorial" withExtension:@"html"];
-        if (!page) return Error("The keyboard tutorial is missing from this build");
-        chrome::AddTabAt(browser, GURL(page.absoluteString.UTF8String), -1, true);
-      } else if (*next == "import") {
-        chrome::AddTabAt(browser, GURL("chrome://settings/importData"), -1, true);
-      } else if (*next != "browse") {
-        return Error("Unknown setup action");
-      }
-      if (!state->welcome.empty()) {
-        browser->GetProfile()->GetPrefs()->SetString("merlin.shell.onboarding", "done");
-        state->welcome.clear();
-      }
+      return Error("Unknown setup action");
     }
     state->Changed();
     return Ok();

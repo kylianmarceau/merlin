@@ -2,32 +2,80 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'">
-<title>Link hints · Merlin</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' file:; style-src 'unsafe-inline'; base-uri 'none'">
+<title>The coast path · Merlin field guide</title>
 <style>
-  :root { color-scheme: light dark; --paper: #f5e9d7; --ink: #352822; --rust: #944027; --rule: #cebba6; }
-  @media (prefers-color-scheme: dark) { :root { --paper: #261f1c; --ink: #f5e9d7; --rust: #efac8e; --rule: #54453e; } }
+  :root { --paper: #faf5e9; --ink: #193d39; --soft: #48645c; --line: #c6cdc0; --sun: #f4ce90;
+    color: var(--ink); background: var(--paper); font: 15px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; display: grid; align-content: center; color: var(--ink); background: var(--paper);
-    font: 17px/1.55 -apple-system, BlinkMacSystemFont, sans-serif; }
-  main { width: min(100%, 60rem); margin: auto; padding: clamp(2rem, 7vw, 6rem); }
-  kbd { display: inline-block; min-width: 1.65em; padding: 0 .28em; text-align: center; border: 1px solid var(--rule);
-    border-bottom-width: 3px; border-radius: .3em; font: .9em/1.5 ui-monospace, monospace; }
-  h1 { max-width: 12ch; margin: .3em 0; font: 500 clamp(3rem, 7.5vw, 5.8rem)/.99 Georgia, serif; letter-spacing: -.06em; }
-  p { max-width: 38ch; }
-  header { color: var(--rust); font-weight: 600; }
-  a { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin-top: 2rem;
-    padding: .9em 0; border-block: 1px solid var(--rule); max-width: 24rem; text-decoration: none; color: var(--rust); font-weight: 600; }
-  a:hover { text-decoration: underline; }
-  a:focus-visible { outline: 3px solid currentColor; outline-offset: 5px; }
-  small { display: block; margin-top: 1rem; }
+  body, h1, h2, p, figure { margin: 0; }
+  main { overflow-x: clip; }
+  .marker { position: absolute; inset: 0 auto auto 0; }
+  .spread { min-height: 100svh; display: grid; grid-template-columns: minmax(0,.94fr) minmax(0,1fr); }
+  .art { position: relative; min-height: 170px; background: #64877b url('MerlinCoast.jpg') center / cover; }
+  .art::after { content: ''; position: absolute; inset: 55% 0 0; background: linear-gradient(transparent, #163933a8); }
+  figcaption { position: absolute; z-index: 1; bottom: 24px; left: 28px; color: #fffae9; font: italic 20px Georgia, serif; }
+  article { display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+    padding: clamp(24px, 4.5vw, 56px); gap: 14px; }
+  h1, h2 { font: 400 clamp(36px, 5.3vw, 59px)/1.02 Georgia, serif; letter-spacing: -.055em; max-width: 14ch; text-wrap: balance; }
+  p { max-width: 37ch; color: var(--soft); }
+  .chapter { font: 600 11px/1.35 -apple-system, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--soft); }
+  kbd { display: inline-block; padding: 0 .36em; border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 5px; font: 600 .88em/1.5 ui-monospace, monospace; color: var(--ink); }
+  a { display: inline-flex; align-items: center; gap: 1.4em; margin-top: 4px; padding: 10px 16px;
+    border-radius: 30px; background: var(--ink); color: #fff9eb; text-decoration: none; font-weight: 600; }
+  a:hover { background: #30564d; }
+  a:focus-visible { outline: 3px solid #c1703a; outline-offset: 4px; }
+  .walk { display: none; }
+  body:has(#lookout:target, #summit:target, #complete:target) .trailhead { display: none; }
+  body:has(#lookout:target, #summit:target, #complete:target) .walk { display: block; animation: turn .46s cubic-bezier(.16,1,.3,1) both; }
+  .walk .art { background-size: auto 115%; background-position: 68% 46%; }
+  .summit { min-height: 90svh; display: grid; place-items: center; padding: 32px; text-align: center;
+    background: linear-gradient(#102f2e99, #102f2ecc), url('MerlinCoast.jpg') center 70% / cover; color: #fff4dc; }
+  .summit article { max-width: 42ch; align-items: center; padding: 0; }
+  .summit p { color: #fff4dc; }
+  .summit a { background: var(--sun); color: var(--ink); }
+  @keyframes turn { from { transform: translateX(16%); opacity: .15; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .walk { animation-duration: 0s !important; } }
+  @media (max-width: 620px) {
+    .spread { grid-template-columns: 1fr; grid-template-rows: minmax(80px, 24svh) 1fr; }
+    .art { min-height: 0; } figcaption { bottom: 10px; left: 20px; font-size: 16px; }
+    article { padding: 20px; gap: 10px; }
+  }
 </style>
+<body>
+<span class="marker" id="lookout"></span>
 <main>
-  <header>Merlin · Keyboard tutorial</header>
-  <h1>Follow a link.</h1>
-  <p>Press <kbd>f</kbd> to label the link below. Type the letters on its yellow hint to open your new tab.</p>
-  <a href="about:blank" target="_blank" rel="noopener">Open a new tab <span aria-hidden="true">↗</span></a>
-  <small>You can also click the link. Press <kbd>Esc</kbd> to dismiss hints.</small>
+  <section class="spread trailhead">
+    <figure class="art"><figcaption>The coast path</figcaption></figure>
+    <article>
+      <p class="chapter">Link hints · 1 of 2</p>
+      <h1>Follow the coast path.</h1>
+      <p>Press <kbd>f</kbd> to reveal a yellow label on the link. Type the letter you see to follow it.</p>
+      <a href="#lookout">Take the path <span aria-hidden="true">→</span></a>
+      <p><small>You can also click the link.</small></p>
+    </article>
+  </section>
+  <div class="walk">
+    <section class="spread">
+      <figure class="art"><figcaption>Along the ridge</figcaption></figure>
+      <article>
+        <p class="chapter">Page movement · 2 of 2</p>
+        <h1>Link followed.</h1>
+        <p>The lookout is at the bottom of this page. Hold <kbd>Shift</kbd> and press <kbd>G</kbd> to jump there. On long pages, <kbd>j</kbd> and <kbd>k</kbd> scroll in smaller steps.</p>
+        <a href="#summit">Jump to the lookout <span aria-hidden="true">↓</span></a>
+      </article>
+    </section>
+    <section class="summit" id="summit">
+      <article>
+        <p class="chapter">The lookout</p>
+        <h2>You made it.</h2>
+        <p>You followed a link and crossed a page. Both shortcuts work as you browse.</p>
+        <a href="#complete">Finish practice <span aria-hidden="true">→</span></a>
+        <span id="complete"></span>
+      </article>
+    </section>
+  </div>
 </main>
+</body>
 </html>

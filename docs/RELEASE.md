@@ -258,12 +258,14 @@ There is no need to disable Gatekeeper globally. If the exception is
 unavailable or the app still fails to launch, report the exact message,
 macOS version and release version.
 
-On a fresh profile, Merlin opens a skippable falcon intro followed by the
-appearance picker. **Try link hints** opens an offline practice page. Press
-`f` and type the displayed label, or click the link, to open a new tab.
-**Skip tutorial** opens the browser immediately. **Bring bookmarks over…**
-opens the importer. Setup resumes at appearance if you quit before finishing.
-Returning users can open the lesson from **Help › Keyboard Tutorial**.
+On a fresh profile, a skippable falcon flight introduces a short setup.
+Choose a light, dark or system appearance, then your tab placement and
+workspace colour. In the offline field guide, press `f` and type the
+displayed hint to follow the path. Press `Shift-G` to reach the lookout.
+Both exercises also support a mouse. **Finish practice** leads to the
+finish screen, where **Start browsing** returns to your tabs and **Import
+bookmarks…** opens the importer. Interrupted setup resumes at its saved
+step. **Help › Keyboard Tutorial** reopens the guide.
 
 To update, quit Merlin, download the newer GitHub release and replace the
 app in Applications. Keep the existing profile and configuration folders.
