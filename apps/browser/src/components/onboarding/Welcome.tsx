@@ -99,7 +99,8 @@ function Choices({ page, onError }: { page: Exclude<Page, 'practice'>; onError()
 export function Welcome({ stage }: { stage: Stage }) {
   const actions = useActions();
   const snapshot = useSnapshot();
-  const { colors, reduceMotion } = useTheme();
+  const { colors, dark, reduceMotion } = useTheme();
+  const canvas = dark ? colors.contentBackground : guideArt.paper;
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [error, setError] = useState('');
   const [replay, setReplay] = useState(false);
@@ -135,7 +136,7 @@ export function Welcome({ stage }: { stage: Stage }) {
   const content = (page: Page, leaving: boolean) => {
     const travel = (compact ? width : width * .42) * direction;
     return <Animated.View key={page} accessibilityElementsHidden={leaving} pointerEvents={leaving ? 'none' : 'auto'}
-      style={[fill, { backgroundColor: colors.contentBackground,
+      style={[fill, { backgroundColor: canvas,
         opacity: leaving ? cue(progress, 0, .7, 1, 0) : cue(progress, 0, .65),
         transform: [{ translateX: leaving ? cue(progress, 0, 1, 0, -travel * .45) : cue(progress, 0, 1, fromIntro ? 0 : travel * .64, 0) }] }]}>
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}
@@ -146,7 +147,7 @@ export function Welcome({ stage }: { stage: Stage }) {
   };
   const intro = current === 'intro';
   return <View onLayout={e => { const { width, height } = e.nativeEvent.layout; setSize({ width, height }); }}
-    style={{ flex: 1, backgroundColor: colors.contentBackground, justifyContent: 'center', alignItems: 'center' }}>
+    style={{ flex: 1, backgroundColor: canvas, justifyContent: 'center', alignItems: 'center' }}>
     <DragRegion style={fill} />
     {(intro || fromIntro) && !reduceMotion && <Animated.View accessibilityElementsHidden={!intro} pointerEvents={intro ? 'auto' : 'none'}
       style={[fill, { opacity: intro ? 1 : cue(progress, 0, .9, 1, 0) }]}>

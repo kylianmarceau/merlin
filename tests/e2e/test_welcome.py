@@ -58,7 +58,7 @@ class WelcomeTests(unittest.TestCase):
         before = len(browser.tabs())
         self.advance(browser, "tutorial")
         self.lesson(browser)
-        for filename in ("MerlinCoast.jpg", "MerlinNight.jpg"):
+        for filename in ("MerlinDawn.jpg", "MerlinNight.jpg"):
             with self.subTest(artwork=filename):
                 self.assertTrue(browser.eval(f"""new Promise(resolve => {{
                   const image = new Image();

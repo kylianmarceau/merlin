@@ -32,7 +32,7 @@ export function WorkspacePreview({ compact }: { compact: boolean }) {
   return <View accessible accessibilityLabel="Live preview of Merlin with your appearance, tab placement and colour"
     style={{ flex: 1, overflow: 'hidden', borderRadius: radius.panel, alignItems: 'center', justifyContent: 'center',
       backgroundColor: dark ? guideArt.charcoal : guideArt.paper }}>
-    <View style={[fill, { opacity: dark ? .38 : .57 }]}><Scenery night={night} /></View>
+    <View style={[fill, { opacity: dark ? .75 : .81 }]}><Scenery night={night} /></View>
     <Panel radius="window" fill="contentBackground" elevation="dialog" style={{ width: compact ? '74%' : '86%', maxWidth: guideArt.preview }}>
       <View style={{ height: compact ? geometry.switcherThumb : guideArt.browserHeight, overflow: 'hidden',
         borderRadius: radius.window, backgroundColor: colors.accentSoft, padding: space.sm }}>
