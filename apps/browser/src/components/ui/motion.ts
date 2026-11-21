@@ -736,21 +736,6 @@ export function useNudge(count: number, reduce: boolean) {
   return value;
 }
 
-/** Timeline for the opening prints, flight and letterpress reveal. */
-export function useWelcomeFlight(reduced: boolean) {
-  const time = useRef(new Animated.Value(reduced ? 1 : 0)).current;
-  useEffect(() => {
-    if (reduced) {
-      time.setValue(1);
-      return;
-    }
-    const flight = Animated.timing(time, { toValue: 1, duration: 2500, easing: curve.linear, useNativeDriver: true });
-    flight.start();
-    return () => flight.stop();
-  }, [reduced, time]);
-  return time;
-}
-
 /** Retarget the preview in place, even if the user changes their choice mid-transition. */
 export function useGuideSelection(on: boolean, reduced: boolean) {
   const value = useRef(new Animated.Value(on ? 1 : 0)).current;

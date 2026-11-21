@@ -12,13 +12,9 @@ export const space = { none: 0, hair: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 24, x
 export type Space = keyof typeof space;
 
 export const guideArt = {
-  pine: '#183C39', ivory: '#FFF5DC',
-  paper: '#FAF7F0', charcoal: '#142323', mount: '#FFFBF2', printInk: '#203D37',
-  mountLine: '#D6D1C3', nightInk: '#DFE8E2',
-  width: 952, height: 542, compact: 730, preview: 330, tracking: -1.7,
-  printWidth: 268, printHeight: 164, miniPrintHeight: 42, frame: 6,
-  logotypeSize: 67, logotypeLine: 78, titleSize: 43, titleLine: 49,
-  tabWidth: 76, tabHeight: 20, browserHeight: 194,
+  paper: '#FAF7F0', charcoal: '#142323',
+  width: 970, height: 560, compact: 730, preview: 390, tracking: -1.1,
+  tabWidth: 84, tabHeight: 22, browserHeight: 238,
 } as const;
 
 export const radius = {

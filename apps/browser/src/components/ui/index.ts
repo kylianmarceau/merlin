@@ -27,7 +27,7 @@ export { Dialog } from './Dialog';
 export { Sheet, SheetBody, useSheetScroll, type SheetSection } from './Sheet';
 export { AreaLight, Badge, EmptyState, Equaliser, IconTile, LoadingBar, Notice, ProgressRing, ProgressTrack, Spinner } from './Feedback';
 export { FormGroup, FormHighlight, FormRow, SectionHeader, useLit } from './Form';
-export { ContextMenu, DragRegion, FileDragArea, FullScreenWatch, tick, type WindowFacts } from './Native';
+export { ContextMenu, DragRegion, WelcomeFilm, FileDragArea, FullScreenWatch, tick, type WindowFacts } from './Native';
 export { accessibilityPress, useInteraction } from './interaction';
 export { useEscape } from './keys';
 export { Fade } from './Fade';

@@ -44,3 +44,5 @@ export function FileDragArea({ path, children, style }: React.PropsWithChildren<
 export function tick(kind: HapticKind = 'alignment') {
   haptic(kind);
 }
+
+export { WelcomeFilm } from '../../platform/shell';

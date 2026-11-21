@@ -276,3 +276,10 @@ private enum ShellTrace {
     file.write(data)
   }
 }
+
+public final class MerlinShellWelcomeFilmModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellWelcomeFilm")
+    View(MerlinWelcomeFilm.self) { Events("onFinished") }
+  }
+}

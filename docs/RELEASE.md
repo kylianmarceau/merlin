@@ -258,8 +258,9 @@ There is no need to disable Gatekeeper globally. If the exception is
 unavailable or the app still fails to launch, report the exact message,
 macOS version and release version.
 
-On a fresh profile, coastal prints fan open and a falcon flies across them.
-Choose **Get started** at any point in the opening sequence.
+A fresh profile opens at sunrise over a coastal meadow and moves directly
+into setup. **Skip intro** jumps to appearance, and **Replay intro** on
+that screen plays the film again. Reduce Motion takes you straight to setup.
 Choose a light, dark or system appearance, then your tab placement and
 workspace colour. In the offline field guide, press `f` and type the
 displayed hint to follow the path. Press `Shift-G` to reach the lookout.

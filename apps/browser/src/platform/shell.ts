@@ -4,6 +4,6 @@
 export {
   Symbol, VisualEffect, Surface, Glass as GlassPlate, PopoverBubble, WindowState, isLiquidGlass, fileIcon, isDefaultBrowser,
   makeDefaultBrowser, loginItem, setLoginItem, setThinScrollBars, installQuitGuard, setBookmarksMenuHidden, tidyMenuBar, appIcons, appIcon, setAppIcon,
-  onPreferenceChanged, haptic, imageTone, setMenuState, onMenuCommand, type HapticKind, type IconTone, type WindowStateEvent, copyText, releaseVersion, trace, traceEnabled, chooseSaveFile, type PopoverBubbleProps, type FullScreenEvent, type LoginItemStatus, type AppIconChoice, WindowDragRegion, WindowAppearance, OutsidePress, ContextMenuArea, FileDrag, ProgressRing, Fade, Gradient, showMenu, preference, setPreference,
+  onPreferenceChanged, haptic, imageTone, setMenuState, onMenuCommand, type HapticKind, type IconTone, type WindowStateEvent, copyText, releaseVersion, trace, traceEnabled, chooseSaveFile, type PopoverBubbleProps, type FullScreenEvent, type LoginItemStatus, type AppIconChoice, WelcomeFilm, WindowDragRegion, WindowAppearance, OutsidePress, ContextMenuArea, FileDrag, ProgressRing, Fade, Gradient, showMenu, preference, setPreference,
   type GradientProps, type SymbolName, type SymbolProps, type VisualEffectProps, type SurfaceProps, type OutsidePressEvent, type MenuItem,
 } from '@merlin/shell';
