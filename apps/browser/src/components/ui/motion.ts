@@ -736,7 +736,7 @@ export function useNudge(count: number, reduce: boolean) {
   return value;
 }
 
-/** One timeline keeps the falcon's landing and wordmark reveal in sync. */
+/** Timeline for the opening prints, flight and letterpress reveal. */
 export function useWelcomeFlight(reduced: boolean) {
   const time = useRef(new Animated.Value(reduced ? 1 : 0)).current;
   useEffect(() => {
@@ -744,11 +744,24 @@ export function useWelcomeFlight(reduced: boolean) {
       time.setValue(1);
       return;
     }
-    const flight = Animated.timing(time, { toValue: 1, duration: 3200, easing: curve.linear, useNativeDriver: true });
+    const flight = Animated.timing(time, { toValue: 1, duration: 2500, easing: curve.linear, useNativeDriver: true });
     flight.start();
     return () => flight.stop();
   }, [reduced, time]);
   return time;
+}
+
+/** Retarget the preview in place, even if the user changes their choice mid-transition. */
+export function useGuideSelection(on: boolean, reduced: boolean) {
+  const value = useRef(new Animated.Value(on ? 1 : 0)).current;
+  useLayoutEffect(() => {
+    if (reduced) { value.setValue(on ? 1 : 0); return; }
+    const run = Animated.timing(value, { toValue: on ? 1 : 0, duration: 580,
+      easing: curve.slide, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
+  }, [on, reduced, value]);
+  return value;
 }
 
 /** Keep both cards during a page turn. Going back reverses their travel. */
@@ -768,7 +781,7 @@ export function useGuideTurn<T extends string>(page: T, pages: readonly T[], red
     direction.current = pages.indexOf(page) >= pages.indexOf(old) ? 1 : -1;
     setOutgoing(old);
     progress.setValue(0);
-    const run = Animated.timing(progress, { toValue: 1, duration: 460, easing: curve.slide, useNativeDriver: true });
+    const run = Animated.timing(progress, { toValue: 1, duration: 620, easing: curve.slide, useNativeDriver: true });
     run.start(({ finished }) => { if (finished) setOutgoing(null); });
     return () => run.stop();
   }, [page, pages, progress, reduce]);

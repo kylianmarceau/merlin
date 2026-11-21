@@ -258,8 +258,8 @@ There is no need to disable Gatekeeper globally. If the exception is
 unavailable or the app still fails to launch, report the exact message,
 macOS version and release version.
 
-On a fresh profile, a falcon flies over the coast. Choose **Get started**
-when you’re ready, including during the flight.
+On a fresh profile, coastal prints fan open and a falcon flies across them.
+Choose **Get started** at any point in the opening sequence.
 Choose a light, dark or system appearance, then your tab placement and
 workspace colour. In the offline field guide, press `f` and type the
 displayed hint to follow the path. Press `Shift-G` to reach the lookout.
