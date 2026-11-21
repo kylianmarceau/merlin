@@ -1,0 +1,10 @@
+--- a/chrome/browser/prefs/browser_prefs.cc
++++ b/chrome/browser/prefs/browser_prefs.cc
+@@ -1997,6 +1997,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
+   registry->RegisterDictionaryPref("merlin.shell.appearance");
+   // Merlin: video floats when its tab is left (merlin_auto_pip.h).
+   registry->RegisterBooleanPref("merlin.auto_pip", true);
++  registry->RegisterStringPref("merlin.shell.onboarding", "");
+ #endif
+   // User prefs. Please keep this list alphabetized.
+   AccessibilityLabelsService::RegisterProfilePrefs(registry);

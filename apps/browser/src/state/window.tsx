@@ -208,6 +208,7 @@ export function useViewMenu() {
         case 'tabs.side': case 'tabs.top':
           void actions.request('settings.set', { key: 'tabs', value: id === 'tabs.top' ? 'top' : 'side' }).catch(() => undefined);
           break;
+        case 'tutorial': void actions.advanceWelcome('tutorial'); break;
         case 'tabs.hide': void actions.command('sidebar'); break;
         case 'split': {
           if (!active) break;

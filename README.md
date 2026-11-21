@@ -68,6 +68,11 @@ Security**, click **Open Anyway** next to the message about Merlin, then
 **Open**. You only do this once per download, and there is no need to turn
 off Gatekeeper.
 
+On the first launch, the falcon lands and you can choose your appearance
+and workspace colour. Choose **Try link hints** to practise on a local page,
+**Skip tutorial** to start browsing, or **Bring bookmarks over…** to import.
+You can return to the lesson from **Help › Keyboard Tutorial**.
+
 ### Updating
 
 Merlin doesn't update itself. Quit it, then:

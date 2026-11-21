@@ -29,6 +29,12 @@ Groups > Add User), on the newest macOS. macOS version: ______
 - [ ] Quit and relaunch: no approval asked again.
 - [ ] Finder's Get Info on Merlin.app shows version {{VERSION}}.
 
+- [ ] On a fresh profile, check the intro, Skip intro, and the static Reduce
+  Motion version. Choose a colour and appearance and check the preview.
+- [ ] Quit during setup and reopen. **Try link hints**, press `f`, and type the
+  displayed label to open a new tab. Reopen Merlin and replay the lesson
+  from **Help › Keyboard Tutorial**. Confirm setup stays dismissed.
+
 ## 2. Replacing the previous version
 
 On an account with the previous release installed and used: a saved

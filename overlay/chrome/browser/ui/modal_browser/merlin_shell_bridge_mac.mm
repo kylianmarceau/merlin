@@ -33,6 +33,8 @@
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
+#include "chrome/browser/first_run/first_run.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/sessions/exit_type_service.h"
@@ -275,6 +277,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
           FROM_HERE, base::BindOnce(std::move(prompt.reply), modal_browser::ShellPromptReply()));
     }
   }
+  // Only the normal window presenting setup has a stage.
+  std::string welcome;
   std::deque<ShellPrompt> prompts;
   // What this window's interface last said about itself (shell.report): how
   // many times a root has shown its first snapshot, how many times its error
@@ -418,8 +422,25 @@ class Registry : public BrowserCollectionObserver {
     });
   }
   void OnBrowserCreated(BrowserWindowInterface* b) override {
-    if (ShellWindowType(b))
-      windows.try_emplace(WindowId(b), std::make_unique<WindowState>(b));
+    if (!ShellWindowType(b) || windows.contains(WindowId(b))) return;
+    auto state = std::make_unique<WindowState>(b);
+    auto* profile = b->GetProfile();
+    if (b->GetType() == BrowserWindowInterface::TYPE_NORMAL && !profile->IsOffTheRecord() &&
+        !base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kNoFirstRun)) {
+      auto* prefs = profile->GetPrefs();
+      const auto& saved = prefs->GetString("merlin.shell.onboarding");
+      const bool already_showing = std::ranges::any_of(windows, [&](const auto& entry) {
+        return entry.second->browser()->GetProfile() == profile && !entry.second->welcome.empty();
+      });
+      if (!already_showing && saved == "appearance") {
+        state->welcome = "appearance";
+      } else if (saved.empty() && first_run::IsChromeFirstRun() && profile->IsNewProfile()) {
+        state->welcome = "intro";
+        // An interrupted launch resumes at the first choice without replaying the flight.
+        prefs->SetString("merlin.shell.onboarding", "appearance");
+      }
+    }
+    windows.emplace(WindowId(b), std::move(state));
   }
   void OnBrowserClosed(BrowserWindowInterface* b) override { windows.erase(WindowId(b)); }
   void Emit(Dict event) {
@@ -676,6 +697,7 @@ Dict WindowState::Snapshot() {
   return Dict().Set("session", GetRegistry().session).Set("windowId", WindowId(browser_))
     .Set("revision", revision_).Set("private", browser_->GetProfile()->IsOffTheRecord())
     .Set("kind", browser_->GetType() == BrowserWindowInterface::TYPE_POPUP ? "popup" : "normal")
+    .Set("welcome", welcome)
     .Set("extensionPopup", modal_browser::ShellExtensionPopupState(browser_))
     .Set("tabs", std::move(tabs)).Set("groups", modal_browser::GroupsSnapshot(strip))
     .Set("peek", modal_browser::MerlinPeekState(browser_))
@@ -811,6 +833,32 @@ char* Call(const char* window, const char* method, const char* json) {
   auto* browser = state->browser();
   auto* strip = browser->GetTabStripModel();
   if (name == shell::method::kWindowSnapshot) return Ok(base::Value(state->Snapshot()));
+  if (name == shell::method::kWelcomeAdvance) {
+    const auto* next = args->FindString("next");
+    if (!next || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL)
+      return Error("Setup needs a normal browser window");
+    if (*next == "appearance" && state->welcome == "intro") {
+      state->welcome = "appearance";
+    } else {
+      // Help can open the practice page in its own tab, including in private windows.
+      if (state->welcome.empty() && *next != "tutorial") return Error("Setup has closed");
+      if (*next == "tutorial") {
+        NSURL* page = [NSBundle.mainBundle URLForResource:@"MerlinTutorial" withExtension:@"html"];
+        if (!page) return Error("The keyboard tutorial is missing from this build");
+        chrome::AddTabAt(browser, GURL(page.absoluteString.UTF8String), -1, true);
+      } else if (*next == "import") {
+        chrome::AddTabAt(browser, GURL("chrome://settings/importData"), -1, true);
+      } else if (*next != "browse") {
+        return Error("Unknown setup action");
+      }
+      if (!state->welcome.empty()) {
+        browser->GetProfile()->GetPrefs()->SetString("merlin.shell.onboarding", "done");
+        state->welcome.clear();
+      }
+    }
+    state->Changed();
+    return Ok();
+  }
   if (name == shell::method::kShellReport) {
     // The interface showed its first snapshot, or its error boundary caught
     // a failure. Logged, so a report or a crash log has it.

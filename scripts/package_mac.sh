@@ -126,6 +126,7 @@ fi
 # the current Mac Stable release, which carries the security fixes
 # (scripts/check_upstream.py). MERLIN_ALLOW_STALE_CHROMIUM=1 packages anyway
 # and says so in build-info.txt and at the top of the release notes.
+command -v dmgbuild >/dev/null || die "install dmgbuild for the Finder installer layout (docs/RELEASE.md)"
 echo "==> Chromium security check"
 engine_pin="$(mktemp "${TMPDIR:-/tmp}/merlin-engine-pin.XXXXXX")"
 git show "$engine_commit:UPSTREAM_PIN" > "$engine_pin" 2>/dev/null || cp UPSTREAM_PIN "$engine_pin"
@@ -274,7 +275,6 @@ for name, digest in json.load(open(sys.argv[1]))["lockfiles"].items(): print(f" 
 } > "$dist/build-info.txt"
 
 echo "==> disk image"
-ln -s /Applications "$stage/Applications"
 cp "$ROOT/LICENSE" "$stage/LICENSE.txt"
 cp "$ROOT/NOTICE" "$stage/NOTICE.txt"
 cp "$BUILD/credits.html" "$stage/Third-party notices.html"
@@ -300,8 +300,9 @@ https://github.com/kylianmarceau/merlin/blob/main/docs/RELEASE.md
 EOF
 dmg="$dist/$name.dmg"
 rm -f "$dmg"
-hdiutil create -volname "Merlin $VERSION" -srcfolder "$stage" -format UDZO \
-  -imagekey zlib-level=9 -ov "$dmg" >/dev/null
+art="$ROOT/branding/onboarding/installer"
+dmgbuild -s "$art/layout.py" -D stage="$stage" -D background="$art/background.png" \
+  "Merlin" "$dmg"
 (cd "$dist" && shasum -a 256 "$name.dmg" > "$name.dmg.sha256")
 
 # The install test's checklist, to fill in for this release (docs/RELEASE.md).

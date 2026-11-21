@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { Box, Text, ThemeScope } from './components/ui';
+import { Welcome } from './components/onboarding/Welcome';
 import { BrowserWindow } from './components/window/BrowserWindow';
 import { FailForTest, InterfaceBoundary } from './components/window/InterfaceBoundary';
 import { PopupWindow } from './components/window/PopupWindow';
@@ -33,7 +34,7 @@ function Window({ windowId }: { windowId: string }) {
   return <ThemeScope appearance={snapshot?.appearance ?? fallbackAppearance} glass={glass}>
     {actions && snapshot ? <WindowProvider store={store} actions={actions}>
       <FailForTest />
-      {snapshot.kind === 'popup' ? <PopupWindow /> : <BrowserWindow />}
+      {snapshot.kind === 'popup' ? <PopupWindow /> : snapshot.welcome ? <Welcome stage={snapshot.welcome} /> : <BrowserWindow />}
     </WindowProvider> : <Startup error={error} />}
   </ThemeScope>;
 }

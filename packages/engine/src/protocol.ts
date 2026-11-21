@@ -130,6 +130,7 @@ export type Snapshot = {
   session: string; windowId: string; revision: number; private: boolean;
   /** A pop-up a page opened shows only its page and address. */
   kind?: 'normal' | 'popup';
+  welcome?: '' | 'intro' | 'appearance';
   extensionPopup?: ExtensionPopup | null;
   tabs: Tab[]; activeTabId: string | null;
   /** The window's tab groups in strip order. Absent from older engines. */
@@ -212,6 +213,7 @@ export type Calls = {
   'permissions.answer': { args: { promptId: string; actionId: string; text?: string; secret?: string; suppress?: boolean }; result: null };
   'prompts.update': { args: { promptId: string; text: string }; result: null };
   'appearance.set': { args: Appearance; result: null };
+  'welcome.advance': { args: { next: 'appearance' | 'tutorial' | 'browse' | 'import' }; result: null };
   'modal.command': { args: { text: string }; result: null };
   'modal.palette.text': { args: { text: string }; result: null };
   'modal.palette.key': { args: { key: PaletteKey }; result: null };
@@ -437,6 +439,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
       !s.modal || ![s.modal.mode, s.modal.pending, s.modal.message].every(x => typeof x === 'string')) {
     throw new Error('Invalid browser snapshot');
   }
+  if (s.welcome !== undefined && !['', 'intro', 'appearance'].includes(s.welcome)) throw new Error('Invalid welcome stage');
   if (s.find !== undefined && (!s.find || typeof s.find.visible !== 'boolean' || typeof s.find.text !== 'string' ||
       ![s.find.matches, s.find.ordinal, s.find.focus].every(x => Number.isSafeInteger(x) && x >= 0))) throw new Error('Invalid find state');
   const palette = s.modal.palette;

@@ -103,7 +103,8 @@ Custody:
 4. Smoke-test the assembled app: it opens, pages and video play,
    hints, the palette, splits and workspaces work, an extension installs,
    and it quits and relaunches cleanly.
-5. Package:
+5. Install the Finder image builder once with `pipx install dmgbuild==1.6.5`,
+   then package the app.
 
    ```bash
    MERLIN_APP="$PWD/apps/browser/build/assembled/Merlin.app" \
@@ -256,6 +257,13 @@ Apple documents this per-app exception in
 There is no need to disable Gatekeeper globally. If the exception is
 unavailable or the app still fails to launch, report the exact message,
 macOS version and release version.
+
+On a fresh profile, Merlin opens a skippable falcon intro followed by the
+appearance picker. **Try link hints** opens an offline practice page. Press
+`f` and type the displayed label, or click the link, to open a new tab.
+**Skip tutorial** opens the browser immediately. **Bring bookmarks over…**
+opens the importer. Setup resumes at appearance if you quit before finishing.
+Returning users can open the lesson from **Help › Keyboard Tutorial**.
 
 To update, quit Merlin, download the newer GitHub release and replace the
 app in Applications. Keep the existing profile and configuration folders.

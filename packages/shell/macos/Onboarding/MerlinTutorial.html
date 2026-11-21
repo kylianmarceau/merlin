@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'">
+<title>Link hints · Merlin</title>
+<style>
+  :root { color-scheme: light dark; --paper: #f5e9d7; --ink: #352822; --rust: #944027; --rule: #cebba6; }
+  @media (prefers-color-scheme: dark) { :root { --paper: #261f1c; --ink: #f5e9d7; --rust: #efac8e; --rule: #54453e; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; align-content: center; color: var(--ink); background: var(--paper);
+    font: 17px/1.55 -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { width: min(100%, 60rem); margin: auto; padding: clamp(2rem, 7vw, 6rem); }
+  kbd { display: inline-block; min-width: 1.65em; padding: 0 .28em; text-align: center; border: 1px solid var(--rule);
+    border-bottom-width: 3px; border-radius: .3em; font: .9em/1.5 ui-monospace, monospace; }
+  h1 { max-width: 12ch; margin: .3em 0; font: 500 clamp(3rem, 7.5vw, 5.8rem)/.99 Georgia, serif; letter-spacing: -.06em; }
+  p { max-width: 38ch; }
+  header { color: var(--rust); font-weight: 600; }
+  a { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin-top: 2rem;
+    padding: .9em 0; border-block: 1px solid var(--rule); max-width: 24rem; text-decoration: none; color: var(--rust); font-weight: 600; }
+  a:hover { text-decoration: underline; }
+  a:focus-visible { outline: 3px solid currentColor; outline-offset: 5px; }
+  small { display: block; margin-top: 1rem; }
+</style>
+<main>
+  <header>Merlin · Keyboard tutorial</header>
+  <h1>Follow a link.</h1>
+  <p>Press <kbd>f</kbd> to label the link below. Type the letters on its yellow hint to open your new tab.</p>
+  <a href="about:blank" target="_blank" rel="noopener">Open a new tab <span aria-hidden="true">↗</span></a>
+  <small>You can also click the link. Press <kbd>Esc</kbd> to dismiss hints.</small>
+</main>
+</html>

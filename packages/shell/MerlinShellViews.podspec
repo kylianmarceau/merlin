@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
   s.source_files = 'macos/**/*.swift'
   # The alternate app icons (AppIcons.swift), copied flat into the app's Resources.
-  s.resources = 'macos/AppIcons/*.png'
+  s.resources = 'macos/AppIcons/*.png', 'macos/Onboarding/MerlinTutorial.html'
   s.dependency 'ExpoModulesCore'
   s.frameworks = 'AppKit', 'SwiftUI', 'ServiceManagement', 'UniformTypeIdentifiers'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
