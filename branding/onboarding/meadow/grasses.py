@@ -271,8 +271,6 @@ class Meadow:
                 self.stems.append(stem)
         self.stems.sort(key=lambda stem: stem.y)
 
-    def paint(self, t):
-        image = self.plate.copy()
+    def draw(self, image, t):
         for stem in self.stems:
             stem.draw(image, t)
-        return image

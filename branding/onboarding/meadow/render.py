@@ -10,6 +10,7 @@ import imageio_ffmpeg
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from coast import Coast
 from grasses import Meadow
 from score import write_score
 
@@ -77,9 +78,8 @@ def brush_map(rng, shape):
     return cv2.GaussianBlur(marks, (3, 3), .6)
 
 
-def painted_sun(image, u, v, tooth, t):
+def painted_sun(image, u, v, tooth, rise):
     """Short concentric ochre strokes give the solar disc its own paint surface."""
-    rise = ease((t - SUNRISE) / 3.9)
     sx, sy = .76 - .048 * rise, .64 - .31 * rise
     dx, dy = (u - sx) * W / H, v - sy
     distance = np.sqrt(dx * dx + dy * dy)
@@ -98,11 +98,6 @@ def painted_sun(image, u, v, tooth, t):
     straw = np.array([255, 231, 132], np.float32)
     pigment_color = amber + (straw - amber) * pigment[..., None]
     image += (pigment_color - image) * disc[..., None]
-    reflection = np.exp(-((u - sx + .005 * np.sin(97 * v + t)) /
-                          (.018 + .16 * np.maximum(v - .58, 0))) ** 2)
-    shimmer = np.maximum(0, np.sin(520 * v + 2.3 * t + 1.9 * tooth + np.sin(25 * u))) ** 5
-    water = np.clip((v - .583) * 90, 0, 1) * np.clip((.745 - v) * 80, 0, 1)
-    image += (np.array([255, 229, 156], np.float32) - image) * (water * reflection * shimmer * rise * .73)[..., None]
 
 
 def brand_mask():
@@ -130,6 +125,7 @@ def render(soundtrack, output, poster):
     # Neighbouring strokes pick up the sun at slightly different moments.
     tooth = marks * .65 + relief * .60
     meadow = Meadow(base)
+    coast = Coast(base)
     light_arrival = .8 + 1.65 * (1 - u) + 1.25 * v + .24 * tooth + .14 * np.sin(u * 21 + v * 13)
     wash_order = .55 * (1 - u) + .45 * v + .15 * tooth
     paper = np.array([249, 246, 235], np.float32) + relief[..., None] * 1.7
@@ -142,7 +138,10 @@ def render(soundtrack, output, poster):
     try:
         for frame in range(round(SECONDS * FPS)):
             t = frame / FPS
-            image = meadow.paint(t).astype('float32')
+            rise = ease((t - SUNRISE) / 3.9)
+            image = coast.paint(meadow.plate, t, rise)
+            meadow.draw(image, t)
+            image = image.astype('float32')
             # A violet underpainting shows through first. Warm colour returns in
             # patches following the dry marks across sky, cliff, sea and meadow.
             value = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)[..., None]
@@ -150,7 +149,7 @@ def render(soundtrack, output, poster):
             underpaint += np.array([18, 9, 31], np.float32)
             light = ease((t - light_arrival) / 1.35)[..., None]
             image = underpaint + (image - underpaint) * light
-            painted_sun(image, u, v, tooth, t)
+            painted_sun(image, u, v, tooth, rise)
             image = np.clip(image, 0, 255).astype('uint8')
             draw_falcon(image, t)
             image = image.astype('float32')
