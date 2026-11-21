@@ -24,10 +24,10 @@ function Landscape({ dark = false, distant = false }: { dark?: boolean; distant?
   </View>;
 }
 
-function Flight({ onLand }: { onLand(): void }) {
+function Flight({ onStart }: { onStart(): void }) {
   const { dark, reduceMotion } = useTheme();
   const [width, setWidth] = useState(0);
-  const t = useWelcomeFlight(reduceMotion, onLand);
+  const t = useWelcomeFlight(reduceMotion);
   return <View style={{ flex: 1, overflow: 'hidden', backgroundColor: guideArt.pine }} onLayout={e => setWidth(e.nativeEvent.layout.width)}>
     <Animated.View style={[fill, { transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [1.11, 1] }) }] }]}>
       <Landscape dark={dark} />
@@ -38,13 +38,17 @@ function Flight({ onLand }: { onLand(): void }) {
       transform: [{ translateX: t.interpolate({ inputRange: [0, .48, .8, 1], outputRange: [-width * .63, -width * .17, 0, width * .035] }) },
         { translateY: t.interpolate({ inputRange: [0, .48, .8, 1], outputRange: [geometry.switcherThumb, -space.xl, 0, -space.xs] }) },
         { rotate: t.interpolate({ inputRange: [0, .5, 1], outputRange: ['-14deg', '-4deg', '4deg'] }) }] }} />
-    <Animated.View pointerEvents="none" style={{ position: 'absolute', left: '8%', bottom: '12%',
+    <Animated.View style={{ position: 'absolute', left: '8%', bottom: '12%', alignItems: 'flex-start',
       opacity: t.interpolate({ inputRange: [0, .3, .63, 1], outputRange: [0, 0, 1, 1] }) }}>
       <Text variant="greeting" style={{ color: guideArt.ivory }}>Welcome to</Text>
       <Image source={wordmark} accessibilityLabel="Merlin" resizeMode="contain"
         style={{ width: geometry.sidebar, height: geometry.paletteInput, tintColor: guideArt.ivory }} />
+      <Pressable accessibilityRole="button" accessibilityLabel="Get started" onPress={onStart}
+        style={({ pressed }) => ({ marginTop: space.xl, minHeight: geometry.rowTall, justifyContent: 'center',
+          paddingHorizontal: space.xl, borderRadius: radius.pill, backgroundColor: guideArt.ivory, opacity: pressed ? .84 : 1 })}>
+        <Text weight="semibold" style={{ color: guideArt.pine }}>Get started　→</Text>
+      </Pressable>
     </Animated.View>
-    <View style={{ position: 'absolute', right: space.xl, bottom: space.xl }}><Button label="Skip intro" onPress={onLand} /></View>
   </View>;
 }
 
@@ -141,7 +145,7 @@ export function Welcome({ stage }: { stage: Stage }) {
       if (!await actions.advanceWelcome(next)) { exit.setValue(0); onError(); }
     } finally { pending.current = false; }
   }, [actions, exit, onError, reduceMotion]);
-  const land = useCallback(() => { void advance('appearance'); }, [advance]);
+  const start = useCallback(() => { void advance('appearance'); }, [advance]);
   useEffect(() => {
     if (stage === 'practice' && !snapshot.welcomeTabId) void advance('tutorial');
   }, [stage, snapshot.welcomeTabId, advance]);
@@ -174,7 +178,7 @@ export function Welcome({ stage }: { stage: Stage }) {
     <Landscape dark={dark} distant />
     <View pointerEvents="none" style={[fill, { backgroundColor: guideArt.shade }]} />
     <DragRegion style={fill} />
-    {stage === 'intro' ? <View style={fill}><Flight onLand={land} /></View> :
+    {stage === 'intro' ? <View style={fill}><Flight onStart={start} /></View> :
       <Animated.View style={{ width: frameWidth, height: Math.max(0, Math.min(guideArt.height, size.height - geometry.titlebar * 2)),
         opacity: exit.interpolate({ inputRange: [0,1], outputRange: [1,0] }),
         transform: [{ scale: exit.interpolate({ inputRange: [0,1], outputRange: [1, reduceMotion ? 1 : .97] }) }] }}>

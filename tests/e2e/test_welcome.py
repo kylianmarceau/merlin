@@ -43,6 +43,8 @@ class WelcomeTests(unittest.TestCase):
 
     def test_keyboard_path_finishes_explicitly_and_keeps_choices(self):
         browser = self.launch()
+        self.stage(browser, "intro")
+        self.advance(browser, "appearance")
         self.stage(browser, "appearance")
         appearance = dict(browser.snapshot()["appearance"], mode="dark", accent="ocean")
         self.assertTrue(browser.shell_call("appearance.set", appearance)["ok"])

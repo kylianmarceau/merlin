@@ -736,19 +736,18 @@ export function useNudge(count: number, reduce: boolean) {
   return value;
 }
 
-/** One timeline keeps the falcon's landing, wordmark reveal and handoff in sync. */
-export function useWelcomeFlight(reduced: boolean, onLand: () => void) {
+/** One timeline keeps the falcon's landing and wordmark reveal in sync. */
+export function useWelcomeFlight(reduced: boolean) {
   const time = useRef(new Animated.Value(reduced ? 1 : 0)).current;
   useEffect(() => {
     if (reduced) {
       time.setValue(1);
-      const hold = setTimeout(onLand, 1000);
-      return () => clearTimeout(hold);
+      return;
     }
     const flight = Animated.timing(time, { toValue: 1, duration: 3200, easing: curve.linear, useNativeDriver: true });
-    flight.start(({ finished }) => { if (finished) onLand(); });
+    flight.start();
     return () => flight.stop();
-  }, [reduced, time, onLand]);
+  }, [reduced, time]);
   return time;
 }
 

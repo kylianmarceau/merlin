@@ -29,7 +29,7 @@ Groups > Add User), on the newest macOS. macOS version: ______
 - [ ] Quit and relaunch: no approval asked again.
 - [ ] Finder's Get Info on Merlin.app shows version {{VERSION}}.
 
-- [ ] Check the falcon intro, Skip intro and Reduce Motion. Go forward and
+- [ ] Check the falcon intro, Get started and Reduce Motion. Go forward and
   back through appearance and workspace, and verify the live tab and colour preview.
 - [ ] Quit partway and reopen at the saved step. Follow a real hint, jump to
   the lookout with Shift-G and choose Finish practice. Confirm the finish
