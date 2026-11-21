@@ -14,9 +14,9 @@ text_size = 12
 icon_locations = {
     "Merlin.app": (192, 205),
     "Applications": (528, 205),
-    "Read me first.txt": (80, 373),
-    "LICENSE.txt": (220, 373),
-    "NOTICE.txt": (360, 373),
-    "Third-party notices.html": (500, 373),
-    "Build info.txt": (640, 373),
+    "Read me first.txt": (80, 355),
+    "LICENSE.txt": (220, 355),
+    "NOTICE.txt": (360, 355),
+    "Third-party notices.html": (500, 355),
+    "Build info.txt": (640, 355),
 }
