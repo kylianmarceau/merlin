@@ -125,14 +125,13 @@ class Sky:
 
 
 class Constellation:
-    """One set of closed master contours drives the chart, stars and wet ink."""
+    """A stationary star chart cross-dissolves into the registered falcon."""
 
-    SCALE = 4
-    TILE = 248
+    TILE = 128
+    WIDTH = 103
+    TITLE_ROWS = slice(305, 475)
 
-    def __init__(self):
-        # The same source used by the new-tab glyph already separates out the
-        # terminal prompt. Its even-odd contours include the eye and wing cuts.
+    def __init__(self, sky_mask):
         paths = []
         for command, coordinates in parse_polygon(start_page_path("falcon")):
             if command == "M":
@@ -140,71 +139,21 @@ class Constellation:
             if coordinates:
                 path.append(coordinates)
             if command == "Z":
-                paths.append(np.array(path + path[:1], dtype="float32"))
+                paths.append(np.array(path, dtype="float32"))
         points = np.concatenate(paths)
         centre = (points.max(0) + points.min(0)) / 2
-        factor = 103 / np.ptp(points[:, 0])
-        self.paths = sorted(
-            ((p - centre) * factor for p in paths),
-            key=lambda p: cv2.arcLength(p, True),
-            reverse=True,
-        )
-        self.lengths = [
-            np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(p, axis=0), axis=1))] for p in self.paths
-        ]
-        # Only put stars on turns in an actual contour. Wide spacing at the
-        # chart scale keeps the negative spaces between feathers legible.
-        self.knots = []
-        self.guides = []
-        for path, arc in zip(self.paths, self.lengths):
-            corners = cv2.approxPolyDP(path, 1.8, True).reshape(-1, 2)
-            # Draw a straight chord between feather tips first. Each chord
-            # unfolds along its source arc as the stars settle into the mark.
-            indices = sorted(
-                {
-                    0,
-                    len(path) - 1,
-                    *(int(np.argmin(np.linalg.norm(path - v, axis=1))) for v in corners),
-                }
-            )
-            self.guides.append(
-                np.column_stack(
-                    [np.interp(arc, arc[indices], path[indices, axis]) for axis in (0, 1)]
-                )
-            )
-            for vertex in corners:
-                if all(np.linalg.norm(vertex - p) > 7.0 for p in self.knots):
-                    self.knots.append(vertex)
-        start_x, start_y = (W - self.TILE) // 2, round(0.267 * H) - self.TILE // 2
-        self.final_mask = self.silhouette(1)
-        self.bounds = np.s_[start_y : start_y + self.TILE, start_x : start_x + self.TILE]
-        mask = Image.new("L", (W, 170))
-        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Baskerville.ttc", 132)
-        ImageDraw.Draw(mask).text((W / 2, 85), "Merlin", font=font, fill=255, anchor="mm")
-        self.text = np.asarray(mask, dtype="float32") / 255
-        self.tx = np.linspace(0, 1, W, dtype="float32")[None, :]
-
-    def silhouette(self, zoom):
-        # Rasterise only the small bird bounds. Sixteen samples across a
-        # pixel preserve the narrow clearances between individual feathers.
+        factor = self.WIDTH / np.ptp(points[:, 0])
+        # Both layers are drawn about precisely the same centre. Supersample
+        # the even-odd fill to keep the eye and narrow feather gaps open.
         scale = 16
-        pad = math.ceil(53 * zoom) + 1
-        mask = np.zeros((2 * pad * scale, 2 * pad * scale), np.uint8)
-        paths = [np.rint(((p * zoom + pad) * scale - 0.5) * 16).astype("int32") for p in self.paths]
-        cv2.fillPoly(mask, paths, 255, shift=4)
-        alpha = np.zeros((self.TILE, self.TILE), np.float32)
-        box = slice(self.TILE // 2 - pad, self.TILE // 2 + pad)
-        alpha[box, box] = cv2.resize(mask, (2 * pad, 2 * pad), interpolation=cv2.INTER_AREA) / 255
-        return alpha
-
-    def bird(self, area, t, opacity):
-        if t <= 0.32 or opacity <= 0:
-            return
-        zoom = 1 + 0.84 * (1 - ease((t - 1.34) / 1.37))
-        scale = self.SCALE
-
-        def project(p):
-            return np.rint((p * zoom + self.TILE / 2) * scale).astype("int32")
+        half = self.TILE // 2
+        shape = (self.TILE * scale, self.TILE * scale)
+        contours = [
+            np.rint((((p - centre) * factor + half) * scale - 0.5) * 16).astype("int32")
+            for p in paths
+        ]
+        ink = np.zeros(shape, np.uint8)
+        cv2.fillPoly(ink, contours, 255, shift=4)
 
         def coverage(mask):
             return (
@@ -214,52 +163,69 @@ class Constellation:
                 / 255
             )
 
-        settle = ease((t - 1.72) / 1.02)
-        if settle > 0:
-            silhouette = self.final_mask if zoom == 1 else self.silhouette(zoom)
-            # Ink catches the quill tips before it travels across the beak.
-            x = (np.arange(self.TILE) - self.TILE / 2) / (103 * zoom) + 0.5
-            ink = silhouette * ease((settle * 1.6 - 0.52 * x) / 0.98)
-            area += (np.float32([253, 241, 214]) - area) * (ink * opacity)[..., None]
-
-        if t >= 2.78:
-            return
-        trace = np.zeros((self.TILE * scale, self.TILE * scale), np.uint8)
-        lights = np.zeros_like(trace)
-        refine = ease((t - 1.30) / 0.72)
-        for i, (contour, guide, arc) in enumerate(zip(self.paths, self.guides, self.lengths)):
-            path = guide + (contour - guide) * refine
-            amount = ease((t - 0.42 - 0.052 * i) / (0.94 if i < 2 else 0.67))
-            if amount <= 0:
-                continue
-            stop = amount * arc[-1]
-            j = np.searchsorted(arc, stop, side="left").clip(1, len(arc) - 1)
-            mix = (stop - arc[j - 1]) / (arc[j] - arc[j - 1])
-            tip = path[j - 1] + mix * (path[j] - path[j - 1])
-            cv2.polylines(trace, [project(np.vstack((path[:j], tip)))], False, 255, scale)
-            if amount < 1:
-                cv2.circle(lights, tuple(project(tip)), 2 * scale, 255, -1)
-        for i, p in enumerate(self.knots):
-            bloom = ease((t - 0.32 - 0.027 * i) / 0.25)
-            if bloom > 0:
-                cv2.circle(
-                    lights,
-                    tuple(project(p)),
-                    round(scale * (1.2 if i % 4 else 1.85)),
-                    round(255 * bloom),
-                    -1,
-                )
-        remaining = (1 - ease((t - 1.97) / 0.81)) * opacity
-        area += (np.float32([200, 219, 212]) - area) * (coverage(trace) * remaining * 0.95)[
-            ..., None
+        self.falcon = coverage(ink)
+        self.bounds = np.s_[
+            round(0.267 * H) - half : round(0.267 * H) + half, W // 2 - half : W // 2 + half
         ]
-        cores = coverage(lights)
-        shine = cores + 0.65 * cv2.GaussianBlur(cores, (0, 0), 1.5)
-        area += (np.float32([255, 231, 178]) - area) * (shine.clip(0, 1) * remaining)[..., None]
+
+        # A sky chart follows a handful of anatomical landmarks, with open
+        # branches at the shoulder and wrist. Units are pixels from the centre
+        # of the 103px master falcon. Each star lands inside a feather or body.
+        stars = [
+            (-44, -41, 2.45),
+            (1, -27, 1.55),
+            (22, 0, 2.15),
+            (36, -10, 1.40),
+            (49, 1, 1.65),
+            (3, 13, 1.55),
+            (-45, 33, 2.05),
+            (-31, -16, 1.60),
+        ]
+        edges = [(0, 1), (1, 2), (2, 3), (3, 4), (2, 5), (5, 6), (1, 7)]
+        centres = [tuple((np.array([x, y]) + half) * scale) for x, y, _ in stars]
+        strokes = np.zeros(shape, np.uint8)
+        for a, b in edges:
+            cv2.line(strokes, centres[a], centres[b], 255, round(0.78 * scale))
+        self.links = coverage(strokes)
+        self.lights = []
+        for centre, (_, _, radius) in zip(centres, stars):
+            strokes.fill(0)
+            cv2.circle(strokes, centre, round(radius * scale), 255, -1)
+            core = coverage(strokes)
+            self.lights.append(np.clip(core + 0.75 * cv2.GaussianBlur(core, (0, 0), 1.7), 0, 1))
+        mask = Image.new("L", (W, 170))
+        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Baskerville.ttc", 132)
+        ImageDraw.Draw(mask).text((W / 2, 85), "Merlin", font=font, fill=255, anchor="mm")
+        # Only the left foot of the M intersects this ridge in the typeset title.
+        self.text = np.asarray(mask, dtype="float32") / 255 * sky_mask[self.TITLE_ROWS]
+        self.tx = np.linspace(0, 1, W, dtype="float32")[None, :]
+
+    def bird(self, area, t, opacity):
+        if t <= 0.32 or opacity <= 0:
+            return
+        settle = ease((t - 1.82) / 0.85)
+        ink = np.float32([253, 241, 214])
+        if settle == 1:
+            area += (ink - area) * (self.falcon * opacity)[..., None]
+            return
+        # Fade the links as a group; the chart holds still for a beat before
+        # the same-size filled bird appears. Mix the two poses against the same
+        # background, so neither the stars nor the outline move during the fade.
+        chart = area.copy()
+        chart += (np.float32([179, 200, 216]) - area) * (
+            self.links * 0.83 * ease((t - 0.64) / 0.56)
+        )[..., None]
+        light = sum(
+            mask * ease((t - 0.32 - 0.053 * i) / 0.34) for i, mask in enumerate(self.lights)
+        )
+        chart += (np.float32([255, 236, 199]) - chart) * light.clip(0, 1)[..., None]
+        area += opacity * (
+            (1 - settle) * (chart - area) + settle * (ink - area) * self.falcon[..., None]
+        )
 
     def paint(self, image, t, opacity):
         self.bird(image[self.bounds], t, opacity)
-        lettering = image[305:475]
+        lettering = image[self.TITLE_ROWS]
         reveal = ease((t - 2.14 - (self.tx - 0.37) * 2.7) / 0.74)
         lettering += (np.float32([253, 241, 214]) - lettering) * (self.text * reveal * opacity)[
             ..., None
@@ -320,7 +286,8 @@ def score(path):
 def render():
     base = painting(HERE / "fjord.jpg")
     day = painting(ASSETS / "MerlinAlpenglow.jpg").astype("float32")
-    sky, fjord, stars = Sky(base), Fjord(base), Constellation()
+    sky, fjord = Sky(base), Fjord(base)
+    stars = Constellation(sky.sky)
     # The day painting is revealed from the high right-hand peaks across
     # the water, as the last bell fades into the appearance question.
     front = 0.30 * (1 - sky.col / W) + 0.38 * sky.row / H + 0.043 * sky.tooth
