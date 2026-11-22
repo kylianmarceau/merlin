@@ -1,7 +1,13 @@
-Merlin 0.5.7, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.8, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.8
+
+* **A new first launch.** Watch a short film set in a Norwegian fjord under the northern lights, then choose your appearance, tab placement and workspace colour. You can mute, skip or replay the film. Merlin skips it automatically when Reduce Motion is on.
+* **An interactive keyboard tutorial.** Practise following a link hint and jumping down the page in an offline field guide. Both exercises also work with a mouse. Setup resumes where you left off, and Help › Keyboard Tutorial reopens the guide anytime.
+* **Clearer installer layout.** The document labels in the disk image stay above the Finder scrollbar.
 
 ## What's new in 0.5.7
 
