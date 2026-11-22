@@ -2,7 +2,6 @@
 
 import math
 import sys
-import wave
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -12,6 +11,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from fjord import Fjord, skyline
+from score import write_score
 
 
 HERE = Path(__file__).resolve().parent
@@ -232,68 +232,17 @@ class Constellation:
         ]
 
 
-def score(path):
-    """An original glass-and-strings cue, with each star entering on a bell."""
-    rate = 48000
-    time = np.arange(round(DURATION * rate)) / rate
-    stereo = np.zeros((len(time), 2))
-    envelope = np.sin(math.pi * time / DURATION) ** 1.55
-    for i, base in enumerate([110, 164.81, 246.94]):
-        for channel in range(2):
-            hz = base * (1 + channel * 0.0013)
-            stereo[:, channel] += (
-                (0.022 / (1 + i))
-                * envelope
-                * (
-                    np.sin(2 * math.pi * hz * time + 0.28 * np.sin(2.3 * time + i))
-                    + 0.32 * np.sin(4 * math.pi * hz * time)
-                )
-            )
-    for start, hz, pan, gain in [
-        (0.4, 329.63, -0.25, 0.095),
-        (1.04, 493.88, 0.21, 0.075),
-        (1.89, 659.25, -0.16, 0.065),
-        (2.65, 554.37, 0.18, 0.081),
-        (4.26, 369.99, 0, 0.062),
-    ]:
-        dt = time[time >= start] - start
-        bell = (
-            np.sin(2 * math.pi * hz * dt)
-            + 0.29 * np.sin(2 * math.pi * 2.71 * hz * dt) * np.exp(-2 * dt)
-            + 0.15 * np.sin(2 * math.pi * 4.14 * hz * dt) * np.exp(-4 * dt)
-        )
-        signal = bell * gain * (1 - np.exp(-dt / 0.018)) * np.exp(-dt / 1.35)
-        stereo[-len(dt) :] += signal[:, None] * np.sqrt([(1 - pan) / 2, (1 + pan) / 2])
-    # Low water against the hull, heard under the existing glass cue.
-    rng = np.random.default_rng(630)
-    frequencies = np.fft.rfftfreq(len(time), 1 / rate)
-    for channel in range(2):
-        noise = np.fft.rfft(rng.normal(size=len(time)))
-        band = (1 - np.exp(-((frequencies / 270) ** 2))) / (1 + (frequencies / 1700) ** 3)
-        lap = np.fft.irfft(noise * band, n=len(time))
-        wash = (0.5 + 0.5 * np.sin(2.05 * time + 0.5 * channel + 0.28 * np.sin(3 * time))) ** 3
-        stereo[:, channel] += 0.0048 * envelope * (0.2 + wash) * lap / np.std(lap)
-    dry = stereo.copy()
-    for delay, gain in [(0.13, 0.17), (0.243, 0.1), (0.385, 0.062)]:
-        n = round(delay * rate)
-        stereo[n:] += dry[:-n, ::-1] * gain
-    stereo *= (1.62 * ease((DURATION - time) / 0.9))[:, None]
-    with wave.open(str(path), "wb") as out:
-        out.setparams((2, 2, rate, 0, "NONE", "not compressed"))
-        out.writeframes((np.clip(stereo, -1, 1) * 32767).astype("<i2").tobytes())
-
-
 def render():
     base = painting(HERE / "fjord.jpg")
     day = painting(ASSETS / "MerlinAlpenglow.jpg").astype("float32")
     sky, fjord = Sky(base), Fjord(base)
     stars = Constellation(sky.sky)
     # The day painting is revealed from the high right-hand peaks across
-    # the water, as the last bell fades into the appearance question.
+    # the water, as the chord fades into the appearance question.
     front = 0.30 * (1 - sky.col / W) + 0.38 * sky.row / H + 0.043 * sky.tooth
     with TemporaryDirectory() as directory:
         folder = Path(directory)
-        score(folder / "night.wav")
+        write_score(folder / "night.wav", DURATION)
         writer = imageio_ffmpeg.write_frames(
             str(folder / "night.mp4"),
             (W, H),
