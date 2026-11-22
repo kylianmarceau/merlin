@@ -28,7 +28,7 @@ FALCON_INK = FALCON.attrib["fill"]
 FILL_RULE = FALCON.attrib["fill-rule"]
 
 
-def _parse_polygon(path: str) -> list[tuple[str, list[float]]]:
+def parse_polygon(path: str) -> list[tuple[str, list[float]]]:
     """Read the source's absolute move, line and close commands."""
     commands = []
     for command, coordinates in re.findall(r"([A-Za-z])([^A-Za-z]*)", path):
@@ -39,7 +39,7 @@ def _parse_polygon(path: str) -> list[tuple[str, list[float]]]:
     return commands
 
 
-CONTOURS = _parse_polygon(FALCON_PATH)
+CONTOURS = parse_polygon(FALCON_PATH)
 X, Y = zip(*(values for _, values in CONTOURS if values))
 BOX = (min(X), min(Y), max(X), max(Y))
 
@@ -125,14 +125,18 @@ def mono_svg(size: int = 22, color: str = "#000000") -> str:
             f'{glyph(0, 0, size, color, frac=0.95)}</svg>\n')
 
 
-def start_page_svg(part: str, color: str) -> str:
+def start_page_path(part: str) -> str:
     """Separate the two prompt strokes from the falcon for the new tab page."""
     shapes = re.findall(r"M[^M]+", FALCON_PATH)
     prompt_starts = ("M609 602L", "M672 674L")
     if sum(shape.startswith(prompt_starts) for shape in shapes) != 2:
         raise ValueError("Cannot locate the terminal prompt in merlin-pixel.svg")
-    path = "".join(shape for shape in shapes if shape.startswith(prompt_starts) == (part == "prompt"))
-    points = [xy for _, xy in _parse_polygon(path) if xy]
+    return "".join(shape for shape in shapes if shape.startswith(prompt_starts) == (part == "prompt"))
+
+
+def start_page_svg(part: str, color: str) -> str:
+    path = start_page_path(part)
+    points = [xy for _, xy in parse_polygon(path) if xy]
     xs, ys = zip(*points)
     side = max(max(xs) - min(xs), max(ys) - min(ys))
     left = (min(xs) + max(xs) - side) / 2
