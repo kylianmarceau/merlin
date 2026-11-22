@@ -759,6 +759,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     updatePromptText: (promptId: string, text: string) => engine.call('prompts.update', { promptId, text }),
 
     // Settings that live in the snapshot.
+    advanceWelcome: (next: Calls['welcome.advance']['args']['next']) => run('welcome.advance', { next }),
     setAppearance(patch: Partial<Appearance>) {
       const current = store.getState().snapshot?.appearance;
       return current ? run('appearance.set', { ...current, ...patch }) : Promise.resolve(false);

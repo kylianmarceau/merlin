@@ -68,6 +68,12 @@ Security**, click **Open Anyway** next to the message about Merlin, then
 **Open**. You only do this once per download, and there is no need to turn
 off Gatekeeper.
 
+On first launch, Merlin flies over the coast, then lets you choose its
+appearance, tab placement and workspace colour. The optional field guide
+takes you along the coast path using real link hints and page movement.
+Choose **Start browsing** or **Import bookmarks…** on the finish screen.
+Replay the guide from **Help › Keyboard Tutorial**.
+
 ### Updating
 
 Merlin doesn't update itself. Quit it, then:

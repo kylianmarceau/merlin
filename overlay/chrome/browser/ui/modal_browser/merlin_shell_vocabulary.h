@@ -51,6 +51,7 @@ inline constexpr char kDownloadsOpenFolder[] = "downloads.openFolder";
 inline constexpr char kPermissionsAnswer[] = "permissions.answer";
 inline constexpr char kPromptsUpdate[] = "prompts.update";
 inline constexpr char kAppearanceSet[] = "appearance.set";
+inline constexpr char kWelcomeAdvance[] = "welcome.advance";
 inline constexpr char kModalCommand[] = "modal.command";
 inline constexpr char kModalPaletteText[] = "modal.palette.text";
 inline constexpr char kModalPaletteKey[] = "modal.palette.key";
@@ -97,7 +98,7 @@ inline constexpr char kPrivacyClearData[] = "privacy.clearData";
 // nativeOnly
 inline constexpr char kApplicationWindows[] = "application.windows";
 inline constexpr char kTestShell[] = "test.shell";
-inline constexpr std::array<std::string_view, 54> kCalls = {
+inline constexpr std::array<std::string_view, 55> kCalls = {
     kWindowSnapshot,
     kFindQuery,
     kFindClose,
@@ -135,6 +136,7 @@ inline constexpr std::array<std::string_view, 54> kCalls = {
     kPermissionsAnswer,
     kPromptsUpdate,
     kAppearanceSet,
+    kWelcomeAdvance,
     kModalCommand,
     kModalPaletteText,
     kModalPaletteKey,

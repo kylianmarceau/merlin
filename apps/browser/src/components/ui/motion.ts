@@ -1,6 +1,6 @@
 // Every timing, curve and spring the shell animates with. This is the only
 // file allowed to use Easing or a numeric duration (see conventions.test.ts).
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, LayoutAnimation } from 'react-native';
 
 export const duration = {
@@ -734,4 +734,49 @@ export function useNudge(count: number, reduce: boolean) {
     return () => { run.stop(); value.setValue(1); };
   }, [count, reduce, value]);
   return value;
+}
+
+/** Retarget the preview in place, even if the user changes their choice mid-transition. */
+export function useGuideSelection(on: boolean, reduced: boolean) {
+  const value = useRef(new Animated.Value(on ? 1 : 0)).current;
+  useLayoutEffect(() => {
+    if (reduced) { value.setValue(on ? 1 : 0); return; }
+    const run = Animated.timing(value, { toValue: on ? 1 : 0, duration: 580,
+      easing: curve.slide, useNativeDriver: true });
+    run.start();
+    return () => run.stop();
+  }, [on, reduced, value]);
+  return value;
+}
+
+/** Keep both cards during a page turn. Going back reverses their travel. */
+export function useGuideTurn<T extends string>(page: T, pages: readonly T[], reduce: boolean) {
+  const [outgoing, setOutgoing] = useState<T | null>(null);
+  const previous = useRef(page);
+  const direction = useRef(1);
+  const progress = useRef(new Animated.Value(1)).current;
+  useLayoutEffect(() => {
+    const old = previous.current;
+    previous.current = page;
+    if (old === page || reduce) {
+      progress.setValue(1);
+      setOutgoing(null);
+      return;
+    }
+    direction.current = pages.indexOf(page) >= pages.indexOf(old) ? 1 : -1;
+    setOutgoing(old);
+    progress.setValue(0);
+    const run = Animated.timing(progress, { toValue: 1, duration: 620, easing: curve.slide, useNativeDriver: true });
+    run.start(({ finished }) => { if (finished) setOutgoing(null); });
+    return () => run.stop();
+  }, [page, pages, progress, reduce]);
+  return { outgoing, direction: direction.current, progress };
+}
+
+/** Let the last card recede into the landscape before its browser window takes over. */
+export function leaveGuide(value: Animated.Value, reduced: boolean) {
+  return new Promise<void>(resolve => {
+    Animated.timing(value, { toValue: 1, duration: reduced ? 0 : duration.slow,
+      easing: curve.exit, useNativeDriver: true }).start(() => resolve());
+  });
 }

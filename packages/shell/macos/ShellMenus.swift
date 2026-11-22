@@ -28,6 +28,13 @@ final class MerlinMenus: NSObject, NSMenuItemValidation {
         [weak self] _ in self?.install()
       }
     }
+    if let help = NSApp.helpMenu ?? NSApp.mainMenu?.items.first(where: { $0.title == "Help" })?.submenu,
+       !help.items.contains(where: { ($0.representedObject as? String) == "\(Self.marker).tutorial" }) {
+      let item = NSMenuItem(title: "Keyboard Tutorial", action: #selector(choose(_:)), keyEquivalent: "")
+      item.target = self
+      item.representedObject = "\(Self.marker).tutorial"
+      help.addItem(item)
+    }
     guard let view = Self.viewMenu() else { return }
     if view.items.contains(where: { ($0.representedObject as? String)?.hasPrefix(Self.marker) == true }) { refresh(view); return }
     var index = 0

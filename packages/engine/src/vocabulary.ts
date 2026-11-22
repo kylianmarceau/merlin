@@ -38,6 +38,7 @@ export const callMethods = [
   'permissions.answer',
   'prompts.update',
   'appearance.set',
+  'welcome.advance',
   'modal.command',
   'modal.palette.text',
   'modal.palette.key',

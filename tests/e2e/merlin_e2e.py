@@ -777,7 +777,8 @@ class Merlin:
 
     def __init__(self, server: PageServer, extra_args: Optional[list[str]] = None,
                  shell_api: bool = True, local_state: Optional[dict] = None,
-                 extra_env: Optional[dict] = None, preferences: Optional[dict] = None) -> None:
+                 extra_env: Optional[dict] = None, preferences: Optional[dict] = None,
+                 first_run: bool = False, existing_profile: bool = False) -> None:
         self.server = server
         self.app = app_path()
         self.dir = Path(tempfile.mkdtemp(prefix="merlin-e2e-"))
@@ -804,11 +805,13 @@ class Merlin:
         # Browser-wide preferences a test class starts with (MerlinTestCase.local_state).
         if local_state:
             (self.profile / "Local State").write_text(json.dumps(local_state))
+        if existing_profile:
+            (self.profile / "First Run").touch()
         args = [
             f"--user-data-dir={self.profile}",
             "--remote-debugging-port=0",
             f"--modal-browser-socket={self.socket}",
-            "--no-first-run", "--no-default-browser-check",
+            *([] if first_run else ["--no-first-run"]), "--no-default-browser-check",
             # Never touch the login keychain of whoever runs the tests.
             "--use-mock-keychain", "--password-store=basic",
             # NSArgumentDomain overrides only this process, without changing

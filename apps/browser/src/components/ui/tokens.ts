@@ -11,6 +11,12 @@ import type { Appearance } from '../../state/types';
 export const space = { none: 0, hair: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, huge: 48 } as const;
 export type Space = keyof typeof space;
 
+export const guideArt = {
+  paper: '#FAF7F0', charcoal: '#142323',
+  width: 970, height: 560, compact: 730, preview: 390, tracking: -1.1,
+  tabWidth: 84, tabHeight: 22, browserHeight: 238,
+} as const;
+
 export const radius = {
   none: 0, xs: 4, sm: 6, control: 8, row: 9, field: 10, tile: 10, tab: 10, card: 12, window: 12, panel: 16, popover: 18, dialog: 18,
   /** Anchored popovers and their rows, as in Ardia's panels (rows are concentric: 12 − 6). */

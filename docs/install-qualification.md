@@ -29,6 +29,13 @@ Groups > Add User), on the newest macOS. macOS version: ______
 - [ ] Quit and relaunch: no approval asked again.
 - [ ] Finder's Get Info on Merlin.app shows version {{VERSION}}.
 
+- [ ] Check the falcon intro, Get started and Reduce Motion. Go forward and
+  back through appearance and workspace, and verify the live tab and colour preview.
+- [ ] Quit partway and reopen at the saved step. Follow a real hint, jump to
+  the lookout with Shift-G and choose Finish practice. Confirm the finish
+  screen waits for Start browsing. Replay from Help › Keyboard Tutorial with
+  a mouse, and check that finishing removes only the practice tab.
+
 ## 2. Replacing the previous version
 
 On an account with the previous release installed and used: a saved
