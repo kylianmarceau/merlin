@@ -1,5 +1,5 @@
-// Composes the shared SVG tile with the existing font-independent Syne mask.
-// render_wordmark <tile.svg> <mask.png> <out.png> <height> <ink hex>
+// Composes the shared tile with the existing font-independent Syne mask.
+// render_wordmark <tile> <mask.png> <out.png> <height> <ink hex>
 import AppKit
 
 let args = CommandLine.arguments
@@ -8,7 +8,7 @@ guard args.count == 6, let height = Int(args[4]), height > 0,
       let tile = NSImage(contentsOfFile: args[1]),
       let maskData = try? Data(contentsOf: URL(fileURLWithPath: args[2])),
       let mask = NSBitmapImageRep(data: maskData) else {
-  FileHandle.standardError.write(Data("usage: render_wordmark <tile.svg> <mask.png> <out.png> <height> <ink hex>\n".utf8))
+  FileHandle.standardError.write(Data("usage: render_wordmark <tile> <mask.png> <out.png> <height> <ink hex>\n".utf8))
   exit(2)
 }
 let width = Int(Double(mask.pixelsWide) * Double(height) / Double(mask.pixelsHigh))

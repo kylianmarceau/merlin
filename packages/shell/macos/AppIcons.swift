@@ -1,8 +1,8 @@
 import AppKit
 
-// Merlin's app icons include the default pixel falcon and eight painted
-// alternatives. The PNGs are in the app's Resources (MerlinAppIcon-<id>.png,
-// from packages/shell/macos/AppIcons). Partly adapted from Ardia's AppIcons (packages/shell/ios,
+// Merlin's app icons use the painted falcon in eight colourways. The PNGs
+// from packages/shell/macos/AppIcons are bundled as MerlinAppIcon-<id>.png.
+// Partly adapted from Ardia's AppIcons (packages/shell/ios,
 // Apache License 2.0, Copyright 2026 Mantra Patel; see NOTICE). As in
 // Ardia, the chosen icon is a preference: the Dock shows it
 // while Merlin runs (NSApp.applicationIconImage) and, through the Dock tile
@@ -22,25 +22,20 @@ enum AppIcons {
 
   /// In Settings order. "default" is the bundle's icon.
   static let variants: [Variant] = [
-    Variant(id: "default", name: "Default"),
-    Variant(id: "midnight", name: "Midnight"),
-    Variant(id: "cobalt", name: "Cobalt"),
-    Variant(id: "ember", name: "Ember"),
-    Variant(id: "ocean", name: "Ocean"),
-    Variant(id: "aurora", name: "Aurora"),
-    Variant(id: "gilt", name: "Gilt"),
-    Variant(id: "forest", name: "Forest"),
-    Variant(id: "blush", name: "Blush"),
+    Variant(id: "default", name: "Ice Blue"),
+    Variant(id: "sea-glass", name: "Sea Glass"),
+    Variant(id: "lapis", name: "Lapis"),
+    Variant(id: "graphite", name: "Graphite"),
+    Variant(id: "poppy", name: "Poppy"),
+    Variant(id: "mulberry", name: "Mulberry"),
+    Variant(id: "orchid", name: "Orchid"),
+    Variant(id: "citron", name: "Citron"),
   ]
 
-  /// Ids that were renamed: "original" is Midnight since every theme uses its drawing.
-  private static let renamed = ["original": "midnight"]
-
-  /// A known id, or "default" for nil and ids from older versions.
+  /// Saved choices from earlier releases fall back to Ice Blue.
   static func validated(_ id: String?) -> String {
-    guard let id else { return "default" }
-    let known = renamed[id] ?? id
-    return variants.contains(where: { $0.id == known }) ? known : "default"
+    guard let id, variants.contains(where: { $0.id == id }) else { return "default" }
+    return id
   }
 
   static var current: String { validated(UserDefaults.standard.string(forKey: defaultsKey)) }

@@ -8,12 +8,12 @@ import { Favicon } from '../favicon/Favicon';
 import { suggestionDetail, suggestionIcons, useSearch } from '../omnibox/useSearch';
 
 /**
- * The falcon is centered above the search card. Its terminal prompt is the Go button.
+ * The falcon is centered above the search card. A terminal prompt marks the Go button.
  */
 export function StartPage({ tab }: { tab: Tab }) {
   const snapshot = useSnapshot();
   const actions = useActions();
-  const { colors, dark, reduceMotion } = useTheme();
+  const { colors, reduceMotion } = useTheme();
   // As in Dia, the search card settles in on a soft spring over a slowly breathing light in the workspace colour.
   const settle = useSettle(reduceMotion);
   const search = useSearch();
@@ -30,7 +30,7 @@ export function StartPage({ tab }: { tab: Tab }) {
     <AreaLight style={{ position: 'absolute', top: geometry.newTabTop, left: 0, right: 0, height: geometry.areaLight }} />
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: geometry.newTabTop,
       paddingBottom: space.huge, paddingHorizontal: space.huge }}>
-      <Image source={dark ? require('./merlin-logo-light.png') : require('./merlin-logo.png')} accessible={false} resizeMode="contain"
+      <Image source={require('./merlin-logo.png')} accessible={false} resizeMode="contain"
         style={{ width: geometry.startFalcon, height: geometry.startFalcon, marginBottom: space.md }} />
       <View style={{ width: geometry.palette, maxWidth: '100%' }}>
         <Animated.View style={{ opacity: settle.opacity, transform: [{ scale: settle.scale }] }}>

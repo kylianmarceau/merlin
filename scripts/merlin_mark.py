@@ -2,7 +2,7 @@
 # Copyright 2026 The modal_browser Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-"""Generate Merlin's product tiles and glyphs from the pixel falcon SVG.
+"""Generate Merlin's product tiles and glyphs from the Ice Blue falcon silhouette.
 
     python3 scripts/merlin_mark.py --write
 
@@ -20,12 +20,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CREAM = "#F5E9D7"
 RUST = "#AA4C32"
 SVG_NS = "http://www.w3.org/2000/svg"
-SOURCE = ET.parse(ROOT / "branding/merlin-pixel.svg").getroot()
-VIEW_BOX = SOURCE.attrib["viewBox"]
-BACKGROUND, FALCON = SOURCE.findall(f"{{{SVG_NS}}}path")
+SOURCE = ET.parse(ROOT / "branding/merlin-falcon.svg").getroot()
+FALCON = SOURCE.find(f"{{{SVG_NS}}}path")
 FALCON_PATH = FALCON.attrib["d"]
 FALCON_INK = FALCON.attrib["fill"]
-FILL_RULE = FALCON.attrib["fill-rule"]
+FILL_RULE = "evenodd"
+ICE_BLUE = "#D2E9F7"
 
 
 def parse_polygon(path: str) -> list[tuple[str, list[float]]]:
@@ -34,7 +34,7 @@ def parse_polygon(path: str) -> list[tuple[str, list[float]]]:
     for command, coordinates in re.findall(r"([A-Za-z])([^A-Za-z]*)", path):
         values = [float(value) for value in coordinates.split()]
         if (command, len(values)) not in {("M", 2), ("L", 2), ("Z", 0)}:
-            raise ValueError(f"Unexpected command in pixel falcon: {command}{coordinates}")
+            raise ValueError(f"Unexpected command in falcon contour: {command}{coordinates}")
         commands.append((command, values))
     return commands
 
@@ -87,29 +87,15 @@ def vector_icon(size: int, frac: float = 0.92) -> str:
     return ("// Copyright 2026 The modal_browser Authors\n"
             "// Use of this source code is governed by a BSD-style license that can be\n"
             "// found in the LICENSE file.\n//\n"
-            "// Merlin's pixel falcon (scripts/merlin_mark.py).\n\n"
+            "// Merlin's falcon (scripts/merlin_mark.py).\n\n"
             + "\n".join(lines) + "\n")
 
 
 def tile_svg() -> str:
-    """The supplied full-color artwork with a fluid SVG viewport."""
-    return (f'<svg xmlns="{SVG_NS}" viewBox="{VIEW_BOX}" role="img" aria-label="Merlin">'
-            f'<path d="{BACKGROUND.attrib["d"]}" fill="{BACKGROUND.attrib["fill"]}"/>'
-            f'{_falcon(FALCON_PATH, FALCON_INK)}</svg>\n')
-
-
-def app_icon_svg(layered: bool = False) -> str:
-    """The macOS icon, or its foreground layer for Icon Composer."""
-    # Match the 824 px body and 100 px margins of the other macOS app icons.
-    canvas, body = 1024, 824
-    inset = (canvas - body) // 2
-    background = ""
-    if not layered:
-        background = (f'<rect x="{inset}" y="{inset}" width="{body}" height="{body}" '
-                      f'rx="184" fill="{BACKGROUND.attrib["fill"]}"/>')
-    # Icon Composer supplies the background and mask for the layered version.
-    return (f'<svg xmlns="{SVG_NS}" viewBox="0 0 {canvas} {canvas}">{background}'
-            f'{glyph(inset, inset, body, FALCON_INK, frac=0.83)}</svg>\n')
+    """The vector tile for UI surfaces that consume SVG."""
+    return (f'<svg xmlns="{SVG_NS}" viewBox="0 0 32 32" role="img" aria-label="Merlin">'
+            f'<rect width="32" height="32" rx="7.4" fill="{ICE_BLUE}"/>'
+            f'{glyph(0, 0, 32, FALCON_INK, frac=0.83)}</svg>\n')
 
 
 def mark_svg() -> str:
@@ -125,24 +111,11 @@ def mono_svg(size: int = 22, color: str = "#000000") -> str:
             f'{glyph(0, 0, size, color, frac=0.95)}</svg>\n')
 
 
-def start_page_path(part: str) -> str:
-    """Separate the two prompt strokes from the falcon for the new tab page."""
-    shapes = re.findall(r"M[^M]+", FALCON_PATH)
-    prompt_starts = ("M609 602L", "M672 674L")
-    if sum(shape.startswith(prompt_starts) for shape in shapes) != 2:
-        raise ValueError("Cannot locate the terminal prompt in merlin-pixel.svg")
-    return "".join(shape for shape in shapes if shape.startswith(prompt_starts) == (part == "prompt"))
-
-
-def start_page_svg(part: str, color: str) -> str:
-    path = start_page_path(part)
-    points = [xy for _, xy in parse_polygon(path) if xy]
-    xs, ys = zip(*points)
-    side = max(max(xs) - min(xs), max(ys) - min(ys))
-    left = (min(xs) + max(xs) - side) / 2
-    top = (min(ys) + max(ys) - side) / 2
-    return (f'<svg xmlns="{SVG_NS}" viewBox="{_f(left)} {_f(top)} {_f(side)} {_f(side)}">'
-            f'{_falcon(path, color)}</svg>\n')
+def prompt_svg(color: str) -> str:
+    """Monochrome terminal prompt for the New Tab Go button."""
+    return (f'<svg xmlns="{SVG_NS}" viewBox="0 0 20 20">'
+            f'<path d="m3 5 5 5-5 5m8 0h6" fill="none" stroke="{color}" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>\n')
 
 
 def password_svg() -> str:
@@ -172,14 +145,8 @@ def outputs(root: str) -> dict:
 
 
 def main() -> int:
-    if len(sys.argv) == 3 and sys.argv[1] in ("--start-falcon", "--start-prompt"):
-        sys.stdout.write(start_page_svg(sys.argv[1].removeprefix("--start-"), sys.argv[2]))
-        return 0
-    if sys.argv[1:] == ["--app-icon"]:
-        sys.stdout.write(app_icon_svg())
-        return 0
-    if sys.argv[1:] == ["--composer"]:
-        sys.stdout.write(app_icon_svg(layered=True))
+    if len(sys.argv) == 3 and sys.argv[1] == "--start-prompt":
+        sys.stdout.write(prompt_svg(sys.argv[2]))
         return 0
     if sys.argv[1:] != ["--write"]:
         print(__doc__)

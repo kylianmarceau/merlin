@@ -1,7 +1,13 @@
-Merlin 0.5.8, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.9, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.9
+
+* **A painted falcon for Merlin.** Ice Blue is the default app icon. Settings › Appearance offers seven other colours. Saved choices for retired icons fall back to Ice Blue.
+* **Refreshed browser artwork.** New Tab, the browser product marks, and the onboarding film use the new falcon.
+* **A new sound for Night Watch.** A mallet cue plays during the opening film.
 
 ## What's new in 0.5.8
 
