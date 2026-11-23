@@ -48,7 +48,7 @@ export const geometry = {
   /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
   tabRowGap: 3, tileRing: 2.5,
   /** The new tab page's breathing area light: how tall its wash is. */
-  areaLight: 420,
+  areaLight: 640,
   /** A dashed rule's dashes and the gaps between them (under the favourite tiles, as in Ardia). */
   ruleDash: 3, ruleGap: 3,
   /** A playing tab's equaliser: each bar's width and the gap between them. */
@@ -80,7 +80,7 @@ export const geometry = {
   /** A drop zone's dashed edge: how far inside the card it is drawn, and how thick, at rest and under the tab; the card's own edge. */
   dropZoneInset: 9.5, dropZoneDash: 2, dropZoneDashActive: 2.33, dropZoneEdge: 0.5,
   sheetWidth: 840, sheetHeight: 640, sheetTall: 780, sheetNav: 208, settingsTab: 56, settingsTabHeight: 56, themePreview: 92, previewSidebar: 42, swatch: 30,
-  suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, startFalcon: 76, startPrompt: 18, newTabInput: 52, newTabTop: 48, siteWidth: 64,
+  suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, startFalcon: 88, startPrompt: 18, newTabInput: 52, siteWidth: 64,
 } as const;
 
 /** Layer order inside the window, lowest first. */
@@ -191,9 +191,9 @@ function roles(mode: Mode, accentName: AccentName) {
     toolbarBackground: pick(ink[0], darkInk[900]),
     toolbarDivider: pick('rgba(20, 40, 30, 0.07)', 'rgba(255, 255, 255, 0.06)'),
     titlebarBackground: pick(ink[75], darkInk[925]),
-    startBackground: pick(ink[25], darkInk[900]),
+    startBackground: pick(ink[25], darkInk[850]),
     /** The new tab page's breathing area light. */
-    areaLight: light ? withAlpha(a.ring, 0.3) : withAlpha(darkInk[700], 0.24),
+    areaLight: light ? withAlpha(a.ring, 0.22) : withAlpha(darkInk[950], 0.38),
 
     // Text.
     textPrimary: pick(ink[900], darkInk[50]),

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, Animated, ScrollView, TextInput, View } from 'react-native';
 import { displayHost, isStartUrl } from '../../lib/format';
 import type { Tab } from '../../state/types';
@@ -7,17 +7,19 @@ import { Button, Icon, Panel, PopupRow, Text, font, geometry, opacity, radius, s
 import { Favicon } from '../favicon/Favicon';
 import { suggestionDetail, suggestionIcons, useSearch } from '../omnibox/useSearch';
 
-/**
- * The falcon is centered above the search card. A terminal prompt marks the Go button.
- */
+/** The falcon peeks over the search card. A terminal prompt marks the Go button. */
 export function StartPage({ tab }: { tab: Tab }) {
   const snapshot = useSnapshot();
   const actions = useActions();
   const { colors, reduceMotion } = useTheme();
-  // As in Dia, the search card settles in on a soft spring over a slowly breathing light in the workspace colour.
   const settle = useSettle(reduceMotion);
   const search = useSearch();
   const input = useRef<TextInput>(null);
+  const [pageHeight, setPageHeight] = useState(0);
+  const artworkHeight = geometry.startFalcon - space.lg;
+  // Anchor the search field to the viewport so it holds still as results appear.
+  const artworkTop = Math.max(space.xl, Math.round(pageHeight * 0.36) - artworkHeight);
+  const cardTop = artworkTop + artworkHeight;
   // Chromium asks for the address to be focused as a new tab opens; on the
   // start page that is this field.
   const focusRequest = useBrowser(s => s.addressFocus);
@@ -26,20 +28,22 @@ export function StartPage({ tab }: { tab: Tab }) {
   const ready = search.typing;
   const go = () => { search.submit(false); };
   const escape = useEscape(() => { if (actions.escapePopover()) return; search.reset(); input.current?.blur(); });
-  return <View style={{ flex: 1, backgroundColor: colors.startBackground }}>
-    <AreaLight style={{ position: 'absolute', top: geometry.newTabTop, left: 0, right: 0, height: geometry.areaLight }} />
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: geometry.newTabTop,
-      paddingBottom: space.huge, paddingHorizontal: space.huge }}>
-      <Image source={require('./merlin-logo.png')} accessible={false} resizeMode="contain"
-        style={{ width: geometry.startFalcon, height: geometry.startFalcon, marginBottom: space.md }} />
-      <View style={{ width: geometry.palette, maxWidth: '100%' }}>
-        <Animated.View style={{ opacity: settle.opacity, transform: [{ scale: settle.scale }] }}>
-        <Panel fill="contentBackground" radius="popover" border="borderSubtle" elevation="card">
+  return <View onLayout={e => setPageHeight(e.nativeEvent.layout.height)}
+    style={{ flex: 1, overflow: 'hidden', backgroundColor: colors.startBackground }}>
+    <AreaLight style={{ position: 'absolute', top: cardTop + geometry.newTabInput - geometry.areaLight / 2,
+      left: 0, right: 0, height: geometry.areaLight }} />
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingTop: artworkTop,
+      paddingBottom: space.huge, paddingHorizontal: space.xl }}>
+      <Animated.View style={{ width: geometry.palette, maxWidth: '100%', opacity: settle.opacity,
+        transform: [{ scale: settle.scale }] }}>
+        <Image source={require('./merlin-logo.png')} accessible={false} resizeMode="contain"
+          style={{ alignSelf: 'center', width: geometry.startFalcon, height: geometry.startFalcon, marginBottom: -space.lg }} />
+        <Panel fill="surfacePalette" radius="popover" border="surfaceBorder" elevation="card">
           <View style={{ paddingTop: space.sm, paddingHorizontal: space.sm + space.hair, paddingBottom: space.sm + space.hair }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, height: geometry.newTabInput, paddingHorizontal: space.sm }}>
               <Icon name="magnifyingglass" tone="iconSecondary" />
               <TextInput ref={input} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel="Search or enter an address"
-                placeholder="Search or enter an address" placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
+                placeholder="Search or enter an address" placeholderTextColor={colors.textSecondary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
                 value={search.text} onChangeText={search.change} onSubmitEditing={go}
                 keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Escape' }]}
                 onKeyDown={e => {
@@ -64,8 +68,7 @@ export function StartPage({ tab }: { tab: Tab }) {
             </View>
           </View>
         </Panel>
-        </Animated.View>
-      </View>
+      </Animated.View>
       {snapshot.private
         ? <View style={{ marginTop: space.lg + space.sm }}>
           <Text variant="label" weight="regular" tone="textSecondary" align="center">
