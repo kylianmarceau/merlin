@@ -41,9 +41,9 @@ for scale in 1 2; do
   done
 done
 
-# Use the painted tile on New Tab and the onboarding workspace preview.
-render "$START/merlin-logo.png" 76
-render "$START/merlin-logo@2x.png" 152
+# Use the unframed painted falcon on New Tab and in the onboarding preview.
+"$work/render_svg" "$TILE" "$START/merlin-logo.png" 88 0 --falcon-layer
+"$work/render_svg" "$TILE" "$START/merlin-logo@2x.png" 176 0 --falcon-layer
 
 # The New Tab button uses a small monochrome terminal prompt in both themes.
 render_start_prompt() {

@@ -1,7 +1,12 @@
-Merlin 0.5.9, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.10, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.10
+
+* **A calmer New Tab.** The search card sits just above the centre of the page, with the painted Ice Blue falcon peeking over its top edge. In Dark mode, a soft charcoal gradient frames the card.
+* **Steady search placement.** The search field holds its position as suggestions appear, and the card fits more comfortably in narrow panes.
 
 ## What's new in 0.5.9
 
