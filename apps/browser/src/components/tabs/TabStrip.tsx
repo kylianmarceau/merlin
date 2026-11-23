@@ -147,16 +147,17 @@ export function TabStrip({ floating = false }: {
       const slot = slotOf(item);
       if (!slot) return null;
       const active = holdsActive(item);
-      const dragging = following && item.key === drag?.key;
       // Narrow cells: a split shows only its icons, and a tab that isn't active drops its ×.
       const narrow = slot.width / item.tabs.length < metrics.tabMin;
       const roles = active && !floating ? chrome.roles : null;
+      // The joined shape sits behind the whole strip. Give the raised item its own opaque fill.
+      const dragFill = following && item.key === drag?.key ? (roles ? chrome.bar : colors.surfaceSolid) : undefined;
       if (item.tabs.length > 1) return <StripSplit key={item.key} tabs={item.tabs} slot={slot} activeId={activeId} icon={item.pinned || narrow}
-        pinned={item.pinned} roles={roles} dragging={dragging} handlers={tabId => handlers(item.key, tabId)}
+        pinned={item.pinned} roles={roles} dragFill={dragFill} handlers={tabId => handlers(item.key, tabId)}
         liftedId={drag?.out && drag.key === item.key ? drag.tabId : null} />;
       const tab = item.tabs[0];
       return <StripTab key={item.key} tab={tab} slot={slot} active={active} icon={item.pinned} narrow={narrow && !active} roles={roles}
-        dragging={dragging} pill={floating && active} lifted={item === lifted} {...handlers(item.key, tab.id)} />;
+        dragFill={dragFill} pill={floating && active} lifted={item === lifted} {...handlers(item.key, tab.id)} />;
     })}
   </>;
   return <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: geometry.strip, flexDirection: 'row',
@@ -233,7 +234,7 @@ function useTabPan({ onDrag, onDrop }: DragHandlers) {
 const tabTitle = (tab: Tab) => rowTitle(tab);
 
 type StripTabProps = DragHandlers & {
-  tab: Tab; slot: Slot; active: boolean; icon: boolean; dragging: boolean;
+  tab: Tab; slot: Slot; active: boolean; icon: boolean; dragFill?: string;
   /** Too narrow for a ×, as in Dia: close it from its menu or with ⌘W once chosen. */
   narrow?: boolean;
   /** The active tab drawn as a white pill, when there is no toolbar for it to join. */
@@ -244,11 +245,12 @@ type StripTabProps = DragHandlers & {
   roles: Partial<Palette> | null;
 };
 
-const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow = false, dragging, lifted, roles, pill = false, onDrag, onDrop }: StripTabProps) {
+const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow = false, dragFill, lifted, roles, pill = false, onDrag, onDrop }: StripTabProps) {
   const actions = useActions();
   const { colors, reduceMotion } = useTheme();
   const { focused, handlers } = useInteraction();
   const [hovered, setHovered] = useState(false);
+  const dragging = dragFill !== undefined;
   const { x, width } = useSlide(slot, reduceMotion, dragging);
   const there = usePresence(!lifted, 'fade', reduceMotion);
   const wash = useHoverFade(!active && hovered && !dragging, reduceMotion);
@@ -276,9 +278,10 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
   const label = `${tab.pinned ? 'Pinned: ' : ''}${title}${tab.loading ? ', loading' : ''}${tab.muted ? ', muted' : tab.audible ? ', playing audio' : ''}${
     tab.engine === 'webkit' ? ', in WebKit' : ''}`;
   const body = <Animated.View ref={ref} {...pan.panHandlers} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}
-    style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined }}>
+    style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined,
+      backgroundColor: dragFill, borderTopLeftRadius: dragging ? radius.tab : undefined, borderTopRightRadius: dragging ? radius.tab : undefined }}>
     <Animated.View style={{ flex: 1, opacity: there.progress }}>
-      {pill && <Panel fill="tabActive" radius="control" elevation="tab" border="tabActiveBorder" style={{ position: 'absolute', top: space.xs,
+      {pill && !dragging && <Panel fill="tabActive" radius="control" elevation="tab" border="tabActiveBorder" style={{ position: 'absolute', top: space.xs,
         bottom: space.xs, left: space.hair, right: space.hair }} />}
       <Animated.View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs,
         left: space.hair, right: space.hair, borderRadius: radius.control, backgroundColor: colors.tabHoverInset, opacity: wash }} />
@@ -324,7 +327,7 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
 });
 
 type StripSplitProps = {
-  tabs: Tab[]; slot: Slot; activeId: string | null; icon: boolean; pinned: boolean; dragging: boolean;
+  tabs: Tab[]; slot: Slot; activeId: string | null; icon: boolean; pinned: boolean; dragFill?: string;
   /** The side pulled out of the tabs, which fades until it lands. */
   liftedId: string | null;
   roles: Partial<Palette> | null;
@@ -339,13 +342,15 @@ type StripSplitProps = {
  * stronger. Press a side to focus it; drag either to move the split; pull
  * one down onto the page to take it out of the split.
  */
-const StripSplit = React.memo(function StripSplit({ tabs, slot, activeId, icon, pinned, dragging, liftedId, roles, handlers }: StripSplitProps) {
+const StripSplit = React.memo(function StripSplit({ tabs, slot, activeId, icon, pinned, dragFill, liftedId, roles, handlers }: StripSplitProps) {
   const { colors, reduceMotion } = useTheme();
+  const dragging = dragFill !== undefined;
   const { x, width } = useSlide(slot, reduceMotion, dragging);
   const active = tabs.some(t => t.id === activeId);
   const body = <Animated.View
-    style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined }}>
-    {!active && !pinned && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs, left: space.hair,
+    style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined,
+      backgroundColor: dragFill, borderTopLeftRadius: dragging ? radius.tab : undefined, borderTopRightRadius: dragging ? radius.tab : undefined }}>
+    {!active && !pinned && !dragging && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs, left: space.hair,
       right: space.hair, borderRadius: radius.field, backgroundColor: colors.splitChip }} />}
     <View style={{ flex: 1, flexDirection: 'row' }}>
       {tabs.map((tab, i) => <SplitSide key={tab.id} tab={tab} first={i === 0} focused={tab.id === activeId} inActive={active}
