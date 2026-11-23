@@ -129,7 +129,7 @@ The stored accent names predate Tide and stay as the browser saves them:
   workspace tint of the shell too. `siteChrome()` in tokens.ts turns the
   colour into roles that `PaletteScope` patches over the toolbar and the
   active tab, so components still only name roles.
-- **New tab page** uses the pixel falcon centered above the search card. The
+- **New tab page** uses the Ice Blue falcon centered above the search card. The
   round Go button carries the logo’s `>_` prompt. “Jump to a tab or file” sits
   beside it, with the window’s other pages below.
 - **Open in this window**, under the new tab page's card: each of the

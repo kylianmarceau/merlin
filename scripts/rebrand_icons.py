@@ -14,7 +14,7 @@ them. Patch 0009 is the output of this script:
     python3 scripts/rebrand_icons.py --apply ~/chromium/src
 
 Each `<g id="chrome-product">` keeps its id and viewBox; only the path
-inside changes, so every page that names the icon shows the pixel falcon.
+inside changes, so every page that names the icon shows the Merlin falcon.
 WHOLE_FILES are logo images and ICON_FILES Views vector icons, replaced
 outright.
 """

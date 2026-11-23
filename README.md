@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="branding/merlin-pixel.svg" alt="Merlin pixel falcon" width="112">
+<img src="branding/merlin-ice-blue.png" alt="Merlin Ice Blue falcon" width="112">
 
 <h1>Merlin</h1>
 
@@ -172,7 +172,7 @@ Neovim or a script. See [browserctl](#browserctl).
 Glass, on macOS 26) or Classic surfaces (macOS 14 and 15 always draw
 Classic panels, over a translucent window), the address bar in the sidebar or the
 toolbar, toolbars that take the site's colour, a bookmarks bar, a frame
-around the page, a pixel falcon app icon, and eight painted alternatives.
+around the page, and eight painted falcon app icons. Ice Blue is the default.
 Dark mode uses neutral charcoal surfaces. Merlin follows macOS's light and
 dark mode and Reduce Motion.
 

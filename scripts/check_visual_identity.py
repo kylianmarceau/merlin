@@ -26,6 +26,18 @@ ROOT=Path(__file__).resolve().parent.parent
 
 
 class BrandingBoundaries(unittest.TestCase):
+    def test_app_icon_choices_match_bundled_resources(self):
+        shell = ROOT / 'packages/shell/macos'
+        choices = re.findall(r'Variant\(id: "([^"]+)", name: "([^"]+)"\)',
+                             (shell / 'AppIcons.swift').read_text())
+        self.assertEqual(choices[0], ('default', 'Ice Blue'))
+        self.assertEqual(len(choices), 8)
+        expected = sorted(f'MerlinAppIcon-{id_}.png' for id_, _ in choices)
+        self.assertEqual(sorted(p.name for p in (shell / 'AppIcons').glob('*.png')), expected)
+        project = ROOT / 'apps/browser/macos/MerlinShell.xcodeproj/project.pbxproj'
+        copied = re.findall(r'/(MerlinAppIcon-[a-z-]+\.png)"', project.read_text())
+        self.assertEqual(sorted(copied), sorted(expected * 2))
+
     def test_generated_falcon_assets_are_current(self):
         for path, expected in art.merlin_mark.outputs(ROOT).items():
             with self.subTest(asset=str(path.relative_to(ROOT))):

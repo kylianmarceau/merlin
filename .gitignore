@@ -38,7 +38,7 @@ claude_code_chromium_browser_prompt.md
 !/docs/UPSTREAM.md
 
 # Private artwork sources and renders. The small inputs the generators and
-# checks read (JSON, generated CSS and the falcon SVGs) are committed, so a
+# checks read (JSON, generated CSS and the approved falcon artwork) are committed, so a
 # clean clone passes scripts/check.sh.
 /branding/README.md
 /branding/impasto/
@@ -46,6 +46,9 @@ claude_code_chromium_browser_prompt.md
 /branding/start-page/
 /branding/*.png
 /branding/*.icns
+!/branding/merlin-ice-blue.png
+!/branding/merlin-wordmark-toolbar-mask.png
+!/branding/merlin-wordmark-version-mask.png
 
 # Local build logs
 .build-*.log

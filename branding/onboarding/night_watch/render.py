@@ -18,7 +18,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 ASSETS = ROOT / "packages/shell/macos/Onboarding"
 sys.path.insert(0, str(ROOT / "scripts"))
-from merlin_mark import parse_polygon, start_page_path
+from merlin_mark import FALCON_PATH, parse_polygon
 
 UI = ROOT / "apps/browser/src/components/onboarding"
 W, H, FPS, DURATION = 1600, 1000, 30, 7.2
@@ -133,7 +133,7 @@ class Constellation:
 
     def __init__(self, sky_mask):
         paths = []
-        for command, coordinates in parse_polygon(start_page_path("falcon")):
+        for command, coordinates in parse_polygon(FALCON_PATH):
             if command == "M":
                 path = []
             if coordinates:
@@ -144,7 +144,7 @@ class Constellation:
         centre = (points.max(0) + points.min(0)) / 2
         factor = self.WIDTH / np.ptp(points[:, 0])
         # Both layers are drawn about precisely the same centre. Supersample
-        # the even-odd fill to keep the eye and narrow feather gaps open.
+        # the outline for a smooth edge at title size.
         scale = 16
         half = self.TILE // 2
         shape = (self.TILE * scale, self.TILE * scale)
@@ -172,16 +172,16 @@ class Constellation:
         # branches at the shoulder and wrist. Units are pixels from the centre
         # of the 103px master falcon. Each star lands inside a feather or body.
         stars = [
-            (-44, -41, 2.45),
-            (1, -27, 1.55),
-            (22, 0, 2.15),
-            (36, -10, 1.40),
-            (49, 1, 1.65),
-            (3, 13, 1.55),
-            (-45, 33, 2.05),
-            (-31, -16, 1.60),
+            (-43, -35, 2.45),
+            (-25, -23, 1.60),
+            (4, -17, 1.55),
+            (26, -4, 2.15),
+            (40, -4, 1.65),
+            (9, 11, 1.55),
+            (-21, 29, 2.05),
+            (-25, -15, 1.60),
         ]
-        edges = [(0, 1), (1, 2), (2, 3), (3, 4), (2, 5), (5, 6), (1, 7)]
+        edges = [(0, 1), (1, 2), (2, 3), (3, 4), (3, 5), (5, 6), (2, 7)]
         centres = [tuple((np.array([x, y]) + half) * scale) for x, y, _ in stars]
         strokes = np.zeros(shape, np.uint8)
         for a, b in edges:

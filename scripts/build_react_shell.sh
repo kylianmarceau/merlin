@@ -42,6 +42,13 @@ FORCE_BUNDLING=1 RCT_NEW_ARCH_ENABLED=0 xcodebuild \
   ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO \
   DEBUG_INFORMATION_FORMAT=dwarf-with-dsym build
 APP="$DERIVED_DATA/Build/Products/$CONFIGURATION/MerlinShell.app"
+# CocoaPods copies current resources into the existing product on incremental
+# builds. Remove retired app icons before assembly can copy them onward.
+for icon in "$APP/Contents/Resources"/MerlinAppIcon-*.png; do
+  if [[ -f "$icon" && ! -f "$ROOT/packages/shell/macos/AppIcons/${icon##*/}" ]]; then
+    rm -- "$icon"
+  fi
+done
 # Packaging needs the host's symbols for crash reports (scripts/match_dsyms.py).
 [[ -d "$APP.dSYM" ]] || { echo "xcodebuild wrote no $APP.dSYM" >&2; exit 1; }
 # The Dock tile plug-in that keeps the chosen app icon after Merlin quits.
