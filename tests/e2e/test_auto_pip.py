@@ -1,4 +1,4 @@
-"""Automatic picture in picture: a video with sound floats when its tab is left.
+"""Automatic Picture in Picture follows the visibility of a playing video.
 
 Chromium's tabs (merlin_auto_pip.cc) and WebKit's (WebKitPages.swift), where
 Netflix and other protected video play. Opt in with MERLIN_E2E_PIP=1: the
@@ -18,7 +18,13 @@ import urllib.parse
 from pathlib import Path
 from typing import Optional
 
-from merlin_e2e import Merlin, MerlinTestCase, PageServer
+from merlin_e2e import Merlin, MerlinTestCase, PageServer, wait_until
+
+
+def set_window_sight(browser: Merlin, action: str) -> None:
+    request = browser.dir / "pip-sight"
+    request.write_text(action)
+    wait_until(lambda: not request.exists(), message=f"the browser window to {action}")
 
 
 @unittest.skipUnless(os.environ.get("MERLIN_E2E_PIP") == "1", "shows a floating window; set MERLIN_E2E_PIP=1")
@@ -42,6 +48,42 @@ class AutoPipTest(MerlinTestCase):
         self.wait(lambda: self.floating(session), "the video to float", timeout=5)
         self.browser.browserctl("focus", tab=1)
         self.wait(lambda: not self.floating(session), "the video to return to its page", timeout=5)
+
+    def test_video_follows_window_visibility(self) -> None:
+        session = self.play()
+        try:
+            set_window_sight(self.browser, "hide")
+            self.wait(lambda: self.floating(session), "the video to float", timeout=5)
+        finally:
+            set_window_sight(self.browser, "show")
+        self.wait(lambda: not self.floating(session), "the video to return to its page", timeout=5)
+
+    def test_both_split_panes_remain_visible(self) -> None:
+        session = self.play()
+        self.browser.command(f"vsplit {self.server.url('/doc')}")
+        self.wait(lambda: len(self.browser.tabs()) == 2, "both split panes")
+        time.sleep(0.4)
+        self.assertFalse(self.floating(session))
+        self.browser.command("only")
+        self.wait(lambda: self.floating(session), "the video to float once its pane closes", timeout=5)
+        self.browser.browserctl("focus", tab=1)
+        self.wait(lambda: not self.floating(session), "the video to return to its page", timeout=5)
+
+    def test_manual_pip_survives_switching_back(self) -> None:
+        session = self.play()
+        result = self.browser.cdp.call("Runtime.evaluate", {
+            "expression": "document.getElementById('v').requestPictureInPicture()",
+            "awaitPromise": True,
+            "userGesture": True,
+        }, session)
+        self.assertNotIn("exceptionDetails", result)
+        self.wait(lambda: self.floating(session), "the manually opened player")
+        self.browser.browserctl("open", url=self.server.url("/doc"), where="tab")
+        time.sleep(0.4)
+        self.browser.browserctl("focus", tab=1)
+        time.sleep(0.4)
+        self.assertTrue(self.floating(session))
+        self.browser.eval("document.exitPictureInPicture()", session)
 
     def test_a_paused_video_stays_in_its_tab(self) -> None:
         session = self.play()
@@ -137,6 +179,15 @@ class WebKitAutoPipTest(WebKitVideoCase):
         self.browser.browserctl("focus", tab=1)
         self.wait(lambda: self.mode() == "inline", "the WebKit video to return to its page", timeout=5)
 
+    def test_video_follows_window_visibility(self) -> None:
+        self.play()
+        try:
+            set_window_sight(self.browser, "hide")
+            self.wait(lambda: self.mode() == "picture-in-picture", "the WebKit video to float", timeout=5)
+        finally:
+            set_window_sight(self.browser, "show")
+        self.wait(lambda: self.mode() == "inline", "the WebKit video to return to its page", timeout=5)
+
     def test_a_muted_video_stays_in_its_tab(self) -> None:
         self.play("?muted")
         self.leave()
@@ -156,7 +207,7 @@ class WebKitCustomPlayerAutoPipTest(WebKitVideoCase):
 
 @unittest.skipUnless(os.environ.get("MERLIN_E2E_PIP") == "1", "shows a floating window; set MERLIN_E2E_PIP=1")
 class WebKitAutoPipOffTest(WebKitVideoCase):
-    """Settings › General › Float videos when you switch tabs, off, reaches WebKit's pages."""
+    """Settings › General › Automatic Picture in Picture, off, reaches WebKit's pages."""
 
     preferences = {"merlin": {"auto_pip": False}}
 

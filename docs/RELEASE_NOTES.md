@@ -1,7 +1,12 @@
-Merlin 0.5.12, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.13, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.13
+
+* **Automatic Picture in Picture follows what you can see.** A video playing with sound floats when its tab or browser window goes out of view. It returns inline when you can see the page again. Switching apps while Merlin is still visible keeps the video inline, as does moving focus between two visible split panes.
+* **WebKit restores video as its player updates.** Automatic Picture in Picture works on both engines, and the setting is in Settings › General.
 
 ## What's new in 0.5.12
 

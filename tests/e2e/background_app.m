@@ -15,6 +15,33 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Order the test browser window out and back without activating the app.
+static void WatchPictureInPictureWindow(NSString* path) {
+  __block __weak NSWindow* browserWindow = nil;
+  [NSTimer scheduledTimerWithTimeInterval:0.05 repeats:YES block:^(NSTimer* timer) {
+    NSString* action = [NSString stringWithContentsOfFile:path
+                                                encoding:NSUTF8StringEncoding
+                                                   error:nil];
+    if ([action isEqualToString:@"hide"]) {
+      if (!browserWindow) {
+        for (NSWindow* window in NSApp.orderedWindows) {
+          if (window.visible && window.level == NSNormalWindowLevel) {
+            browserWindow = window;
+            break;
+          }
+        }
+      }
+      if (!browserWindow) return;
+      [browserWindow orderOut:nil];
+    } else if ([action isEqualToString:@"show"] && browserWindow) {
+      [browserWindow orderFrontRegardless];
+    } else {
+      return;
+    }
+    [NSFileManager.defaultManager removeItemAtPath:path error:nil];
+  }];
+}
+
 __attribute__((constructor)) static void MerlinTestInBackground(void) {
   // Helpers (renderers, GPU, utilities) never see this library: the browser
   // removes the variable before it launches any of them.
@@ -34,6 +61,8 @@ __attribute__((constructor)) static void MerlinTestInBackground(void) {
                    queue:nil
               usingBlock:^(NSNotification* note) {
                 [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+                NSString* sight = NSProcessInfo.processInfo.environment[@"MERLIN_E2E_PIP_SIGHT"];
+                if (sight) WatchPictureInPictureWindow(sight);
                 NSString* prompt_log =
                     NSProcessInfo.processInfo.environment[@"MERLIN_E2E_EXTERNAL_PROMPT_LOG"];
                 if (prompt_log) {

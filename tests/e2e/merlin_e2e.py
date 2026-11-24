@@ -835,6 +835,8 @@ class Merlin:
                "MERLIN_WEBKIT_TEST_FOLDER": str(self.webkit_folder),
                # A probe's own, such as MERLIN_STARTUP_TRACE (scripts/probe_large_libraries.py).
                **(extra_env or {})}
+        if os.environ.get("MERLIN_E2E_PIP") == "1":
+            env["MERLIN_E2E_PIP_SIGHT"] = str(self.dir / "pip-sight")
         # -g: don't bring it forward; -j: launch it hidden, so its window never
         # takes the keyboard from whoever is using the Mac.
         command = ["open", "-g", "-j", "-n", "-a", str(self.app)]
