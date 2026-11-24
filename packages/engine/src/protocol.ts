@@ -8,6 +8,8 @@ export * from './vocabulary';
 
 /** Browser-owned state. IDs are opaque and scoped to a native session. */
 export type Tab = {
+  toolbarHidden?: boolean;
+  sharedFrom?: string;
   id: string; title: string; url: string; loading: boolean; pinned: boolean;
   /**
    * The address as the field shows it while not editing, formatted by
@@ -114,6 +116,13 @@ export type PromptAnchor = 'site' | 'page' | 'window';
 export type ExtensionPopup = { extensionId: string; name: string; width: number; height: number; ready: boolean };
 export type Suggestion = { kind: 'search' | 'url' | 'tab'; title: string; detail: string; url: string; completion: string; default: boolean };
 export type Favicon = { key: string; url: string };
+export type WelcomeProgress = {
+  screen: string;
+  source: string;
+  custom: boolean;
+  favorites: string[];
+};
+
 export type Appearance = { mode: AppearanceMode; accent: AppearanceAccent; reduceMotion: boolean };
 export type CommandPalette = {
   visible: boolean; prompt: string; placeholder: string; text: string; selected: number;
@@ -130,8 +139,10 @@ export type Snapshot = {
   session: string; windowId: string; revision: number; private: boolean;
   /** A pop-up a page opened shows only its page and address. */
   kind?: 'normal' | 'popup';
-  welcome?: '' | 'intro' | 'appearance' | 'workspace' | 'practice' | 'ready';
+  welcome?: '' | 'intro' | 'setup' | 'appearance' | 'workspace' | 'practice' | 'ready';
+  welcomeProgress?: Partial<WelcomeProgress>;
   welcomeTabId?: string;
+  toolbarHidden?: boolean;
   extensionPopup?: ExtensionPopup | null;
   tabs: Tab[]; activeTabId: string | null;
   /** The window's tab groups in strip order. Absent from older engines. */
@@ -165,7 +176,7 @@ export type Calls = {
   'find.focus': { args: { tabId: string; focused: boolean }; result: null };
   /** Gives the keyboard back to the active page, after a sheet that took it closes. */
   'page.focus': { args: {}; result: null };
-  'tabs.create': { args: { url?: string }; result: null };
+  'tabs.create': { args: { url?: string; opener?: string; peek?: boolean }; result: null };
   'tabs.activate': { args: { tabId: string }; result: null };
   'tabs.close': { args: { tabId: string }; result: null };
   'tabs.pin': { args: { tabId: string; pinned: boolean }; result: null };
@@ -214,7 +225,7 @@ export type Calls = {
   'permissions.answer': { args: { promptId: string; actionId: string; text?: string; secret?: string; suppress?: boolean }; result: null };
   'prompts.update': { args: { promptId: string; text: string }; result: null };
   'appearance.set': { args: Appearance; result: null };
-  'welcome.advance': { args: { next: 'appearance' | 'workspace' | 'tutorial' | 'ready' | 'browse' | 'import' }; result: null };
+  'welcome.advance': { args: { next: 'setup' | 'appearance' | 'workspace' | 'tutorial' | 'ready' | 'browse' | 'import'; progress?: WelcomeProgress }; result: null };
   'modal.command': { args: { text: string }; result: null };
   'modal.palette.text': { args: { text: string }; result: null };
   'modal.palette.key': { args: { key: PaletteKey }; result: null };
@@ -254,7 +265,7 @@ export type Adblock = {
 export type Preferences = {
   theme: number; tabs: 'side' | 'top'; ctrlTab: 'recent' | 'order';
   bindings: { keys: string; command: string; desc: string }[]; hintChars: string;
-  engines: { id: string; name: string }[]; engine: string; engineManaged: boolean;
+  engines: { id: string; name: string; setupKey?: string }[]; engine: string; engineManaged: boolean;
   startup: 'last' | 'start'; zoom: number; zoomChoices: number[];
   downloadDir: string; askWhere: boolean; memorySaver: boolean; energySaver: boolean; savePasswords: boolean;
   /** Video playing with sound floats when its tab is left. Absent from older engines. */
@@ -440,7 +451,10 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
       !s.modal || ![s.modal.mode, s.modal.pending, s.modal.message].every(x => typeof x === 'string')) {
     throw new Error('Invalid browser snapshot');
   }
-  if (s.welcome !== undefined && !['', 'intro', 'appearance', 'workspace', 'practice', 'ready'].includes(s.welcome)) throw new Error('Invalid welcome stage');
+  if (s.welcome !== undefined && !['', 'intro', 'setup', 'appearance', 'workspace', 'practice', 'ready'].includes(s.welcome)) throw new Error('Invalid welcome stage');
+  if (s.welcomeProgress !== undefined && (!s.welcomeProgress || typeof s.welcomeProgress !== 'object' ||
+      (s.welcomeProgress.favorites !== undefined && (!Array.isArray(s.welcomeProgress.favorites) ||
+        !s.welcomeProgress.favorites.every(id => typeof id === 'string'))))) throw new Error('Invalid setup progress');
   if (s.find !== undefined && (!s.find || typeof s.find.visible !== 'boolean' || typeof s.find.text !== 'string' ||
       ![s.find.matches, s.find.ordinal, s.find.focus].every(x => Number.isSafeInteger(x) && x >= 0))) throw new Error('Invalid find state');
   const palette = s.modal.palette;
@@ -563,7 +577,7 @@ export function validateResult<R extends Request>(method: R, value: unknown): Re
       check(fields(value, {
         theme: isNumber, tabs: v => v === 'side' || v === 'top', ctrlTab: v => v === 'recent' || v === 'order',
         bindings: listOf(b => fields(b, { keys: isString, command: isString, desc: isString })), hintChars: isString,
-        engines: listOf(e => fields(e, { id: isString, name: isString })), engine: isString, engineManaged: isBool,
+        engines: listOf(e => fields(e, { id: isString, name: isString, setupKey: optional(isString) })), engine: isString, engineManaged: isBool,
         startup: v => v === 'last' || v === 'start', zoom: isNumber, zoomChoices: listOf(isNumber),
         downloadDir: isString, askWhere: isBool, memorySaver: isBool, energySaver: isBool, savePasswords: isBool,
         autoPip: optional(isBool), extensions: listOf(extension), about: a => fields(a, { version: isString, os: isString }),

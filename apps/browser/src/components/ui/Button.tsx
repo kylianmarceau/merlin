@@ -9,12 +9,13 @@ import { useTheme } from './theme';
 import { pressScale, usePressScale } from './motion';
 import { geometry, opacity, radius, space, type ColorRole } from './tokens';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'plate' | 'danger' | 'dangerGhost';
+export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'plate' | 'danger' | 'dangerGhost';
 type Look = { fill: ColorRole; hover: ColorRole; pressed: ColorRole; text: ColorRole; icon: ColorRole };
 // Primary buttons are dark ink pills; secondary ones a soft wash of the same ink.
 const looks: Record<ButtonVariant, Look> = {
   primary: { fill: 'buttonPrimary', hover: 'buttonPrimaryHover', pressed: 'buttonPrimaryPressed', text: 'textOnPrimary', icon: 'textOnPrimary' },
   secondary: { fill: 'fillControl', hover: 'fillControlHover', pressed: 'fillControlPressed', text: 'textPrimary', icon: 'iconPrimary' },
+  outline: { fill: 'fillTransparent', hover: 'fillHover', pressed: 'fillPressed', text: 'textSecondary', icon: 'iconSecondary' },
   ghost: { fill: 'fillTransparent', hover: 'fillHover', pressed: 'fillPressed', text: 'textPrimary', icon: 'iconPrimary' },
   /** Nothing at rest, a clear soft plate under the pointer: actions on a card, as Dia's hover card has them. */
   plate: { fill: 'fillTransparent', hover: 'fillControl', pressed: 'fillControlHover', text: 'textPrimary', icon: 'iconPrimary' },
@@ -43,7 +44,7 @@ export function Button({ label, variant = 'secondary', icon, trailingIcon, size 
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xs + space.hair,
       alignSelf: stretch ? 'stretch' : 'flex-start',
       backgroundColor: colors[selected ? 'fillSelected' : down ? look.pressed : hovered ? look.hover : look.fill],
-      borderWidth: geometry.focusRing, borderColor: focused ? colors.focusRing : colors.fillTransparent,
+      borderWidth: focused ? geometry.focusRing : geometry.hairline, borderColor: focused ? colors.focusRing : colors[variant === 'outline' ? 'borderDefault' : 'fillTransparent'],
       opacity: disabled ? opacity.disabled : 1,
     })}>
     {/* Its contents dip a little under a press and spring back. */}

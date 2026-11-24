@@ -1,0 +1,46 @@
+--- a/chrome/browser/download/chrome_download_manager_delegate.cc
++++ b/chrome/browser/download/chrome_download_manager_delegate.cc
+@@ -137,6 +137,9 @@
+ #include "chrome/browser/download/download_item_web_app_data.h"
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+ #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
++#endif
+ #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+ #include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
+ #include "chrome/common/actor.mojom-shared.h"
+@@ -2489,6 +2492,19 @@
+     return;
+   }
+ 
++#if BUILDFLAG(IS_MAC)
++  // Blink classifies Option-click as a download before it reaches the
++  // browser navigation delegate. Offer the configured Peek for that click.
++  if (content_initiated && !from_download_cross_origin_redirect &&
++      request_method == "GET" &&
++      modal_browser::PeekShellOptionDownload(
++          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents),
++          web_contents, url)) {
++    OnCheckDownloadAllowedFailed(std::move(check_download_allowed_cb));
++    return;
++  }
++#endif
++
+ #if BUILDFLAG(IS_ANDROID)
+   if (ShouldOpenPdfInline() && mime_type == pdf::kPDFMimeType) {
+     // If this is a forward/back navigation, the native page should trigger a
+--- a/chrome/browser/download/BUILD.gn
++++ b/chrome/browser/download/BUILD.gn
+@@ -359,7 +359,10 @@
+       "drag_download_item_mac.mm",
+     ]
+ 
+-    deps += [ "//chrome/browser/ui/cocoa" ]
++    deps += [
++      "//chrome/browser/ui/cocoa",
++      "//chrome/browser/ui/modal_browser:shell_headers",
++    ]
+   }
+ 
+   if (is_linux) {

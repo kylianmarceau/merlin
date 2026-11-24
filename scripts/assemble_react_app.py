@@ -116,6 +116,7 @@ def assemble(engine_app, shell_app, destination, check_only=False, allow_stale=F
         merge_directory(shell_app / 'Contents/Resources', stage / 'Contents/Resources')
         # The Dock tile plug-in that keeps the chosen app icon after Merlin quits.
         merge_directory(shell_app / 'Contents/PlugIns', stage / 'Contents/PlugIns')
+        merge_directory(shell_app / 'Contents/Helpers', stage / 'Contents/Helpers')
         # Keep Chromium's version, identity and usage descriptions. React needs
         # its own bridge settings but never the template's application delegate.
         for key in ('NSAppTransportSecurity', 'RCTNewArchEnabled', 'NSDockTilePlugIn'):

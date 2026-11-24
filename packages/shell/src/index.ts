@@ -51,6 +51,7 @@ export type VisualEffectProps = ViewProps & {
 export const VisualEffect = view<VisualEffectProps>('VisualEffect');
 
 export type SurfaceProps = ViewProps & {
+  surfaceTurn?: { page: string; offset: number; milliseconds: number };
   surfaceFill?: string; surfaceRadius?: number; surfaceBorderColor?: string; surfaceBorderWidth?: number;
   surfaceShadowColor?: string; surfaceShadowOpacity?: number; surfaceShadowRadius?: number; surfaceShadowOffsetY?: number;
 };
@@ -87,7 +88,8 @@ export const ProgressRing = view<ProgressRingProps>('ProgressRing');
 export const Fade = view<ViewProps & { fadeLength: number; fadeLeading?: number; flushScroll?: boolean }>('Fade');
 
 export type GradientProps = ViewProps & {
-  gradientKind: 'orb' | 'glow' | 'vertical'; gradientColors: string[];
+  gradientKind: 'orb' | 'glow' | 'workspace' | 'vertical'; gradientColors: string[];
+  gradientAngle?: number; gradientNoise?: number; gradientTexture?: string;
   gradientProfile?: { stops: number[]; fade: number[]; fadeStops: number[] };
 };
 export const Gradient = view<GradientProps>('Gradient');
@@ -131,6 +133,11 @@ type NativeShell = {
   setPreference(key: string, value: string | null): Promise<void>;
   isLiquidGlass(): boolean;
   fileIcon(ext: string, size: number): Promise<string | null>;
+  installedSetupApps(ids: string[]): Promise<string[]>;
+  setupDockStatus(): Promise<boolean>;
+  addMerlinToDock(): Promise<boolean>;
+  installBrowserctl(): Promise<string>;
+  checkDefaultBrowserTrial(): Promise<void>;
   isDefaultBrowser(): Promise<boolean>;
   makeDefaultBrowser(): Promise<boolean>;
   loginItem(): Promise<LoginItemStatus>;
@@ -162,6 +169,11 @@ export function isLiquidGlass(): boolean {
 }
 /** The Finder icon for files with this extension, as a PNG data URL. */
 export const fileIcon = (ext: string, size: number) => native().fileIcon(ext, size);
+export const installedSetupApps = (ids: string[]) => native().installedSetupApps(ids);
+export const setupDockStatus = () => native().setupDockStatus();
+export const addMerlinToDock = () => native().addMerlinToDock();
+export const installBrowserctl = () => native().installBrowserctl();
+export const checkDefaultBrowserTrial = () => native().checkDefaultBrowserTrial();
 export const isDefaultBrowser = () => native().isDefaultBrowser();
 /** macOS asks the person to confirm; resolves with whether Merlin is now the default. */
 export const makeDefaultBrowser = () => native().makeDefaultBrowser();

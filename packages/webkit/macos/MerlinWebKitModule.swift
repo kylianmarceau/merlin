@@ -12,7 +12,7 @@ import ExpoModulesCore
 public final class MerlinWebKitModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MerlinWebKit")
-    Events("pageState", "openTab", "pageKey", "pageError")
+    Events("pageState", "openTab", "pageKey", "pageError", "toolbarDirection")
 
     OnCreate { [weak self] in
       WebKitPages.shared.emit = { [weak self] name, body in self?.sendEvent(name, body) }

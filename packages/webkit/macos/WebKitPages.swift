@@ -300,7 +300,24 @@ final class PrivateSession {
 
 /// One tab's WebKit page. It reports its address, title, loading state and
 /// colours to the shell, which shows them as the tab's own.
-final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
+final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+  private static let editFocusWorld = WKContentWorld.world(name: "MerlinEditorFocus")
+  private static let editFocusMessage = "editorFocus"
+  private static let editFocusScript = """
+    (() => {
+      function report() {
+        const field = document.activeElement;
+        const editing = field && (field.isContentEditable || field.shadowRoot ||
+          field.matches('input, textarea, select, iframe, [role="textbox"], [role="searchbox"]'));
+        window.webkit.messageHandlers.editorFocus.postMessage(!!editing);
+      }
+      addEventListener('focusin', report, true);
+      addEventListener('focusout', () => queueMicrotask(report), true);
+      addEventListener('pageshow', report);
+      report();
+    })();
+    """
+
   let tabId: String
   let ephemeral: Bool
   let webView: MerlinWKWebView
@@ -321,12 +338,19 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
     super.init()
     webView.navigationDelegate = self
     webView.uiDelegate = self
+    configuration.userContentController.add(self, contentWorld: Self.editFocusWorld, name: Self.editFocusMessage)
+    configuration.userContentController.addUserScript(WKUserScript(source: Self.editFocusScript,
+      injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: Self.editFocusWorld))
     webView.allowsBackForwardNavigationGestures = true
     webView.allowsMagnification = true
     webView.isInspectable = true
     webView.onKey = { [weak self] command in
       guard let self else { return }
-      self.emit("pageKey", ["command": command])
+      if command == "reopenTab" { self.emit("reopenTab", [:]) }
+      else { self.emit("pageKey", ["command": command]) }
+    }
+    webView.onScrollDirection = { [weak self] down in
+      self?.emit("toolbarDirection", ["down": down])
     }
     let changed: (WKWebView) -> Void = { [weak self] _ in self?.changed() }
     observations = [
@@ -368,6 +392,12 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
     window.makeFirstResponder(webView)
   }
 
+  func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+    if message.name == Self.editFocusMessage, message.frameInfo.isMainFrame, let editing = message.body as? Bool {
+      webView.pageIsEditing = editing
+    }
+  }
+
   func close() {
     guard !closed else { return }
     closed = true
@@ -377,6 +407,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
     popups = []
     observations = []
     webView.onKey = nil
+    webView.configuration.userContentController.removeScriptMessageHandler(forName: Self.editFocusMessage, contentWorld: Self.editFocusWorld)
     webView.navigationDelegate = nil
     webView.uiDelegate = nil
     webView.stopLoading()
@@ -483,10 +514,17 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
     let scheme = url.scheme?.lowercased() ?? ""
     // Other apps' links (mailto:, itms-apps:) are not opened from here.
     guard ["http", "https", "about", "data", "blob"].contains(scheme) else { return decisionHandler(.cancel) }
-    if action.navigationType == .linkActivated, action.targetFrame != nil,
-      action.modifierFlags.contains(.command) || action.buttonNumber == 2 {
-      decisionHandler(.cancel)
-      return emit("openTab", ["url": url.absoluteString])
+    if action.navigationType == .linkActivated && (scheme == "http" || scheme == "https") {
+      let flags = action.modifierFlags.intersection([.shift, .option, .command, .control])
+      let peek = UserDefaults.standard.string(forKey: "MerlinShell.peekModifier")
+      if (flags == .shift && peek == "shift") || (flags == .option && peek == "option") {
+        decisionHandler(.cancel)
+        return emit("openTab", ["url": url.absoluteString, "peek": true])
+      }
+      if flags == .command || (action.targetFrame != nil && action.buttonNumber == 2) {
+        decisionHandler(.cancel)
+        return emit("openTab", ["url": url.absoluteString, "groupLink": flags == .command])
+      }
     }
     decisionHandler(.allow)
   }
@@ -500,6 +538,10 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate {
       return
     }
     decisionHandler(.allow)
+  }
+
+  func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+    self.webView.pageIsEditing = true
   }
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -782,6 +824,20 @@ final class IconFetcher: NSObject, URLSessionDataDelegate {
 /// on the Chromium page behind.
 final class MerlinWKWebView: WKWebView {
   var onKey: ((String) -> Void)?
+  var onScrollDirection: ((Bool) -> Void)?
+  private var toolbarHidden = false
+  var pageIsEditing = true
+
+  override func scrollWheel(with event: NSEvent) {
+    let dx = event.scrollingDeltaX
+    let dy = event.scrollingDeltaY
+    if UserDefaults.standard.string(forKey: "MerlinShell.hideToolbarOnScroll") == "on",
+       abs(dy) > abs(dx), abs(dy) >= 1, toolbarHidden != (dy < 0) {
+      toolbarHidden = dy < 0
+      onScrollDirection?(toolbarHidden)
+    }
+    super.scrollWheel(with: event)
+  }
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
     // The browser's reserved shortcuts never reach the page, as in Chromium:
@@ -789,9 +845,14 @@ final class MerlinWKWebView: WKWebView {
     // keys (Netflix's player does) would keep Control-Tab from the browser.
     // Declining the key here lets Chromium's own key handling run it.
     if Self.reserved(event) { return false }
-    guard let responder = window?.firstResponder as? NSView, responder.isDescendant(of: self), let onKey,
-      let command = Self.command(for: event)
+    guard let responder = window?.firstResponder as? NSView, responder.isDescendant(of: self), let onKey
     else { return super.performKeyEquivalent(with: event) }
+    if !pageIsEditing, Self.isUndo(event),
+       UserDefaults.standard.string(forKey: "MerlinShell.undoReopensTab") == "on" {
+      onKey("reopenTab")
+      return true
+    }
+    guard let command = Self.command(for: event) else { return super.performKeyEquivalent(with: event) }
     onKey(command)
     return true
   }
@@ -812,6 +873,11 @@ final class MerlinWKWebView: WKWebView {
       // Command-Option-Left/Right: the previous and next tab.
       return flags == [.command, .option] && (event.keyCode == 123 || event.keyCode == 124)
     }
+  }
+
+  private static func isUndo(_ event: NSEvent) -> Bool {
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
+    return flags == [.command] && event.charactersIgnoringModifiers?.lowercased() == "z"
   }
 
   static func command(for event: NSEvent) -> String? {

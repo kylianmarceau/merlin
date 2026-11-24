@@ -55,6 +55,9 @@ test('the workspace tint colours the glass only when chosen', () => {
   assert.equal(neutral.tint, 'rgba(255, 255, 255, 0.575)');
   assert.notEqual(tinted.fill, neutral.fill);
   assert.notEqual(tinted.tint, neutral.tint);
+  const custom = { ...look(0.5, 1), workspaceColor: '#FF0000' };
+  assert.equal(panelGlass('light', 'iris', custom).tint, 'rgba(255, 217, 217, 0.575)');
+  assert.equal(controlGlass('light', 'iris', custom, 'rest'), 'rgba(255, 0, 0, 0.258)');
 });
 
 test('a pop-up adds a backing as regular glass fades to clear', () => {

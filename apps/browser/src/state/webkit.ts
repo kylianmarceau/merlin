@@ -130,6 +130,7 @@ function reconcile(store: BrowserStore, engine: EngineClient) {
   const now = Date.now();
   const activeSplit = snapshot.tabs.find(t => t.id === snapshot.activeTabId)?.split;
   for (const tab of snapshot.tabs) {
+    if (tab.sharedFrom) continue;
     const wk = pages()[tab.id];
     if (wk && wk.windowId !== store.windowId) patch(tab.id, { windowId: store.windowId });
     if (!wk && !prefsReady) continue;
@@ -322,9 +323,18 @@ function onPageEvent(event: WebKitEvent) {
     case 'openTab':
       if (!window) break;
       if (event.download) showStatusMessage(window.store, 'Pages in WebKit can’t download files. Open the site in Chromium to download it.', false);
-      else window.openTab(event.url);
+      else if (event.peek || event.groupLink) {
+        void window.engine.call('tabs.create', { url: event.url, ...(event.peek ? { peek: true } : { opener: tabId }) })
+          .catch(error => showStatusMessage(window.store, String(error)));
+      } else window.openTab(event.url);
       break;
+    case 'toolbarDirection': patch(tabId, { toolbarHidden: event.down }); break;
     case 'pageKey': runPageCommand(tabId, event.command); break;
+    case 'reopenTab':
+      if (window?.store.getState().snapshot?.activeTabId === tabId) {
+        void window.engine.call('modal.command', { text: 'tabrestore' }).catch(error => showStatusMessage(window.store, String(error)));
+      }
+      break;
     case 'pageError': if (window) showStatusMessage(window.store, event.message); break;
     default: break;
   }

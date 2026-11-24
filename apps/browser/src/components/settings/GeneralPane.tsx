@@ -57,6 +57,32 @@ export function GeneralPane({ p, set, openPage, onChooseDownloadDir }: {
       </FormRow>
     </FormGroup>
 
+    <FormGroup title="Tabs and links">
+      <FormRow title="Tidy inactive tabs" detail="Inactive tabs can be recovered from History › Recently Closed.">
+        <PopUp label="Tidy inactive tabs" value={prefs.tabTidyHours} onChange={value => void setShellPref('tabTidyHours', value)}
+          options={[{ value: 'off', title: 'Keep them open' }, { value: '12', title: 'After 12 hours' },
+            { value: '24', title: 'After one day' }, { value: '168', title: 'After one week' }]} />
+      </FormRow>
+      <FormRow title="Share normal tabs across windows">
+        <Toggle label="Share normal tabs across windows" value={prefs.sharedTabs} onChange={value => void setShellPref('sharedTabs', value)} />
+      </FormRow>
+      <FormRow title="Peek at a link with">
+        <PopUp label="Peek at a link with" value={prefs.peekModifier} onChange={value => void setShellPref('peekModifier', value)}
+          options={[{ value: 'off', title: 'Off' }, { value: 'shift', title: 'Shift-click' }, { value: 'option', title: 'Option-click' }]} />
+      </FormRow>
+      <FormRow title="⌘Z reopens closed tabs outside text fields">
+        <Toggle label="⌘Z reopens closed tabs outside text fields" value={prefs.undoReopensTab}
+          onChange={value => void setShellPref('undoReopensTab', value)} />
+      </FormRow>
+      <FormRow title="⌘-click groups related tabs">
+        <Toggle label="⌘-click groups related tabs" value={prefs.groupLinkTabs} onChange={value => void setShellPref('groupLinkTabs', value)} />
+      </FormRow>
+      <FormRow title="Links from other apps open in">
+        <PopUp label="Links from other apps open in" value={prefs.externalLinks} onChange={value => void setShellPref('externalLinks', value)}
+          options={[{ value: 'tab', title: 'A new tab' }, { value: 'compact', title: 'A compact window' }]} />
+      </FormRow>
+    </FormGroup>
+
     <FormGroup title="Command bar" detail="What happens when what you type could be a website or a search.">
       <FormRow title="When input looks like a website">
         <PopUp label="When input looks like a website" value={prefs.searchPreference}

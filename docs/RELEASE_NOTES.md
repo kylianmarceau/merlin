@@ -1,7 +1,13 @@
-Merlin 0.5.11, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.12, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.12
+
+* **Links that open another app.** Merlin shows the confirmation dialog and keeps your original tab usable. Reopening Merlin from the Dock also works while a popup is closing.
+* **Setup with a live browser preview.** After Night Watch, choose a familiar browser preset or customize your layout, shortcuts, appearance, search, and favorite sites. Import supported data from another browser, resume setup after quitting, or bring your choices to another Mac with a setup code.
+* **Refined browser chrome.** The address dropdown joins the address field, and the tab strip and loading indicator have updated styling.
 
 ## What's new in 0.5.11
 

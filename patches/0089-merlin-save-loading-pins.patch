@@ -1,0 +1,16 @@
+--- a/chrome/browser/ui/tabs/pinned_tab_codec.cc
++++ b/chrome/browser/ui/tabs/pinned_tab_codec.cc
+@@ -47,7 +47,12 @@
+     content::WebContents* web_contents = tab->GetContents();
+     NavigationEntry* entry =
+         web_contents->GetController().GetLastCommittedEntry();
+-    if (entry) {
++    // A background pin may still have its initial empty document when the
++    // user quits. Its first browser-initiated destination is already visible.
++    const GURL& visible = web_contents->GetVisibleURL();
++    if ((!entry || entry->IsInitialEntry()) && visible.SchemeIsHTTPOrHTTPS()) {
++      serialized_tabs.Append(EncodeTab(visible));
++    } else if (entry) {
+       serialized_tabs.Append(EncodeTab(entry->GetURL()));
+     }
+   }

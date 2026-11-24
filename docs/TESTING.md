@@ -22,6 +22,23 @@ Not covered by any automated suite: the React surfaces themselves
 (palette, hint labels, prompts, dialogs, Settings, Library), VoiceOver, and
 loaded sessions with many tabs.
 
+### Onboarding fixtures
+
+On macOS, the import fixture runner builds synthetic profiles for Arc, Dia,
+Chrome, Safari, Firefox, Zen, Brave, Edge and Helium in a temporary directory.
+
+```sh
+swiftc packages/engine/macos/SetupImport.swift tests/import/SetupImportFixtures.swift -o /tmp/merlin-import-fixtures
+/tmp/merlin-import-fixtures
+```
+
+Run the native onboarding regressions against an assembled build with
+`scripts/run_e2e_tests.sh test_welcome test_onboarding_behaviors`.
+Use `scripts/preview_onboarding.sh /path/to/Merlin.app` to inspect a fresh
+setup in its own profile. Check the sidebar and top-tab previews, keyboard
+and VoiceOver focus after Continue and Back, and immediate changes with
+Reduce Motion enabled. Narrow the window to check scrolling and the footer.
+
 ## Continuous integration
 
 `.github/workflows/check.yml` runs `scripts/check.sh` on macOS for every

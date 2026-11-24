@@ -1,0 +1,34 @@
+--- a/chrome/browser/app_controller_mac.mm
++++ b/chrome/browser/app_controller_mac.mm
+@@ -81,6 +81,7 @@
+ #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
++#include "chrome/browser/ui/browser_tabstrip.h"
+ #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
+ #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+ #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+@@ -2642,6 +2643,23 @@
+     profile = ProfileManager::MaybeForceOffTheRecordMode(
+         profile->GetOriginalProfile());
+   }
++  NSString* external_links = [NSUserDefaults.standardUserDefaults
++      stringForKey:@"MerlinShell.externalLinks"];
++  if ([external_links isEqualToString:@"compact"] &&
++      !profile->IsOffTheRecord() && !profile->IsNewProfile() &&
++      std::ranges::all_of(tabs, [](const StartupTab& tab) {
++        return tab.url.SchemeIsHTTPOrHTTPS();
++      })) {
++    for (const auto& tab : tabs) {
++      BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_POPUP,
++                                       profile, /*from_user_gesture=*/true);
++      params.initial_bounds.set_size(gfx::Size(700, 620));
++      auto* compact = CreateBrowserWindow(std::move(params));
++      chrome::AddTabAt(compact, tab.url, -1, /*foreground=*/true);
++      compact->GetWindow()->Show();
++    }
++    return;
++  }
+   // Use FindTabbedBrowser() to ensure URLs open in a normal tabbed browser
+   // window, not in PWA/app windows which cannot accept new tabs.
+   BrowserWindowInterface* browser =

@@ -83,6 +83,31 @@ export const geometry = {
   suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, startFalcon: 88, startPrompt: 18, newTabInput: 52, siteWidth: 64,
 } as const;
 
+export const setupGeometry = {
+  width: 880, height: 560, compactWidth: 700, compactCard: 500, compactPreview: 150, compactPinsHeight: 86,
+  colourWheel: 134, headingSize: 26, headingLine: 33, tracking: -1.05, progressWidth: 230, stepDot: 5, stepHeight: 3,
+  tileHeight: 62, catalogIcon: 22, catalogPreview: 42, previewText: 8, previewLine: 11,
+  pictureHeight: 82, previewCard: 268,
+  choiceHeight: 54, codeHeight: 82, filmNoticeBottom: 82,
+  previewHeight: 280, smallPreviewHeight: 120, previewSidebar: 85, previewIcon: 105, previewFalcon: 50,
+} as const;
+export const setupPaper = {
+  light: { canvas: '#f6f6f8', stage: '#f8f9fa', card: '#ffffff', progress: '#dcac48', chrome: '#dce7e6', stock: '#eff3f2' },
+  dark: { canvas: '#14171b', stage: '#202329', card: '#292b30', progress: '#e7ba67', chrome: '#344344', stock: '#2b3637' },
+} as const;
+const favoriteColors: Record<string, string> = {
+  gmail: '#dd665d', calendar: '#5489df', slack: '#ba6aab', notion: '#84888f',
+  figma: '#b17be3', github: '#8591a8', linear: '#8d87db', docs: '#538ce8',
+  drive: '#68ab89', outlook: '#398edb', youtube: '#ed4d62', spotify: '#39bd75',
+};
+
+export function favoriteTint(id: string, dark: boolean) {
+  const color = favoriteColors[id];
+  return color ? { fill: color + (dark ? '32' : '20'), edge: color + (dark ? 'a8' : '91') } : undefined;
+}
+
+export const trafficLightColors = ['#ff605c', '#ffbd44', '#00ca4e'] as const;
+
 /** Layer order inside the window, lowest first. */
 export const layer = { content: 0, chrome: 1, sheet: 10, dialog: 20, popover: 30, activity: 40 } as const;
 
@@ -425,9 +450,9 @@ export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, groupWash: 0.16
 // A new tab page always uses white. Everything here returns roles to patch
 // over the palette (see PaletteScope), so components keep naming roles.
 
-export type ToolbarColor = 'match' | 'soft' | 'vivid' | 'white';
-export const toolbarColors: readonly ToolbarColor[] = ['match', 'soft', 'vivid', 'white'];
-export const toolbarColorLabels: Record<ToolbarColor, string> = { match: 'Match', soft: 'Soft', vivid: 'Vivid', white: 'White' };
+export type ToolbarColor = 'match' | 'soft' | 'vivid' | 'workspace' | 'white';
+export const toolbarColors: readonly ToolbarColor[] = ['match', 'soft', 'vivid', 'workspace', 'white'];
+export const toolbarColorLabels: Record<ToolbarColor, string> = { match: 'Match', soft: 'Soft', vivid: 'Vivid', workspace: 'Workspace', white: 'White' };
 
 type Rgb = [number, number, number];
 const channels = (hex: string): Rgb => {
@@ -586,6 +611,7 @@ export type GlassLook = {
   tint: number;
   /** 0 frosted, 1 clear. */
   transparency: number;
+  workspaceColor?: string;
 };
 export const classicLook: GlassLook = { on: false, translucent: true, tint: 0, transparency: 0.5 };
 
@@ -619,7 +645,7 @@ export function panelGlass(mode: Mode, accent: AccentName, look: GlassLook, clea
   const { middle } = glassCurve;
   const fade = t > middle ? (t - middle) / (1 - middle) : 0;
   const solid = t < middle ? glassCurve.solid * (middle - t) / middle : clearBacking * fade;
-  const color = mixColor(glassBase[mode], accentScale[accent][mode].base, look.tint * glassCurve.panelShare);
+  const color = mixColor(glassBase[mode], look.workspaceColor ?? accentScale[accent][mode].base, look.tint * glassCurve.panelShare);
   return {
     fill: withAlpha(color, thousandths(solid)),
     fade: thousandths(fade),
@@ -630,7 +656,7 @@ export function panelGlass(mode: Mode, accent: AccentName, look: GlassLook, clea
 /** A control's glass plate (a lit button, the address field, a pinned tile). */
 export function controlGlass(mode: Mode, accent: AccentName, look: GlassLook, state: GlassState) {
   const base = mode === 'dark' ? white : black;
-  const color = mixColor(base, accentScale[accent][mode].base, look.tint);
+  const color = mixColor(base, look.workspaceColor ?? accentScale[accent][mode].base, look.tint);
   const alpha = controlBaseAlpha[mode] * glassCurve.controlShare * controlGain[state] + look.tint * glassCurve.tintLift;
   return withAlpha(color, thousandths(alpha));
 }

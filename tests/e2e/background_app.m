@@ -34,5 +34,23 @@ __attribute__((constructor)) static void MerlinTestInBackground(void) {
                    queue:nil
               usingBlock:^(NSNotification* note) {
                 [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+                NSString* prompt_log =
+                    NSProcessInfo.processInfo.environment[@"MERLIN_E2E_EXTERNAL_PROMPT_LOG"];
+                if (prompt_log) {
+                  [NSTimer scheduledTimerWithTimeInterval:0.1
+                                                   repeats:YES
+                                                     block:^(NSTimer* timer) {
+                    for (NSWindow* window in NSApp.windows) {
+                      if ([window.title hasPrefix:@"Open "] && [window.title hasSuffix:@"?"]) {
+                        [window.title writeToFile:prompt_log
+                                       atomically:YES
+                                         encoding:NSUTF8StringEncoding
+                                            error:nil];
+                        [timer invalidate];
+                        break;
+                      }
+                    }
+                  }];
+                }
               }];
 }

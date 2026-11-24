@@ -34,6 +34,13 @@ public final class MerlinShellModule: Module {
     }
     Function("isLiquidGlass") { LiquidGlass.available }
     AsyncFunction("fileIcon") { (ext: String, size: Double) -> String? in FileIcons.dataURL(ext: ext, size: size) }.runOnQueue(.main)
+    AsyncFunction("installedSetupApps") { (ids: [String]) in
+      ids.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil }
+    }.runOnQueue(.main)
+    AsyncFunction("checkDefaultBrowserTrial") { SetupSystem.checkDefaultTrial() }.runOnQueue(.main)
+    AsyncFunction("setupDockStatus") { SetupSystem.inDock }.runOnQueue(.main)
+    AsyncFunction("addMerlinToDock") { try SetupSystem.addToDock() }.runOnQueue(.main)
+    AsyncFunction("installBrowserctl") { try SetupSystem.installBrowserctl() }
     AsyncFunction("isDefaultBrowser") { DefaultBrowser.isDefault }.runOnQueue(.main)
     AsyncFunction("makeDefaultBrowser") { (promise: Promise) in DefaultBrowser.make { promise.resolve($0) } }.runOnQueue(.main)
     AsyncFunction("loginItem") { LoginItem.status }.runOnQueue(.main)
@@ -123,6 +130,7 @@ public final class MerlinShellSurfaceModule: Module {
     Name("MerlinShellSurface")
     View(MerlinSurface.self) {
       // Prefixed so React Native's own view props never handle them.
+      Prop("surfaceTurn") { (view, value: MerlinSurfaceTurn) in view.turn(to: value) }
       Prop("surfaceFill") { (view, value: String?) in view.plateFill = ShellColor.parse(value) }
       Prop("surfaceRadius") { (view, value: Double) in view.plateRadius = value }
       Prop("surfaceBorderColor") { (view, value: String?) in view.plateBorderColor = ShellColor.parse(value) }
@@ -167,6 +175,9 @@ public final class MerlinShellGradientModule: Module {
     View(MerlinGradient.self) {
       Prop("gradientKind") { (view, value: String) in view.kind = value }
       Prop("gradientColors") { (view, value: [String]) in view.colors = value.compactMap { ShellColor.parse($0) } }
+      Prop("gradientAngle") { (view, value: Double) in view.angle = value }
+      Prop("gradientNoise") { (view, value: Double) in view.noise = value }
+      Prop("gradientTexture") { (view, value: String) in view.texture = value }
       Prop("gradientProfile") { (view, value: MerlinGradientProfile) in view.profile = value }
     }
   }

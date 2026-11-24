@@ -375,7 +375,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const zone = s.favouriteZone;
       const pinned = (s.snapshot?.tabs ?? []).filter(t => t.pinned && t.id !== tabId);
       const over = !!zone && overZone(zone, x, y, zone.gap * 2);
-      const index = over && zone ? slotAt(x - zone.x, y - zone.y, pinned.length + 1, zone.width, zone.tileHeight, zone.gap) : -1;
+      const index = over && zone ? slotAt(x - zone.x, y - zone.y, pinned.length + 1, zone.width, zone.tileHeight, zone.gap, zone.adaptive) : -1;
       const old = s.pinDrop;
       if (!over) { if (old) store.setState({ pinDrop: null }); return false; }
       if (old?.tabId === tabId && old.index === index) return true;
@@ -759,7 +759,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     updatePromptText: (promptId: string, text: string) => engine.call('prompts.update', { promptId, text }),
 
     // Settings that live in the snapshot.
-    advanceWelcome: (next: Calls['welcome.advance']['args']['next']) => run('welcome.advance', { next }),
+    advanceWelcome: (next: Calls['welcome.advance']['args']['next'], progress?: Calls['welcome.advance']['args']['progress']) =>
+      run('welcome.advance', progress ? { next, progress } : { next }),
     setAppearance(patch: Partial<Appearance>) {
       const current = store.getState().snapshot?.appearance;
       return current ? run('appearance.set', { ...current, ...patch }) : Promise.resolve(false);

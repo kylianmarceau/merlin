@@ -1,0 +1,57 @@
+--- a/chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.cc
++++ b/chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.cc
+@@ -3,6 +3,10 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
++
++#if defined(__APPLE__)
++#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
++#endif
+ 
+ #include "base/check_deref.h"
+ #include "base/metrics/histogram_macros.h"
+@@ -562,6 +566,16 @@
+     }
+   }
+ 
++#if BUILDFLAG(IS_MAC)
++  if (source && params.user_gesture && params.is_renderer_initiated &&
++      ui::PageTransitionCoreTypeIs(params.transition, ui::PAGE_TRANSITION_LINK) &&
++      params.disposition != WindowOpenDisposition::CURRENT_TAB &&
++      modal_browser::HandleShellModifiedLink(&*browser_, source, params.url,
++          params.disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB)) {
++    return nullptr;
++  }
++#endif
++
+   NavigateParams nav_params(&*browser_, params.url, params.transition);
+   nav_params.FillNavigateParamsFromOpenURLParams(params);
+   nav_params.source_contents = source;
+@@ -666,6 +680,14 @@
+     const blink::mojom::WindowFeatures& window_features,
+     bool user_gesture,
+     bool* was_blocked) {
++#if BUILDFLAG(IS_MAC)
++  if (source && user_gesture && new_contents->GetOpener() &&
++      disposition != WindowOpenDisposition::NEW_POPUP &&
++      modal_browser::HandleShellModifiedLink(&*browser_, source, target_url,
++          disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB)) {
++    return nullptr;
++  }
++#endif
+   FullscreenController* fullscreen_controller =
+       exclusive_access_manager_->fullscreen_controller();
+ #if BUILDFLAG(IS_MAC)
+--- a/chrome/browser/ui/browser_web_contents_delegate/BUILD.gn
++++ b/chrome/browser/ui/browser_web_contents_delegate/BUILD.gn
+@@ -46,6 +46,9 @@
+       "//content/public/browser",
+       "//ui/base",
+     ]
++    if (is_mac) {
++      deps += [ "//chrome/browser/ui/modal_browser:shell_headers" ]
++    }
+     if (use_aura) {
+       deps += [ "//chrome/browser/ui:overscroll_pref_manager" ]
+     }

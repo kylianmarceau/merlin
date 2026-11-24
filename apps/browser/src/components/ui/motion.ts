@@ -8,6 +8,7 @@ export const duration = {
   fast: 100,
   base: 150,
   slow: 220,
+  setup: 320,
   /** How long a hover must rest before a tooltip-like hint appears. */
   hoverIntent: 350,
   /** Rows wash in on hover almost at once and fade out more slowly, as in Dia. */

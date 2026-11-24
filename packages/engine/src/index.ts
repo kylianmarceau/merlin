@@ -6,8 +6,27 @@ export * from './protocol';
 
 type NativeEngine = {
   call(windowId: string, method: string, args: string): Promise<string>;
+  setupImportProfiles(browser: string): Promise<SetupImportProfile[]>;
+  setupImport(windowId: string, browser: string, profile: string, categories: string[]): Promise<SetupImportResult[]>;
   addListener(name: 'browserEvent', listener: (event: { json: string }) => void): { remove(): void };
 };
+
+export type SetupImportProfile = { id: string; name: string };
+export type SetupImportResult = { category: string; count: number; skipped?: number; error?: string };
+
+export function setupImportProfiles(browser: string) {
+  return requireNativeModule<NativeEngine>('MerlinEngine').setupImportProfiles(browser);
+}
+
+export function importSetupProfile(windowId: string, browser: string, profile: string, categories: string[]) {
+  return requireNativeModule<NativeEngine>('MerlinEngine').setupImport(windowId, browser, profile, categories);
+}
+
+export async function openSetupImportTool(windowId: string, category: 'passwords' | 'bookmarks') {
+  const reply = JSON.parse(await requireNativeModule<NativeEngine>('MerlinEngine')
+    .call(windowId, 'setup.openImportTool', JSON.stringify({ category })));
+  if (!reply.ok) throw new Error(reply.error || 'Merlin couldn’t open the file importer.');
+}
 
 /**
  * `onParse`, for timing traces: how long each event took to parse and check,

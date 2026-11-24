@@ -14,6 +14,7 @@ DERIVED_DATA="${MERLIN_SHELL_DERIVED_DATA:-$ROOT/apps/browser/build/native}"
 command -v node >/dev/null
 command -v pnpm >/dev/null
 command -v pod >/dev/null
+command -v cargo >/dev/null
 python3 scripts/sync_shell_headers.py --check
 # The host's sources as the build starts, for its stamp afterwards.
 snapshot="$(mktemp "${TMPDIR:-/tmp}/merlin-shell-sources.XXXXXX")"
@@ -53,6 +54,12 @@ done
 [[ -d "$APP.dSYM" ]] || { echo "xcodebuild wrote no $APP.dSYM" >&2; exit 1; }
 # The Dock tile plug-in that keeps the chosen app icon after Merlin quits.
 packages/shell/docktile/build.sh "$APP"
+# The setup assistant installs a link to this bundled, signed CLI.
+cli_target="$DERIVED_DATA/browserctl-target"
+CARGO_PROFILE_RELEASE_DEBUG=1 cargo build --locked --release -p browserctl --target-dir "$cli_target"
+mkdir -p "$APP/Contents/Helpers"
+install -m 755 "$cli_target/release/browserctl" "$APP/Contents/Helpers/browserctl"
+xcrun dsymutil "$APP/Contents/Helpers/browserctl" -o "$(dirname "$APP")/browserctl.dSYM"
 # What the host was built from, checked by assembly (scripts/lib/build_stamp.py).
 python3 scripts/stamp_build.py shell "$APP" --since "$snapshot"
 echo "React host: $APP"

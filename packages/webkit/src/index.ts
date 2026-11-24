@@ -13,9 +13,11 @@ export type WebKitCommand = 'back' | 'forward' | 'reload' | 'reloadFromOrigin' |
 export type WebKitEvent =
   | { type: 'pageState'; state: WebKitPageState }
   /** A link or script on the page opened a window, or a file to download. */
-  | { type: 'openTab'; tabId: string; url: string; download: boolean }
+  | { type: 'openTab'; tabId: string; url: string; download: boolean; peek: boolean; groupLink: boolean }
+  | { type: 'toolbarDirection'; tabId: string; down: boolean }
   /** A page shortcut (Command-R, Command-[ …) pressed while the page had the keys. */
   | { type: 'pageKey'; tabId: string; command: WebKitCommand }
+  | { type: 'reopenTab'; tabId: string }
   | { type: 'pageError'; tabId: string; message: string };
 
 type Subscription = { remove(): void };
@@ -55,8 +57,10 @@ export function parseWebKitEvent(name: string, body: Record<string, unknown>): W
       canGoForward: body.canGoForward === true, crashed: body.crashed === true,
       color: optional(body.color), surface: optional(body.surface), favicon: optional(body.favicon),
     } };
-    case 'openTab': return body.url && typeof body.url === 'string' ? { type: 'openTab', tabId, url: body.url, download: body.download === true } : null;
+    case 'openTab': return body.url && typeof body.url === 'string' ? { type: 'openTab', tabId, url: body.url, download: body.download === true, peek: body.peek === true, groupLink: body.groupLink === true } : null;
+    case 'toolbarDirection': return { type: 'toolbarDirection', tabId, down: body.down === true };
     case 'pageKey': return commands.includes(str(body.command)) ? { type: 'pageKey', tabId, command: str(body.command) as WebKitCommand } : null;
+    case 'reopenTab': return { type: 'reopenTab', tabId };
     case 'pageError': return { type: 'pageError', tabId, message: str(body.message) || 'This page could not be opened.' };
     default: return null;
   }
@@ -64,7 +68,7 @@ export function parseWebKitEvent(name: string, body: Record<string, unknown>): W
 
 /** Every page's events, for the whole app (all windows share one bridge). */
 export function subscribeWebKit(listener: (event: WebKitEvent) => void): () => void {
-  const subscriptions = (['pageState', 'openTab', 'pageKey', 'pageError'] as const).map(name =>
+  const subscriptions = (['pageState', 'openTab', 'pageKey', 'pageError', 'toolbarDirection'] as const).map(name =>
     module().addListener(name, body => {
       const event = parseWebKitEvent(name, body ?? {});
       if (event) listener(event);

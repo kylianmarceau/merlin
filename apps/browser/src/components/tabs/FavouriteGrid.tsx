@@ -42,6 +42,7 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
   // Where a dropped tile went, held until the engine's order catches up so it doesn't jump back first.
   const [held, setHeld] = useState<{ id: string; index: number } | null>(null);
   // The slots: pinned tabs, some gathered into folders.
+  const adaptive = useShellPrefs(p => p.adaptiveFavorites);
   const folders = useShellPrefs(p => p.favouriteFolders);
   const homes = useBrowser(s => s.pinnedHomes);
   const items = useMemo(() => gridItems(pinned, t => homeKey(homes[t.id]?.url ?? t.url), folders), [pinned, homes, folders]);
@@ -64,20 +65,20 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
   let order = move ? placeAt(ids, move.id, move.index) : held ? placeAt(ids, held.id, held.index) : ids;
   if (incoming && pinDrop) order = placeAt(order, incomingSlot, pinDrop.index);
   const count = Math.max(1, order.length);
-  const columns = columnsFor(count);
+  const columns = columnsFor(count, adaptive ? width : undefined);
   const tile = { width: tileWidth(width, columns, tileGap), height: geometry.favourite };
   const ref = useRef<View>(null);
   const empty = !order.length;
   const measure = useCallback(() => {
     if (!empty) {
       ref.current?.measureInWindow((x, y, w, h) =>
-        actions.setFavouriteZone({ x, y, width: w, height: h, gap: tileGap, tileHeight: geometry.favourite }));
+        actions.setFavouriteZone({ x, y, width: w, height: h, gap: tileGap, tileHeight: geometry.favourite, adaptive }));
       return;
     }
     // No tiles: the first one's place is the band just above the list.
     list.current?.measureInWindow((x, y, w) => actions.setFavouriteZone({ x, y: y - geometry.favourite - tileGap, width: w,
-      height: geometry.favourite, gap: tileGap, tileHeight: geometry.favourite }));
-  }, [actions, empty, list]);
+      height: geometry.favourite, gap: tileGap, tileHeight: geometry.favourite, adaptive }));
+  }, [actions, adaptive, empty, list]);
   // Measured afresh as a row drag starts, since the sidebar may have slid or the window moved since.
   useEffect(() => { if (rowDrag) measure(); }, [rowDrag, measure]);
   useEffect(() => () => actions.setFavouriteZone(null), [actions]);
@@ -85,7 +86,7 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
   const latest = { ids, items, width };
   /** The tile at the middle of which (x, y) sits, from the grid's corner, with the tiles in their places. */
   const middleOf = (x: number, y: number, self: string) => {
-    const slot = slotAt(x, y, latest.ids.length, latest.width, tile.height, tileGap);
+    const slot = slotAt(x, y, latest.ids.length, latest.width, tile.height, tileGap, adaptive);
     const target = latest.ids[slot];
     if (!target || target === self) return null;
     const o = slotOrigin(slot, columns, tile, tileGap);
@@ -93,7 +94,7 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
     return Math.abs(x - o.x - tile.width / 2) <= tile.width * band && Math.abs(y - o.y - tile.height / 2) <= tile.height * band ? target : null;
   };
   const tabsOf = (item: GridItem | undefined) => (!item ? [] : item.kind === 'tab' ? [item.tab] : item.tabs);
-  return <View ref={ref} onLayout={measure} style={{ height: gridHeight(count, tile.height, tileGap) }}>
+  return <View ref={ref} onLayout={measure} style={{ height: gridHeight(count, tile.height, tileGap, columns) }}>
     {order.map((id, index) => {
       if (id === incomingSlot) return incoming && <Cell key={incomingSlot} index={index} columns={columns} tile={tile} reduce={reduceMotion}>
         <IncomingTile tab={incoming} />
@@ -130,7 +131,7 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
                 }, duration.contact) };
               }
             }
-            const next = merging.current ? old.from : slotAt(x, y, latest.ids.length, latest.width, tile.height, tileGap);
+            const next = merging.current ? old.from : slotAt(x, y, latest.ids.length, latest.width, tile.height, tileGap, adaptive);
             if (next !== old.index) tick('alignment');
             setMove({ ...old, index: next, dx, dy });
           },

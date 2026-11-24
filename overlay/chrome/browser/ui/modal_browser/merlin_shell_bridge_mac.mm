@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <map>
+#include <set>
 #include <utility>
 #include <memory>
 #include <string>
@@ -48,6 +49,8 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "ui/base/base_window.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/tabs/tab_model.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
@@ -70,6 +73,11 @@
 #include "chrome/browser/ui/modal_browser/merlin_tab_switcher.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_color.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
+#include "chrome/browser/history/history_service_factory.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/prefs/scoped_user_pref_update.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_muted_utils.h"
 #include "components/bookmarks/browser/base_bookmark_model_observer.h"
@@ -242,6 +250,49 @@ struct ShellPrompt {
   modal_browser::ShellPromptReply draft;
   base::TimeTicks shown;
 };
+constexpr std::pair<std::string_view, std::string_view> kSetupFavoriteSites[] = {
+  {"gmail", "https://mail.google.com/"},
+  {"calendar", "https://calendar.google.com/"},
+  {"slack", "https://app.slack.com/"},
+  {"notion", "https://www.notion.so/"},
+  {"figma", "https://www.figma.com/"},
+  {"github", "https://github.com/"},
+  {"linear", "https://linear.app/"},
+  {"docs", "https://docs.google.com/"},
+  {"drive", "https://drive.google.com/"},
+  {"outlook", "https://outlook.office.com/mail/"},
+  {"youtube", "https://www.youtube.com/"},
+  {"spotify", "https://open.spotify.com/"},
+};
+
+bool SetupFlag(NSString* key) {
+  return [[NSUserDefaults.standardUserDefaults stringForKey:key] isEqualToString:@"on"];
+}
+
+void AddSetupFavorites(BrowserWindowInterface* browser, const List* ids) {
+  if (!ids || ids->empty())
+    return;
+  auto* strip = browser->GetTabStripModel();
+  for (const auto& [id, site] : kSetupFavoriteSites) {
+    if (!std::ranges::any_of(*ids, [id](const base::Value& v) { return v.is_string() && v.GetString() == id; }))
+      continue;
+    const GURL url(site);
+    bool already_pinned = false;
+    for (int i = 0; i < strip->count(); ++i) {
+      if (!strip->IsTabPinned(i))
+        continue;
+      auto* contents = strip->GetWebContentsAt(i);
+      if (contents->GetVisibleURL() == url ||
+          contents->GetVisibleURL().host() == url.host()) {
+        already_pinned = true;
+        break;
+      }
+    }
+    if (!already_pinned)
+      chrome::AddTabAt(browser, url, -1, false, std::nullopt, /*pinned=*/true);
+  }
+}
+
 class WindowState : public TabStripModelObserver, public content::WebContentsObserver,
                     public download::AllDownloadItemNotifier::Observer, public ui::NativeThemeObserver,
                     public bookmarks::BaseBookmarkModelObserver {
@@ -272,6 +323,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
             }, weak_factory_.GetWeakPtr()));
     // Each tab says whether its page is bookmarked (the address field's star).
     if (auto* model = BookmarkModelFactory::GetForBrowserContext(browser_->GetProfile())) bookmarks_.Observe(model);
+    if (browser_->GetType() == BrowserWindowInterface::TYPE_NORMAL && !browser_->GetProfile()->IsOffTheRecord())
+      tidy_timer_.Start(FROM_HERE, base::Minutes(10), this, &WindowState::TidyOldTabs);
   }
   ~WindowState() override {
     browser_->GetTabStripModel()->RemoveObserver(this);
@@ -357,6 +410,23 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     Changed();
   }
   void Changed();
+  void ScheduleSnapshot();
+  bool SharesTabs();
+  bool IsSharedTab(int index);
+  Dict DescribeTab(TabStripModel* strip, int index);
+  void TidyOldTabs();
+  bool toolbar_hidden = false;
+  int last_link_modifiers = 0;
+  base::TimeTicks last_link_click;
+  void DidChangeVerticalScrollDirection(viz::VerticalScrollDirection direction) override {
+    if (!SetupFlag(@"MerlinShell.hideToolbarOnScroll") || direction == viz::VerticalScrollDirection::kNull)
+      return;
+    const bool hidden = direction == viz::VerticalScrollDirection::kDown;
+    if (hidden != toolbar_hidden) {
+      toolbar_hidden = hidden;
+      Changed();
+    }
+  }
   void SyncSplitVisibility();
   void Deliver();
   void OnSuggestions(const std::vector<modal_browser::MerlinSuggestions::Suggestion>& results);
@@ -369,12 +439,14 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
   raw_ptr<BrowserWindowInterface> browser_;
   int revision_ = 0;
   bool delivery_pending_ = false;
+  bool propagate_shared_ = false;
   base::TimeTicks last_delivery_;
   void StopHoldingStartPage();
   // The active page's top edge colour (see PageEdgeColor): read now, and again
   // shortly after, once the page has styled itself.
   void SampleEdge();
   void SampleEdgeSoon();
+  base::RepeatingTimer tidy_timer_;
   base::OneShotTimer edge_soon_;
   base::OneShotTimer edge_after_scroll_;
   // The end of a wheel, trackpad or fling scroll on the active page.
@@ -394,6 +466,11 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     void OnInputEvent(const content::RenderWidgetHost&, const blink::WebInputEvent& event,
                       InputEventSource) override {
       if (event.GetType() == blink::WebInputEvent::Type::kGestureScrollEnd) window_->PageScrolled();
+      if (event.GetType() == blink::WebInputEvent::Type::kMouseUp &&
+          static_cast<const blink::WebMouseEvent&>(event).button == blink::WebMouseEvent::Button::kLeft) {
+        window_->last_link_modifiers = event.GetModifiers();
+        window_->last_link_click = base::TimeTicks::Now();
+      }
     }
     void RenderWidgetHostDestroyed(content::RenderWidgetHost* host) override {
       if (host == host_) Watch(nullptr);
@@ -443,17 +520,26 @@ class Registry : public BrowserCollectionObserver {
       const bool already_showing = std::ranges::any_of(windows, [&](const auto& entry) {
         return entry.second->browser()->GetProfile() == profile && !entry.second->welcome.empty();
       });
-      if (!already_showing && (saved == "appearance" || saved == "workspace" || saved == "practice" || saved == "ready")) {
-        state->welcome = saved;
+      if (!already_showing && (saved == "setup" || saved == "appearance" || saved == "workspace" || saved == "practice" || saved == "ready")) {
+        state->welcome = saved == "appearance" || saved == "workspace" ? "setup" : saved;
       } else if (saved.empty() && first_run::IsChromeFirstRun() && profile->IsNewProfile()) {
         state->welcome = "intro";
         // An interrupted launch resumes at the first choice without replaying the flight.
-        prefs->SetString("merlin.shell.onboarding", "appearance");
+        prefs->SetString("merlin.shell.onboarding", "setup");
       }
     }
     windows.emplace(WindowId(b), std::move(state));
   }
-  void OnBrowserClosed(BrowserWindowInterface* b) override { windows.erase(WindowId(b)); }
+  void OnBrowserClosed(BrowserWindowInterface* b) override {
+    windows.erase(WindowId(b));
+    bool profile_has_window = false;
+    for (const auto& [_, state] : windows) {
+      if (state->browser()->GetProfile() != b->GetProfile()) continue;
+      profile_has_window = true;
+      if (state->SharesTabs()) state->ScheduleSnapshot();
+    }
+    if (!profile_has_window) shared_orders.erase(b->GetProfile());
+  }
   void Emit(Dict event) {
     if (!reply_waiters.empty()) TakeReplyWaiter(event);
     const auto json = base::WriteJson(event);
@@ -482,6 +568,7 @@ class Registry : public BrowserCollectionObserver {
     std::move(waiter).Run(reply);
   }
   std::map<std::string, std::unique_ptr<WindowState>> windows;
+  std::map<Profile*, std::vector<std::string>> shared_orders;
   std::map<uint64_t, Listener> listeners;
   uint64_t next_listener = 0;
   const std::string session;
@@ -489,6 +576,10 @@ class Registry : public BrowserCollectionObserver {
 };
 Registry& GetRegistry() { static base::NoDestructor<Registry> registry; return *registry; }
 void WindowState::Changed() {
+  propagate_shared_ = true;
+  ScheduleSnapshot();
+}
+void WindowState::ScheduleSnapshot() {
   ++revision_;
   // Never call into JS while TabStripModel is in a mutation/notification.
   // Coalesce download progress and cancel pending delivery when the window closes.
@@ -506,7 +597,14 @@ void WindowState::Changed() {
 void WindowState::Deliver() {
   delivery_pending_ = false;
   last_delivery_ = base::TimeTicks::Now();
+  const bool propagate = std::exchange(propagate_shared_, false);
   GetRegistry().Emit(Dict().Set("type", "snapshot").Set("snapshot", Snapshot()));
+  if (propagate && SharesTabs()) {
+    for (const auto& [id, peer] : GetRegistry().windows) {
+      if (peer.get() != this && peer->SharesTabs() && peer->browser()->GetProfile() == browser_->GetProfile())
+        peer->ScheduleSnapshot();
+    }
+  }
 }
 bool CommittedStartPage(content::WebContents* contents) {
   auto* entry = contents->GetController().GetLastCommittedEntry();
@@ -564,33 +662,70 @@ void WindowState::StopHoldingStartPage() {
   painting_.reset();
   Changed();
 }
-// Settings › Appearance › Tabs › New tabs open "At the top": a new blank tab
-// (Command-T, the New Tab buttons) goes before the other open tabs, as in
-// Arc and Dia, instead of after them. Tabs opened from links keep their place.
-bool NewTabsAtTop() {
-  // The shell keeps this setting in AppKit's defaults (packages/shell).
-  NSString* value = [NSUserDefaults.standardUserDefaults stringForKey:@"MerlinShell.newTabPosition"];
-  return [value isEqualToString:@"top"];
+void WindowState::TidyOldTabs() {
+  if (!welcome.empty()) return;
+  NSString* value = [NSUserDefaults.standardUserDefaults stringForKey:@"MerlinShell.tabTidyHours"];
+  const int hours = [value intValue];
+  if (hours != 12 && hours != 24 && hours != 168) return;
+  auto* strip = browser_->GetTabStripModel();
+  const base::Time cutoff = base::Time::Now() - base::Hours(hours);
+  for (int i = strip->count() - 1; i >= strip->IndexOfFirstNonPinnedTab(); --i) {
+    auto* tab = strip->GetTabAtIndex(i);
+    auto* contents = tab->GetContents();
+    const auto active_time = tab->GetLastActiveTime();
+    if (i == strip->active_index() || tab->IsVisible() || tab->GetSplit() ||
+        active_time.is_null() || active_time >= cutoff || contents->IsCurrentlyAudible() ||
+        contents->NeedToFireBeforeUnloadOrUnloadEvents() ||
+        !contents->GetVisibleURL().SchemeIsHTTPOrHTTPS())
+      continue;
+    auto* session = content::MediaSession::GetIfExists(contents);
+    if (session) {
+      const auto info = session->GetMediaSessionInfoSync();
+      if (info && info->playback_state == media_session::mojom::MediaPlaybackState::kPlaying)
+        continue;
+    }
+    strip->CloseWebContentsAt(i, TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+  }
 }
+
 void WindowState::OnTabStripModelChanged(TabStripModel* model, const TabStripModelChange& change,
                                         const TabStripSelectionChange& selection) {
-  // Restored tabs keep the order they were saved in.
-  if (change.type() == TabStripModelChange::kInserted && NewTabsAtTop() &&
+  if (selection.active_tab_changed()) toolbar_hidden = false;
+  NSString* preferred = [NSUserDefaults.standardUserDefaults stringForKey:@"MerlinShell.newTabPosition"];
+  const bool adjacent = [preferred isEqualToString:@"adjacent"];
+  if (change.type() == TabStripModelChange::kInserted &&
+      (adjacent || [preferred isEqualToString:@"top"]) &&
       !SessionRestore::IsRestoring(browser_->GetProfile())) {
+    auto* previous = selection.old_contents.get();
     for (const auto& inserted : change.GetInsert()->contents) {
       auto* contents = inserted.contents.get();
       if (!contents || !modal_browser::IsShellStartUrl(contents->GetVisibleURL()) ||
           contents->GetController().GetEntryCount() > 1 || contents->GetController().NeedsReload()) continue;
       // Not while the strip is still notifying its observers.
       content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
-          [](base::WeakPtr<WindowState> state, base::WeakPtr<content::WebContents> moving) {
+          [](base::WeakPtr<WindowState> state, base::WeakPtr<content::WebContents> moving,
+             base::WeakPtr<content::WebContents> before, bool adjacent) {
             if (!state || !moving) return;
             auto* strip = state->browser()->GetTabStripModel();
             const int at = strip->GetIndexOfWebContents(moving.get());
             const int first = strip->IndexOfFirstNonPinnedTab();
-            if (at > first && !strip->IsTabPinned(at) && !strip->GetTabGroupForTab(at) && !strip->GetSplitForTab(at))
-              strip->MoveWebContentsAt(at, first, /*select_after_move=*/false);
-          }, weak_factory_.GetWeakPtr(), contents->GetWeakPtr()));
+            if (at < first || strip->GetTabGroupForTab(at) || strip->GetSplitForTab(at)) return;
+            int to = first;
+            if (adjacent) {
+              const int prior = before ? strip->GetIndexOfWebContents(before.get()) : -1;
+              if (prior < 0 || prior == at) return;
+              int end = prior;
+              if (const auto group = strip->GetTabGroupForTab(prior)) {
+                while (end + 1 < strip->count() && strip->GetTabGroupForTab(end + 1) == group) ++end;
+              } else if (const auto split = strip->GetSplitForTab(prior)) {
+                while (end + 1 < strip->count() && strip->GetSplitForTab(end + 1) == split) ++end;
+              }
+              to = std::max(first, end + (at > end ? 1 : 0));
+            }
+            if (at != to && to < strip->count())
+              strip->MoveWebContentsAt(at, to, /*select_after_move=*/false);
+          }, weak_factory_.GetWeakPtr(), contents->GetWeakPtr(),
+          previous ? previous->GetWeakPtr() : base::WeakPtr<content::WebContents>(), adjacent));
     }
   }
   Observe(browser_->GetTabStripModel()->GetActiveWebContents());
@@ -653,40 +788,110 @@ base::Value WindowState::Media(content::WebContents* contents) {
       .Set("canNext", std::ranges::contains(actions, MediaSessionAction::kNextTrack))
       .Set("canPrevious", std::ranges::contains(actions, MediaSessionAction::kPreviousTrack)));
 }
+bool WindowState::SharesTabs() {
+  return welcome.empty() && browser_->GetType() == BrowserWindowInterface::TYPE_NORMAL &&
+      !browser_->GetProfile()->IsOffTheRecord() && SetupFlag(@"MerlinShell.sharedTabs");
+}
+
+bool WindowState::IsSharedTab(int index) {
+  auto* strip = browser_->GetTabStripModel();
+  if (!strip->ContainsIndex(index) || strip->IsTabPinned(index) || strip->GetSplitForTab(index))
+    return false;
+  auto* contents = strip->GetWebContentsAt(index);
+  return contents->GetVisibleURL().SchemeIsHTTPOrHTTPS() ||
+      modal_browser::RestoredWebKitPage(contents).has_value();
+}
+
+Dict WindowState::DescribeTab(TabStripModel* strip, int i) {
+  auto* tab = strip->GetTabAtIndex(i);
+  auto* contents = tab->GetContents();
+  // The shell shows these, never its own reading of `url`: Chromium's
+  // formatting hides user names and spoofed hosts, and its security state
+  // knows about certificate errors the scheme can't show.
+  const auto shown = modal_browser::FormatShellDisplayUrl(contents->GetVisibleURL());
+  Dict entry = Dict().Set("id", TabId(tab))
+    .Set("title", base::UTF16ToUTF8(contents->GetTitle()))
+    .Set("url", contents->GetVisibleURL().spec()).Set("displayUrl", shown.url).Set("displayHost", shown.host)
+    .Set("security", modal_browser::ShellSecurityState(contents))
+    .Set("loading", contents->IsLoading()).Set("crashed", contents->IsCrashed())
+    .Set("pinned", strip->IsTabPinned(i)).Set("audible", contents->IsCurrentlyAudible())
+    .Set("muted", contents->IsAudioMuted()).Set("bookmarked", modal_browser::IsPageBookmarked(contents))
+    .Set("discarded", contents->WasDiscarded())
+    .Set("canGoBack", contents->GetController().CanGoBack())
+    .Set("canGoForward", contents->GetController().CanGoForward())
+    .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
+  if (auto media = Media(contents); !media.is_none()) entry.Set("media", std::move(media));
+  if (const auto* zoom = zoom::ZoomController::FromWebContents(contents))
+    entry.Set("zoom", Dict().Set("percent", zoom->GetZoomPercent()).Set("default", zoom->IsAtDefaultZoom()));
+  if (const auto group = strip->GetTabGroupForTab(i)) entry.Set("group", modal_browser::GroupKey(*group));
+  // Every split, not only the one on screen, so the tabs can show each as one piece.
+  if (const auto split = strip->GetSplitForTab(i)) entry.Set("split", split->ToString());
+  if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
+  if (const auto edge = modal_browser::PageEdgeColor::Get(contents)) entry.Set("surface", HexColor(*edge));
+  if (const auto* identity = modal_browser::PageIdentity::FromWebContents(contents); identity && identity->user_initiated())
+    entry.Set("userInitiated", true);
+  if (const auto restored = modal_browser::RestoredWebKitPage(contents))
+    entry.Set("restoreInWebKit", Dict().Set("url", restored->url.spec()).Set("title", base::UTF16ToUTF8(restored->title)));
+  return entry;
+}
+
 Dict WindowState::Snapshot() {
   auto* strip = browser_->GetTabStripModel();
   List tabs;
-  for (int i = 0; i < strip->count(); ++i) {
-    auto* tab = strip->GetTabAtIndex(i);
-    auto* contents = tab->GetContents();
-    // The shell shows these, never its own reading of `url`: Chromium's
-    // formatting hides user names and spoofed hosts, and its security state
-    // knows about certificate errors the scheme can't show.
-    const auto shown = modal_browser::FormatShellDisplayUrl(contents->GetVisibleURL());
-    Dict entry = Dict().Set("id", TabId(tab))
-      .Set("title", base::UTF16ToUTF8(contents->GetTitle()))
-      .Set("url", contents->GetVisibleURL().spec()).Set("displayUrl", shown.url).Set("displayHost", shown.host)
-      .Set("security", modal_browser::ShellSecurityState(contents))
-      .Set("loading", contents->IsLoading()).Set("crashed", contents->IsCrashed())
-      .Set("pinned", strip->IsTabPinned(i)).Set("audible", contents->IsCurrentlyAudible())
-      .Set("muted", contents->IsAudioMuted()).Set("bookmarked", modal_browser::IsPageBookmarked(contents))
-      .Set("discarded", contents->WasDiscarded())
-      .Set("canGoBack", contents->GetController().CanGoBack())
-      .Set("canGoForward", contents->GetController().CanGoForward())
-      .Set("favicon", FaviconKey(contents)).Set("start", ShowsStartPage(contents));
-    if (auto media = Media(contents); !media.is_none()) entry.Set("media", std::move(media));
-    if (const auto* zoom = zoom::ZoomController::FromWebContents(contents))
-      entry.Set("zoom", Dict().Set("percent", zoom->GetZoomPercent()).Set("default", zoom->IsAtDefaultZoom()));
-    if (const auto group = strip->GetTabGroupForTab(i)) entry.Set("group", modal_browser::GroupKey(*group));
-    // Every split, not only the one on screen, so the tabs can show each as one piece.
-    if (const auto split = strip->GetSplitForTab(i)) entry.Set("split", split->ToString());
-    if (auto color = SiteColor(contents, icon_colors_); !color.empty()) entry.Set("color", std::move(color));
-    if (const auto edge = modal_browser::PageEdgeColor::Get(contents)) entry.Set("surface", HexColor(*edge));
-    if (const auto* identity = modal_browser::PageIdentity::FromWebContents(contents); identity && identity->user_initiated())
-      entry.Set("userInitiated", true);
-    if (const auto restored = modal_browser::RestoredWebKitPage(contents))
-      entry.Set("restoreInWebKit", Dict().Set("url", restored->url.spec()).Set("title", base::UTF16ToUTF8(restored->title)));
-    tabs.Append(std::move(entry));
+  List groups = modal_browser::GroupsSnapshot(strip);
+  if (!SharesTabs()) {
+    for (int i = 0; i < strip->count(); ++i)
+      tabs.Append(DescribeTab(strip, i));
+  } else {
+    std::map<std::string, std::pair<WindowState*, int>> shared_tabs;
+    std::vector<std::string> discovered;
+    for (const auto& [id, peer] : GetRegistry().windows) {
+      if (!peer->SharesTabs() || peer->browser()->GetProfile() != browser_->GetProfile())
+        continue;
+      auto* peer_strip = peer->browser()->GetTabStripModel();
+      for (int i = 0; i < peer_strip->count(); ++i) {
+        if (!peer->IsSharedTab(i)) {
+          if (peer.get() == this) tabs.Append(DescribeTab(strip, i));
+          continue;
+        }
+        const auto tab_id = TabId(peer_strip->GetTabAtIndex(i));
+        shared_tabs.emplace(tab_id, std::make_pair(peer.get(), i));
+        discovered.push_back(tab_id);
+      }
+      if (peer.get() != this) {
+        auto peer_groups = modal_browser::GroupsSnapshot(peer_strip);
+        for (auto& group : peer_groups)
+          groups.Append(std::move(group));
+      }
+    }
+    auto& order = GetRegistry().shared_orders[browser_->GetProfile()];
+    std::erase_if(order, [&](const auto& id) { return !shared_tabs.contains(id); });
+    for (const auto& id : discovered) {
+      if (!std::ranges::contains(order, id)) order.push_back(id);
+    }
+    // Keep each native group contiguous in the shared strip, even if it was
+    // assembled from tabs that previously sat far apart.
+    std::set<std::string> appended;
+    for (const auto& id : order) {
+      if (appended.contains(id)) continue;
+      const auto [owner, index] = shared_tabs.at(id);
+      auto* owner_strip = owner->browser()->GetTabStripModel();
+      const auto group = owner_strip->GetTabGroupForTab(index);
+      auto append = [&](const std::string& tab_id, int at) {
+        appended.insert(tab_id);
+        auto value = owner->DescribeTab(owner_strip, at);
+        if (owner != this) value.Set("sharedFrom", WindowId(owner->browser()));
+        tabs.Append(std::move(value));
+      };
+      if (!group) {
+        append(id, index);
+      } else {
+        for (int i = 0; i < owner_strip->count(); ++i) {
+          if (owner_strip->GetTabGroupForTab(i) != group || !owner->IsSharedTab(i)) continue;
+          append(TabId(owner_strip->GetTabAtIndex(i)), i);
+        }
+      }
+    }
   }
   // Watches of tabs that have gone (closed, or moved to another window).
   std::erase_if(media_, [&](const auto& watch) {
@@ -717,8 +922,11 @@ Dict WindowState::Snapshot() {
     .Set("revision", revision_).Set("private", browser_->GetProfile()->IsOffTheRecord())
     .Set("kind", browser_->GetType() == BrowserWindowInterface::TYPE_POPUP ? "popup" : "normal")
     .Set("welcome", welcome).Set("welcomeTabId", lesson_tab)
+    .Set("toolbarHidden", toolbar_hidden)
+    .Set("welcomeProgress", !welcome.empty() ?
+        browser_->GetProfile()->GetPrefs()->GetDict("merlin.shell.setup").Clone() : Dict())
     .Set("extensionPopup", modal_browser::ShellExtensionPopupState(browser_))
-    .Set("tabs", std::move(tabs)).Set("groups", modal_browser::GroupsSnapshot(strip))
+    .Set("tabs", std::move(tabs)).Set("groups", std::move(groups))
     .Set("peek", modal_browser::MerlinPeekState(browser_))
     .Set("activeTabId", strip->active_index() >= 0 ? base::Value(TabId(strip->GetTabAtIndex(strip->active_index()))) : base::Value())
     .Set("downloads", std::move(downloads)).Set("prompt", prompts.empty() ? base::Value() : base::Value(prompts.front().description.Clone()))
@@ -852,6 +1060,94 @@ char* Call(const char* window, const char* method, const char* json) {
   auto* browser = state->browser();
   auto* strip = browser->GetTabStripModel();
   if (name == shell::method::kWindowSnapshot) return Ok(base::Value(state->Snapshot()));
+  if (name == "setup.importBatch") {
+    auto* profile = browser->GetProfile();
+    if (profile->IsOffTheRecord()) return Error("Import needs a regular Merlin profile");
+    const auto* category = args->FindString("category");
+    const auto* entries = args->FindList("entries");
+    if (!category || !entries || entries->size() > 20) return Error("Invalid import batch");
+    auto* bookmarks = BookmarkModelFactory::GetForBrowserContext(profile);
+    if (*category == "bookmarks" && (!bookmarks || !bookmarks->loaded()))
+      return Error("Merlin’s bookmarks are still loading. Try again.");
+    auto* history_service = *category == "history"
+        ? HistoryServiceFactory::GetForProfile(profile, ServiceAccessType::EXPLICIT_ACCESS)
+        : nullptr;
+    if (*category == "history" && !history_service) return Error("Merlin history is unavailable");
+    std::unique_ptr<ScopedDictPrefUpdate> journal;
+    if (history_service) journal = std::make_unique<ScopedDictPrefUpdate>(
+        profile->GetPrefs(), "merlin.shell.imported_history");
+    history::URLRows visits;
+    int added = 0;
+    for (const auto& value : *entries) {
+      const auto* entry = value.GetIfDict();
+      if (!entry) continue;
+      const auto* spec = entry->FindString("url");
+      const GURL url(spec ? *spec : "");
+      if (!url.SchemeIsHTTPOrHTTPS()) continue;
+      const auto* imported_title = entry->FindString("title");
+      const auto title = base::UTF8ToUTF16(imported_title && !imported_title->empty() ? *imported_title : url.host());
+      if (*category == "bookmarks") {
+        const bookmarks::BookmarkNode* parent = bookmarks->other_node();
+        if (const auto* folders = entry->FindList("folders")) {
+          for (const auto& part : *folders) {
+            if (!part.is_string() || part.GetString().empty()) continue;
+            const auto folder = base::UTF8ToUTF16(part.GetString());
+            const bookmarks::BookmarkNode* next = nullptr;
+            for (const auto& child : parent->children()) {
+              if (child->is_folder() && child->GetTitle() == folder) {
+                next = child.get();
+                break;
+              }
+            }
+            parent = next ? next : bookmarks->AddFolder(parent, parent->children().size(), folder);
+          }
+        }
+        const auto existing = bookmarks->GetNodesByURL(url);
+        if (std::ranges::any_of(existing, [parent](const auto& node) { return node->parent() == parent; })) continue;
+        bookmarks->AddURL(parent, parent->children().size(), title, url);
+        ++added;
+      } else if (*category == "tabs") {
+        int existing = TabStripModel::kNoTab;
+        for (int i = 0; i < strip->count(); ++i) {
+          if (strip->GetWebContentsAt(i)->GetVisibleURL() == url) { existing = i; break; }
+        }
+        const bool pinned = entry->FindBool("pinned").value_or(false);
+        if (existing != TabStripModel::kNoTab) {
+          if (pinned && !strip->IsTabPinned(existing)) { strip->SetTabPinned(existing, true); ++added; }
+          continue;
+        }
+        chrome::AddTabAt(browser, url, -1, false, std::nullopt, pinned);
+        ++added;
+      } else if (history_service) {
+        const auto time = base::Time::FromSecondsSinceUnixEpoch(entry->FindDouble("time").value_or(0));
+        if (time < base::Time::Now() - base::Days(90) || time > base::Time::Now() + base::Days(1)) continue;
+        const auto key = base::NumberToString(base::PersistentHash(url.spec()));
+        const double stamp = time.InSecondsFSinceUnixEpoch();
+        if (journal->Get().FindDouble(key).value_or(0) >= stamp) continue;
+        journal->Get().Set(key, stamp);
+        auto& row = visits.emplace_back(url);
+        row.set_title(title);
+        row.set_last_visit(time);
+        row.set_visit_count(std::clamp(entry->FindInt("visits").value_or(1), 1, 1000000));
+        ++added;
+      }
+    }
+    if (!visits.empty()) history_service->AddPagesWithDetails(visits, history::SOURCE_OS_MIGRATION_IMPORTED);
+    return Ok(base::Value(added));
+  }
+  if (name == "setup.openImportTool") {
+    if (browser->GetProfile()->IsOffTheRecord()) return Error("Import needs a regular Merlin profile");
+    const auto* category = args->FindString("category");
+    if (!category || (*category != "passwords" && *category != "bookmarks"))
+      return Error("Unknown file importer");
+    NavigateParams params(browser->GetProfile(),
+        GURL(*category == "passwords" ? "chrome://password-manager/settings" : "chrome://settings/importData"),
+        ui::PAGE_TRANSITION_AUTO_BOOKMARK);
+    params.disposition = WindowOpenDisposition::NEW_POPUP;
+    params.window_action = NavigateParams::WindowAction::kShowWindow;
+    Navigate(&params);
+    return Ok();
+  }
   if (name == shell::method::kWelcomeAdvance) {
     const auto* next = args->FindString("next");
     if (!next || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL)
@@ -887,10 +1183,33 @@ char* Call(const char* window, const char* method, const char* json) {
       state->SetWelcome("practice");
       if (strip->GetWebContentsAt(lesson)->GetVisibleURL().ref() == "complete")
         state->SetWelcome("ready");
+    } else if (*next == "setup") {
+      if (const Dict* progress = args->FindDict("progress")) {
+        const auto* screen = progress->FindString("screen");
+        const auto* source = progress->FindString("source");
+        const auto* favorites = progress->FindList("favorites");
+        if (!screen || screen->empty() || screen->size() > 32 ||
+            !source || source->size() > 24 || !progress->FindBool("custom") ||
+            !favorites || favorites->size() > 12 ||
+            std::ranges::any_of(*favorites, [](const base::Value& id) {
+              return !id.is_string() || id.GetString().size() > 24;
+            })) {
+          return Error("Invalid setup progress");
+        }
+        browser->GetProfile()->GetPrefs()->SetDict("merlin.shell.setup",
+            Dict().Set("screen", *screen).Set("source", *source)
+                .Set("custom", *progress->FindBool("custom"))
+                .Set("favorites", favorites->Clone()));
+      }
+      state->SetWelcome("setup");
     } else if (*next == "appearance" || *next == "workspace" || *next == "ready") {
       state->SetWelcome(*next);
     } else if (*next == "browse" || *next == "import") {
       auto* lesson_contents = lesson >= 0 ? strip->GetWebContentsAt(lesson) : nullptr;
+      if (!state->replaying_lesson) {
+        const auto ids = browser->GetProfile()->GetPrefs()->GetDict("merlin.shell.setup").Clone();
+        AddSetupFavorites(browser, ids.FindList("favorites"));
+      }
       state->SetWelcome("");
       state->lesson_tab.clear();
       state->replaying_lesson = false;
@@ -1066,7 +1385,19 @@ char* Call(const char* window, const char* method, const char* json) {
     GURL destination("about:blank");
     if (url && !url->empty()) destination = ResolveAddress(browser->GetProfile(), *url);
     if (!destination.is_valid()) return Error("This address cannot be opened");
-    chrome::AddTabAt(browser, destination, -1, true);
+    if (args->FindBool("peek").value_or(false)) {
+      if (!destination.SchemeIsHTTPOrHTTPS() || !modal_browser::OpenMerlinPeek(browser, destination))
+        return Error("This link couldn’t open in Peek");
+      return Ok();
+    }
+    const int opener = FindTab(strip, args->FindString("opener"));
+    auto group = opener < 0 ? std::nullopt : strip->GetTabGroupForTab(opener);
+    if (opener >= 0 && !group && SetupFlag(@"MerlinShell.groupLinkTabs") &&
+        !strip->IsTabPinned(opener) && !strip->GetSplitForTab(opener)) {
+      group = strip->AddToNewGroup({opener});
+    }
+    chrome::AddTabAt(browser, destination, opener >= 0 ? opener + 1 : -1,
+        opener < 0, group);
     return Ok();
   }
   if (name == shell::method::kPageFocus) {
@@ -1189,7 +1520,51 @@ char* Call(const char* window, const char* method, const char* json) {
     if (callback) std::move(callback).Run(std::move(reply));
     return Ok();
   }
-  const int index = FindTab(strip, args->FindString("tabId"));
+  const auto* tab_id = args->FindString("tabId");
+  int index = FindTab(strip, tab_id);
+  if (tab_id && state->SharesTabs()) {
+    auto& registry = GetRegistry();
+    auto& shared_order = registry.shared_orders[browser->GetProfile()];
+    if (name == shell::method::kTabsMove && std::ranges::contains(shared_order, *tab_id)) {
+      const auto* before = args->Find("beforeId");
+      if (before && (before->is_none() || (before->is_string() &&
+            std::ranges::contains(shared_order, before->GetString())))) {
+        if (before->is_string() && *tab_id == before->GetString()) return Ok();
+        std::erase(shared_order, *tab_id);
+        const auto target = before->is_none() ? shared_order.end() :
+            std::ranges::find(shared_order, before->GetString());
+        shared_order.insert(target, *tab_id);
+        state->Changed();
+        // Also keep the native strip in order where it owns both tabs.
+        if (index < 0 || (before->is_string() && FindTab(strip, &before->GetString()) < 0)) return Ok();
+      }
+    }
+    if (index < 0) {
+      for (const auto& [id, owner] : registry.windows) {
+        if (owner.get() == state || !owner->SharesTabs() || owner->browser()->GetProfile() != browser->GetProfile())
+          continue;
+        auto* source = owner->browser()->GetTabStripModel();
+        int match = FindTab(source, tab_id);
+        if (!owner->IsSharedTab(match)) continue;
+        if (name != shell::method::kTabsActivate)
+          return Call(id.c_str(), method, json);
+        if (source->count() == 1 || (source->GetTabGroupForTab(match) &&
+              std::ranges::all_of(owner->browser()->GetAllTabInterfaces(), [&](auto* tab) { return tab->GetGroup() == source->GetTabGroupForTab(match); })))
+          chrome::AddTabAt(owner->browser(), GURL("about:blank"), -1, false);
+        match = FindTab(source, tab_id);
+        if (match < 0) return Error("That tab closed while Merlin was moving it");
+        if (const auto group = source->GetTabGroupForTab(match)) {
+          auto detached = source->DetachTabGroupForInsertion(*group);
+          strip->InsertDetachedTabGroupAt(std::move(detached), strip->count());
+        } else {
+          auto detached = source->DetachTabAtForInsertion(match);
+          strip->InsertDetachedTabAt(strip->count(), std::move(detached), AddTabTypes::ADD_ACTIVE);
+        }
+        index = FindTab(strip, tab_id);
+        break;
+      }
+    }
+  }
   if (index < 0) return Error("Tab has closed or belongs to another window");
   auto* contents = strip->GetWebContentsAt(index);
   if (name == shell::method::kFindFocus) {
@@ -1671,6 +2046,96 @@ bool ShellHistorySwipe(gfx::NativeView view, bool forward, double progress, bool
   }
   return false;
 }
+bool HandleShellModifiedLink(BrowserWindowInterface* browser,
+                             content::WebContents* source, const GURL& url,
+                             bool background) {
+  if (!Enabled() || !url.SchemeIsHTTPOrHTTPS() ||
+      browser->GetType() != BrowserWindowInterface::TYPE_NORMAL)
+    return false;
+  auto* state = FindWindow(WindowId(browser).c_str());
+  auto* strip = browser->GetTabStripModel();
+  if (!state || !state->welcome.empty() || strip->GetActiveWebContents() != source ||
+      state->last_link_click.is_null() || base::TimeTicks::Now() - state->last_link_click > base::Seconds(1))
+    return false;
+  constexpr int keys = blink::WebInputEvent::kShiftKey | blink::WebInputEvent::kAltKey |
+      blink::WebInputEvent::kMetaKey | blink::WebInputEvent::kControlKey;
+  const int pressed = state->last_link_modifiers & keys;
+  NSString* peek = [NSUserDefaults.standardUserDefaults stringForKey:@"MerlinShell.peekModifier"];
+  if ((pressed == blink::WebInputEvent::kShiftKey && [peek isEqualToString:@"shift"]) ||
+      (pressed == blink::WebInputEvent::kAltKey && [peek isEqualToString:@"option"])) {
+    state->last_link_click = base::TimeTicks();
+    return OpenMerlinPeek(browser, url);
+  }
+  const int at = strip->active_index();
+  if (background && pressed == blink::WebInputEvent::kMetaKey &&
+      SetupFlag(@"MerlinShell.groupLinkTabs") && at >= 0 && !strip->IsTabPinned(at) &&
+      !strip->GetSplitForTab(at) && !strip->GetTabGroupForTab(at)) {
+    strip->AddToNewGroup({at});
+    state->last_link_click = base::TimeTicks();
+  }
+  return false;
+}
+bool PeekShellOptionDownload(BrowserWindowInterface* browser,
+                             content::WebContents* source, const GURL& url) {
+  if (!Enabled() || !browser) return false;
+  auto* state = FindWindow(WindowId(browser).c_str());
+  // Blink waits for the double-click interval before dispatching an
+  // Option-click download. Use the same gesture lifetime as link navigation.
+  if (!state || !(state->last_link_modifiers & blink::WebInputEvent::kAltKey))
+    return false;
+  return HandleShellModifiedLink(browser, source, url, false);
+}
+bool ReopenTabWithUndo(BrowserWindowInterface* browser) {
+  return Enabled() && browser && browser->GetType() == BrowserWindowInterface::TYPE_NORMAL &&
+      SetupFlag(@"MerlinShell.undoReopensTab");
+}
+void KeepSharedTabsOnWindowClose(BrowserWindowInterface* browser) {
+  if (!Enabled() || browser_shutdown::IsTryingToQuit()) return;
+  auto* state = FindWindow(WindowId(browser).c_str());
+  if (!state || !state->SharesTabs()) return;
+  auto* source = browser->GetTabStripModel();
+  if (source->empty()) return;
+  TabStripModel* target = nullptr;
+  for (const auto& [_, peer] : GetRegistry().windows) {
+    if (peer.get() != state && peer->SharesTabs() &&
+        peer->browser()->GetProfile() == browser->GetProfile() &&
+        !peer->browser()->GetTabStripModel()->closing_all() &&
+        !peer->browser()->GetTabStripModel()->empty()) {
+      target = peer->browser()->GetTabStripModel();
+      break;
+    }
+  }
+  if (!target) return;
+  std::vector<std::string> candidates;
+  for (int i = 0; i < source->count(); ++i) {
+    if (state->IsSharedTab(i)) candidates.push_back(TabId(source->GetTabAtIndex(i)));
+  }
+  for (const auto& id : candidates) {
+    const int index = FindTab(source, &id);
+    if (index < 0) continue;
+    const auto group = source->GetTabGroupForTab(index);
+    if (group) {
+      bool all_shared = true;
+      int members = 0;
+      for (int i = 0; i < source->count(); ++i) {
+        if (source->GetTabGroupForTab(i) != group) continue;
+        all_shared &= state->IsSharedTab(i);
+        ++members;
+      }
+      if (all_shared) {
+        if (members == source->count()) chrome::AddTabAt(browser, GURL("about:blank"), -1, false);
+        target->InsertDetachedTabGroupAt(source->DetachTabGroupForInsertion(*group), target->count());
+        continue;
+      }
+    }
+    // Leaving one local tab avoids a recursive window close during transfer.
+    if (source->count() == 1) chrome::AddTabAt(browser, GURL("about:blank"), -1, false);
+    const int current = FindTab(source, &id);
+    if (current >= 0)
+      target->InsertDetachedTabAt(target->count(), source->DetachTabAtForInsertion(current), 0);
+  }
+}
+
 bool OpenNewTabPopup(BrowserWindowInterface* browser) {
   if (!Enabled() || !browser || browser->GetType() != BrowserWindowInterface::TYPE_NORMAL ||
       browser->GetTabStripModel()->empty() || !FindWindow(WindowId(browser).c_str()))

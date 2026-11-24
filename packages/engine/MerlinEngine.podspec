@@ -13,5 +13,6 @@ Pod::Spec.new do |s|
   s.public_header_files = 'macos/MerlinEngineBridge.h', 'include/*.h'
   s.dependency 'ExpoModulesCore'
   s.frameworks = 'AppKit'
+  s.libraries = 'sqlite3', 'compression'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'CLANG_CXX_LANGUAGE_STANDARD' => 'c++20' }
 end

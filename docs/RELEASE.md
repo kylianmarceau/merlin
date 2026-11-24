@@ -258,19 +258,38 @@ There is no need to disable Gatekeeper globally. If the exception is
 unavailable or the app still fails to launch, report the exact message,
 macOS version and release version.
 
-A fresh profile opens on a painted Norwegian fjord under the northern lights with a short stereo soundtrack,
-then moves directly into setup. **Mute** silences the film and keeps it muted
-on replay. **Skip intro** jumps to appearance, and **Replay intro** on that
-screen plays the film again. Reduce Motion takes you straight to setup.
-Choose a light, dark or system appearance, then your tab placement and
-workspace colour. In the offline field guide, press `f` and type the
-displayed hint to board the boat. Press `Shift-G` to reach the landing.
-Both exercises also support a mouse. **Finish practice** leads to the
-finish screen, where **Start browsing** returns to your tabs and **Import
-bookmarks…** opens the importer. Interrupted setup resumes at its saved
-step. **Help › Keyboard Tutorial** reopens the guide. To replay first launch
-from a checkout, run `scripts/preview_onboarding.sh /path/to/Merlin.app`.
-Each run uses a fresh temporary profile, configuration and workspace.
+A fresh profile opens with the Night Watch film and its stereo soundtrack.
+**Mute** carries over to replay. **Skip intro** opens setup, and **Replay
+intro** is available on the source browser screen. With Reduce Motion on,
+Merlin goes straight to setup.
+
+Choose a familiar browser preset or **Starting fresh**. **Customize more**
+opens every applicable question. **Continue** saves the current choices and
+**Skip** moves to the next group. Setup resumes where you left off after
+quitting. The preview shows how your choices affect Merlin’s browser window.
+
+Use **Import from…** to choose an installed browser profile and import
+bookmarks, history, and saved open or pinned tabs where readable. macOS may
+require permission to read Safari data. Category results show imported and
+skipped items and let you retry errors. You can also open Merlin’s native
+importers for HTML bookmarks and CSV passwords exported from your source
+browser. Encrypted sessions may need to be exported by the source browser.
+
+Setup can set Merlin as your default browser, add it to the Dock, or register
+it as a login item after you select the option and continue. The seven-day
+default browser trial prompts you locally after the trial. The optional
+**Install browserctl** action links the bundled executable at
+`~/.local/bin/browserctl`. If your shell cannot find it, add
+`export PATH="$HOME/.local/bin:$PATH"` to your shell configuration.
+
+Choose **Start browsing** when you’re ready or **Take the Tour** to open
+the offline keyboard guide. **Help › Keyboard Tutorial** opens it again.
+**Copy setup code** transfers browser preferences and catalog favorites
+between Merlin installations. Browser imports, the CLI install, and macOS
+changes are confirmed on each Mac.
+
+From a checkout, run `scripts/preview_onboarding.sh /path/to/Merlin.app`
+to replay first launch using a temporary profile, configuration and workspace.
 
 To update, quit Merlin, download the newer GitHub release and replace the
 app in Applications. Keep the existing profile and configuration folders.

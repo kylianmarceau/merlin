@@ -8,6 +8,7 @@ import { isStartUrl } from '../lib/format';
 import type { Snapshot, Tab } from '../platform/protocol';
 
 export type WebKitTab = {
+  toolbarHidden?: boolean;
   url: string; title: string; loading: boolean; canGoBack: boolean; canGoForward: boolean; crashed: boolean;
   color?: string; surface?: string;
   /** The page's icon as a data URL, and the favicon key it is shown under. */
@@ -109,7 +110,7 @@ export function overlayTab(tab: Tab, wk: WebKitTab): Tab {
     ...tab, url, title: wk.title || hostTitle(url), loading: wk.loading, crashed: wk.crashed,
     canGoBack: wk.canGoBack || backLeavesWebKit(wk), canGoForward: wk.canGoForward,
     // Chromium's tab behind is on another page, or the start page; none of its state shows.
-    audible: false, start: false, discarded: !!wk.asleep, color: wk.color, surface: wk.surface, favicon: wk.faviconKey ?? '', engine: 'webkit',
+    audible: false, start: false, discarded: !!wk.asleep, toolbarHidden: wk.toolbarHidden, color: wk.color, surface: wk.surface, favicon: wk.faviconKey ?? '', engine: 'webkit',
     // Nor its address formatting or security, which describe that other page.
     displayUrl: undefined, displayHost: undefined, security: undefined, restoreInWebKit: undefined, userInitiated: undefined,
   };

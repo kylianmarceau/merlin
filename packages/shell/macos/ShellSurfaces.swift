@@ -43,6 +43,12 @@ final class MerlinVisualEffect: ExpoView {
   }
 }
 
+struct MerlinSurfaceTurn: Record {
+  @Field var page: String = ""
+  @Field var offset: Double = 0
+  @Field var milliseconds: Double = 0
+}
+
 // A rounded plate with a border and a real layer shadow. React Native's own
 // shadow props do not work on macOS views, so popovers, menus and dialogs
 // draw their surface here. Children render above the plate.
@@ -56,6 +62,32 @@ final class MerlinSurface: ExpoView {
   var dropOpacity: Double = 0 { didSet { needsLayout = true } }
   var dropRadius: Double = 0 { didSet { needsLayout = true } }
   var dropOffsetY: Double = 0 { didSet { needsLayout = true } }
+
+  private var currentPage: String?
+
+  func turn(to next: MerlinSurfaceTurn) {
+    let previous = currentPage
+    currentPage = next.page
+    guard let layer else { return }
+    guard next.milliseconds > 0, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+      layer.removeAnimation(forKey: "pageFade")
+      layer.removeAnimation(forKey: "pageSlide")
+      return
+    }
+    guard let previous, previous != next.page, window != nil else { return }
+    let fade = CATransition()
+    fade.type = .fade
+    fade.duration = next.milliseconds / 1000
+    fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+    layer.add(fade, forKey: "pageFade")
+
+    let slide = CABasicAnimation(keyPath: "transform.translation.x")
+    slide.fromValue = next.offset
+    slide.toValue = 0
+    slide.duration = fade.duration
+    slide.timingFunction = CAMediaTimingFunction(name: .easeOut)
+    layer.add(slide, forKey: "pageSlide")
+  }
 
   private let plate = CALayer()
   private let drop = CALayer()

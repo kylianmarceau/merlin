@@ -12,8 +12,11 @@ class WelcomeTests(unittest.TestCase):
         self.addCleanup(browser.close)
         return browser
 
-    def advance(self, browser, step):
-        reply = browser.shell_call("welcome.advance", {"next": step})
+    def advance(self, browser, step, progress=None):
+        args = {"next": step}
+        if progress is not None:
+            args["progress"] = progress
+        reply = browser.shell_call("welcome.advance", args)
         self.assertTrue(reply["ok"], reply)
 
     def stage(self, browser, expected):
@@ -44,15 +47,17 @@ class WelcomeTests(unittest.TestCase):
     def test_keyboard_path_finishes_explicitly_and_keeps_choices(self):
         browser = self.launch()
         # No input: the end of the bundled opening film starts setup.
-        wait_until(lambda: browser.snapshot()["welcome"] == "appearance", timeout=15,
-                   message="the opening to finish and start appearance setup")
+        wait_until(lambda: browser.snapshot()["welcome"] == "setup", timeout=15,
+                   message="the opening to finish and start setup")
         appearance = dict(browser.snapshot()["appearance"], mode="dark", accent="ocean")
         self.assertTrue(browser.shell_call("appearance.set", appearance)["ok"])
-        self.advance(browser, "workspace")
-        self.advance(browser, "appearance")
-        self.advance(browser, "workspace")
+        progress = {"screen": "workspace", "source": "fresh", "custom": True, "favorites": []}
+        for screen in ("layout", "source", "layout", "position"):
+            progress["screen"] = screen
+            self.advance(browser, "setup", progress)
         browser.restart()
-        self.stage(browser, "workspace")
+        self.stage(browser, "setup")
+        self.assertEqual(browser.snapshot()["welcomeProgress"], progress)
         self.assertTrue(browser.shell_call("settings.set", {"key": "tabs", "value": "top"})["ok"])
         browser.write_config('[options]\nhint_chars = "sdfjkl"\n')
         before = len(browser.tabs())
@@ -122,9 +127,45 @@ class WelcomeTests(unittest.TestCase):
         wait_until(lambda: browser.active_tab()["url"] == "chrome://settings/importData", message="the importer")
         self.stage(browser, "")
 
-    def test_skip_goes_straight_to_browser(self):
+    def test_native_host_renders_resumed_setup_screens(self):
         browser = self.launch()
+        screens = ("source", "layout", "address", "command", "newTab", "position", "tidy",
+                   "startup", "sharing", "habits", "color", "appearance", "material", "frame",
+                   "siteColor", "details", "search", "privacy", "favorites", "system", "links",
+                   "cli", "finish")
+        for screen in screens:
+            with self.subTest(screen=screen):
+                self.advance(browser, "setup", {"screen": screen, "source": "fresh", "custom": True,
+                                                 "favorites": ["github", "gmail"]})
+                browser.restart()
+                self.stage(browser, "setup")
+                self.assertEqual(browser.snapshot()["welcomeProgress"]["screen"], screen)
+
+                def rendered():
+                    health = browser.shell_call("test.shell", {"action": "state"})["result"]
+                    self.assertEqual(health["failures"], 0, health["lastError"])
+                    return health["ready"] > 0
+
+                wait_until(rendered, message="native setup to draw " + screen)
+
+    def test_start_browsing_restores_catalog_pins_with_start_fresh(self):
+        browser = self.launch()
+        self.stage(browser, "setup")
+        self.assertTrue(browser.shell_call("settings.set", {"key": "startup", "value": "start"})["ok"])
+        progress = {"screen": "finish", "source": "chrome", "custom": False, "favorites": ["github", "github"]}
+        self.advance(browser, "setup", progress)
         self.advance(browser, "browse")
         self.stage(browser, "")
+        def github_pins():
+            return [tab for tab in browser.tabs() if tab.get("pinned") and tab["url"].startswith("https://github.com/")]
+        wait_until(github_pins, message="catalog pin")
+        self.assertEqual(len(github_pins()), 1)
         browser.restart()
         self.stage(browser, "")
+        wait_until(github_pins, message="catalog pin restored")
+        self.assertEqual(len(github_pins()), 1)
+        pin_id = str(github_pins()[0]["id"])
+        self.assertTrue(browser.shell_call("tabs.pin", {"tabId": pin_id, "pinned": False})["ok"])
+        browser.restart()
+        self.stage(browser, "")
+        self.assertFalse(github_pins(), "removing a favorite must survive the next launch too")

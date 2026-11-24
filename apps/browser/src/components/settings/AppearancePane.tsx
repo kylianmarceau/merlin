@@ -3,6 +3,7 @@ import { Image, View } from 'react-native';
 import { liquidGlass } from '../../state/glass';
 import { GLASS_DEFAULTS, PAGE_FRAME, SIDEBAR_WIDTH, useShellPrefs } from '../../state/shellPrefs';
 import { setShellFollowsSite, setShellPref, setToolbarColor, setNewTabPopup } from '../../state/shellPrefsStorage';
+import { ThemeEditor } from './ThemeEditor';
 import { useAppIcons } from '../../state/system';
 import type { Preferences, PreferenceKey } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
@@ -92,14 +93,23 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
           : "The toolbar, when the page has one (tabs hidden, or the address in the toolbar), takes the site's colour, as can the window. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white."}>
           <Segmented label="Site colour" value={prefs.toolbarColor} onChange={style => void setToolbarColor(style)}
             options={toolbarColors.map(value => ({ value, label: toolbarColorLabels[value] }))} /></FormRow>}
-        {prefs.toolbarColor !== 'white' && <FormRow title="Tint the window with the site colour"
+        {prefs.toolbarColor !== 'white' && prefs.toolbarColor !== 'workspace' && <FormRow title="Tint the window with the site colour"
           detail="The space around the page follows the site's colour in Light and Dark mode.">
           <Toggle label="Tint the window with the site colour" value={prefs.shellFollowsSite} onChange={on => void setShellFollowsSite(on)} /></FormRow>}
         <FormRow title="Open new tabs as a pop-up" detail="Search over the current page; the tab opens once you choose where to go.">
           <Toggle label="Open new tabs as a pop-up" value={prefs.newTabPopup} onChange={on => void setNewTabPopup(on)} /></FormRow>
-        <FormRow title="New tabs open" detail="At the top puts a new tab above your other open tabs, as in Arc and Dia. Links you open keep their place.">
+        <FormRow title="New tabs open" detail="Choose where a new blank tab lands. Links you open keep their place.">
           <Segmented label="New tabs open" value={prefs.newTabPosition} onChange={v => void setShellPref('newTabPosition', v)}
-            options={[{ value: 'end', label: 'At the end' }, { value: 'top', label: 'At the top' }]} /></FormRow>
+            options={[{ value: 'end', label: 'Last' }, { value: 'top', label: 'First' },
+              { value: 'adjacent', label: 'After current' }]} /></FormRow>
+        <FormRow title="Favorite tiles adapt to the sidebar">
+          <Toggle label="Favorite tiles adapt to the sidebar" value={prefs.adaptiveFavorites}
+            onChange={value => void setShellPref('adaptiveFavorites', value)} />
+        </FormRow>
+        <FormRow title="Hide toolbar while scrolling" detail="Scroll up or press ⌘L to show it again.">
+          <Toggle label="Hide toolbar while scrolling" value={prefs.hideToolbarOnScroll}
+            onChange={value => void setShellPref('hideToolbarOnScroll', value)} />
+        </FormRow>
         {!top && prefs.sidebarWidth !== SIDEBAR_WIDTH.default && <FormRow title="Sidebar width"
           detail={`${Math.round(prefs.sidebarWidth)} points. Drag the sidebar's edge to change it.`}>
           <Button label="Reset" size="small" onPress={() => void setShellPref('sidebarWidth', SIDEBAR_WIDTH.default)} /></FormRow>}
@@ -182,6 +192,7 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
       </FormGroup>
     </Section>
 
+    <WorkspaceColourEditor />
     <AppIconSection />
   </>;
 }
@@ -286,5 +297,17 @@ function AppIconSection() {
         <Image source={{ uri: icon.preview }} style={{ width: geometry.appIcon, height: geometry.appIcon }} />
       </PictureChoice>)}
     </View>
+  </Section>;
+}
+
+
+function WorkspaceColourEditor() {
+  const actions = useActions();
+  const { appearance } = useSnapshot();
+  const theme = useShellPrefs(p => p.workspaceTheme);
+  return <Section title="Workspace gradient">
+    <ThemeEditor accent={appearance.accent} theme={theme}
+      onAccent={accent => { void actions.setAppearance({ accent }); }}
+      onTheme={value => { void setShellPref('workspaceTheme', value); }} />
   </Section>;
 }

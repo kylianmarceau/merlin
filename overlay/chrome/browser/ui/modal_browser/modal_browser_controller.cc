@@ -432,6 +432,13 @@ bool ModalBrowserController::HandleUnhandledShortcut(
   if ((modifiers & kAll) != kPlatform) {
     return false;
   }
+#if BUILDFLAG(IS_MAC)
+  if (event.windows_key_code == ui::VKEY_Z && CurrentFocus() == PageFocus::kPage &&
+      ReopenTabWithUndo(browser_)) {
+    chrome::RestoreTab(browser_);
+    return true;
+  }
+#endif
   if (event.windows_key_code == ui::VKEY_S) {
     SetTabsHidden(ffi::Switch::Toggle);
     return true;

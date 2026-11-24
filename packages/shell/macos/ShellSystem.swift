@@ -366,3 +366,98 @@ final class MerlinWindowState: ExpoView {
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
+
+enum SetupSystem {
+  private static var checkingDefault = false
+
+  static func checkDefaultTrial() {
+    let key = "MerlinShell.defaultBrowserCheckIn"
+    guard !checkingDefault, NSApp.isActive,
+      let value = UserDefaults.standard.string(forKey: key),
+      let due = Double(value), due <= Date().timeIntervalSince1970 * 1000,
+      let window = NSApp.keyWindow, window.attachedSheet == nil else { return }
+    if !DefaultBrowser.isDefault {
+      UserDefaults.standard.removeObject(forKey: key)
+      return
+    }
+    checkingDefault = true
+    let alert = NSAlert()
+    alert.messageText = "Keep Merlin as your default browser?"
+    alert.informativeText = "Your seven-day trial is complete. You can keep Merlin or choose a different browser in System Settings."
+    alert.addButton(withTitle: "Keep Merlin")
+    alert.addButton(withTitle: "Open System Settings")
+    alert.beginSheetModal(for: window) { result in
+      checkingDefault = false
+      UserDefaults.standard.removeObject(forKey: key)
+      if result == .alertSecondButtonReturn,
+        let settings = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") {
+        NSWorkspace.shared.open(settings)
+      }
+    }
+  }
+
+  private static let dock = "com.apple.dock" as CFString
+  private static let apps = "persistent-apps" as CFString
+
+  private static var dockItems: [[String: Any]]? {
+    CFPreferencesCopyAppValue(apps, dock) as? [[String: Any]]
+  }
+
+  static var inDock: Bool {
+    let bundleID = Bundle.main.bundleIdentifier
+    return dockItems?.contains { item in
+      guard let data = item["tile-data"] as? [String: Any] else { return false }
+      if let id = data["bundle-identifier"] as? String, id == bundleID { return true }
+      guard let file = data["file-data"] as? [String: Any],
+            let path = file["_CFURLString"] as? String,
+            let url = URL(string: path) else { return false }
+      return url.standardizedFileURL == Bundle.main.bundleURL.standardizedFileURL
+    } ?? false
+  }
+
+  static func addToDock() throws -> Bool {
+    if inDock { return true }
+    guard var items = dockItems, let bundleID = Bundle.main.bundleIdentifier,
+          !Bundle.main.bundleURL.path.contains("/AppTranslocation/") else {
+      throw setupError("Open Merlin from Applications, then choose Keep in Dock again.")
+    }
+    items.append([
+      "tile-type": "file-tile",
+      "tile-data": [
+        "bundle-identifier": bundleID,
+        "file-label": "Merlin",
+        "file-data": ["_CFURLString": Bundle.main.bundleURL.absoluteString, "_CFURLStringType": 15],
+      ],
+    ])
+    CFPreferencesSetAppValue(apps, items as CFArray, dock)
+    guard CFPreferencesAppSynchronize(dock), inDock else {
+      throw setupError("The Dock did not save the change. You can use Options › Keep in Dock from Merlin’s Dock menu.")
+    }
+    NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first?.terminate()
+    return true
+  }
+
+  static func installBrowserctl() throws -> String {
+    let files = FileManager.default
+    let bin = files.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin", isDirectory: true)
+    let link = bin.appendingPathComponent("browserctl")
+    let source = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/browserctl")
+    guard files.isExecutableFile(atPath: source.path), !source.path.contains("/AppTranslocation/"),
+          !source.path.hasPrefix("/Volumes/") else {
+      throw setupError("Install Merlin in Applications to install browserctl.")
+    }
+    try files.createDirectory(at: bin, withIntermediateDirectories: true)
+    if (try? files.destinationOfSymbolicLink(atPath: link.path)) == source.path { return link.path }
+    do {
+      // Creating the link fails atomically if there is already a command at that path.
+      try files.createSymbolicLink(at: link, withDestinationURL: source)
+    } catch {
+      throw setupError("Couldn’t install browserctl at ~/.local/bin/browserctl. An existing command there is kept.")
+    }
+    return link.path
+  }
+
+  private static func setupError(_ message: String) -> NSError {
+    NSError(domain: "MerlinSetup", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+  }
+}

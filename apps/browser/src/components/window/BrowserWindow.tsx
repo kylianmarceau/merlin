@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Animated, View } from 'react-native';
+import { checkDefaultBrowserTrial } from '../../state/setupHost';
 import { isStartUrl } from '../../lib/format';
+import { webKitTab } from '../../state/webkit';
 import { PAGE_FRAME, useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useActiveTab, useBrowser, useCommitTrace, useSnapshot, useViewMenu } from '../../state/window';
 import {
-  DragRegion, FullScreenWatch, Glass, Panel, TooltipLayer, geometry, inactiveTabs, radius, shellTintFor, space, useColorFade, useEased,
+  DragRegion, FullScreenWatch, WorkspaceTint, Glass, Panel, TooltipLayer, geometry, inactiveTabs, radius, shellTintFor, space, useColorFade, useEased,
   usePeekSpring, useSidebarSpring, useTheme,
 } from '../ui';
 import { BookmarksBar } from '../bookmarks/BookmarksBar';
@@ -37,6 +39,10 @@ export function BrowserWindow() {
   const snapshot = useSnapshot();
   const actions = useActions();
   const active = useActiveTab();
+  const windowKey = useBrowser(s => s.windowKey);
+  React.useEffect(() => {
+    if (windowKey && !snapshot.private) void checkDefaultBrowserTrial().catch(() => {});
+  }, [windowKey, snapshot.private]);
   const { colors, reduceMotion } = useTheme();
   const chrome = useSiteChrome();
   const fullscreen = !!snapshot.fullscreen;
@@ -50,6 +56,8 @@ export function BrowserWindow() {
   const frameSetting = useShellPrefs(p => p.pageFrame);
   const zeroInFullScreen = useShellPrefs(p => p.pageFrameZeroInFullScreen);
   const zeroWhenHidden = useShellPrefs(p => p.pageFrameZeroWhenTabsHidden);
+  const hideToolbarOnScroll = useShellPrefs(p => p.hideToolbarOnScroll);
+  const toolbarFocused = useBrowser(s => !!s.omnibox || !!s.panel);
   const addressInToolbar = useShellPrefs(p => p.addressBar === 'toolbar');
   const sidebarWidth = useShellPrefs(p => p.sidebarWidth);
   const barWhen = useShellPrefs(p => (p.showBookmarks ? p.bookmarksBar : 'never'));
@@ -57,7 +65,7 @@ export function BrowserWindow() {
   const bounds = useBrowser(s => s.windowSize);
   const hoverCard = useBrowser(s => !!s.hoverCard);
   // While the window isn't in front its tabs fade back and the shell turns opaque, as macOS sidebars do.
-  const inactive = useEased(!useBrowser(s => s.windowKey), reduceMotion);
+  const inactive = useEased(!windowKey, reduceMotion);
   const tabsFade = inactive.interpolate({ inputRange: [0, 1], outputRange: [1, inactiveTabs] });
   // Where the pointer stops at the screen's edge a thin strip is enough to
   // reach; a window away from the edge gets a wider one (Ardia's 8 pt).
@@ -76,7 +84,18 @@ export function BrowserWindow() {
   const framed = frame > 0;
   // With tabs in the sidebar the card has a toolbar only when the address is
   // set to be in it (Settings › Appearance › Address bar).
-  const toolbar = !fullscreen && (!side || addressInToolbar);
+  const scrollHidden = active?.id && webKitTab(active.id) ? !!active.toolbarHidden : !!snapshot.toolbarHidden;
+  const toolbar = !fullscreen && (!side || addressInToolbar) &&
+    !(hideToolbarOnScroll && scrollHidden && !onStart && !toolbarFocused);
+  const toolbarWasHidden = React.useRef(false);
+  const addressFocus = useBrowser(s => s.addressFocus);
+  const [revealedForAddress, revealForAddress] = useState(false);
+  React.useEffect(() => {
+    if (toolbarWasHidden.current) revealForAddress(true);
+  }, [addressFocus]);
+  React.useEffect(() => { if (!scrollHidden) revealForAddress(false); }, [scrollHidden, active?.id]);
+  toolbarWasHidden.current = !toolbar && !revealedForAddress;
+  const showToolbar = toolbar || (!fullscreen && revealedForAddress && (!side || addressInToolbar));
   const peekable = hidden && !fullscreen;
   // With tabs on top the strip is drawn after the card, so the active tab can
   // overlap the card's top edge and join its toolbar.
@@ -85,7 +104,7 @@ export function BrowserWindow() {
     <Panel fill="contentBackground" radius={framed ? 'window' : 'none'} border={framed ? 'contentBorder' : null}
       elevation={framed ? 'card' : 'none'} style={{ flex: 1 }}>
       <View style={{ flex: 1, overflow: 'hidden', borderRadius: framed ? radius.window : 0 }}>
-        {toolbar && <View style={{ borderBottomWidth: geometry.hairline,
+        {showToolbar && <View style={{ borderBottomWidth: geometry.hairline,
           // A toolbar in the page's own colour runs straight on into it.
           borderBottomColor: chrome.seamless ? chrome.bar : colors.toolbarDivider }}><Toolbar /></View>}
         {bookmarksBar && <BookmarksBar />}
@@ -184,6 +203,9 @@ function FloatingShell({ style, children }: React.PropsWithChildren<{ style: obj
 function ShellTint() {
   const { colors, reduceMotion, glass } = useTheme();
   const chrome = useSiteChrome();
+  const workspaceTheme = useShellPrefs(p => p.workspaceTheme);
   const tint = useColorFade(shellTintFor(chrome.shell ?? colors.shellTint, glass), reduceMotion);
-  return <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: tint }} />;
+  return <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: tint }}>
+    {workspaceTheme && !chrome.shell && <WorkspaceTint theme={workspaceTheme} />}
+  </Animated.View>;
 }

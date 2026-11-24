@@ -1,0 +1,23 @@
+--- a/chrome/browser/ui/views/frame/browser_view.cc
++++ b/chrome/browser/ui/views/frame/browser_view.cc
+@@ -3,6 +3,10 @@
+ // found in the LICENSE file.
+ 
+ #include "chrome/browser/ui/views/frame/browser_view.h"
++
++#if defined(__APPLE__)
++#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
++#endif
+ 
+ #include <stdint.h>
+ 
+@@ -4598,6 +4602,9 @@
+     return views::CloseRequestResult::kCannotClose;
+   }
+ 
++#if BUILDFLAG(IS_MAC)
++  modal_browser::KeepSharedTabsOnWindowClose(browser_);
++#endif
+   views::CloseRequestResult result = views::CloseRequestResult::kCanClose;
+   if (!browser_->GetTabStripModel()->empty()) {
+     // Tab strip isn't empty.  Hide the frame (so it appears to have closed

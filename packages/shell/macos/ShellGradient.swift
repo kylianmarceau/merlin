@@ -18,6 +18,9 @@ final class MerlinGradient: ExpoView {
   var kind = "glow" { didSet { needsLayout = true } }
   var colors: [NSColor] = [] { didSet { needsLayout = true } }
 
+  var angle = 135.0 { didSet { needsLayout = true } }
+  var noise = 0.0 { didSet { needsLayout = true } }
+  var texture = "grain" { didSet { needsLayout = true } }
   var profile = MerlinGradientProfile() { didSet { needsLayout = true } }
 
   private let drop = CALayer()
@@ -61,7 +64,7 @@ final class MerlinGradient: ExpoView {
     let cg = colors.map(\.cgColor)
     body.frame = bounds
     sphere.frame = bounds
-    sphere.type = kind == "vertical" ? .axial : .radial
+    sphere.type = kind == "workspace" || kind == "vertical" ? .axial : .radial
     body.mask = nil
     if kind == "vertical", cg.count >= 2 {
       body.cornerRadius = 0
@@ -80,6 +83,38 @@ final class MerlinGradient: ExpoView {
         fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
         fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
         body.mask = fadeMask
+      }
+    } else if kind == "workspace", let first = cg.first {
+      body.cornerRadius = 0
+      body.masksToBounds = true
+      drop.isHidden = true
+      horizon.isHidden = true
+      sphere.colors = cg.count > 1 ? cg : [first, first]
+      sphere.locations = nil
+      let radians = angle * .pi / 180
+      let x = sin(radians) * 0.5
+      let y = -cos(radians) * 0.5
+      sphere.startPoint = unit(0.5 - x, 0.5 - y)
+      sphere.endPoint = unit(0.5 + x, 0.5 + y)
+      stripes.isHidden = noise <= 0
+      if noise > 0 {
+        stripes.frame = bounds
+        stripes.lineWidth = texture == "denim" ? 1.2 : 0.6
+        stripes.strokeColor = NSColor(white: 0, alpha: min(max(noise, 0), 1) * 0.22).cgColor
+        let path = CGMutablePath()
+        let spacing = texture == "sand" ? 3.0 : texture == "tweed" ? 6.0 : 4.0
+        var start = -bounds.height
+        while start < bounds.width + bounds.height {
+          let slant = texture == "grain" ? 0.15 : texture == "sand" ? 0.5 : 1.0
+          path.move(to: CGPoint(x: start, y: 0))
+          path.addLine(to: CGPoint(x: start + bounds.height * slant, y: bounds.height))
+          if texture == "tweed" {
+            path.move(to: CGPoint(x: start, y: bounds.height))
+            path.addLine(to: CGPoint(x: start + bounds.height, y: 0))
+          }
+          start += spacing
+        }
+        stripes.path = path
       }
     } else if kind == "orb", cg.count >= 4 {
       let size = min(bounds.width, bounds.height)

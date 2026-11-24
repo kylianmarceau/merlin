@@ -5,6 +5,7 @@ import { createStore } from 'zustand/vanilla';
 import { useStore } from 'zustand';
 import type { SiteEngines } from '../lib/engines';
 import type { FavouriteFolder } from './favouriteFolders';
+import type { WorkspaceTheme } from './workspaceTheme';
 
 export type InterfaceStyle = 'glass' | 'classic';
 export type AddressBarPlace = 'sidebar' | 'toolbar';
@@ -16,13 +17,16 @@ export type SearchPreference = 'website' | 'search';
 export type UpdateChannel = 'stable' | 'beta';
 /** When the bookmarks bar shows under the toolbar or over the page: Dia's and Ardia's three choices. */
 export type BookmarksBarWhen = 'always' | 'newTab' | 'never';
-export type NewTabPosition = 'end' | 'top';
+export type NewTabPosition = 'end' | 'top' | 'adjacent';
+export type TabTidyHours = 'off' | '12' | '24' | '168';
+export type PeekModifier = 'off' | 'shift' | 'option';
+export type ExternalLinks = 'tab' | 'compact';
 
 export type ShellPrefs = {
   /** New tabs start as a pop-up over the current page instead of a page of their own. */
   newTabPopup: boolean;
   /** How the active tab and toolbar take the site's colour with tabs on top: "match", "soft", "vivid" or "white". */
-  toolbarColor: 'match' | 'soft' | 'vivid' | 'white';
+  toolbarColor: 'match' | 'soft' | 'vivid' | 'workspace' | 'white';
   /** The window shell takes the site's colour too, instead of the workspace colour. */
   shellFollowsSite: boolean;
   /** Sites with DRM-protected video (Netflix and the like) open in WebKit, which can play them. */
@@ -34,6 +38,7 @@ export type ShellPrefs = {
 
   // Appearance › Interface style (Ardia's), plus Merlin's transparency.
   /** Glass draws popovers, fields and buttons in Liquid Glass; Classic keeps them solid. */
+  workspaceTheme: WorkspaceTheme | null;
   interfaceStyle: InterfaceStyle;
   /** The glass takes the workspace colour. */
   glassTintWithTheme: boolean;
@@ -58,6 +63,14 @@ export type ShellPrefs = {
   sidebarWidth: number;
   /** Where Command-T and the New Tab buttons open a tab; Chromium reads MerlinShell.newTabPosition itself. */
   newTabPosition: NewTabPosition;
+  tabTidyHours: TabTidyHours;
+  sharedTabs: boolean;
+  adaptiveFavorites: boolean;
+  peekModifier: PeekModifier;
+  undoReopensTab: boolean;
+  groupLinkTabs: boolean;
+  hideToolbarOnScroll: boolean;
+  externalLinks: ExternalLinks;
   // Appearance › Page frame.
   borderlessMode: boolean;
   /** Points between the page and the window's edges. */
@@ -82,11 +95,13 @@ export const GLASS_DEFAULTS = { tintAmount: 0.8, transparency: 0.5 } as const;
 
 export const defaultShellPrefs: ShellPrefs = {
   newTabPopup: false, toolbarColor: 'match', shellFollowsSite: false, protectedVideoInWebKit: true, siteEngines: {}, favouriteFolders: [],
-  interfaceStyle: 'glass', glassTintWithTheme: false, glassTintAmount: GLASS_DEFAULTS.tintAmount,
+  workspaceTheme: null, interfaceStyle: 'glass', glassTintWithTheme: false, glassTintAmount: GLASS_DEFAULTS.tintAmount,
   glassTransparency: GLASS_DEFAULTS.transparency,
   addressBar: 'sidebar', commandBarPlacement: 'field', compactToolbar: false,
   showBookmarks: true, bookmarksBar: 'newTab', bookmarksBarSize: 'default', sidebarBookmarks: true, sidebarBookmarksFolded: false,
   sidebarWidth: SIDEBAR_WIDTH.default, newTabPosition: 'end',
+  tabTidyHours: 'off', sharedTabs: false, adaptiveFavorites: false, peekModifier: 'off',
+  undoReopensTab: false, groupLinkTabs: false, hideToolbarOnScroll: false, externalLinks: 'tab',
   borderlessMode: false, pageFrame: PAGE_FRAME.default, pageFrameZeroInFullScreen: false, pageFrameZeroWhenTabsHidden: false,
   selectedTabGlow: 'soft', pageScrollBars: 'system',
   warnBeforeQuitting: false, warnBeforeClosingWindow: true, searchPreference: 'website',

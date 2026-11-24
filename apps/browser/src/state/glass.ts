@@ -10,13 +10,14 @@ import { useShellPrefs } from './shellPrefs';
 
 export const liquidGlass = isLiquidGlass();
 
-export type GlassChoice = { on: boolean; translucent: boolean; tint: number; transparency: number };
+export type GlassChoice = { on: boolean; translucent: boolean; tint: number; transparency: number; workspaceColor?: string };
 
 export function useGlassLook(): GlassChoice {
   const style = useShellPrefs(p => p.interfaceStyle);
   const tinted = useShellPrefs(p => p.glassTintWithTheme);
   const amount = useShellPrefs(p => p.glassTintAmount);
   const transparency = useShellPrefs(p => p.glassTransparency);
-  return useMemo(() => ({ on: liquidGlass && style === 'glass', translucent: style === 'glass', tint: tinted ? amount : 0, transparency }),
-    [style, tinted, amount, transparency]);
+  const workspaceColor = useShellPrefs(p => p.workspaceTheme?.stops[0]);
+  return useMemo(() => ({ on: liquidGlass && style === 'glass', translucent: style === 'glass', tint: tinted ? amount : 0, transparency, workspaceColor }),
+    [style, tinted, amount, transparency, workspaceColor]);
 }

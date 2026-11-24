@@ -753,6 +753,7 @@ class ReactBrowserWindow final : public BrowserWindow,
     close_confirmed_ = false;
     auto* unload = UnloadController::From(browser_);
     if (!unload->HandleBeforeClose()) { ArmClose(); return; }
+    KeepSharedTabsOnWindowClose(browser_);
     unload->OnWindowClosing();
     if (!browser_->GetTabStripModel()->empty()) widget_->Hide();
   }

@@ -8,11 +8,12 @@
 export const gridColumns = 4;
 
 /** Where the grid is on screen and how its tiles are spaced, as the sidebar lays it out. */
-export type GridZone = { x: number; y: number; width: number; height: number; gap: number; tileHeight: number };
+export type GridZone = { x: number; y: number; width: number; height: number; gap: number; tileHeight: number; adaptive?: boolean };
 
 /** How many tiles a row holds for `count` tiles: all of them up to four. */
-export function columnsFor(count: number) {
-  return Math.max(1, Math.min(gridColumns, count));
+export function columnsFor(count: number, width?: number) {
+  const limit = width === undefined ? gridColumns : Math.min(gridColumns, Math.floor(width / 76));
+  return Math.max(1, Math.min(limit, count));
 }
 
 /** A tile's width when `columns` share `width` with `gap` between them. */
@@ -26,8 +27,8 @@ export function slotOrigin(index: number, columns: number, tile: { width: number
 }
 
 /** The grid's height for `count` tiles. */
-export function gridHeight(count: number, tileHeight: number, gap: number) {
-  const rows = Math.ceil(Math.max(1, count) / gridColumns);
+export function gridHeight(count: number, tileHeight: number, gap: number, columns: number = gridColumns) {
+  const rows = Math.ceil(Math.max(1, count) / columns);
   return rows * tileHeight + (rows - 1) * gap;
 }
 
@@ -36,8 +37,8 @@ export function gridHeight(count: number, tileHeight: number, gap: number) {
  * slots: the nearest one, so a point in a gap or past the last tile still
  * picks a place.
  */
-export function slotAt(x: number, y: number, count: number, width: number, tileHeight: number, gap: number) {
-  const columns = columnsFor(count);
+export function slotAt(x: number, y: number, count: number, width: number, tileHeight: number, gap: number, adaptive = false) {
+  const columns = columnsFor(count, adaptive ? width : undefined);
   const tile = tileWidth(width, columns, gap);
   const column = Math.max(0, Math.min(columns - 1, Math.floor((x + gap / 2) / (tile + gap))));
   const rows = Math.ceil(count / columns);

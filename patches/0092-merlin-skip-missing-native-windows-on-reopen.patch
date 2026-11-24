@@ -1,0 +1,72 @@
+--- a/chrome/browser/app_controller_mac.mm
++++ b/chrome/browser/app_controller_mac.mm
+@@ -349,9 +349,14 @@
+             BrowserWindowInterface::TYPE_APP) {
+           return true;
+         }
+-        [result addObject:browser_window_interface->GetWindow()
+-                              ->GetNativeWindow()
+-                              .GetNativeNSWindow()];
++        // A browser can still be in the collection while its native window
++        // is closing. AppKit collections cannot contain nil.
++        if (const auto* window = browser_window_interface->GetWindow()) {
++          if (NSWindow* native_window =
++                  window->GetNativeWindow().GetNativeNSWindow()) {
++            [result addObject:native_window];
++          }
++        }
+         return true;
+       });
+   return result;
+--- a/chrome/browser/app_controller_mac_browsertest.mm
++++ b/chrome/browser/app_controller_mac_browsertest.mm
+@@ -58,6 +58,7 @@
+ #include "chrome/browser/signin/signin_util.h"
+ #include "chrome/browser/ui/browser_window.h"
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
++#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
+ #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+ #include "chrome/browser/ui/cocoa/bookmarks/bookmark_menu_bridge.h"
+ #include "chrome/browser/ui/cocoa/confirm_quit_panel_controller.h"
+@@ -78,6 +79,7 @@
+ #include "chrome/common/pref_names.h"
+ #include "chrome/common/url_constants.h"
+ #include "chrome/test/base/in_process_browser_test.h"
++#include "chrome/test/base/test_browser_window.h"
+ #include "chrome/test/base/ui_test_utils.h"
+ #include "components/account_id/account_id.h"
+ #include "components/bookmarks/browser/bookmark_model.h"
+@@ -298,6 +300,21 @@
+ // windows.
+ size_t ExpectedWindowCountForBrowserCount(size_t browsers) {
+   return browsers;
++}
++
++IN_PROC_BROWSER_TEST_F(AppControllerBrowserTest,
++                       ReopenSkipsBrowserWithoutNativeWindow) {
++  auto windowless_browser = CreateBrowserWithTestWindowForParams(
++      BrowserWindowCreateParams(BrowserWindowInterface::TYPE_POPUP,
++                                browser()->GetProfile(), /*from_user_gesture=*/false));
++  ASSERT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
++  NSWindow* native_window =
++      windowless_browser->GetWindow()->GetNativeWindow().GetNativeNSWindow();
++  ASSERT_FALSE(native_window);
++  EXPECT_FALSE(
++      [AppController.sharedController applicationShouldHandleReopen:NSApp
++                                                 hasVisibleWindows:YES]);
++  EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
+ }
+ 
+ // Test browser shutdown with a command in the message queue.
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -6321,7 +6321,9 @@
+         "//chrome/browser/bookmarks:test_support",
+         "//chrome/browser/prefs",
+         "//chrome/browser/shortcuts",
++        "//chrome/browser/ui/browser_window:create_browser_window",
+         "//chrome/browser/ui/startup",
++        "//chrome/test/base:test_browser_window",
+         "//ui/events:test_support",
+       ]
+     }

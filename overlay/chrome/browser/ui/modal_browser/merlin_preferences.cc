@@ -13,6 +13,7 @@
 #include "base/files/file_path.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/version_info/version_info.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
@@ -33,6 +34,7 @@
 #include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url.h"
+#include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
 #include "extensions/browser/disable_reason.h"
@@ -82,13 +84,55 @@ const std::map<std::string, std::string, std::less<>>& Links() {
 
 namespace tuning = performance_manager::user_tuning::prefs;
 
+struct SetupSearchEngine {
+  std::string_view key;
+  std::u16string_view name;
+  std::u16string_view keyword;
+  const char* url;
+};
+
+constexpr SetupSearchEngine kSetupSearchEngines[] = {
+    {"google", u"Google", u"google.com", "https://www.google.com/search?q={searchTerms}"},
+    {"bing", u"Bing", u"bing.com", "https://www.bing.com/search?q={searchTerms}"},
+    {"duckduckgo", u"DuckDuckGo", u"duckduckgo.com", "https://duckduckgo.com/?q={searchTerms}"},
+    {"ecosia", u"Ecosia", u"ecosia.org", "https://www.ecosia.org/search?q={searchTerms}"},
+    {"brave", u"Brave Search", u"search.brave.com", "https://search.brave.com/search?q={searchTerms}"},
+    {"kagi", u"Kagi", u"kagi.com", "https://kagi.com/search?q={searchTerms}"},
+    {"startpage", u"Startpage", u"startpage.com", "https://www.startpage.com/sp/search?query={searchTerms}"},
+};
+
+std::string_view SetupEngineKey(const TemplateURL& url) {
+  for (const auto& option : kSetupSearchEngines) {
+    if (url.keyword() == option.keyword)
+      return option.key;
+  }
+  return {};
+}
+
 std::string SetEngine(Profile* profile, const std::string& value) {
   int64_t id = 0;
   TemplateURLService* service =
       TemplateURLServiceFactory::GetForProfile(profile);
-  if (!service || !base::StringToInt64(value, &id)) {
-    return "Unknown search engine";
+  if (!service || !service->loaded() || service->is_default_search_managed())
+    return "Search engine settings are unavailable";
+  for (const auto& option : kSetupSearchEngines) {
+    if (value != option.key)
+      continue;
+    TemplateURL* url = service->GetTemplateURLForKeyword(std::u16string(option.keyword));
+    if (!url) {
+      TemplateURLData data;
+      data.SetShortName(option.name);
+      data.SetKeyword(option.keyword);
+      data.SetURL(option.url);
+      url = service->Add(std::make_unique<TemplateURL>(data));
+    }
+    if (!url || !service->CanMakeDefault(url))
+      return "That search engine cannot be the default";
+    service->SetUserSelectedDefaultSearchProvider(url);
+    return {};
   }
+  if (!base::StringToInt64(value, &id))
+    return "Unknown search engine";
   for (TemplateURL* url : service->GetTemplateURLs()) {
     if (url->id().value() == id && service->CanMakeDefault(url)) {
       service->SetUserSelectedDefaultSearchProvider(url);
@@ -225,7 +269,8 @@ base::DictValue MerlinPreferences(Profile* profile,
       }
       engines.Append(base::DictValue()
                          .Set("id", base::NumberToString(url->id().value()))
-                         .Set("name", url->short_name()));
+                         .Set("name", url->short_name())
+                         .Set("setupKey", SetupEngineKey(*url)));
       if (url == current) {
         current_engine = base::NumberToString(url->id().value());
       }

@@ -11,6 +11,12 @@ public final class MerlinEngineModule: Module {
     AsyncFunction("call") { (window: String, method: String, arguments: String) -> String in
       MerlinEngineBridge.callWindow(window, method: method, arguments: arguments)
     }.runOnQueue(.main)
+    AsyncFunction("setupImportProfiles") { (browser: String) in
+      try SetupImport.list(browser)
+    }.runOnQueue(DispatchQueue.global(qos: .userInitiated))
+    AsyncFunction("setupImport") { (window: String, browser: String, profile: String, categories: [String]) in
+      SetupImport.run(window: window, browser: browser, profile: profile, categories: categories)
+    }.runOnQueue(DispatchQueue.global(qos: .userInitiated))
     OnStartObserving {
       let observation = self.observation
       DispatchQueue.main.async { [weak self, observation] in

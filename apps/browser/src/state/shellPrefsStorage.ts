@@ -3,6 +3,7 @@
 // absent always means "the default", including for Chromium, which reads
 // MerlinShell.warnBeforeClosingWindow itself.
 import { parseSiteEngines, type PageEngine } from '../lib/engines';
+import { parseWorkspaceTheme } from './workspaceTheme';
 import { parseFolders, type FavouriteFolder } from './favouriteFolders';
 import {
   installQuitGuard, onPreferenceChanged, preference, setBookmarksMenuHidden, setPreference, setThinScrollBars, tidyMenuBar,
@@ -34,8 +35,15 @@ const codecs: { [K in Exclude<keyof ShellPrefs, 'siteEngines' | 'protectedVideoI
   newTabPopup: flag(d.newTabPopup),
   // Unset is the default, Match. Soft was the default before it and saved
   // nothing, so those windows move to Match too.
-  toolbarColor: oneOf(['match', 'soft', 'vivid', 'white'], d.toolbarColor),
+  toolbarColor: oneOf(['match', 'soft', 'vivid', 'workspace', 'white'], d.toolbarColor),
   shellFollowsSite: flag(d.shellFollowsSite),
+  workspaceTheme: {
+    read: raw => {
+      try { return parseWorkspaceTheme(raw === null ? null : JSON.parse(raw)); }
+      catch { return null; }
+    },
+    write: value => value ? JSON.stringify(value) : null,
+  },
   interfaceStyle: oneOf(['glass', 'classic'], d.interfaceStyle),
   glassTintWithTheme: flag(d.glassTintWithTheme),
   glassTintAmount: amount(d.glassTintAmount),
@@ -52,7 +60,15 @@ const codecs: { [K in Exclude<keyof ShellPrefs, 'siteEngines' | 'protectedVideoI
   sidebarBookmarks: flag(d.sidebarBookmarks),
   sidebarBookmarksFolded: flag(d.sidebarBookmarksFolded),
   sidebarWidth: amount(d.sidebarWidth, SIDEBAR_WIDTH.min, SIDEBAR_WIDTH.max),
-  newTabPosition: oneOf(['end', 'top'], d.newTabPosition),
+  newTabPosition: oneOf(['end', 'top', 'adjacent'], d.newTabPosition),
+  tabTidyHours: oneOf(['off', '12', '24', '168'], d.tabTidyHours),
+  sharedTabs: flag(d.sharedTabs),
+  adaptiveFavorites: flag(d.adaptiveFavorites),
+  peekModifier: oneOf(['off', 'shift', 'option'], d.peekModifier),
+  undoReopensTab: flag(d.undoReopensTab),
+  groupLinkTabs: flag(d.groupLinkTabs),
+  hideToolbarOnScroll: flag(d.hideToolbarOnScroll),
+  externalLinks: oneOf(['tab', 'compact'], d.externalLinks),
   bookmarksBarSize: oneOf(['default', 'large'], d.bookmarksBarSize),
   borderlessMode: flag(d.borderlessMode),
   pageFrame: amount(d.pageFrame, PAGE_FRAME.min, PAGE_FRAME.max),

@@ -15,10 +15,13 @@ import { siteChrome, useTheme } from '../ui';
  */
 export function useSiteChrome() {
   const tab = useActiveTab();
-  const { dark } = useTheme();
+  const { dark, colors } = useTheme();
   const style = useShellPrefs(s => s.toolbarColor);
   const follow = useShellPrefs(s => s.shellFollowsSite);
+  const workspace = useShellPrefs(s => s.workspaceTheme?.stops[0]) ?? colors.accent;
   const page = tab && !tab.crashed && !tab.start && !isStartUrl(tab.url) ? tab : undefined;
   const site = page?.color, surface = page?.surface;
-  return useMemo(() => siteChrome(dark ? 'dark' : 'light', site, style, follow, surface), [dark, site, style, follow, surface]);
+  return useMemo(() => style === 'workspace'
+    ? siteChrome(dark ? 'dark' : 'light', workspace, 'soft', false)
+    : siteChrome(dark ? 'dark' : 'light', site, style, follow, surface), [dark, site, style, follow, surface, workspace]);
 }
