@@ -17,7 +17,7 @@ final class WebKitPages {
   /// one.
   private var privateSession: PrivateSession?
 
-  /// One hidden view per window that holds the pages of tabs not shown.
+  /// One parking view per window for WebKit pages outside the tab layout.
   private let parking = NSMapTable<NSWindow, NSView>.weakToStrongObjects()
 
   func page(_ tabId: String) -> WebKitPage? { pages[tabId] }
@@ -103,25 +103,46 @@ final class WebKitPages {
     return id
   }
 
-  /// Keeps a page that stops showing in its window, hidden. Its video and
-  /// sound play on, as in a background tab, and it shows again at once.
+  /// Keep the view in its window and preserve the player’s screen position
+  /// while WebKit hands its video layer to the floating window.
   func park(_ webView: MerlinWKWebView) {
     guard let window = webView.window, let content = window.contentView else { return }
-    var holder = parking.object(forKey: window)
-    if holder?.superview !== content {
-      let view = NSView(frame: content.bounds)
+    let holder: NSView
+    if let existing = parking.object(forKey: window), existing.superview === content {
+      holder = existing
+    } else {
+      let view = WebKitParkingView(frame: content.bounds)
       view.autoresizingMask = [.width, .height]
-      view.isHidden = true
+      // Mask the outgoing page without reporting it hidden to WebKit while
+      // its original layer is still needed for the PiP animation.
+      view.wantsLayer = true
+      view.layer?.opacity = 0
       content.addSubview(view, positioned: .below, relativeTo: nil)
       parking.setObject(view, forKey: window)
       holder = view
     }
-    // A hidden page keeps no keys: they go back to the window.
-    if let responder = window.firstResponder as? NSView, responder.isDescendant(of: webView) { window.makeFirstResponder(nil) }
-    holder?.addSubview(webView)
-    if let page = pages.values.first(where: { $0.webView === webView }) {
-      scheduleSightUpdate(for: page)
+    let frame = holder.convert(webView.bounds, from: webView)
+    if let responder = window.firstResponder as? NSView, responder.isDescendant(of: webView) {
+      window.makeFirstResponder(nil)
     }
+    webView.autoresizingMask = []
+    holder.addSubview(webView)
+    webView.frame = frame
+    guard let page = pages.values.first(where: { $0.webView === webView }) else {
+      webView.isHidden = true
+      return
+    }
+    if !autoPip || (!page.wasSeen && requestingPiP !== page) {
+      webView.isHidden = true
+    }
+    scheduleSightUpdate(for: page)
+  }
+
+  private func finishParking(_ page: WebKitPage) {
+    let view = page.webView
+    guard requestingPiP !== page, let window = view.window,
+          view.superview === parking.object(forKey: window) else { return }
+    view.isHidden = true
   }
 
   // MARK: Automatic picture in picture
@@ -167,27 +188,37 @@ final class WebKitPages {
       guard let self, let page, !page.isClosed else { return }
       page.sightUpdate = nil
       let seen = self.seen(page)
-      guard seen != page.wasSeen else { return }
+      guard seen != page.wasSeen else {
+        self.finishParking(page)
+        return
+      }
       page.wasSeen = seen
       if seen { self.returnVideo(in: page) }
       else { self.maybeFloat(page) }
     }
     page.sightUpdate = update
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: update)
+    // A native layout pass can move a page between hosts within one turn,
+    // for example when creating a split. Read the final placement once.
+    DispatchQueue.main.async(execute: update)
   }
 
   private func maybeFloat(_ page: WebKitPage) {
-    guard autoPip, requestingPiP == nil, page.webView.window != nil else { return }
+    guard autoPip, requestingPiP == nil, page.webView.window != nil else {
+      finishParking(page)
+      return
+    }
     requestingPiP = page
     let open: () -> Void = { [weak self, weak page] in
       guard let self, let page, self.requestingPiP === page else { return }
       guard self.autoPip, !page.isClosed, !self.seen(page) else {
         self.requestingPiP = nil
+        self.finishParking(page)
         return
       }
       page.floatVideo { [weak self, weak page] opened in
         guard let self, let page, self.requestingPiP === page else { return }
         self.requestingPiP = nil
+        self.finishParking(page)
         guard opened, !page.isClosed else { return }
         self.floated = page
         if !self.autoPip || self.seen(page) { self.returnVideo(in: page) }
@@ -203,6 +234,7 @@ final class WebKitPages {
       guard let self, let page, self.requestingPiP === page else { return }
       if active {
         self.requestingPiP = nil
+        self.finishParking(page)
         return
       }
       if self.floated === other { self.floated = nil }
@@ -865,6 +897,13 @@ final class IconFetcher: NSObject, URLSessionDataDelegate {
     NSGraphicsContext.restoreGraphicsState()
     return bitmap.representation(using: .png, properties: [:])
   }
+}
+
+/// Parked pages sit behind the tab layout and never receive its clicks.
+private final class WebKitParkingView: NSView {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+  override func accessibilityChildren() -> [Any]? { [] }
 }
 
 /// The page's web view. The browser's own shortcuts that act on the page
