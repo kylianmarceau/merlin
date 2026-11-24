@@ -31,6 +31,7 @@ import json
 import os
 import shutil
 import plistlib
+import re
 import socket
 import ssl
 import struct
@@ -410,6 +411,20 @@ class PageServer:
                     paced.serve(self)
                     return
                 status, kind, body, headers = server.respond(host, self.path)
+                # WebKit probes movie resources with a two-byte range request.
+                # Only fixtures that advertise byte ranges use this path.
+                if status == 200 and headers.get("Accept-Ranges") == "bytes":
+                    interval = re.fullmatch(r"bytes=(\d+)-(\d*)", self.headers.get("Range", ""))
+                    if interval:
+                        total = len(body)
+                        first = int(interval[1])
+                        last = min(int(interval[2]) if interval[2] else total - 1, total - 1)
+                        if first > last:
+                            status, body = 416, b""
+                            headers = {**headers, "Content-Range": f"bytes */{total}"}
+                        else:
+                            status, body = 206, body[first:last + 1]
+                            headers = {**headers, "Content-Range": f"bytes {first}-{last}/{total}"}
                 self.send_response(status)
                 self.send_header("Content-Type", kind)
                 self.send_header("Content-Length", str(len(body)))
@@ -766,7 +781,7 @@ def background_library(directory: Path) -> Path:
     """Builds background_app.m, which keeps the test instance in the background."""
     out = directory / "libmerlin_e2e_background.dylib"
     subprocess.run(["xcrun", "clang", "-dynamiclib", "-fobjc-arc", "-O1",
-                    "-framework", "AppKit", "-framework", "ApplicationServices",
+                    "-framework", "AppKit", "-framework", "ApplicationServices", "-framework", "WebKit",
                     "-o", str(out), str(Path(__file__).with_name("background_app.m"))],
                    check=True, capture_output=True)
     return out
