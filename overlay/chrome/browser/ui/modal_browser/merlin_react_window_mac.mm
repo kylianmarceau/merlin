@@ -2,6 +2,8 @@
 // Window lifecycle follows Chromium's BrowserWindow/Widget contracts. React
 // Native owns the visible chrome; no BrowserView or WebUI renderer is created.
 #include "chrome/browser/ui/modal_browser/merlin_react_window.h"
+#include "chrome/browser/ui/modal_browser/merlin_auto_pip.h"
+#include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_find_bar.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_autofill.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_handler.h"
@@ -10,8 +12,10 @@
 #include <dlfcn.h>
 #include <cstddef>
 #include <algorithm>
+#include <array>
 #include <vector>
 #include <map>
+#include <optional>
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -23,6 +27,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -96,6 +101,69 @@ const MerlinShellAPI* ShellAPI() {
   CHECK(api && api->abi_version == 1 && api->struct_size >= offsetof(MerlinShellAPI, prewarm) &&
         api->create_root && api->release_root) << "Launch with Merlin's React Native host executable";
   return api;
+}
+
+// AppKit can report occlusion on app switches where the Window Server still
+// shows part of the browser. Check the visible display area against the
+// union of opaque, normal-level windows in front of it.
+std::optional<bool> WindowServerShows(NSWindow* window) {
+  const CGWindowID number = static_cast<CGWindowID>(window.windowNumber);
+  NSArray<NSDictionary*>* windows = CFBridgingRelease(CGWindowListCopyWindowInfo(
+      kCGWindowListOptionOnScreenAboveWindow | kCGWindowListOptionIncludingWindow,
+      number));
+  std::vector<CGRect> covers;
+  CGRect bounds = CGRectNull;
+  for (NSDictionary* entry in windows) {
+    CGRect rect;
+    if (!CGRectMakeWithDictionaryRepresentation(
+            (__bridge CFDictionaryRef)entry[(id)kCGWindowBounds], &rect)) {
+      continue;
+    }
+    if ([entry[(id)kCGWindowNumber] unsignedIntValue] == number) {
+      if (![entry[(id)kCGWindowIsOnscreen] boolValue]) return false;
+      bounds = rect;
+      break;
+    }
+    if ([entry[(id)kCGWindowLayer] intValue] == CGWindowLevelForKey(kCGNormalWindowLevelKey) &&
+        [entry[(id)kCGWindowAlpha] doubleValue] >= 0.99) {
+      covers.push_back(rect);
+    }
+  }
+  if (CGRectIsNull(bounds)) return std::nullopt;
+
+  uint32_t count = 0;
+  std::array<CGDirectDisplayID, 32> displays;
+  if (CGGetActiveDisplayList(displays.size(), displays.data(), &count) != kCGErrorSuccess)
+    return std::nullopt;
+  std::vector<CGRect> exposed;
+  for (uint32_t i = 0; i < count; ++i) {
+    if (CGDisplayIsAsleep(displays[i])) continue;
+    CGRect intersection = CGRectIntersection(bounds, CGDisplayBounds(displays[i]));
+    if (!CGRectIsEmpty(intersection)) exposed.push_back(intersection);
+  }
+  for (CGRect cover : covers) {
+    std::vector<CGRect> remaining;
+    for (CGRect piece : exposed) {
+      const CGRect overlap = CGRectIntersection(piece, cover);
+      if (CGRectIsEmpty(overlap)) {
+        remaining.push_back(piece);
+        continue;
+      }
+      const CGFloat left = CGRectGetMinX(piece), right = CGRectGetMaxX(piece);
+      const CGFloat top = CGRectGetMinY(piece), bottom = CGRectGetMaxY(piece);
+      const CGFloat x0 = CGRectGetMinX(overlap), x1 = CGRectGetMaxX(overlap);
+      const CGFloat y0 = CGRectGetMinY(overlap), y1 = CGRectGetMaxY(overlap);
+      for (CGRect rest : {CGRectMake(left, top, x0 - left, bottom - top),
+                          CGRectMake(x1, top, right - x1, bottom - top),
+                          CGRectMake(x0, top, x1 - x0, y0 - top),
+                          CGRectMake(x0, y1, x1 - x0, bottom - y1)}) {
+        if (!CGRectIsEmpty(rest)) remaining.push_back(rest);
+      }
+    }
+    exposed = std::move(remaining);
+    if (exposed.empty()) return false;
+  }
+  return !exposed.empty();
 }
 
 class ReactBrowserWindow;
@@ -277,6 +345,8 @@ class ReactBrowserWindow final : public BrowserWindow,
     ReactWindows().erase(browser_.get());
     weak_factory_.InvalidateWeakPtrs();
     if (content_observer_) [NSNotificationCenter.defaultCenter removeObserver:content_observer_];
+    for (id observer in sight_observers_)
+      [NSNotificationCenter.defaultCenter removeObserver:observer];
     modal_observers_.Notify(&web_modal::ModalDialogHostObserver::OnHostDestroying);
     browser_->GetFeatures().TearDownPreBrowserWindowDestruction();
     bubble_.reset();
@@ -305,9 +375,9 @@ class ReactBrowserWindow final : public BrowserWindow,
     root_ = nullptr;
     Mount();
   }
-  void Show() override { Mount(); HoldUntilDrawn(); BrowserActiveStateManager::From(browser_)->DidBecomeActive(); widget_->Show(); }
-  void ShowInactive() override { Mount(); HoldUntilDrawn(); widget_->ShowInactive(); }
-  void Hide() override { widget_->Hide(); }
+  void Show() override { Mount(); HoldUntilDrawn(); BrowserActiveStateManager::From(browser_)->DidBecomeActive(); widget_->Show(); WatchWindowSight(); }
+  void ShowInactive() override { Mount(); HoldUntilDrawn(); widget_->ShowInactive(); WatchWindowSight(); }
+  void Hide() override { widget_->Hide(); UpdateWindowSight(); }
   void Close() override { widget_->Close(); }
   void Activate() override { widget_->Activate(); }
   void Deactivate() override { widget_->Deactivate(); }
@@ -693,6 +763,96 @@ class ReactBrowserWindow final : public BrowserWindow,
  protected:
   void DeleteBrowserWindow() override { delete this; }
  private:
+  void WatchWindowSight() {
+    if (browser_->GetType() != BrowserWindowInterface::TYPE_NORMAL) return;
+    NSWindow* window = GetNativeWindow().GetNativeNSWindow();
+    if (!sight_observers_) {
+      sight_observers_ = [NSMutableArray array];
+      auto weak = weak_factory_.GetWeakPtr();
+      NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
+      for (NSNotificationName name in @[
+          NSWindowDidChangeOcclusionStateNotification, NSWindowDidBecomeKeyNotification,
+          NSWindowDidMiniaturizeNotification, NSWindowDidDeminiaturizeNotification,
+          NSWindowWillEnterFullScreenNotification, NSWindowWillExitFullScreenNotification,
+          NSWindowDidEnterFullScreenNotification, NSWindowDidExitFullScreenNotification,
+          @"NSWindowDidFailToEnterFullScreenNotification",
+          @"NSWindowDidFailToExitFullScreenNotification"]) {
+        [sight_observers_ addObject:[center addObserverForName:name object:window queue:nil
+            usingBlock:^(NSNotification* note) {
+              if (!weak) return;
+              if ([note.name isEqualToString:NSWindowWillEnterFullScreenNotification] ||
+                  [note.name isEqualToString:NSWindowWillExitFullScreenNotification]) {
+                weak->fullscreen_transition_ = true;
+              } else if ([note.name isEqualToString:NSWindowDidEnterFullScreenNotification] ||
+                         [note.name isEqualToString:NSWindowDidExitFullScreenNotification] ||
+                         [note.name isEqualToString:@"NSWindowDidFailToEnterFullScreenNotification"] ||
+                         [note.name isEqualToString:@"NSWindowDidFailToExitFullScreenNotification"]) {
+                weak->fullscreen_transition_ = false;
+              }
+              weak->ScheduleWindowSight();
+            }]];
+      }
+      for (NSNotificationName name in @[
+          NSApplicationDidBecomeActiveNotification, NSApplicationDidResignActiveNotification,
+          NSApplicationDidHideNotification, NSApplicationDidUnhideNotification]) {
+        [sight_observers_ addObject:[center addObserverForName:name object:NSApp queue:nil
+            usingBlock:^(NSNotification*) { if (weak) weak->ScheduleWindowSight(); }]];
+      }
+    }
+    UpdateWindowSight();
+  }
+
+  void ScheduleWindowSight() {
+    sight_timer_.Start(FROM_HERE, base::Milliseconds(80), this,
+                       &ReactBrowserWindow::UpdateWindowSight);
+  }
+
+  void UpdateWindowSight() {
+    if (!sight_observers_ || fullscreen_transition_) return;
+    NSWindow* window = GetNativeWindow().GetNativeNSWindow();
+    const bool appkit_visible = (window.occlusionState & NSWindowOcclusionStateVisible) != 0;
+    // Isolated GUI tests run with prohibited activation and keep their
+    // windows behind the desktop. Their tab transitions still run normally.
+    const bool background_test = NSApp.activationPolicy == NSApplicationActivationPolicyProhibited;
+    const bool ordered = window.visible && !window.miniaturized && (background_test || !NSApp.hidden);
+    const bool needed = ordered && !background_test && (!NSApp.active || !appkit_visible);
+    const bool visible = ordered &&
+        (background_test || (needed ? WindowServerShows(window).value_or(appkit_visible) : appkit_visible));
+    if (visible != sight_visible_) {
+      sight_visible_ = visible;
+      MerlinAutoPipWindowSightChanged(browser_, visible);
+      [NSNotificationCenter.defaultCenter postNotificationName:@"MerlinWindowSightDidChange"
+          object:window userInfo:@{@"visible": @(visible)}];
+    }
+
+    // The Window Server can change how much is exposed without a new
+    // AppKit event. Recheck only while a video could need to enter or return.
+    auto* strip = browser_->GetTabStripModel();
+    if (needed && browser_->GetProfile()->GetPrefs()->GetBoolean(kAutoPipPref)) {
+      const auto playing = [](tabs::TabInterface* tab) {
+        auto* contents = tab->GetContents();
+        return contents->GetCurrentlyPlayingVideoCount() || contents->HasPictureInPictureVideo() ||
+            contents->HasPictureInPictureDocument() || RestoredWebKitPage(contents).has_value();
+      };
+      bool has_media = false;
+      if (auto* tab = strip->GetActiveTab()) {
+        has_media = playing(tab);
+        if (auto split = tab->GetSplit()) {
+          has_media = has_media || std::ranges::any_of(strip->GetSplitData(*split)->ListTabs(), playing);
+        }
+      }
+      if (has_media) {
+        sight_timer_.Start(FROM_HERE, base::Seconds(1), this,
+                           &ReactBrowserWindow::UpdateWindowSight);
+      }
+    }
+  }
+
+  NSMutableArray* sight_observers_ = nil;
+  std::optional<bool> sight_visible_;
+  bool fullscreen_transition_ = false;
+  base::OneShotTimer sight_timer_;
+
   // Keeps a newly shown window transparent until React has drawn into it,
   // then shows it in one piece. At launch that is about 100 ms before the
   // Views layer under React first composites, which is when Chromium would
