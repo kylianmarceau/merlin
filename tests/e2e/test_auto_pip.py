@@ -38,7 +38,8 @@ class AutoPipTest(MerlinTestCase):
         url = self.browser.open("/video")
         session = self.browser.active_session()
         self.browser.eval("start()", session)
-        self.wait(lambda: self.browser.eval("!document.getElementById('v').paused", session), "the video to play")
+        self.wait(lambda: self.browser.eval("document.getElementById('v').currentTime > 0.15", session),
+                  "the video and audio to start playing")
         self.wait(lambda: self.browser.tabs()[0]["url"] == url, "the video tab")
         return session
 
@@ -187,6 +188,8 @@ class WebKitAutoPipTest(WebKitVideoCase):
         self.leave()
         self.wait(lambda: self.mode() == "picture-in-picture", "the WebKit video to float", timeout=5)
         drive_picture_in_picture(self.browser, "geometry")
+        self.browser.browserctl("focus", tab=1)
+        self.wait(lambda: self.mode() == "inline", "the WebKit video to return to its page", timeout=5)
         self.assertEqual(result.read_text(), original, "the parked player keeps its on-screen source rect")
 
     def test_adding_a_split_keeps_the_video_inline(self) -> None:

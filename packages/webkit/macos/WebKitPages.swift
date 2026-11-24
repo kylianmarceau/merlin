@@ -105,7 +105,7 @@ final class WebKitPages {
 
   /// Keep the view in its window and preserve the player’s screen position
   /// while WebKit hands its video layer to the floating window.
-  func park(_ webView: MerlinWKWebView) {
+  func park(_ webView: MerlinWKWebView, inlineFrame: NSRect?) {
     guard let window = webView.window, let content = window.contentView else { return }
     let holder: NSView
     if let existing = parking.object(forKey: window), existing.superview === content {
@@ -121,7 +121,9 @@ final class WebKitPages {
       parking.setObject(view, forKey: window)
       holder = view
     }
-    let frame = holder.convert(webView.bounds, from: webView)
+    // The shell can already have detached an ancestor when AppKit calls
+    // viewWillMove(toWindow:). Use the last frame from the attached layout.
+    let frame = holder.convert(inlineFrame ?? webView.convert(webView.bounds, to: nil), from: nil)
     if let responder = window.firstResponder as? NSView, responder.isDescendant(of: webView) {
       window.makeFirstResponder(nil)
     }

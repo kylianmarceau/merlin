@@ -70,6 +70,7 @@ final class MerlinWebKitPageView: ExpoView {
   var active = false
   private weak var shown: MerlinWKWebView?
   private var wasActive = false
+  private var inlineFrame: NSRect?
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -92,6 +93,7 @@ final class MerlinWebKitPageView: ExpoView {
       addSubview(webView)
       webView.isHidden = false
       shown = webView
+      rememberInlineFrame()
       placed = true
       WebKitPages.shared.pageShown(page)
     }
@@ -104,6 +106,17 @@ final class MerlinWebKitPageView: ExpoView {
   override func setFrameSize(_ newSize: NSSize) {
     super.setFrameSize(newSize)
     shown?.frame = bounds
+    rememberInlineFrame()
+  }
+
+  override func layout() {
+    super.layout()
+    rememberInlineFrame()
+  }
+
+  private func rememberInlineFrame() {
+    guard let shown, shown.superview === self, window != nil, !bounds.isEmpty else { return }
+    inlineFrame = convert(bounds, to: nil)
   }
 
   // React removes this view when its tab stops showing; park the page while
@@ -119,7 +132,10 @@ final class MerlinWebKitPageView: ExpoView {
   }
 
   private func detach() {
-    if let shown, shown.superview === self { WebKitPages.shared.park(shown) }
+    if let shown, shown.superview === self {
+      WebKitPages.shared.park(shown, inlineFrame: inlineFrame)
+    }
     shown = nil
+    inlineFrame = nil
   }
 }
