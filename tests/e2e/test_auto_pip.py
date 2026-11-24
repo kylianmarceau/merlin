@@ -179,6 +179,23 @@ class WebKitAutoPipTest(WebKitVideoCase):
         self.browser.browserctl("focus", tab=1)
         self.wait(lambda: self.mode() == "inline", "the WebKit video to return to its page", timeout=5)
 
+    def test_parked_video_keeps_its_screen_position(self) -> None:
+        self.play()
+        drive_picture_in_picture(self.browser, "geometry")
+        result = self.browser.dir / "pip-sight.result"
+        original = result.read_text()
+        self.leave()
+        self.wait(lambda: self.mode() == "picture-in-picture", "the WebKit video to float", timeout=5)
+        drive_picture_in_picture(self.browser, "geometry")
+        self.assertEqual(result.read_text(), original, "the parked player keeps its on-screen source rect")
+
+    def test_adding_a_split_keeps_the_video_inline(self) -> None:
+        self.play()
+        self.browser.command(f"vsplit {self.server.url('/doc')}")
+        self.wait(lambda: self.browser.snapshot().get("split"), "the second split pane")
+        time.sleep(0.5)
+        self.assertIsNone(self.mode(), "moving a video into a visible split pane should keep it inline")
+
     def tearDown(self) -> None:
         # Return to the Chromium tab before reset drives the next test through
         # DevTools. Navigating a WebKit tab from browserctl takes a different path.

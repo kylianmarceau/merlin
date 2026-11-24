@@ -16,15 +16,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-static WKWebView* VideoFixtureView(NSView* view) {
-  if (view.isHidden) return nil;
+static WKWebView* VideoFixtureView(NSView* view, BOOL includeHidden) {
+  if (view.isHidden && !includeHidden) return nil;
   if ([view isKindOfClass:WKWebView.class]) {
     WKWebView* web = (WKWebView*)view;
     return [web.URL.host isEqualToString:@"wk.localhost"] &&
            [web.URL.path isEqualToString:@"/wkvideo"] && !web.loading ? web : nil;
   }
   for (NSView* child in view.subviews) {
-    WKWebView* web = VideoFixtureView(child);
+    WKWebView* web = VideoFixtureView(child, includeHidden);
     if (web) return web;
   }
   return nil;
@@ -37,10 +37,18 @@ static void WatchPictureInPictureWindow(NSString* path) {
     NSString* action = [NSString stringWithContentsOfFile:path
                                                 encoding:NSUTF8StringEncoding
                                                    error:nil];
-    if ([action isEqualToString:@"play"]) {
+    const BOOL geometry = [action isEqualToString:@"geometry"];
+    if (geometry || [action isEqualToString:@"play"]) {
       for (NSWindow* window in NSApp.orderedWindows) {
-        WKWebView* view = VideoFixtureView(window.contentView);
+        WKWebView* view = VideoFixtureView(window.contentView, geometry);
         if (!view) continue;
+        if (geometry) {
+          NSRect origin = [window convertRectToScreen:[view convertRect:view.bounds toView:nil]];
+          [NSStringFromRect(origin) writeToFile:[path stringByAppendingString:@".result"]
+                                     atomically:YES encoding:NSUTF8StringEncoding error:nil];
+          [NSFileManager.defaultManager removeItemAtPath:path error:nil];
+          return;
+        }
         // WebKit's host JavaScript evaluation supplies transient activation.
         [view callAsyncJavaScript:@"await document.getElementById('v').play()"
                         arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld
