@@ -39,8 +39,7 @@ static void WatchPictureInPictureWindow(NSString* path) {
                                                 encoding:NSUTF8StringEncoding
                                                    error:nil];
     const BOOL geometry = [action isEqualToString:@"geometry"];
-    const BOOL pause = [action isEqualToString:@"pause"];
-    if (geometry || pause || [action isEqualToString:@"play"]) {
+    if (geometry || [action isEqualToString:@"play"]) {
       for (NSWindow* window in NSApp.orderedWindows) {
         WKWebView* view = VideoFixtureView(window.contentView, geometry);
         if (!view) continue;
@@ -52,9 +51,8 @@ static void WatchPictureInPictureWindow(NSString* path) {
           return;
         }
         // WebKit's host JavaScript evaluation supplies transient activation.
-        NSString* script = pause ? @"document.getElementById('v').pause()" :
-                                    @"await document.getElementById('v').play()";
-        [view callAsyncJavaScript:script arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld
+        [view callAsyncJavaScript:@"await document.getElementById('v').play()"
+                        arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld
                 completionHandler:^(id result, NSError* error) {
           if (error) NSLog(@"WebKit video fixture: %@", error);
         }];

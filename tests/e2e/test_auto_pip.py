@@ -117,7 +117,6 @@ WEBKIT_VIDEO_HTML = """<!doctype html>
   if (location.search.includes('player-controls')) v.setAttribute('disablepictureinpicture', '');
   const report = what => fetch('/report?' + what);
   v.addEventListener('playing', () => report('playing'));
-  v.addEventListener('pause', () => report('paused'));
   v.addEventListener('leavepictureinpicture', () => report('returned'));
   v.addEventListener('webkitpresentationmodechanged', () => report('mode=' + v.webkitPresentationMode));
 </script>"""
@@ -185,9 +184,6 @@ class WebKitAutoPipTest(WebKitVideoCase):
         # Return to the Chromium tab before reset drives the next test through
         # DevTools. Navigating a WebKit tab from browserctl takes a different path.
         if len(self.browser.tabs()) > 1:
-            if self.browser.active_tab()["url"].startswith(self.server.url("/wkvideo", self.host)):
-                drive_picture_in_picture(self.browser, "pause")
-                self.wait(lambda: "paused" in self.reports(), "the video to pause before switching tabs")
             self.browser.browserctl("focus", tab=2)
 
     def test_a_muted_video_stays_in_its_tab(self) -> None:
