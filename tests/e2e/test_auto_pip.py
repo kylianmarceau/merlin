@@ -174,19 +174,6 @@ class WebKitVideoCase(MerlinTestCase):
 class WebKitAutoPipTest(WebKitVideoCase):
     """A WebKit tab's video (Netflix's, say) floats as a Chromium tab's does."""
 
-    def test_video_floats_when_its_tab_is_left_and_returns(self) -> None:
-        self.play()
-        self.leave()
-        self.wait(lambda: self.mode() == "picture-in-picture", "the WebKit video to float", timeout=5)
-        # At once, while it may still be moving into the floating window.
-        self.browser.browserctl("focus", tab=1)
-        self.wait(lambda: self.mode() == "inline", "the WebKit video to return to its page", timeout=5)
-        self.wait(lambda: "returned" in self.reports(), "the native inline transition to finish", timeout=5)
-        self.browser.browserctl("focus", tab=2)
-        self.wait(lambda: self.mode() == "picture-in-picture", "the same player to float again", timeout=5)
-        self.browser.browserctl("focus", tab=1)
-        self.wait(lambda: self.reports().count("returned") == 2, "the player to return again", timeout=5)
-
     def test_adding_a_split_keeps_the_video_inline(self) -> None:
         self.play()
         self.browser.command(f"vsplit {self.server.url('/doc')}")
@@ -227,6 +214,22 @@ class WebKitAutoPipGeometryTest(WebKitVideoCase):
 
 # Window ordering and PiP animations have their own AppKit lifecycle.
 # Start with a fresh native window after the tab-only scenarios.
+@unittest.skipUnless(os.environ.get("MERLIN_E2E_PIP") == "1", "shows a floating window; set MERLIN_E2E_PIP=1")
+class WebKitRepeatAutoPipTest(WebKitVideoCase):
+    def test_video_floats_when_its_tab_is_left_and_returns(self) -> None:
+        self.play()
+        self.leave()
+        self.wait(lambda: self.mode() == "picture-in-picture", "the WebKit video to float", timeout=5)
+        # At once, while it may still be moving into the floating window.
+        self.browser.browserctl("focus", tab=1)
+        self.wait(lambda: self.mode() == "inline", "the WebKit video to return to its page", timeout=5)
+        self.wait(lambda: "returned" in self.reports(), "the native inline transition to finish", timeout=5)
+        self.browser.browserctl("focus", tab=2)
+        self.wait(lambda: self.mode() == "picture-in-picture", "the same player to float again", timeout=5)
+        self.browser.browserctl("focus", tab=1)
+        self.wait(lambda: self.reports().count("returned") == 2, "the player to return again", timeout=5)
+
+
 @unittest.skipUnless(os.environ.get("MERLIN_E2E_PIP") == "1", "shows a floating window; set MERLIN_E2E_PIP=1")
 class WebKitWindowAutoPipTest(WebKitVideoCase):
     def test_video_follows_window_visibility(self) -> None:

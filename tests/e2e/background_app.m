@@ -12,12 +12,13 @@
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
 #import <WebKit/WebKit.h>
+#import <QuartzCore/QuartzCore.h>
 #include <crt_externs.h>
 #include <stdlib.h>
 #include <string.h>
 
 static WKWebView* VideoFixtureView(NSView* view, BOOL includeHidden) {
-  if (view.isHidden && !includeHidden) return nil;
+  if (!includeHidden && (view.isHidden || (view.layer && view.layer.opacity == 0))) return nil;
   if ([view isKindOfClass:WKWebView.class]) {
     WKWebView* web = (WKWebView*)view;
     return [web.URL.host isEqualToString:@"wk.localhost"] &&
