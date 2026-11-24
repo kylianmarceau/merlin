@@ -1,0 +1,161 @@
+diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
+--- a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
++++ b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
+@@ -130,6 +130,9 @@
+   // Returns true if the tab is in PiP mode, and PiP was started by auto-pip.
+   bool IsInAutoPictureInPicture() const;
+ 
++  // Merlin supplies the visibility of the page in its macOS shell.
++  void UpdateMerlinPageVisibility(bool seen, bool enabled);
++
+   void set_is_in_auto_picture_in_picture_for_testing(bool auto_pip) {
+     is_in_auto_picture_in_picture_ = auto_pip;
+   }
+diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.cc b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.cc
+--- a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.cc
++++ b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.cc
+@@ -52,6 +52,21 @@
+ 
+ DEFINE_USER_DATA(AutoPictureInPictureTabHelper);
+ 
++namespace {
++
++const char kMerlinSightKey = 0;
++
++struct MerlinSight : base::SupportsUserData::Data {
++  bool seen = false;
++  bool enabled = false;
++};
++
++MerlinSight* GetMerlinSight(content::WebContents* contents) {
++  return static_cast<MerlinSight*>(contents->GetUserData(&kMerlinSightKey));
++}
++
++}  // namespace
++
+ // static
+ AutoPictureInPictureTabHelper* AutoPictureInPictureTabHelper::From(
+     tabs::TabInterface* tab) {
+@@ -166,6 +181,9 @@
+ }
+ 
+ void AutoPictureInPictureTabHelper::PrimaryPageChanged(content::Page& page) {
++  if (GetMerlinSight(web_contents())) {
++    auto_picture_in_picture_activation_time_ = base::TimeTicks();
++  }
+   has_ever_registered_for_auto_picture_in_picture_ = false;
+   // On navigation, forget any 'allow once' state.
+ #if !BUILDFLAG(IS_ANDROID)
+@@ -409,6 +427,9 @@
+ #endif  // !BUILDFLAG(IS_ANDROID)
+ 
+     is_in_auto_picture_in_picture_ = false;
++    if (GetMerlinSight(web_contents())) {
++      auto_picture_in_picture_activation_time_ = base::TimeTicks();
++    }
+     MaybeRecordPictureInPictureChanged(false);
+     MaybeStartOrStopObservers();
+     auto_pip_trigger_reason_ =
+@@ -459,6 +480,9 @@
+ 
+ void AutoPictureInPictureTabHelper::OnTabActivatedChanged(
+     bool is_tab_activated) {
++  if (GetMerlinSight(web_contents())) {
++    return;
++  }
+   // Don't enter or exit autopip if we're somehow still occluded. Note that this
+   // is an unlikely case since tab switching generally occurs on the
+   // active/topmost window but could happen if e.g. a script has closed the
+@@ -492,6 +516,9 @@
+ 
+ void AutoPictureInPictureTabHelper::OnOcclusionStateChanged(
+     OcclusionState occlusion_state) {
++  if (GetMerlinSight(web_contents())) {
++    return;
++  }
+   // If the tab is not the active tab in its window, then the window becoming
+   // occluded or unoccluded shouldn't trigger anything.
+   if (!tab_observer_helper_->IsTabActivated()) {
+@@ -690,6 +717,9 @@
+ }
+ 
+ bool AutoPictureInPictureTabHelper::IsTabActiveAndVisible() const {
++  if (const auto* sight = GetMerlinSight(web_contents())) {
++    return sight->seen || !sight->enabled;
++  }
+   return tab_observer_helper_->IsTabActivated() &&
+          (!window_occlusion_helper_ ||
+           window_occlusion_helper_->GetOcclusionState() ==
+@@ -1056,6 +1086,9 @@
+ 
+   // If we don't have a setting helper associated with this session (site) yet,
+   // then create one.
++  if (GetMerlinSight(web_contents())) {
++    return nullptr;
++  }
+   EnsureAutoPipSettingHelper();
+ 
+   return auto_pip_setting_helper_->CreateOverlayViewIfNeeded(
+@@ -1116,7 +1149,62 @@
+ #endif  // !BUILDFLAG(IS_ANDROID)
+ }
+ 
++void AutoPictureInPictureTabHelper::UpdateMerlinPageVisibility(bool seen,
++                                                                 bool enabled) {
++  auto* contents = web_contents();
++  auto* sight = GetMerlinSight(contents);
++  if (!sight) {
++    auto data = std::make_unique<MerlinSight>();
++    sight = data.get();
++    contents->SetUserData(&kMerlinSightKey, std::move(data));
++  }
++  const bool just_hidden = sight->seen && !seen;
++  sight->seen = seen;
++  sight->enabled = enabled;
++
++  auto* manager = PictureInPictureWindowManager::GetInstance();
++  if (seen || !enabled) {
++    // Keep the activation deadline for a request still in flight. Chromium
++    // closes it on arrival if the source page has already returned.
++    if (is_in_auto_picture_in_picture_ &&
++        manager->GetWebContents() == web_contents()) {
++      MaybeExitAutoPictureInPicture();
++    }
++    return;
++  }
++
++  if (!just_hidden || manager->GetWebContents() ||
++      manager->IsPictureInPictureDisabled() || contents->IsFullscreen() ||
++      contents->HasActiveEffectivelyFullscreenVideo() ||
++      contents->IsAudioMuted() || !contents->IsCurrentlyAudible() ||
++      !contents->GetCurrentlyPlayingVideoCount() ||
++      GetCurrentContentSetting() == CONTENT_SETTING_BLOCK) {
++    return;
++  }
++
++  auto* session = content::MediaSession::GetIfExists(contents);
++  if (!session) {
++    return;
++  }
++  using Action = media_session::mojom::MediaSessionAction;
++  const auto actions = session->GetMediaSessionActionsSync();
++  if (!std::ranges::contains(actions, Action::kEnterPictureInPicture)) {
++    return;
++  }
++
++  auto_picture_in_picture_activation_time_ =
++      clock_->NowTicks() + blink::kActivationLifespan;
++  if (std::ranges::contains(actions, Action::kEnterAutoPictureInPicture)) {
++    session->EnterAutoPictureInPicture();
++  } else {
++    session->EnterPictureInPicture();
++  }
++}
++
+ void AutoPictureInPictureTabHelper::OnTabBecameActive() {
++  if (GetMerlinSight(web_contents())) {
++    return;
++  }
+ #if BUILDFLAG(IS_ANDROID)
+   if (hide_button_clicked_time_) {
+     base::TimeDelta back_to_tab_post_hide_time =

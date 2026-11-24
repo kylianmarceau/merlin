@@ -29,7 +29,7 @@ let stopListening: (() => void) | null = null;
 const closedTabGraceMs = 1000;
 const recheckSlackMs = 100;
 
-/** The Float videos setting has been read for WebKit (followAutoPip). */
+/** The Automatic Picture in Picture setting has been read for WebKit (followAutoPip). */
 let autoPipRead = false;
 
 const engineOf = (url: string): PageEngine => engineFor(url, shellPrefs.getState());
@@ -82,8 +82,8 @@ export function attachWebKit(store: BrowserStore, engine: EngineClient, openTab:
 }
 
 /**
- * Tells WebKit's pages Settings › General › Float videos when you switch
- * tabs: read once when the first window connects, and again whenever
+ * Tells WebKit's pages Settings › General › Automatic Picture in Picture.
+ * Read once when the first window connects, and again whenever
  * Settings changes it. Chromium keeps the setting (merlin.auto_pip); until
  * it is read, WebKit uses its default, on. Undefined: not offered here.
  */

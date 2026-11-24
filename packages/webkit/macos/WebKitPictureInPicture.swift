@@ -40,37 +40,65 @@ final class WebKitPictureInPicture: NSObject, WKScriptMessageHandler {
     const watched = v => !v.paused && !v.ended && v.readyState >= 2 && !v.muted && v.volume > 0 && v.videoWidth > 0 && canFloat(v);
     const video = videos.filter(watched).sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
     if (!video) return false;
-    await enter(video);
-    // The request can take a moment to settle, or the player can reject it.
-    for (let attempt = 0; attempt < 20; attempt++) {
-      if (isFloating(video)) {
-        globalThis.merlinFloated = new WeakRef(video);
-        return true;
-      }
-      await new Promise(done => setTimeout(done, 50));
-    }
-    return false;
+    const changed = new Promise(resolve => {
+      const done = result => {
+        video.removeEventListener('webkitpresentationmodechanged', changedMode);
+        video.removeEventListener('enterpictureinpicture', changedMode);
+        clearTimeout(timer);
+        resolve(result);
+      };
+      const changedMode = () => { if (isFloating(video)) done(true); };
+      const timer = setTimeout(() => done(isFloating(video)), 1000);
+      video.addEventListener('webkitpresentationmodechanged', changedMode);
+      video.addEventListener('enterpictureinpicture', changedMode);
+      enter(video).then(changedMode, () => done(false));
+    });
+    if (!await changed) return false;
+    const owner = { video: new WeakRef(video), returning: false };
+    globalThis.merlinFloated = owner;
+    const clear = () => {
+      if (isFloating(video) || owner.returning) return;
+      if (globalThis.merlinFloated === owner) globalThis.merlinFloated = undefined;
+      owner.stopWatching();
+    };
+    owner.stopWatching = () => {
+      video.removeEventListener('webkitpresentationmodechanged', clear);
+      video.removeEventListener('leavepictureinpicture', clear);
+    };
+    video.addEventListener('webkitpresentationmodechanged', clear);
+    video.addEventListener('leavepictureinpicture', clear);
+    return true;
     """
 
   static let returnScript = videoScript + """
 
-    const video = globalThis.merlinFloated?.deref();
-    globalThis.merlinFloated = undefined;
-    if (!video) return;
-    for (let settled = 0, tries = 0; settled < 3 && tries < 30; tries++) {
+    const owner = globalThis.merlinFloated;
+    const video = owner?.video.deref();
+    if (!video) return true;
+    if (owner.returning) return false;
+    owner.returning = true;
+    // AppKit can report the requested presentation mode before its transition
+    // finishes. Keep the return request until the inline mode has settled.
+    let inline = 0;
+    for (let attempt = 0; attempt < 12 && inline < 3; attempt++) {
       if (isFloating(video)) {
-        settled = 0;
+        inline = 0;
         await exit(video).catch(() => {});
       } else {
-        settled++;
+        inline++;
       }
-      await new Promise(done => setTimeout(done, 100));
+      await new Promise(resolve => setTimeout(resolve, 80));
     }
+    owner.returning = false;
+    if (isFloating(video)) return false;
+    owner.stopWatching();
+    if (globalThis.merlinFloated === owner) globalThis.merlinFloated = undefined;
+    return true;
     """
 
   static let floatingScript = videoScript + """
 
-    const video = globalThis.merlinFloated?.deref();
+    const video = globalThis.merlinFloated?.video.deref();
     return !!video && isFloating(video);
     """
 

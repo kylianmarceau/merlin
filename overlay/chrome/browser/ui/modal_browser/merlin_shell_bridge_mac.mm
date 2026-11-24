@@ -297,10 +297,13 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
                     public download::AllDownloadItemNotifier::Observer, public ui::NativeThemeObserver,
                     public bookmarks::BaseBookmarkModelObserver {
  public:
-  explicit WindowState(BrowserWindowInterface* browser) : browser_(browser) {
+  explicit WindowState(BrowserWindowInterface* browser) : auto_pip(browser), browser_(browser) {
     browser_->GetTabStripModel()->AddObserver(this);
     Observe(browser_->GetTabStripModel()->GetActiveWebContents());
     prefs_.Init(browser_->GetProfile()->GetPrefs());
+    prefs_.Add(modal_browser::kAutoPipPref,
+        base::BindRepeating(&modal_browser::MerlinAutoPip::PreferenceChanged,
+                            base::Unretained(&auto_pip)));
     prefs_.Add("merlin.shell.appearance", base::BindRepeating([](WindowState* window) {
       window->Changed();
       window->SampleEdgeSoon();
@@ -428,6 +431,8 @@ class WindowState : public TabStripModelObserver, public content::WebContentsObs
     }
   }
   void SyncSplitVisibility();
+  void OnSplitTabChanged(const SplitTabChange&) override { auto_pip.TabsChanged(); }
+  modal_browser::MerlinAutoPip auto_pip;
   void Deliver();
   void OnSuggestions(const std::vector<modal_browser::MerlinSuggestions::Suggestion>& results);
   Dict Snapshot();
@@ -736,7 +741,7 @@ void WindowState::OnTabStripModelChanged(TabStripModel* model, const TabStripMod
   if (switcher) switcher->TabsChanged();
   // A collapsed group never hides the page on screen. Not while the strip is
   // still notifying its observers.
-  if (selection.active_tab_changed()) modal_browser::MerlinAutoPipActiveTabChanged(selection.old_contents, selection.new_contents);
+  auto_pip.TabsChanged();
   if (selection.active_tab_changed())
     content::GetUIThreadTaskRunner({})->PostTask(FROM_HERE, base::BindOnce(
         [](base::WeakPtr<WindowState> state) {
@@ -1878,6 +1883,13 @@ void DetachPage(const char* window, const char* tab, void* parent) {
 }  // namespace
 
 namespace modal_browser {
+void MerlinAutoPipWindowSightChanged(BrowserWindowInterface* browser,
+                                      bool visible) {
+  if (auto* state = FindWindow(WindowId(browser).c_str())) {
+    state->auto_pip.WindowSightChanged(visible);
+  }
+}
+
 void RevealActivePage(BrowserWindowInterface* browser, bool start_page) {
   if (!Enabled() || !browser) return;
   auto* state = FindWindow(WindowId(browser).c_str());

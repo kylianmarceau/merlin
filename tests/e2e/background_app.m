@@ -11,9 +11,65 @@
 
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
+#import <WebKit/WebKit.h>
 #include <crt_externs.h>
 #include <stdlib.h>
 #include <string.h>
+
+static WKWebView* VideoFixtureView(NSView* view) {
+  if (view.isHidden) return nil;
+  if ([view isKindOfClass:WKWebView.class]) {
+    WKWebView* web = (WKWebView*)view;
+    return [web.URL.host isEqualToString:@"wk.localhost"] &&
+           [web.URL.path isEqualToString:@"/wkvideo"] && !web.loading ? web : nil;
+  }
+  for (NSView* child in view.subviews) {
+    WKWebView* web = VideoFixtureView(child);
+    if (web) return web;
+  }
+  return nil;
+}
+
+// Drive the test's window and WebKit video without activating the app.
+static void WatchPictureInPictureWindow(NSString* path) {
+  __block __weak NSWindow* browserWindow = nil;
+  [NSTimer scheduledTimerWithTimeInterval:0.05 repeats:YES block:^(NSTimer* timer) {
+    NSString* action = [NSString stringWithContentsOfFile:path
+                                                encoding:NSUTF8StringEncoding
+                                                   error:nil];
+    if ([action isEqualToString:@"play"]) {
+      for (NSWindow* window in NSApp.orderedWindows) {
+        WKWebView* view = VideoFixtureView(window.contentView);
+        if (!view) continue;
+        // WebKit's host JavaScript evaluation supplies transient activation.
+        [view callAsyncJavaScript:@"await document.getElementById('v').play()"
+                        arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld
+                completionHandler:^(id result, NSError* error) {
+          if (error) NSLog(@"WebKit video fixture: %@", error);
+        }];
+        [NSFileManager.defaultManager removeItemAtPath:path error:nil];
+        return;
+      }
+      return;
+    } else if ([action isEqualToString:@"hide"]) {
+      if (!browserWindow) {
+        for (NSWindow* window in NSApp.orderedWindows) {
+          if (window.visible && window.level == NSNormalWindowLevel) {
+            browserWindow = window;
+            break;
+          }
+        }
+      }
+      if (!browserWindow) return;
+      [browserWindow orderOut:nil];
+    } else if ([action isEqualToString:@"show"] && browserWindow) {
+      [browserWindow orderFrontRegardless];
+    } else {
+      return;
+    }
+    [NSFileManager.defaultManager removeItemAtPath:path error:nil];
+  }];
+}
 
 __attribute__((constructor)) static void MerlinTestInBackground(void) {
   // Helpers (renderers, GPU, utilities) never see this library: the browser
@@ -34,6 +90,8 @@ __attribute__((constructor)) static void MerlinTestInBackground(void) {
                    queue:nil
               usingBlock:^(NSNotification* note) {
                 [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
+                NSString* sight = NSProcessInfo.processInfo.environment[@"MERLIN_E2E_PIP_SIGHT"];
+                if (sight) WatchPictureInPictureWindow(sight);
                 NSString* prompt_log =
                     NSProcessInfo.processInfo.environment[@"MERLIN_E2E_EXTERNAL_PROMPT_LOG"];
                 if (prompt_log) {

@@ -119,62 +119,106 @@ final class WebKitPages {
     // A hidden page keeps no keys: they go back to the window.
     if let responder = window.firstResponder as? NSView, responder.isDescendant(of: webView) { window.makeFirstResponder(nil) }
     holder?.addSubview(webView)
-    if autoPip, let page = pages.values.first(where: { $0.webView === webView }) {
-      DispatchQueue.main.asyncAfter(deadline: .now() + Self.floatDelay) { [weak self, weak page] in
-        if let self, let page { self.maybeFloat(page) }
-      }
+    if let page = pages.values.first(where: { $0.webView === webView }) {
+      scheduleSightUpdate(for: page)
     }
   }
 
   // MARK: Automatic picture in picture
 
-  /// Settings › General › Float videos when you switch tabs, as the shell
-  /// last read it (Chromium's merlin.auto_pip, on unless turned off). The
-  /// same behaviour as Chromium's tabs (merlin_auto_pip.cc), for WebKit's.
-  var autoPip = true
-  /// The page whose video Merlin floated: it goes back when the tab shows again.
+  // Chromium and WebKit share the AppKit window's sight decision.
+  private let windowSight = NSMapTable<NSWindow, NSNumber>.weakToStrongObjects()
+  private var sightObserver: NSObjectProtocol?
+  private weak var requestingPiP: WebKitPage?
   private weak var floated: WebKitPage?
-  /// Long enough for a tab switch to settle, short enough that the video
-  /// doesn't visibly stop (merlin_auto_pip.cc's kFloatDelay).
-  static let floatDelay = 0.15
 
-  /// The page's tab was left: a video playing with sound floats, unless the
-  /// tab showed again, the window closed, or a video already floats.
-  private func maybeFloat(_ page: WebKitPage) {
-    let float: () -> Void = { [weak self, weak page] in
-      guard let self, let page, self.autoPip, !page.isClosed, self.pages[page.tabId] === page,
-        page.webView.window?.isVisible == true, self.parked(page.webView) else { return }
-      page.floatVideo { [weak self, weak page] floated in
-        guard floated, let self, let page, !page.isClosed else { return }
-        self.floated = page
-        // The tab showed again while its video floated off: it comes back.
-        if !self.parked(page.webView) { self.pageShown(page) }
+  var autoPip = true {
+    didSet {
+      if !autoPip, let page = floated { returnVideo(in: page) }
+    }
+  }
+
+  private init() {
+    sightObserver = NotificationCenter.default.addObserver(
+      forName: Notification.Name("MerlinWindowSightDidChange"), object: nil, queue: nil
+    ) { [weak self] note in
+      guard let self, let window = note.object as? NSWindow,
+        let visible = note.userInfo?["visible"] as? Bool else { return }
+      self.windowSight.setObject(NSNumber(value: visible), forKey: window)
+      for page in self.pages.values where page.webView.window === window {
+        self.scheduleSightUpdate(for: page)
       }
     }
-    // One floating window at a time: never in place of one floating from
-    // another WebKit tab (the float script checks this page's own).
-    guard let other = floated, other !== page, !other.isClosed else {
-      float()
+  }
+
+  deinit {
+    if let sightObserver { NotificationCenter.default.removeObserver(sightObserver) }
+  }
+
+  private func seen(_ page: WebKitPage) -> Bool {
+    let view = page.webView
+    guard let window = view.window, window.isVisible, view.superview is MerlinWebKitPageView else { return false }
+    return windowSight.object(forKey: window)?.boolValue ?? !window.isMiniaturized
+  }
+
+  private func scheduleSightUpdate(for page: WebKitPage) {
+    page.sightUpdate?.cancel()
+    let update = DispatchWorkItem { [weak self, weak page] in
+      guard let self, let page, !page.isClosed else { return }
+      page.sightUpdate = nil
+      let seen = self.seen(page)
+      guard seen != page.wasSeen else { return }
+      page.wasSeen = seen
+      if seen { self.returnVideo(in: page) }
+      else { self.maybeFloat(page) }
+    }
+    page.sightUpdate = update
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: update)
+  }
+
+  private func maybeFloat(_ page: WebKitPage) {
+    guard autoPip, requestingPiP == nil, page.webView.window != nil else { return }
+    requestingPiP = page
+    let open: () -> Void = { [weak self, weak page] in
+      guard let self, let page, self.requestingPiP === page else { return }
+      guard self.autoPip, !page.isClosed, !self.seen(page) else {
+        self.requestingPiP = nil
+        return
+      }
+      page.floatVideo { [weak self, weak page] opened in
+        guard let self, let page, self.requestingPiP === page else { return }
+        self.requestingPiP = nil
+        guard opened, !page.isClosed else { return }
+        self.floated = page
+        if !self.autoPip || self.seen(page) { self.returnVideo(in: page) }
+      }
+    }
+    // WebKit can close a player through its native controls. Check whether
+    // the last automatic player is still open before starting another one.
+    guard let other = floated, !other.isClosed else {
+      open()
       return
     }
-    other.isFloating { [weak self, weak other] floating in
-      guard let self, !floating, self.floated === other else { return }
-      self.floated = nil
-      float()
+    other.isFloating { [weak self, weak page, weak other] active in
+      guard let self, let page, self.requestingPiP === page else { return }
+      if active {
+        self.requestingPiP = nil
+        return
+      }
+      if self.floated === other { self.floated = nil }
+      open()
     }
   }
 
-  /// Whether the page is in its window's parking view: its tab isn't shown.
-  private func parked(_ webView: MerlinWKWebView) -> Bool {
-    guard let window = webView.window, let holder = parking.object(forKey: window) else { return false }
-    return webView.superview === holder
+  private func returnVideo(in page: WebKitPage) {
+    guard floated === page else { return }
+    page.returnVideo { [weak self, weak page] closed in
+      if closed, let self, let page, self.floated === page { self.floated = nil }
+    }
   }
 
-  /// The page shows in its window again: the video Merlin floated returns to it.
   func pageShown(_ page: WebKitPage) {
-    guard floated === page else { return }
-    floated = nil
-    page.returnVideo()
+    scheduleSightUpdate(for: page)
   }
 
   func load(tabId: String, url: String, ephemeral: Bool) {
@@ -193,6 +237,9 @@ final class WebKitPages {
 
   func close(tabId: String) {
     guard let page = pages.removeValue(forKey: tabId) else { return }
+    page.sightUpdate?.cancel()
+    if floated === page { floated = nil }
+    if requestingPiP === page { requestingPiP = nil }
     page.close()
     if page.ephemeral, let session = privateSession {
       session.pages.remove(tabId)
@@ -301,6 +348,8 @@ final class PrivateSession {
 /// One tab's WebKit page. It reports its address, title, loading state and
 /// colours to the shell, which shows them as the tab's own.
 final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+  fileprivate var wasSeen = false
+  fileprivate var sightUpdate: DispatchWorkItem?
   private static let editFocusWorld = WKContentWorld.world(name: "MerlinEditorFocus")
   private static let editFocusMessage = "editorFocus"
   private static let editFocusScript = """
@@ -426,7 +475,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMe
   }
 
   func floatVideo(_ done: @escaping (Bool) -> Void) { media(WebKitPictureInPicture.floatScript, done) }
-  func returnVideo() { media(WebKitPictureInPicture.returnScript) { _ in } }
+  func returnVideo(_ done: @escaping (Bool) -> Void) { media(WebKitPictureInPicture.returnScript, done) }
   func isFloating(_ done: @escaping (Bool) -> Void) { media(WebKitPictureInPicture.floatingScript, done) }
 
   /// A link or script in a pop-up opened another window: a tab, as from the page.
