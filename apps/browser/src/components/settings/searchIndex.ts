@@ -33,7 +33,7 @@ export const settingsIndex: readonly SettingsHit[] = [
   { section: 'general', title: 'Warn before quitting', words: 'command q' },
   { section: 'general', title: 'Warn before closing a window with multiple tabs' },
   { section: 'general', title: 'Control-Tab switches', words: 'ctrl tab recent order' },
-  { section: 'general', title: 'Float videos when you switch tabs', words: 'picture in picture pip' },
+  { section: 'general', title: 'Automatic Picture in Picture', words: 'auto pip float videos switch tabs window' },
   { section: 'general', title: 'Windows and tabs', words: 'restore session reopen quit' },
   { section: 'general', title: 'When input looks like a website', words: 'command bar search' },
   { section: 'general', title: 'Search engine', words: 'google duckduckgo kagi default' },

@@ -40,32 +40,36 @@ final class WebKitPictureInPicture: NSObject, WKScriptMessageHandler {
     const watched = v => !v.paused && !v.ended && v.readyState >= 2 && !v.muted && v.volume > 0 && v.videoWidth > 0 && canFloat(v);
     const video = videos.filter(watched).sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
     if (!video) return false;
-    await enter(video);
-    // The request can take a moment to settle, or the player can reject it.
-    for (let attempt = 0; attempt < 20; attempt++) {
-      if (isFloating(video)) {
-        globalThis.merlinFloated = new WeakRef(video);
-        return true;
-      }
-      await new Promise(done => setTimeout(done, 50));
-    }
-    return false;
+    const changed = new Promise(resolve => {
+      const done = result => {
+        video.removeEventListener('webkitpresentationmodechanged', changedMode);
+        video.removeEventListener('enterpictureinpicture', changedMode);
+        clearTimeout(timer);
+        resolve(result);
+      };
+      const changedMode = () => { if (isFloating(video)) done(true); };
+      const timer = setTimeout(() => done(isFloating(video)), 1000);
+      video.addEventListener('webkitpresentationmodechanged', changedMode);
+      video.addEventListener('enterpictureinpicture', changedMode);
+      enter(video).then(changedMode, () => done(false));
+    });
+    if (!await changed) return false;
+    globalThis.merlinFloated = new WeakRef(video);
+    const clear = () => {
+      if (isFloating(video)) return;
+      if (globalThis.merlinFloated?.deref() === video) globalThis.merlinFloated = undefined;
+      video.removeEventListener('webkitpresentationmodechanged', clear);
+      video.removeEventListener('leavepictureinpicture', clear);
+    };
+    video.addEventListener('webkitpresentationmodechanged', clear);
+    video.addEventListener('leavepictureinpicture', clear);
+    return true;
     """
 
   static let returnScript = videoScript + """
 
     const video = globalThis.merlinFloated?.deref();
-    globalThis.merlinFloated = undefined;
-    if (!video) return;
-    for (let settled = 0, tries = 0; settled < 3 && tries < 30; tries++) {
-      if (isFloating(video)) {
-        settled = 0;
-        await exit(video).catch(() => {});
-      } else {
-        settled++;
-      }
-      await new Promise(done => setTimeout(done, 100));
-    }
+    if (video && isFloating(video)) await exit(video);
     """
 
   static let floatingScript = videoScript + """

@@ -43,9 +43,9 @@ export function GeneralPane({ p, set, openPage, onChooseDownloadDir }: {
         <Segmented label="Control-Tab order" value={p.ctrlTab} onChange={v => set('ctrlTab', v)}
           options={[{ value: 'recent', label: 'Recent first' }, { value: 'order', label: 'In order' }]} />
       </FormRow>
-      {p.autoPip !== undefined && <FormRow title="Float videos when you switch tabs"
-        detail="A video playing with sound moves to a picture-in-picture window, and back when you return.">
-        <Toggle label="Float videos when you switch tabs" value={p.autoPip} onChange={on => set('autoPip', on)} />
+      {p.autoPip !== undefined && <FormRow title="Automatic Picture in Picture"
+        detail="A video playing with sound floats when you switch tabs or its window goes out of view. It returns when the page is visible again.">
+        <Toggle label="Automatic Picture in Picture" value={p.autoPip} onChange={on => set('autoPip', on)} />
       </FormRow>}
     </FormGroup>
 
