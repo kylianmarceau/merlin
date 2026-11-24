@@ -142,7 +142,7 @@ final class WebKitPages {
 
   private func finishParking(_ page: WebKitPage) {
     let view = page.webView
-    guard requestingPiP !== page, let window = view.window,
+    guard requestingPiP !== page, pendingPiP !== page, let window = view.window,
           view.superview === parking.object(forKey: window) else { return }
     view.isHidden = true
   }
@@ -154,6 +154,8 @@ final class WebKitPages {
   private var sightObserver: NSObjectProtocol?
   private weak var requestingPiP: WebKitPage?
   private weak var floated: WebKitPage?
+  private var returningPiP = false
+  private weak var pendingPiP: WebKitPage?
 
   var autoPip = true {
     didSet {
@@ -205,8 +207,17 @@ final class WebKitPages {
   }
 
   private func maybeFloat(_ page: WebKitPage) {
-    guard autoPip, requestingPiP == nil, page.webView.window != nil else {
+    guard autoPip, !page.isClosed, requestingPiP == nil,
+          page.webView.window != nil, !seen(page) else {
       finishParking(page)
+      return
+    }
+    // A quick tab switch can land while the previous player is still
+    // returning inline. Let that animation finish before opening the next.
+    if returningPiP {
+      let previous = pendingPiP
+      pendingPiP = page
+      if let previous, previous !== page { finishParking(previous) }
       return
     }
     requestingPiP = page
@@ -245,9 +256,16 @@ final class WebKitPages {
   }
 
   private func returnVideo(in page: WebKitPage) {
-    guard floated === page else { return }
+    guard floated === page, !returningPiP else { return }
+    returningPiP = true
     page.returnVideo { [weak self, weak page] closed in
-      if closed, let self, let page, self.floated === page { self.floated = nil }
+      guard let self else { return }
+      self.returningPiP = false
+      if closed, self.floated === page { self.floated = nil }
+      if let pending = self.pendingPiP {
+        self.pendingPiP = nil
+        self.maybeFloat(pending)
+      }
     }
   }
 
@@ -274,6 +292,7 @@ final class WebKitPages {
     page.sightUpdate?.cancel()
     if floated === page { floated = nil }
     if requestingPiP === page { requestingPiP = nil }
+    if pendingPiP === page { pendingPiP = nil }
     page.close()
     if page.ephemeral, let session = privateSession {
       session.pages.remove(tabId)
