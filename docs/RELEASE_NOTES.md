@@ -1,7 +1,12 @@
-Merlin 0.5.14, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.15, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.15
+
+* **Refined top tabs.** Pinned icons are evenly spaced, and tab titles, favicons and controls share a centerline. The selected open tab has a finer edge where it meets the toolbar, and a selected pin is highlighted inside its dock.
+* **Clearer titles in tight spaces.** Inactive tabs give long titles more room until a close button appears on hover or keyboard focus. As the strip gets crowded, inactive tabs switch to centered favicons while the selected tab keeps its title.
 
 ## What's new in 0.5.14
 

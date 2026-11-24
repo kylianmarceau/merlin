@@ -12,13 +12,12 @@ export type Chip = { group: TabGroup; x: number; width: number; end: number };
 export type StripItem = { key: string; tabs: Tab[]; pinned: boolean };
 export type StripMetrics = {
   /**
-   * A tab's widest; the narrowest that still shows its × (narrower, only the
-   * active tab does); the narrowest any tab gets; the active tab's own,
-   * wider, minimum; and a pinned tab, an icon.
+   * A tab's widest and narrowest widths, the active tab's wider minimum,
+   * and the fixed width of a pinned tab.
    */
-  tab: number; tabMin: number; floor: number; active: number; icon: number;
-  /** Between cells; between the pinned tabs and the rest. */
-  gap: number; pinnedGap: number;
+  tab: number; floor: number; active: number; icon: number;
+  /** Between open cells, between pinned cells, and between the dock and open tabs. */
+  gap: number; pinGap: number; dockGap: number;
   /** The room kept after the tabs for the New Tab button. */
   trailing: number;
   chipWidth(group: TabGroup): number;
@@ -70,9 +69,9 @@ export function layoutStrip(tabs: Tab[], groups: TabGroup[], activeId: string | 
   const pinned = items.filter(i => i.pinned);
   const open = items.filter(i => !i.pinned);
   let cursor = 0;
-  for (const item of pinned) for (const t of item.tabs) { slots[t.id] = { x: cursor, width: m.icon }; cursor += m.icon + m.gap; }
-  const pinnedEnd = cursor ? cursor - m.gap : 0;
-  const start = pinnedEnd ? pinnedEnd + m.pinnedGap : 0;
+  for (const item of pinned) for (const t of item.tabs) { slots[t.id] = { x: cursor, width: m.icon }; cursor += m.icon + m.pinGap; }
+  const pinnedEnd = cursor ? cursor - m.pinGap : 0;
+  const start = pinnedEnd ? pinnedEnd + m.dockGap : 0;
   const byId = new Map(groups.map(g => [g.id, g]));
   const groupOf = (item: StripItem) => (item.tabs[0].group && byId.get(item.tabs[0].group)) || null;
   const holdsActive = (item: StripItem) => item.tabs.some(t => t.id === activeId);
@@ -87,9 +86,8 @@ export function layoutStrip(tabs: Tab[], groups: TabGroup[], activeId: string | 
   let width = Math.min(m.tab, share(available, shared));
   // The active tab's cells keep their wider minimum; the others share what is left.
   const activeCells = visible.find(holdsActive)?.tabs.length ?? 0;
-  let activeWidth = width;
-  if (activeCells && width < m.active && shared > activeCells) {
-    activeWidth = m.active;
+  const activeWidth = Math.max(m.active, width);
+  if (activeCells && width < activeWidth && shared > activeCells) {
     width = Math.min(m.tab, Math.floor((available - m.active * activeCells - m.gap * (shared - 1)) / (shared - activeCells)));
   }
   width = Math.max(m.floor, width);
@@ -107,7 +105,7 @@ export function layoutStrip(tabs: Tab[], groups: TabGroup[], activeId: string | 
     for (const t of item.tabs) { slots[t.id] = { x: cursor, width: w }; cursor += w + m.gap; }
     if (chip) chip.end = cursor - m.gap;
   }
-  const end = cursor > start ? cursor - m.gap : start;
+  const end = cursor > start ? cursor - m.gap : pinnedEnd;
   return { slots, chips, pinned, open: visible, count, cells: shared, end, pinnedEnd, scrolls: end > lane, lane };
 }
 

@@ -4,7 +4,11 @@ import type { Tab, TabGroup } from '../../state/types';
 import { geometry } from '../ui/tokens';
 import { dropBefore, dropPlace, itemSlot, layoutStrip, reflow, stripItems, type StripMetrics } from './stripLayout';
 
-const m: StripMetrics = { tab: geometry.stripTab, tabMin: 96, floor: 64, active: 128, icon: 40, gap: 1, pinnedGap: 8, trailing: 32, chipWidth: () => 22 };
+const m: StripMetrics = {
+  tab: geometry.stripTab, floor: geometry.stripTabFloor, active: geometry.stripTabActive,
+  icon: geometry.stripTabIcon, gap: geometry.stripGap, pinGap: geometry.stripPinGap, dockGap: geometry.stripDockGap,
+  trailing: geometry.control + geometry.stripGap, chipWidth: () => geometry.groupChip,
+};
 const tab = (id: string, extra: Partial<Tab> = {}): Tab => ({ id, title: id, url: `https://${id}.test/`, loading: false, pinned: false,
   audible: false, canGoBack: false, canGoForward: false, ...extra });
 
@@ -24,9 +28,9 @@ test('a split takes two cells, side by side, and the item spans both', () => {
   assert.equal(layout.slots.c.x, layout.slots.b.x + m.tab + m.gap);
   assert.deepEqual(itemSlot(layout.open[1], layout.slots), { x: layout.slots.b.x, width: m.tab * 2 + m.gap });
   // Crowded, the cells of tabs that aren't active share the room evenly.
-  const crowded = layoutStrip(tabs, [], 'x', 300, m);
+  const crowded = layoutStrip(tabs, [], 'x', 270, m);
   assert.equal(crowded.slots.a.width, crowded.slots.b.width);
-  assert.ok(crowded.slots.a.width < m.tabMin);
+  assert.ok(crowded.slots.a.width < geometry.stripTabTitleMin);
 });
 
 test('leaving an item out closes the others up', () => {
@@ -42,10 +46,10 @@ test('crowded, the active tab keeps a wider minimum than the others, which stop 
   const roomy = layoutStrip(few, [], 'b', 1000, m);
   assert.deepEqual(Object.values(roomy.slots).map(s => s.width), [173, 173, 173, 173]);
   assert.equal(roomy.scrolls, false);
-  // 4 cells in 440 - 32: the active one keeps 128, the rest share the remainder.
+  // The active cell keeps its minimum, the other three share what remains.
   const tight = layoutStrip(few, [], 'b', 440, m);
   assert.equal(tight.slots.b.width, m.active);
-  assert.equal(tight.slots.a.width, Math.floor((440 - 32 - 128 - 3) / 3));
+  assert.equal(tight.slots.a.width, Math.floor((440 - m.trailing - m.active - 3 * m.gap) / 3));
   assert.equal(tight.scrolls, false);
   const many = Array.from({ length: 30 }, (_, i) => tab(`t${i}`));
   const layout = layoutStrip(many, [], 't25', 400, m);
@@ -100,6 +104,26 @@ test('a dragged item moves a cell at a time, between items only, and its drop na
 test('dropped last among the pinned tabs, a tab goes before the first of the others', () => {
   const tabs = [tab('p', { pinned: true }), tab('q', { pinned: true }), tab('a')];
   const layout = layoutStrip(tabs, [], 'a', 1000, m);
-  assert.equal(dropPlace(layout.pinned, layout.slots, 'p', m.icon + m.gap, m.gap), 1);
+  assert.equal(dropPlace(layout.pinned, layout.slots, 'p', m.icon + m.pinGap, m.pinGap), 1);
   assert.equal(dropBefore(tabs, layout.pinned, 'p', 1), 'a');
+});
+
+test('the dock uses even pin spacing and the strip ends at its edge when only pins remain', () => {
+  const pins = [tab('p', { pinned: true }), tab('q', { pinned: true, split: 's' }), tab('r', { pinned: true, split: 's' })];
+  const dock = layoutStrip(pins, [], 'q', 500, m);
+  const step = m.icon + m.pinGap;
+  assert.deepEqual(Object.values(dock.slots).map(slot => slot.x), [0, step, step * 2]);
+  assert.deepEqual(itemSlot(dock.pinned[1], dock.slots), { x: step, width: m.icon * 2 + m.pinGap });
+  assert.equal(dock.pinnedEnd, m.icon + step * 2);
+  assert.equal(dock.end, dock.pinnedEnd);
+  const withOpen = layoutStrip([...pins, tab('a')], [], 'a', 500, m);
+  assert.equal(withOpen.slots.a.x, dock.pinnedEnd + m.dockGap);
+});
+
+test('a dock that fills the lane cannot collapse the only open tab', () => {
+  const pins = Array.from({ length: 12 }, (_, i) => tab(`p${i}`, { pinned: true }));
+  const layout = layoutStrip([...pins, tab('a')], [], 'a', 400, m);
+  assert.equal(layout.slots.a.width, m.active);
+  assert.equal(layout.end, layout.slots.a.x + layout.slots.a.width);
+  assert.equal(layout.scrolls, true);
 });

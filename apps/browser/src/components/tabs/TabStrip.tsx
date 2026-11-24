@@ -4,7 +4,7 @@ import type { Tab } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import {
   ContextMenu, DragRegion, Fade, GlassFill, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
-  groupColorRoles, opacity, tick, useEased, useHeld, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
+  groupColorRoles, opacity, tick, useHeld, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
 } from '../ui';
 import { StripGroupChip, chipWidth } from './TabGroups';
 import { Favicon } from '../favicon/Favicon';
@@ -13,16 +13,16 @@ import { useSiteChrome } from './siteChrome';
 import { DownloadsButton } from './WindowButtons';
 import { dropBefore, dropPlace, itemSlot, layoutStrip, reflow, type Slot, type StripItem, type StripLayout, type StripMetrics } from './stripLayout';
 
-// Tabs sit on the bottom of the strip, so the active one can join the toolbar.
+const rowTop = (geometry.strip - geometry.stripTabHeight) / 2;
+const rowBand = { position: 'absolute', top: rowTop, height: geometry.stripTabHeight } as const;
+const tabFace = { ...rowBand, left: 0, right: 0, borderRadius: radius.tab };
+const pinFace = { ...tabFace, top: rowTop + geometry.stripPinInset, height: geometry.stripTabHeight - geometry.stripPinInset * 2,
+  left: geometry.stripPinInset, right: geometry.stripPinInset, borderRadius: radius.tab - geometry.stripPinInset };
 const tabTop = geometry.strip - geometry.joinedTab;
-// The joined shape reaches the toolbar while its controls center in the strip.
-const tabContentHeight = geometry.joinedTab - tabTop;
-const trayHeight = geometry.joinedTab - space.sm;
-const trayTop = (geometry.strip - trayHeight) / 2;
-const gap = geometry.hairline;
 const metrics: StripMetrics = {
-  tab: geometry.stripTab, tabMin: geometry.stripTabMin, floor: geometry.stripTabFloor, active: geometry.stripTabActive,
-  icon: geometry.stripTabIcon, gap, pinnedGap: space.sm, trailing: geometry.control + space.xs, chipWidth,
+  tab: geometry.stripTab, floor: geometry.stripTabFloor, active: geometry.stripTabActive,
+  icon: geometry.stripTabIcon, gap: geometry.stripGap, pinGap: geometry.stripPinGap, dockGap: geometry.stripDockGap,
+  trailing: geometry.control + geometry.stripGap, chipWidth,
 };
 // Room either side of a scrolled lane for the joined tab's ears.
 const ear = geometry.joinedEar;
@@ -89,7 +89,7 @@ export function TabStrip({ floating = false }: {
 
   const laneOf = (item: StripItem) => (item.pinned ? layout.pinned : layout.open);
   const moving = drag && !drag.out ? shown.find(i => i.key === drag.key) : undefined;
-  const place = drag && moving ? dropPlace(laneOf(moving), layout.slots, drag.key, drag.dx, gap) : -1;
+  const place = drag && moving ? dropPlace(laneOf(moving), layout.slots, drag.key, drag.dx, moving.pinned ? metrics.pinGap : metrics.gap) : -1;
   const slots = drag && moving && place >= 0 ? reflow(laneOf(moving), layout.slots, drag.key, place) : layout.slots;
   const following = !!drag && !drag.released && !drag.out;
   // A tick at each new place, as in Ardia.
@@ -107,6 +107,7 @@ export function TabStrip({ floating = false }: {
   };
   const holdsActive = (item: StripItem) => item.tabs.some(t => t.id === activeId);
   const activeItem = shown.find(holdsActive) ?? (lifted && holdsActive(lifted) ? lifted : null);
+  const joined = activeItem && !activeItem.pinned && !floating ? activeItem : null;
 
   const dragTo = (key: string, tabId: string, dx: number, x: number, y: number) => {
     const out = actions.tabDragMove(tabId, x, y, y > geometry.strip + geometry.tearOff);
@@ -124,7 +125,7 @@ export function TabStrip({ floating = false }: {
     const item = shown.find(i => i.key === key);
     if (!item) { setDrag(null); return; }
     const lane = laneOf(item);
-    const to = dropPlace(lane, layout.slots, key, dx, gap);
+    const to = dropPlace(lane, layout.slots, key, dx, item.pinned ? metrics.pinGap : metrics.gap);
     if (to < 0 || to === lane.indexOf(item)) { setDrag(null); return; }
     setDrag({ key, tabId: item.tabs[0].id, dx, out: false, released: true });
     void actions.moveTab(item.tabs[0].id, dropBefore(snapshot.tabs, lane, key, to));
@@ -134,35 +135,32 @@ export function TabStrip({ floating = false }: {
     onDrop: (dx, cancelled) => release(key, dx, cancelled),
   });
 
-  const plusX = (layout.scrolls ? layout.lane : layout.end) + space.xs;
+  const plusX = (layout.scrolls ? layout.lane : layout.end) + metrics.gap;
   const tabsDrawn = <>
-    {!!layout.pinned.length && <View pointerEvents="none" style={{ position: 'absolute', left: -space.hair,
-      width: layout.pinnedEnd + space.xs, top: trayTop, height: trayHeight, borderRadius: radius.field,
-      backgroundColor: glass.on ? colors.fillTransparent : colors.fillShellGroup }}>
-      {glass.on && <GlassFill radius={radius.field} state="rest" />}
-    </View>}
     {!drag && layout.chips.map(chip => chip.end > chip.x + chip.width &&
-      <View key={`wash:${chip.group.id}`} pointerEvents="none" style={{ position: 'absolute', left: chip.x - space.hair,
-        width: chip.end - chip.x + space.hair * 2, top: trayTop, height: trayHeight,
-        borderRadius: radius.field, backgroundColor: colors[groupColorRoles[chip.group.color]], opacity: opacity.groupWash }} />)}
+      <View key={`wash:${chip.group.id}`} pointerEvents="none" style={{ ...rowBand, left: chip.x,
+        width: chip.end - chip.x, borderRadius: radius.tab, backgroundColor: colors[groupColorRoles[chip.group.color]], opacity: opacity.groupWash }} />)}
+    {!floating && <JoinedShape slot={joined ? slotOf(joined) : null} color={chrome.bar} hidden={joined === lifted && !!lifted}
+      following={following && joined?.key === drag?.key} />}
+    {!!layout.pinned.length && <View pointerEvents="none" style={{ ...rowBand, left: 0,
+      width: layout.pinnedEnd, borderRadius: radius.tab, borderWidth: glass.on ? 0 : geometry.stripDockStroke,
+      borderColor: colors.tabDivider, backgroundColor: glass.on ? colors.fillTransparent : colors.fillShellGroup }}>
+      {glass.on && <GlassFill radius={radius.tab} state="rest" />}
+    </View>}
     {layout.chips.map(chip => <StripGroupChip key={`chip:${chip.group.id}`} group={chip.group} x={chip.x} width={chip.width}
-      top={tabTop} height={tabContentHeight} />)}
-    {!floating && <JoinedShape slot={activeItem ? slotOf(activeItem) : null} color={chrome.bar} hidden={!!activeItem && activeItem === lifted}
-      following={following && activeItem?.key === drag?.key} />}
+      top={rowTop} height={geometry.stripTabHeight} />)}
     {[...shown, ...(lifted ? [lifted] : [])].map(item => {
       const slot = slotOf(item);
       if (!slot) return null;
       const active = holdsActive(item);
-      // Narrow cells: a split shows only its icons, and a tab that isn't active drops its ×.
-      const narrow = slot.width / item.tabs.length < metrics.tabMin;
-      const roles = active && !floating ? chrome.roles : null;
+      const roles = item === joined ? chrome.roles : null;
       // The joined shape sits behind the whole strip. Give the raised item its own opaque fill.
-      const dragFill = following && item.key === drag?.key ? (roles ? chrome.bar : colors.surfaceSolid) : undefined;
-      if (item.tabs.length > 1) return <StripSplit key={item.key} tabs={item.tabs} slot={slot} activeId={activeId} icon={item.pinned || narrow}
-        pinned={item.pinned} roles={roles} dragFill={dragFill} handlers={tabId => handlers(item.key, tabId)}
+      const dragFill = following && item.key === drag?.key ? (item === joined ? chrome.bar : colors.surfaceSolid) : undefined;
+      if (item.tabs.length > 1) return <StripSplit key={item.key} tabs={item.tabs} slot={slot} activeId={activeId}
+        pinned={item.pinned} floating={floating} roles={roles} dragFill={dragFill} handlers={tabId => handlers(item.key, tabId)}
         liftedId={drag?.out && drag.key === item.key ? drag.tabId : null} />;
       const tab = item.tabs[0];
-      return <StripTab key={item.key} tab={tab} slot={slot} active={active} icon={item.pinned} narrow={narrow && !active} roles={roles}
+      return <StripTab key={item.key} tab={tab} slot={slot} active={active} pinned={item.pinned} roles={roles}
         dragFill={dragFill} pill={floating && active} lifted={item === lifted} {...handlers(item.key, tab.id)} />;
     })}
   </>;
@@ -196,27 +194,30 @@ export function TabStrip({ floating = false }: {
  * spans both of its tabs; it fades while the active tab is pulled out.
  */
 function JoinedShape({ slot, color, following, hidden }: { slot: Slot | null; color: string; following: boolean; hidden: boolean }) {
-  const { reduceMotion } = useTheme();
+  const { colors, reduceMotion } = useTheme();
   const kept = useLatest(slot);
   const { x, width } = useSlide(kept, reduceMotion, following);
   const fill = useColorFade(color, reduceMotion);
   const presence = usePresence(!!slot && !hidden, 'fade', reduceMotion);
   if (!kept || !presence.mounted) return null;
-  const ear = geometry.joinedEar;
   const ring = ear * 2;
+  const rim = geometry.stripTabRimWidth;
   // Position animates on the outer view and opacity on the inner one: they run on different drivers.
   return <Animated.View pointerEvents="none" style={{ position: 'absolute', top: tabTop, left: x, width,
     height: geometry.joinedTab + geometry.hairline }}>
     <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: presence.progress }}>
-      <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: fill,
+      <Animated.View style={{ position: 'absolute', top: rim, left: rim, right: rim, bottom: 0, backgroundColor: fill,
         borderTopLeftRadius: radius.tab, borderTopRightRadius: radius.tab }} />
-      <View style={{ position: 'absolute', bottom: 0, left: -ear, width: ear, height: ear, overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', bottom: 0, left: rim - ear, width: ear, height: ear, overflow: 'hidden' }}>
         <Animated.View style={{ position: 'absolute', left: -ring, top: -ring, width: ring * 2, height: ring * 2, borderRadius: ring,
           borderWidth: ring - ear, borderColor: fill }} />
       </View>
-      <View style={{ position: 'absolute', bottom: 0, right: -ear, width: ear, height: ear, overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', bottom: 0, right: rim - ear, width: ear, height: ear, overflow: 'hidden' }}>
         <Animated.View style={{ position: 'absolute', left: ear - ring, top: -ring, width: ring * 2, height: ring * 2, borderRadius: ring,
           borderWidth: ring - ear, borderColor: fill }} />
+      </View>
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: radius.tab, overflow: 'hidden' }}>
+        <View style={{ height: radius.tab * 2, borderWidth: rim, borderRadius: radius.tab + rim, borderColor: colors.stripTabRim }} />
       </View>
     </Animated.View>
   </Animated.View>;
@@ -237,10 +238,26 @@ function useTabPan({ onDrag, onDrop }: DragHandlers) {
 
 const tabTitle = (tab: Tab) => rowTitle(tab);
 
+function StripTitle({ title, available, active, sleeping, secondary }: {
+  title: string; available: number; active: boolean; sleeping?: boolean; secondary?: boolean;
+}) {
+  const fade = Math.min(geometry.stripTitleFadeMax, Math.max(geometry.stripTitleFadeMin, available / 3));
+  return <Fade style={{ flex: 1, minWidth: 0, opacity: sleeping ? opacity.sleeping : 1 }} endLength={fade}>
+    <Text variant="row" lines={1} ellipsizeMode="clip" style={{ width: geometry.titleRun }}
+      tone={active ? 'tabTextActive' : secondary ? 'textSecondary' : 'tabText'} weight={active ? 'medium' : undefined}>{title}</Text>
+  </Fade>;
+}
+
+function StripClose({ title, onPress, onFocus, onBlur, focusable }: {
+  title: string; onPress(): void; onFocus?(): void; onBlur?(): void; focusable?: boolean;
+}) {
+  return <IconButton label={`Close ${title}`} tip="Close tab" keys={['⌘', 'W']} icon="xmark" size="small"
+    art={<Icon name="xmark" size="chevron" weight="semibold" />}
+    onPress={onPress} onFocus={onFocus} onBlur={onBlur} focusable={focusable} />;
+}
+
 type StripTabProps = DragHandlers & {
-  tab: Tab; slot: Slot; active: boolean; icon: boolean; dragFill?: string;
-  /** Too narrow for a ×, as in Dia: close it from its menu or with ⌘W once chosen. */
-  narrow?: boolean;
+  tab: Tab; slot: Slot; active: boolean; pinned: boolean; dragFill?: string;
   /** The active tab drawn as a white pill, when there is no toolbar for it to join. */
   pill?: boolean;
   /** Pulled out of the tabs: it fades while the page shows where it can go. */
@@ -249,11 +266,13 @@ type StripTabProps = DragHandlers & {
   roles: Partial<Palette> | null;
 };
 
-const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow = false, dragFill, lifted, roles, pill = false, onDrag, onDrop }: StripTabProps) {
+const StripTab = React.memo(function StripTab({ tab, slot, active, pinned, dragFill, lifted, roles, pill = false, onDrag, onDrop }: StripTabProps) {
   const actions = useActions();
   const { colors, reduceMotion, glass } = useTheme();
   const { focused, handlers } = useInteraction();
   const [hovered, setHovered] = useState(false);
+  const [closeFocused, setCloseFocused] = useState(false);
+  const iconOnly = pinned || (!active && slot.width < geometry.stripTabTitleMin);
   const dragging = dragFill !== undefined;
   const { x, width } = useSlide(slot, reduceMotion, dragging);
   const there = usePresence(!lifted, 'fade', reduceMotion);
@@ -262,12 +281,17 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
   // never shows outside its tab while the shape slides; a hovered tab's
   // fades in at once.
   const landed = useHeld(active, reduceMotion ? duration.instant : duration.slide);
-  const closeOn = !narrow && (hovered || (reduceMotion ? active : landed));
-  const closeShown = useEased(closeOn && !dragging, reduceMotion);
+  const closeOn = !pinned && !dragging && !lifted && (active || slot.width >= geometry.stripTabCloseMin) &&
+    (hovered || focused || closeFocused || (active && (reduceMotion || landed)));
+  const close = usePresence(closeOn, 'fade', reduceMotion);
   const pan = useTabPan({ onDrag, onDrop });
   const ref = useRef<View>(null);
   const title = tabTitle(tab);
   const sound = tab.audible || tab.muted;
+  const showSound = sound && (!tab.muted || hovered);
+  const trailing = geometry.stripCloseInset + (Number(showSound) + Number(closeOn || close.mounted)) * geometry.iconButton;
+  const titleRoom = slot.width - geometry.stripLabelInset - geometry.favicon - geometry.stripLabelGap - trailing;
+  const face = pinned ? pinFace : tabFace;
   const hover = (on: boolean) => {
     setHovered(on);
     if (!on) { actions.leaveTab(); return; }
@@ -282,15 +306,12 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
   const label = `${tab.pinned ? 'Pinned: ' : ''}${title}${tab.loading ? ', loading' : ''}${tab.muted ? ', muted' : tab.audible ? ', playing audio' : ''}${
     tab.engine === 'webkit' ? ', in WebKit' : ''}`;
   const body = <Animated.View ref={ref} {...pan.panHandlers} onMouseEnter={() => hover(true)} onMouseLeave={() => hover(false)}
-    style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined,
-      backgroundColor: dragFill, borderTopLeftRadius: dragging ? radius.tab : undefined, borderTopRightRadius: dragging ? radius.tab : undefined }}>
+    style={{ position: 'absolute', top: 0, left: x, width, height: geometry.strip, zIndex: dragging ? 2 : undefined }}>
     <Animated.View style={{ flex: 1, opacity: there.progress }}>
-      {pill && !dragging && <Panel fill="tabActive" radius="control" elevation="tab" border="tabActiveBorder" style={{ position: 'absolute', top: space.xs,
-        bottom: space.xs + tabTop, left: space.hair, right: space.hair }} />}
-      {(!glass.on || !icon) && <Animated.View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop,
-        left: space.hair, right: space.hair, borderRadius: radius.control, backgroundColor: colors.tabHoverInset, opacity: wash }} />}
-      {focused && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop,
-        left: space.hair, right: space.hair, borderRadius: radius.control, borderWidth: geometry.focusRing, borderColor: colors.focusRing }} />}
+      {dragging && <View pointerEvents="none" style={{ ...face, backgroundColor: dragFill }} />}
+      {pill && !pinned && !dragging && <Panel fill="tabActive" radius="tab" elevation="tab" border="tabActiveBorder" style={tabFace} />}
+      {pinned && active && !glass.on && !dragging && <View pointerEvents="none" style={{ ...pinFace,
+        borderWidth: geometry.stripDockStroke, borderColor: colors.tabActiveBorder, backgroundColor: colors.tabActive }} />}
       <ContextMenu onOpen={() => { actions.closeHoverCard(); void actions.tabMenu(tab.id); }} style={{ flex: 1 }}>
         <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={label}
           focusable {...handlers}
@@ -299,35 +320,34 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
           }}
           // Like a folder tab: it comes forward as soon as it is pressed.
           onPressIn={() => { actions.closeHoverCard(); if (!active) void actions.activateTab(tab.id); }}
-          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.sm, justifyContent: icon ? 'center' : 'flex-start',
-            paddingLeft: icon ? 0 : space.md, paddingBottom: tabTop,
-            paddingRight: icon ? 0 : (narrow ? space.xs : geometry.control) + (sound ? geometry.control - space.sm : 0) }}>
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: geometry.stripLabelGap, justifyContent: iconOnly ? 'center' : 'flex-start',
+            paddingLeft: iconOnly ? 0 : geometry.stripLabelInset, paddingRight: iconOnly ? 0 : trailing }}>
           {({ pressed }) => <>
-            {glass.on && icon && !dragging && (active || hovered || pressed) && <View pointerEvents="none"
-              style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop, left: space.hair, right: space.hair }}>
-              <GlassFill radius={radius.control} state={pressed ? 'pressed' : active ? 'active' : 'lit'} />
+            {(!pinned || !glass.on) && <Animated.View pointerEvents="none" style={{ ...face,
+              backgroundColor: colors[pressed ? 'tabPressed' : 'tabHoverInset'], opacity: pressed && !dragging ? 1 : wash }} />}
+            {glass.on && pinned && !dragging && (active || hovered || pressed) && <View pointerEvents="none" style={pinFace}>
+              <GlassFill radius={pinFace.borderRadius} state={pressed ? 'pressed' : active ? 'active' : 'lit'} />
             </View>}
             <View style={{ width: geometry.favicon, height: geometry.favicon, alignItems: 'center', justifyContent: 'center' }}>
               <Favicon tab={tab} busy={tab.loading && !active} badges />
             </View>
-            {/* The fade ends the title run. */}
-            {!icon && <Fade style={{ flex: 1 }}>
-              <Text lines={1} ellipsizeMode="clip" style={{ width: geometry.titleRun }}
-                tone={active ? 'tabTextActive' : tab.discarded ? 'textTertiary' : 'tabText'} weight={active ? 'medium' : undefined}>{title}</Text>
-            </Fade>}
+            {!iconOnly && <StripTitle title={title} available={titleRoom} active={active} sleeping={tab.discarded} />}
           </>}
         </Pressable>
       </ContextMenu>
-      {!icon && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: tabTop, flexDirection: 'row', alignItems: 'center' }}>
+      {focused && <View pointerEvents="none" style={{ ...face, borderWidth: geometry.focusRing, borderColor: colors.focusRing }} />}
+      {!iconOnly && <View pointerEvents="box-none" style={{ ...rowBand, right: geometry.stripCloseInset, flexDirection: 'row', alignItems: 'center' }}>
         {/* A muted tab's icon says so; its unmute button waits for the pointer. */}
-        {sound && (!tab.muted || hovered) && <SoundButton tab={tab} title={title} />}
-        <Animated.View pointerEvents={closeOn ? 'auto' : 'none'} style={{ opacity: closeShown }}>
-          <IconButton label={`Close ${title}`} tip="Close tab" keys={['⌘', 'W']} icon="xmark" size="small"
+        {showSound && <SoundButton tab={tab} title={title} />}
+        {(closeOn || close.mounted) && <Animated.View pointerEvents={closeOn ? 'auto' : 'none'}
+          accessibilityElementsHidden={!closeOn} style={{ opacity: close.progress }}>
+          <StripClose title={title} focusable={closeOn} onFocus={() => setCloseFocused(true)} onBlur={() => setCloseFocused(false)}
             onPress={() => { actions.closeHoverCard(); void actions.closeTab(tab.id); }} />
-        </Animated.View>
+        </Animated.View>}
       </View>}
       {/* An icon-only tab (pinned, or crowded) shows its sound as a small badge you can press. */}
-      {icon && sound && (!tab.muted || hovered) && <View style={{ position: 'absolute', right: -space.xs, top: -space.hair }}>
+      {iconOnly && showSound && <View style={{ position: 'absolute', right: -space.hair,
+        top: (geometry.strip - space.xs) / 2 - geometry.iconButton }}>
         <SoundButton tab={tab} title={title} />
       </View>}
     </Animated.View>
@@ -337,7 +357,7 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
 });
 
 type StripSplitProps = {
-  tabs: Tab[]; slot: Slot; activeId: string | null; icon: boolean; pinned: boolean; dragFill?: string;
+  tabs: Tab[]; slot: Slot; activeId: string | null; pinned: boolean; floating: boolean; dragFill?: string;
   /** The side pulled out of the tabs, which fades until it lands. */
   liftedId: string | null;
   roles: Partial<Palette> | null;
@@ -352,41 +372,52 @@ type StripSplitProps = {
  * stronger. Press a side to focus it; drag either to move the split; pull
  * one down onto the page to take it out of the split.
  */
-const StripSplit = React.memo(function StripSplit({ tabs, slot, activeId, icon, pinned, dragFill, liftedId, roles, handlers }: StripSplitProps) {
-  const { colors, reduceMotion } = useTheme();
+const StripSplit = React.memo(function StripSplit({ tabs, slot, activeId, pinned, floating, dragFill, liftedId, roles, handlers }: StripSplitProps) {
+  const { colors, reduceMotion, glass } = useTheme();
   const dragging = dragFill !== undefined;
   const { x, width } = useSlide(slot, reduceMotion, dragging);
   const active = tabs.some(t => t.id === activeId);
+  const gap = pinned ? metrics.pinGap : metrics.gap;
+  const sideWidth = (slot.width - gap * (tabs.length - 1)) / tabs.length;
   const body = <Animated.View
-    style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined,
-      backgroundColor: dragFill, borderTopLeftRadius: dragging ? radius.tab : undefined, borderTopRightRadius: dragging ? radius.tab : undefined }}>
-    {!active && !pinned && !dragging && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop, left: space.hair,
-      right: space.hair, borderRadius: radius.field, backgroundColor: colors.splitChip }} />}
-    <View style={{ flex: 1, flexDirection: 'row' }}>
+    style={{ position: 'absolute', top: 0, left: x, width, height: geometry.strip, zIndex: dragging ? 2 : undefined }}>
+    {dragging && <View pointerEvents="none" style={{ ...(pinned ? pinFace : tabFace), backgroundColor: dragFill }} />}
+    {active && pinned && !dragging && <View pointerEvents="none" style={{ ...pinFace,
+      backgroundColor: glass.on ? colors.fillTransparent : colors.tabActive }}>
+      {glass.on && <GlassFill radius={pinFace.borderRadius} state="active" />}
+    </View>}
+    {active && floating && !pinned && !dragging && <Panel fill="tabActive" radius="tab" elevation="tab" border="tabActiveBorder" style={tabFace} />}
+    {!active && !pinned && !dragging && <View pointerEvents="none" style={{ ...tabFace, backgroundColor: colors.splitChip }} />}
+    <View style={{ flex: 1, flexDirection: 'row', gap }}>
       {tabs.map((tab, i) => <SplitSide key={tab.id} tab={tab} first={i === 0} focused={tab.id === activeId} inActive={active}
-        icon={icon} lifted={tab.id === liftedId} {...handlers(tab.id)} />)}
+        width={sideWidth} pinned={pinned} gap={gap} lifted={tab.id === liftedId} {...handlers(tab.id)} />)}
     </View>
   </Animated.View>;
   return <PaletteScope roles={roles}>{body}</PaletteScope>;
 });
 
-function SplitSide({ tab, first, focused, inActive, icon, lifted, onDrag, onDrop }: DragHandlers & {
-  tab: Tab; first: boolean; focused: boolean; inActive: boolean; icon: boolean; lifted: boolean;
+function SplitSide({ tab, first, focused, inActive, width, pinned, gap, lifted, onDrag, onDrop }: DragHandlers & {
+  tab: Tab; first: boolean; focused: boolean; inActive: boolean; width: number; pinned: boolean; gap: number; lifted: boolean;
 }) {
   const actions = useActions();
   const { colors, reduceMotion } = useTheme();
   const { focused: keyFocus, handlers } = useInteraction();
   const [hovered, setHovered] = useState(false);
+  const [closeFocused, setCloseFocused] = useState(false);
   const there = usePresence(!lifted, 'fade', reduceMotion);
   const pan = useTabPan({ onDrag, onDrop });
   const title = tabTitle(tab);
-  const closing = !icon && hovered;
+  const iconOnly = pinned || width < geometry.stripTabTitleMin;
+  const closing = !pinned && !lifted && width >= geometry.stripTabCloseMin && (hovered || keyFocus || closeFocused);
+  const trailing = geometry.stripCloseInset + (closing ? geometry.iconButton : 0);
+  const iconRoom = geometry.favicon + geometry.stripLabelGap + (first ? geometry.iconSmall + geometry.stripLabelGap : 0);
+  const titleRoom = width - geometry.stripLabelInset - iconRoom - trailing;
   return <Animated.View {...pan.panHandlers} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     style={{ flex: 1, opacity: there.progress }}>
-    {(keyFocus || (!focused && hovered)) && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop,
-      left: space.hair, right: space.hair, borderRadius: radius.control, backgroundColor: colors[focused ? 'fillTransparent' : 'tabHoverInset'],
-      borderWidth: geometry.focusRing, borderColor: colors[keyFocus ? 'focusRing' : 'fillTransparent'] }} />}
-    {!first && <View pointerEvents="none" style={{ position: 'absolute', left: -gap, top: (tabContentHeight - geometry.iconSmall) / 2,
+    {(keyFocus || (!focused && hovered)) && <View pointerEvents="none" style={{ ...(pinned ? pinFace : tabFace),
+      backgroundColor: colors[focused ? 'fillTransparent' : 'tabHoverInset'],
+      borderWidth: keyFocus ? geometry.focusRing : 0, borderColor: colors.focusRing }} />}
+    {!first && <View pointerEvents="none" style={{ position: 'absolute', left: -(gap + geometry.hairline) / 2, top: (geometry.strip - geometry.iconSmall) / 2,
       width: geometry.hairline, height: geometry.iconSmall, backgroundColor: colors.tabDivider }} />}
     <ContextMenu onOpen={() => void actions.tabMenu(tab.id)} style={{ flex: 1 }}>
       <Pressable accessibilityRole="button" accessibilityState={{ selected: focused }}
@@ -396,21 +427,18 @@ function SplitSide({ tab, first, focused, inActive, icon, lifted, onDrag, onDrop
           if (e.nativeEvent.key === 'Enter' || e.nativeEvent.key === ' ') void actions.activateTab(tab.id);
         }}
         onPressIn={() => { if (!focused) void actions.activateTab(tab.id); }}
-        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.sm, justifyContent: icon ? 'center' : 'flex-start',
-          paddingLeft: icon ? 0 : first ? space.md : space.sm, paddingBottom: tabTop,
-          paddingRight: icon ? 0 : closing ? geometry.control : space.sm }}>
-        {first && !icon && <Icon name="rectangle.split.2x1" size="small" tone="iconSecondary" />}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: geometry.stripLabelGap, justifyContent: iconOnly ? 'center' : 'flex-start',
+          paddingLeft: iconOnly ? 0 : geometry.stripLabelInset, paddingRight: iconOnly ? 0 : trailing }}>
+        {first && !iconOnly && <Icon name="rectangle.split.2x1" size="small" tone="iconSecondary" />}
         <View style={{ width: geometry.favicon, height: geometry.favicon, alignItems: 'center', justifyContent: 'center' }}>
           <Favicon tab={tab} busy={tab.loading && !focused} badges />
         </View>
-        {!icon && <Fade style={{ flex: 1 }}>
-          <Text lines={1} ellipsizeMode="clip" style={{ width: geometry.titleRun }} tone={focused ? 'tabTextActive' : inActive ? 'textSecondary' : 'tabText'}
-            weight={focused ? 'medium' : undefined}>{title}</Text>
-        </Fade>}
+        {!iconOnly && <StripTitle title={title} available={titleRoom} active={focused} secondary={inActive} sleeping={tab.discarded} />}
       </Pressable>
     </ContextMenu>
-    {closing && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: tabTop, justifyContent: 'center' }}>
-      <IconButton label={`Close ${title}`} icon="xmark" size="small" onPress={() => void actions.closeTab(tab.id)} />
+    {closing && <View pointerEvents="box-none" style={{ ...rowBand, right: geometry.stripCloseInset, justifyContent: 'center' }}>
+      <StripClose title={title} focusable onFocus={() => setCloseFocused(true)} onBlur={() => setCloseFocused(false)}
+        onPress={() => void actions.closeTab(tab.id)} />
     </View>}
   </Animated.View>;
 }
@@ -455,7 +483,7 @@ function ScrolledLane({ layout, activeSlot, still, children }: React.PropsWithCh
 function PlusButton({ x, onPress }: { x: number; onPress(): void }) {
   const { reduceMotion } = useTheme();
   const slide = useSlide({ x, width: 0 }, reduceMotion);
-  return <Animated.View style={{ position: 'absolute', left: slide.x, top: tabTop, height: tabContentHeight, justifyContent: 'center' }}>
+  return <Animated.View style={{ ...rowBand, left: slide.x, justifyContent: 'center' }}>
     <IconButton label="New tab" icon="plus" onPress={onPress} />
   </Animated.View>;
 }

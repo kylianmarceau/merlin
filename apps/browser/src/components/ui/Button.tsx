@@ -74,7 +74,7 @@ export type IconButtonProps = Omit<PressableProps, 'style' | 'children'> & {
 
 /** A square icon button; its label is read by VoiceOver. */
 export function IconButton({ label, icon, variant = 'ghost', selected, size = 'regular', tone, selectedFill = 'fillSelected', disabled,
-  onFrame, tip, keys, tipDetail, art, ...rest }: IconButtonProps) {
+  onFrame, tip, keys, tipDetail, art, onFocus, onBlur, ...rest }: IconButtonProps) {
   const { colors, reduceMotion } = useTheme();
   const look = looks[variant];
   const { hovered, focused, handlers } = useInteraction();
@@ -89,6 +89,8 @@ export function IconButton({ label, icon, variant = 'ghost', selected, size = 'r
   return <Pressable ref={ref} onLayout={onFrame ? report : undefined} accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={{ disabled: !!disabled, selected }} disabled={disabled} {...handlers} {...rest}
     onAccessibilityTap={accessibilityPress(rest.onPress, disabled)}
+    onFocus={e => { handlers.onFocus(); onFocus?.(e); }}
+    onBlur={e => { handlers.onBlur(); onBlur?.(e); }}
     onHoverIn={e => { handlers.onHoverIn(); tooltip.enter(); rest.onHoverIn?.(e); }}
     onHoverOut={e => { handlers.onHoverOut(); tooltip.leave(); rest.onHoverOut?.(e); }}
     onPressIn={e => { setPressed(true); tooltip.press(); if (onFrame) report(); rest.onPressIn?.(e); }}
