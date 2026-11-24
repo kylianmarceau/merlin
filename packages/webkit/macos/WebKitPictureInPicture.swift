@@ -59,6 +59,9 @@ final class WebKitPictureInPicture: NSObject, WKScriptMessageHandler {
     const clear = () => {
       if (isFloating(video) || owner.returning) return;
       if (globalThis.merlinFloated === owner) globalThis.merlinFloated = undefined;
+      owner.stopWatching();
+    };
+    owner.stopWatching = () => {
       video.removeEventListener('webkitpresentationmodechanged', clear);
       video.removeEventListener('leavepictureinpicture', clear);
     };
@@ -72,6 +75,7 @@ final class WebKitPictureInPicture: NSObject, WKScriptMessageHandler {
     const owner = globalThis.merlinFloated;
     const video = owner?.video.deref();
     if (!video) return true;
+    if (owner.returning) return false;
     owner.returning = true;
     // AppKit can report the requested presentation mode before its transition
     // finishes. Keep the return request until the inline mode has settled.
@@ -87,6 +91,7 @@ final class WebKitPictureInPicture: NSObject, WKScriptMessageHandler {
     }
     owner.returning = false;
     if (isFloating(video)) return false;
+    owner.stopWatching();
     if (globalThis.merlinFloated === owner) globalThis.merlinFloated = undefined;
     return true;
     """
