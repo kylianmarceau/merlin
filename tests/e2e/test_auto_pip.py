@@ -179,6 +179,12 @@ class WebKitAutoPipTest(WebKitVideoCase):
         self.browser.browserctl("focus", tab=1)
         self.wait(lambda: self.mode() == "inline", "the WebKit video to return to its page", timeout=5)
 
+    def tearDown(self) -> None:
+        # Return to the Chromium tab before reset drives the next test through
+        # DevTools. Navigating a WebKit tab from browserctl takes a different path.
+        if len(self.browser.tabs()) > 1:
+            self.browser.browserctl("focus", tab=2)
+
     def test_video_follows_window_visibility(self) -> None:
         self.play()
         try:
