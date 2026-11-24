@@ -157,7 +157,7 @@ final class WebKitPages {
 
   private func seen(_ page: WebKitPage) -> Bool {
     let view = page.webView
-    guard let window = view.window, window.isVisible, !view.isHiddenOrHasHiddenAncestor else { return false }
+    guard let window = view.window, window.isVisible, view.superview is MerlinWebKitPageView else { return false }
     return windowSight.object(forKey: window)?.boolValue ?? !window.isMiniaturized
   }
 
@@ -212,8 +212,8 @@ final class WebKitPages {
 
   private func returnVideo(in page: WebKitPage) {
     guard floated === page else { return }
-    page.returnVideo { [weak self, weak page] in
-      if let self, let page, self.floated === page { self.floated = nil }
+    page.returnVideo { [weak self, weak page] closed in
+      if closed, let self, let page, self.floated === page { self.floated = nil }
     }
   }
 
@@ -475,7 +475,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMe
   }
 
   func floatVideo(_ done: @escaping (Bool) -> Void) { media(WebKitPictureInPicture.floatScript, done) }
-  func returnVideo(_ done: @escaping () -> Void) { media(WebKitPictureInPicture.returnScript) { _ in done() } }
+  func returnVideo(_ done: @escaping (Bool) -> Void) { media(WebKitPictureInPicture.returnScript, done) }
   func isFloating(_ done: @escaping (Bool) -> Void) { media(WebKitPictureInPicture.floatingScript, done) }
 
   /// A link or script in a pop-up opened another window: a tab, as from the page.

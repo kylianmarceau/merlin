@@ -54,10 +54,11 @@ final class WebKitPictureInPicture: NSObject, WKScriptMessageHandler {
       enter(video).then(changedMode, () => done(false));
     });
     if (!await changed) return false;
-    globalThis.merlinFloated = new WeakRef(video);
+    const owner = { video: new WeakRef(video), returning: false };
+    globalThis.merlinFloated = owner;
     const clear = () => {
-      if (isFloating(video)) return;
-      if (globalThis.merlinFloated?.deref() === video) globalThis.merlinFloated = undefined;
+      if (isFloating(video) || owner.returning) return;
+      if (globalThis.merlinFloated === owner) globalThis.merlinFloated = undefined;
       video.removeEventListener('webkitpresentationmodechanged', clear);
       video.removeEventListener('leavepictureinpicture', clear);
     };
@@ -68,13 +69,31 @@ final class WebKitPictureInPicture: NSObject, WKScriptMessageHandler {
 
   static let returnScript = videoScript + """
 
-    const video = globalThis.merlinFloated?.deref();
-    if (video && isFloating(video)) await exit(video);
+    const owner = globalThis.merlinFloated;
+    const video = owner?.video.deref();
+    if (!video) return true;
+    owner.returning = true;
+    // AppKit can report the requested presentation mode before its transition
+    // finishes. Keep the return request until the inline mode has settled.
+    let inline = 0;
+    for (let attempt = 0; attempt < 12 && inline < 3; attempt++) {
+      if (isFloating(video)) {
+        inline = 0;
+        await exit(video).catch(() => {});
+      } else {
+        inline++;
+      }
+      await new Promise(resolve => setTimeout(resolve, 80));
+    }
+    owner.returning = false;
+    if (isFloating(video)) return false;
+    if (globalThis.merlinFloated === owner) globalThis.merlinFloated = undefined;
+    return true;
     """
 
   static let floatingScript = videoScript + """
 
-    const video = globalThis.merlinFloated?.deref();
+    const video = globalThis.merlinFloated?.video.deref();
     return !!video && isFloating(video);
     """
 

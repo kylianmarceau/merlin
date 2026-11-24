@@ -44,7 +44,7 @@ public final class MerlinWebKitModule: Module {
       WebKitPages.shared.privateWindow(windowId, open: open)
     }.runOnQueue(.main)
 
-    // Settings › General › Float videos when you switch tabs.
+    // Settings › General › Automatic Picture in Picture.
     AsyncFunction("autoPip") { (on: Bool) in
       WebKitPages.shared.autoPip = on
     }.runOnQueue(.main)
