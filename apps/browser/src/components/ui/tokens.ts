@@ -35,8 +35,13 @@ export const font = {
 
 /** Sizes of recurring shell pieces, in points. */
 export const geometry = {
-  sidebar: 252, sidebarCollapsedInset: 84, stripTab: 173, stripTabMin: 96, stripTabIcon: 40, titlebar: 40, strip: 42, toolbar: 46,
-  joinedTab: 38, joinedEar: 10,
+  sidebar: 252, sidebarCollapsedInset: 84, titlebar: 40, toolbar: 46,
+  /** Top strip. The plates and controls share one centered row. The selected open tab joins the toolbar below it. */
+  strip: 42, stripTabHeight: 32, stripTab: 173, stripTabTitleMin: 80, stripTabCloseMin: 84, stripTabIcon: 34,
+  stripGap: 4, stripPinGap: 2, stripDockGap: 5, stripPinInset: 2,
+  stripLabelGap: 5, stripLabelInset: 9.5, stripCloseInset: 6, stripDockStroke: 0.5,
+  stripTitleFadeMin: 8, stripTitleFadeMax: 24, stripTabRimWidth: 0.5,
+  joinedTab: 39, joinedEar: 15,
   /** Crowded tabs on top, as in Dia: none narrower than this, and the active one never narrower than its own minimum. */
   stripTabFloor: 64, stripTabActive: 128,
   tabDragCardMax: 188, pageLinkMax: 172,
@@ -44,7 +49,7 @@ export const geometry = {
   unreadBadge: 15,
   /** A swipe back or forward's round arrow at the page's edge, and how far in it comes when letting go would navigate. */
   swipeChip: 40, swipeReach: 56,
-  control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, stripTabHeight: 32, address: 36, favourite: 44, favouriteSmall: 28,
+  control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, address: 36, favourite: 44, favouriteSmall: 28,
   /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
   tabRowGap: 3, tileRing: 2.5,
   /** The new tab page's breathing area light: how tall its wash is. */
@@ -330,6 +335,7 @@ function roles(mode: Mode, accentName: AccentName) {
     tabDivider: pick('rgba(20, 40, 30, 0.13)', 'rgba(255, 255, 255, 0.12)'),
     tabActive: pick(ink[0], 'rgba(255, 255, 255, 0.12)'),
     tabActiveBorder: pick('rgba(20, 40, 30, 0.06)', 'rgba(255, 255, 255, 0.06)'),
+    stripTabRim: pick('rgba(255, 255, 255, 0.78)', 'rgba(255, 255, 255, 0.19)'),
     tabText: pick('#2A2F2C', darkInk[200]),
     tabTextActive: pick(ink[900], darkInk[25]),
     tabLoading: a.base,
