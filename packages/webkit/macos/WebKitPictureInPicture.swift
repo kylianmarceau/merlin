@@ -42,16 +42,17 @@ final class WebKitPictureInPicture: NSObject, WKScriptMessageHandler {
     if (!video) return false;
     const changed = new Promise(resolve => {
       const done = result => {
-        video.removeEventListener('webkitpresentationmodechanged', changedMode);
-        video.removeEventListener('enterpictureinpicture', changedMode);
+        video.removeEventListener('enterpictureinpicture', didEnter);
         clearTimeout(timer);
         resolve(result);
       };
-      const changedMode = () => { if (isFloating(video)) done(true); };
+      // The proprietary mode can change while the system is still animating.
+      // Keep the source layer until WebKit confirms entry. Older players can
+      // report only the proprietary mode, so also check it after a deadline.
+      const didEnter = event => { if (event.isTrusted) done(true); };
       const timer = setTimeout(() => done(isFloating(video)), 1000);
-      video.addEventListener('webkitpresentationmodechanged', changedMode);
-      video.addEventListener('enterpictureinpicture', changedMode);
-      enter(video).then(changedMode, () => done(false));
+      video.addEventListener('enterpictureinpicture', didEnter);
+      enter(video).catch(() => done(false));
     });
     if (!await changed) return false;
     const owner = { video: new WeakRef(video), returning: false };

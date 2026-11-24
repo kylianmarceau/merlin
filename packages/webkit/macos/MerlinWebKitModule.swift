@@ -61,7 +61,7 @@ public final class MerlinWebKitModule: Module {
 /// WebKitPages while no view shows it, as a background tab's page does.
 ///
 /// A page never leaves its window on a tab switch: it moves between this
-/// view and the window's hidden parking view (WebKitPages.park) with
+/// view and the window's parking view (WebKitPages.park) with
 /// addSubview alone. Taken out of the window, WebKit drops the layer that
 /// shows protected (FairPlay) video, and Netflix comes back black with its
 /// sound still playing. Ardia keeps its WebKit pages in the window too.
@@ -70,6 +70,7 @@ final class MerlinWebKitPageView: ExpoView {
   var active = false
   private weak var shown: MerlinWKWebView?
   private var wasActive = false
+  private var inlineFrame: NSRect?
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -90,7 +91,9 @@ final class MerlinWebKitPageView: ExpoView {
       // From the parking view, or another place in this window: a move
       // within the window, never through no window at all.
       addSubview(webView)
+      webView.isHidden = false
       shown = webView
+      rememberInlineFrame()
       placed = true
       WebKitPages.shared.pageShown(page)
     }
@@ -103,6 +106,17 @@ final class MerlinWebKitPageView: ExpoView {
   override func setFrameSize(_ newSize: NSSize) {
     super.setFrameSize(newSize)
     shown?.frame = bounds
+    rememberInlineFrame()
+  }
+
+  override func layout() {
+    super.layout()
+    rememberInlineFrame()
+  }
+
+  private func rememberInlineFrame() {
+    guard let shown, shown.superview === self, window != nil, !bounds.isEmpty else { return }
+    inlineFrame = convert(bounds, to: nil)
   }
 
   // React removes this view when its tab stops showing; park the page while
@@ -118,7 +132,10 @@ final class MerlinWebKitPageView: ExpoView {
   }
 
   private func detach() {
-    if let shown, shown.superview === self { WebKitPages.shared.park(shown) }
+    if let shown, shown.superview === self {
+      WebKitPages.shared.park(shown, inlineFrame: inlineFrame)
+    }
     shown = nil
+    inlineFrame = nil
   }
 }
