@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, View, type ViewProps } from 'react-native'
 import { Gradient as NativeGradient, ProgressRing as NativeProgressRing } from '../../platform/shell';
 import { Icon, type SymbolName } from './Icon';
 import { Text } from './Text';
-import { useAreaLight, useEqualiser, useLoadingBar } from './motion';
+import { useAreaLight, useEqualiser } from './motion';
 import { useTheme } from './theme';
 import { geometry, radius, space, type ColorRole } from './tokens';
 
@@ -75,22 +75,6 @@ export function ProgressRing({ value, size, muted = false }: { value: number | n
   return <NativeProgressRing pointerEvents="none" accessible={false} ringProgress={value === null ? -1 : Math.max(0, Math.min(1, value))}
     ringColor={colors[muted ? 'textTertiary' : 'progressFill']} ringTrackColor={colors.progressTrack} ringWidth={geometry.ringStroke}
     ringReduceMotion={reduceMotion} style={{ width: size, height: size }} />;
-}
-
-/**
- * A page loading, as a thin bar along the bottom of the address, as in Arc
- * and Dia: it runs quickly to a quarter, creeps on while the page loads,
- * then completes and fades. `inset` keeps it clear of the field's corners.
- */
-export function LoadingBar({ loading, inset = 0 }: { loading: boolean; inset?: number }) {
-  const { colors, reduceMotion } = useTheme();
-  const { fill, opacity } = useLoadingBar(loading, reduceMotion);
-  return <Animated.View pointerEvents="none" accessible={false} style={{ position: 'absolute', left: inset, right: inset, bottom: 0,
-    height: geometry.loadingBar, opacity }}>
-    {/* tabLoading follows the site's colours on a tinted toolbar, so the bar stays visible on any site. */}
-    <Animated.View style={{ height: geometry.loadingBar, borderRadius: radius.pill, backgroundColor: colors.tabLoading,
-      width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }} />
-  </Animated.View>;
 }
 
 /** A playing tab's sound: three bars rising and falling out of step, in place of a still speaker. */

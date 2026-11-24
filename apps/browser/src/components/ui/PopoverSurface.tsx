@@ -12,7 +12,7 @@ import { geometry, panelGlass, radius as radii, shadow, type ColorRole, type Sha
 export function PopoverSurface({ arrow = 'none', arrowX = 0, radius = radii.bubble, fill = 'surfacePopoverSolid', elevation = 'popover',
   glassFloor = 0, style }: {
   arrow?: 'top' | 'bottom' | 'none'; arrowX?: number; radius?: number; fill?: ColorRole; elevation?: ShadowName;
-  /** The least colour layer over the glass, 0 to 1 (`legibleGlass` for text-heavy pop-ups). */
+  /** The colour layer at the clear end of Transparency, 0 to 1. */
   glassFloor?: number; style?: ViewStyle;
 }) {
   const { colors, dark, accent, glass } = useTheme();

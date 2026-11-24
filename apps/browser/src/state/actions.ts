@@ -653,10 +653,10 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     siteInfo: () => run('site.info', {}),
 
     // The address field. Suggestions arrive as events for the latest query.
-    suggest(text: string, preventInline: boolean, owner: SearchOwner = 'address') {
+    suggest(text: string, preventInline: boolean, owner: SearchOwner = 'address', addressDark?: boolean) {
       if (!text.trim()) { actions.stopSuggesting(); return; }
       const queryId = `q${(++queryCounter).toString(36)}`;
-      store.setState({ omnibox: startQuery(store.getState().omnibox, queryId, text, owner) });
+      store.setState({ omnibox: startQuery(store.getState().omnibox, queryId, text, owner, addressDark) });
       void engine.call('omnibox.query', { queryId, text, preventInline }).catch(fail);
     },
     stopSuggesting() {

@@ -32,6 +32,9 @@ final class MerlinGlass: ExpoView {
   var radius: Double = 0 { didSet { apply() } }
   var tint: NSColor? { didSet { apply() } }
   var clear = false { didSet { apply() } }
+  func setDark(_ dark: Bool?) {
+    effect.appearance = dark.flatMap { NSAppearance(named: $0 ? .darkAqua : .aqua) }
+  }
 
   required init(appContext: AppContext? = nil) {
     if #available(macOS 26.0, *), LiquidGlass.available {
@@ -72,11 +75,15 @@ final class MerlinGlass: ExpoView {
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-// A popover's surface: a rounded panel, with an arrow pointing at its control
-// when it has one. As glass it is SwiftUI glass in that outline: regular glass
-// fading into clear by `glassFade`, under `fill` as a colour layer. As
-// a solid panel it is an opaque fill with a hairline edge and a layer shadow
-// cut out under the fill. Its content is drawn over it by React.
+struct MerlinPopoverJoin: Record {
+  @Field var top = false
+  @Field var left = false
+  @Field var right = false
+}
+
+// A rounded popover with an optional arrow or shared edge. SwiftUI draws glass
+// in the outline. Solid panels use a fill, hairline edge and cutout shadow.
+// React draws the contents above the surface.
 final class MerlinPopoverBubble: ExpoView {
   enum Edge: String { case top, bottom, none }
 
@@ -104,6 +111,7 @@ final class MerlinPopoverBubble: ExpoView {
   var glass = false { didSet { needsLayout = true } }
   var glassFade: Double = 0 { didSet { needsLayout = true } }
   var glassTint: NSColor? { didSet { needsLayout = true } }
+  var join: MerlinPopoverJoin? { didSet { needsLayout = true } }
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -161,6 +169,29 @@ final class MerlinPopoverBubble: ExpoView {
 
   private var drawsGlass: Bool { glass && LiquidGlass.available }
 
+  private func joinedPath(size: CGSize, join: MerlinPopoverJoin) -> CGPath {
+    let radius = min(cornerRadius, size.width / 2, size.height / 2)
+    // Extend the outlined edge beyond the surface, then clip the stroke.
+    let extensionDepth = max(1, edgeWidth * 2)
+    let top = join.top ? -extensionDepth : 0
+    let bottom = size.height + (join.top ? 0 : extensionDepth)
+    let right = size.width
+    let path = CGMutablePath()
+    func round(_ x: CGFloat, _ y: CGFloat, toward: CGPoint, onJoin: Bool, joinsEdge: Bool) {
+      let corner = onJoin && joinsEdge ? 0 : radius
+      let at = CGPoint(x: x, y: y)
+      if corner > 0 { path.addArc(tangent1End: at, tangent2End: toward, radius: corner) }
+      else { path.addLine(to: at) }
+    }
+    path.move(to: CGPoint(x: join.top && join.left ? 0 : radius, y: top))
+    round(right, top, toward: CGPoint(x: right, y: bottom), onJoin: join.top, joinsEdge: join.right)
+    round(right, bottom, toward: CGPoint(x: 0, y: bottom), onJoin: !join.top, joinsEdge: join.right)
+    round(0, bottom, toward: CGPoint(x: 0, y: top), onJoin: !join.top, joinsEdge: join.left)
+    round(0, top, toward: CGPoint(x: right, y: top), onJoin: join.top, joinsEdge: join.left)
+    path.closeSubpath()
+    return path
+  }
+
   private func applyGlass(path: CGPath, key: String) {
     guard #available(macOS 26.0, *), drawsGlass else {
       glassHost?.removeFromSuperview()
@@ -191,13 +222,15 @@ final class MerlinPopoverBubble: ExpoView {
     let size = bounds.size
     overlay.frame = bounds
     guard size.width > 0, size.height > 0 else { return }
-    let path = Self.shape(size: size, radius: cornerRadius, edge: arrowEdge, arrowX: arrowX, arrowWidth: arrowWidth, arrowHeight: arrowHeight)
+    let path = join.map { joinedPath(size: size, join: $0) } ??
+      Self.shape(size: size, radius: cornerRadius, edge: arrowEdge, arrowX: arrowX, arrowWidth: arrowWidth, arrowHeight: arrowHeight)
     let key = "\(size.width)x\(size.height) \(cornerRadius) \(arrowEdge.rawValue) \(arrowX) \(arrowWidth) \(arrowHeight)"
     applyGlass(path: path, key: key)
     let glassy = drawsGlass
 
     CATransaction.begin()
     CATransaction.setDisableActions(true)
+    overlay.layer?.masksToBounds = join != nil
     let local = overlay.bounds
     fillLayer.frame = local
     fillLayer.path = path

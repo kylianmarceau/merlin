@@ -167,6 +167,7 @@ public final class MerlinShellGradientModule: Module {
     View(MerlinGradient.self) {
       Prop("gradientKind") { (view, value: String) in view.kind = value }
       Prop("gradientColors") { (view, value: [String]) in view.colors = value.compactMap { ShellColor.parse($0) } }
+      Prop("gradientProfile") { (view, value: MerlinGradientProfile) in view.profile = value }
     }
   }
 }
@@ -198,6 +199,7 @@ public final class MerlinShellGlassModule: Module {
       Prop("glassRadius") { (view, value: Double) in view.radius = value }
       Prop("glassTint") { (view, value: String?) in view.tint = ShellColor.parse(value) }
       Prop("glassClear") { (view, value: Bool) in view.clear = value }
+      Prop("glassDark") { (view, value: Bool?) in view.setDark(value) }
     }
   }
 }
@@ -207,6 +209,7 @@ public final class MerlinShellPopoverBubbleModule: Module {
     Name("MerlinShellPopoverBubble")
     View(MerlinPopoverBubble.self) {
       Prop("bubbleRadius") { (view, value: Double) in view.cornerRadius = value }
+      Prop("bubbleJoin") { (view, value: MerlinPopoverJoin?) in view.join = value }
       Prop("arrowEdge") { (view, value: String) in view.arrowEdge = MerlinPopoverBubble.Edge(rawValue: value) ?? .none }
       Prop("arrowX") { (view, value: Double) in view.arrowX = value }
       Prop("arrowWidth") { (view, value: Double) in view.arrowWidth = value }
@@ -231,6 +234,7 @@ public final class MerlinShellWindowStateModule: Module {
     View(MerlinWindowState.self) {
       Events("onFullScreen", "onWindowState")
       Prop("windowButtons") { (view, value: Bool) in view.windowButtons = value }
+      Prop("windowButtonsCenter") { (view, value: Double) in view.windowButtonsCenter = value }
       Prop("windowTitle") { (view, value: String?) in view.windowTitle = value }
     }
   }

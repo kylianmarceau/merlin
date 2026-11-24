@@ -15,6 +15,7 @@ import type { Suggestion } from '../platform/protocol';
 export type SearchOwner = 'address' | 'search';
 export type Omnibox = {
   queryId: string; text: string; items: Suggestion[]; itemsQueryId: string | null; selected: number; owner: SearchOwner;
+  addressDark?: boolean;
 };
 
 /** The rows that answer the latest query, which are the only ones that can be chosen. */
@@ -23,9 +24,9 @@ export function currentSuggestions(omnibox: Omnibox | null): Suggestion[] {
 }
 
 /** A new query; the field's last rows stay, greyed, until its own arrive. */
-export function startQuery(current: Omnibox | null, queryId: string, text: string, owner: SearchOwner): Omnibox {
+export function startQuery(current: Omnibox | null, queryId: string, text: string, owner: SearchOwner, addressDark?: boolean): Omnibox {
   const kept = current?.owner === owner ? current : null;
-  return { queryId, text, items: kept?.items ?? [], itemsQueryId: kept?.itemsQueryId ?? null, selected: -1, owner };
+  return { queryId, text, items: kept?.items ?? [], itemsQueryId: kept?.itemsQueryId ?? null, selected: -1, owner, addressDark };
 }
 
 /** Rows from Chromium. Those of an older query never replace newer ones (null: unchanged). */

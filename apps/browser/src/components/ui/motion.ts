@@ -44,11 +44,14 @@ export const duration = {
   staleRows: 250,
   /** Native prompts ignore answers for their first half second. */
   promptArm: 550,
-  /** The loading bar: its first quick reach, the slow creep after it, the finish and the fade once loaded. */
-  loadStart: 320,
+  /** The address glow waits for a lasting load, then sweeps out when it ends. */
+  loadDelay: 150,
+  loadShow: 200,
+  loadStart: 250,
   loadCreep: 9000,
-  loadFinish: 200,
-  loadFade: 260,
+  loadFinish: 300,
+  loadHold: 200,
+  loadFade: 250,
   /** A background tab's icon breathing while its page loads. */
   breathe: 700,
   /** A new download's icon: rising off the page, then flying to the downloads button; the button's nudge as it lands. */
@@ -582,41 +585,60 @@ export function useSpringRect(to: { x: number; y: number; width: number; height:
   return values;
 }
 
-/** How far the loading bar gets before the page finishes: quickly to a quarter, then creeping, never to the end. */
-const loadReach = { start: 0.28, creep: 0.9 } as const;
-
 /**
- * A page-loading bar's fill (0 → 1) and opacity. While `loading` it runs
- * quickly to a quarter, then creeps towards the end without reaching it, as
- * Arc's and Safari's do; when the page finishes it completes and fades.
+ * Drives the address glow from 0 to its loading limit at 1. Once the page
+ * finishes, it advances to 2 while crossfading to the finishing sweep.
  */
 export function useLoadingBar(loading: boolean, reduce: boolean) {
-  const fill = useRef(new Animated.Value(loading ? 0.1 : 0)).current;
-  const opacity = useRef(new Animated.Value(loading ? 1 : 0)).current;
-  const was = useRef(loading);
+  const fill = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const comet = useRef(new Animated.Value(0)).current;
+  const shown = useRef(false);
   useEffect(() => {
-    const started = loading && !was.current;
-    const finished = !loading && was.current;
-    was.current = loading;
+    const enter = Easing.out(Easing.cubic);
+    const exit = Easing.in(Easing.quad);
+    let run: Animated.CompositeAnimation | undefined;
     if (loading) {
-      if (started) fill.setValue(0);
-      opacity.setValue(1);
-      const run = Animated.sequence([
-        Animated.timing(fill, { toValue: loadReach.start, duration: reduce ? duration.instant : duration.loadStart, easing: curve.enter, useNativeDriver: false }),
-        Animated.timing(fill, { toValue: loadReach.creep, duration: duration.loadCreep, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
-      ]);
-      run.start();
-      return () => run.stop();
+      const show = () => {
+        shown.current = true;
+        comet.setValue(0);
+        fill.setValue(reduce ? 0.32 : 0);
+        opacity.setValue(reduce ? 1 : 0);
+        if (reduce) return;
+        run = Animated.parallel([
+          Animated.timing(opacity, { toValue: 1, duration: duration.loadShow, easing: enter, useNativeDriver: true }),
+          Animated.sequence([
+            Animated.timing(fill, { toValue: 0.32, duration: duration.loadStart, easing: enter, useNativeDriver: true }),
+            Animated.timing(fill, { toValue: 1, duration: duration.loadCreep, easing: enter, useNativeDriver: true }),
+          ]),
+        ]);
+        run.start();
+      };
+      if (shown.current) show();
+      else opacity.setValue(0);
+      const timer = shown.current ? undefined : setTimeout(show, duration.loadDelay);
+      return () => { clearTimeout(timer); run?.stop(); };
     }
-    if (!finished) return;
-    const run = Animated.sequence([
-      Animated.timing(fill, { toValue: 1, duration: reduce ? duration.instant : duration.loadFinish, easing: curve.move, useNativeDriver: false }),
-      Animated.timing(opacity, { toValue: 0, duration: reduce ? duration.instant : duration.loadFade, easing: curve.exit, useNativeDriver: false }),
+    if (!shown.current || reduce) {
+      shown.current = false;
+      opacity.setValue(0);
+      return;
+    }
+    shown.current = false;
+    // An instant finish after the delay still gets the full fade-out.
+    Animated.timing(opacity, { toValue: 1, duration: duration.loadShow, easing: enter, useNativeDriver: true }).start();
+    const sweep = Animated.parallel([
+      Animated.timing(fill, { toValue: 2, duration: duration.loadFinish, easing: enter, useNativeDriver: true }),
+      Animated.timing(comet, { toValue: 1, duration: duration.loadFinish, easing: enter, useNativeDriver: true }),
     ]);
-    run.start(({ finished: done }) => { if (done) fill.setValue(0); });
-    return () => run.stop();
-  }, [loading, reduce, fill, opacity]);
-  return { fill, opacity };
+    run = Animated.sequence([
+      sweep, Animated.delay(duration.loadHold),
+      Animated.timing(opacity, { toValue: 0, duration: duration.loadFade, easing: exit, useNativeDriver: true }),
+    ]);
+    run.start();
+    return () => { run?.stop(); opacity.stopAnimation(); };
+  }, [loading, reduce, fill, opacity, comet]);
+  return { fill, opacity, comet };
 }
 
 /** An opacity that breathes gently while `on`, for something quietly busy; steady at 1 otherwise. */

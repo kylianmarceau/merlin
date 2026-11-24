@@ -44,7 +44,7 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
     </Section>
 
     {liquidGlass && <Section title="Interface Style"
-      detail="Glass draws popovers, menus, the address field, buttons and pinned tabs in macOS Liquid Glass. Classic keeps them solid, with nothing showing through.">
+      detail="Glass uses macOS Liquid Glass for address fields, pinned tabs, and popovers. Classic uses flat fills and solid panels.">
       <View accessibilityRole="radiogroup" accessibilityLabel="Interface style" style={{ flexDirection: 'row', gap: space.xl }}>
         <StyleChoice glass selected={prefs.interfaceStyle === 'glass'} onPress={() => void setShellPref('interfaceStyle', 'glass')} />
         <StyleChoice glass={false} selected={prefs.interfaceStyle === 'classic'} onPress={() => void setShellPref('interfaceStyle', 'classic')} />

@@ -100,6 +100,7 @@ export function BrowserWindow() {
     onLayout={e => actions.setWindowSize(e.nativeEvent.layout.width, e.nativeEvent.layout.height)}>
     {/* The traffic lights hide with the tabs, as in Dia, and come back with them when they peek in. */}
     <FullScreenWatch onChange={setMacFullScreen} onState={actions.setWindowFacts} windowButtons={!peekable || peeking || macFullScreen}
+      windowButtonsCenter={top && !fullscreen ? geometry.strip / 2 + (peekable && peeking ? geometry.stripPeekTop : 0) : undefined}
       title={active ? tabTitle(active) : undefined} />
     {/* Glass lets the desktop through the shell; Classic is solid. */}
     {shell && glass.translucent && <Glass material="sidebar" style={cover} />}
@@ -155,9 +156,9 @@ function StripPeek() {
   if (!mounted) return null;
   const inset = space.xs + space.hair;
   return <Animated.View pointerEvents="box-none" onMouseEnter={actions.peek} onMouseLeave={actions.unpeek}
-    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: geometry.strip + inset + geometry.peekSlack,
-      transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [-(geometry.strip + inset * 2), 0] }) }] }}>
-    <FloatingShell style={{ position: 'absolute', top: inset, left: inset, right: inset, height: geometry.strip }}>
+    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: geometry.strip + geometry.stripPeekTop + geometry.peekSlack,
+      transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [-(geometry.strip + geometry.stripPeekTop * 2), 0] }) }] }}>
+    <FloatingShell style={{ position: 'absolute', top: geometry.stripPeekTop, left: inset, right: inset, height: geometry.strip }}>
       <TabStrip floating />
     </FloatingShell>
   </Animated.View>;

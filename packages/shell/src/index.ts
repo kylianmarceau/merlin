@@ -86,14 +86,18 @@ export const ProgressRing = view<ProgressRingProps>('ProgressRing');
  */
 export const Fade = view<ViewProps & { fadeLength: number; fadeLeading?: number; flushScroll?: boolean }>('Fade');
 
-export type GradientProps = ViewProps & { gradientKind: 'orb' | 'glow'; gradientColors: string[] };
+export type GradientProps = ViewProps & {
+  gradientKind: 'orb' | 'glow' | 'vertical'; gradientColors: string[];
+  gradientProfile?: { stops: number[]; fade: number[]; fadeStops: number[] };
+};
 export const Gradient = view<GradientProps>('Gradient');
 
 /** A Liquid Glass plate behind a control (vibrancy before macOS 26). Never takes a click. */
-export const Glass = view<ViewProps & { glassRadius: number; glassTint?: string; glassClear?: boolean }>('Glass');
+export const Glass = view<ViewProps & { glassRadius: number; glassTint?: string; glassClear?: boolean; glassDark?: boolean }>('Glass');
 
 export type PopoverBubbleProps = ViewProps & {
   bubbleRadius: number; arrowEdge: 'top' | 'bottom' | 'none'; arrowX?: number; arrowWidth?: number; arrowHeight?: number;
+  bubbleJoin?: { top: boolean; left: boolean; right: boolean };
   /** The glass tint, or the solid fill when `glass` is false. */
   bubbleFill?: string; bubbleEdgeColor?: string; bubbleEdgeWidth?: number;
   bubbleShadowColor?: string; bubbleShadowOpacity?: number; bubbleShadowRadius?: number; bubbleShadowOffsetY?: number;
@@ -109,7 +113,7 @@ export type FullScreenEvent = NativeSyntheticEvent<{ fullScreen: boolean }>;
 export type WindowStateEvent = NativeSyntheticEvent<{ key: boolean; leftEdge: boolean; topEdge: boolean }>;
 /** Reports whether its window is in macOS full screen, in front, and at the screen's edges; names the window. */
 export const WindowState = view<ViewProps & { onFullScreen(event: FullScreenEvent): void; onWindowState?(event: WindowStateEvent): void;
-  windowButtons?: boolean; windowTitle?: string }>('WindowState');
+  windowButtons?: boolean; windowButtonsCenter?: number; windowTitle?: string }>('WindowState');
 
 export type MenuItem =
   | { id: string; title: string; enabled?: boolean; checked?: boolean; destructive?: boolean; symbol?: SymbolName }

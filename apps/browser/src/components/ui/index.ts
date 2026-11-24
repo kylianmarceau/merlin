@@ -15,6 +15,7 @@ export { ListRow } from './ListRow';
 export { keyGlyphs, type RowAction, type RowKey } from './rowActions';
 export { MenuFooter, MenuRow, MenuSection, MenuSeparator, MenuTextButton, PopoverBody, PopoverRow, RowFill, popoverInset, rowState } from './Menu';
 export { GlassFill } from './GlassFill';
+export { JoinedSurface } from './JoinedSurface';
 export { KeyCap } from './KeyCap';
 export { TooltipCover, TooltipLayer, useTooltip, type TooltipSpec } from './Tooltip';
 export { DashedRule, Divider } from './Divider';
@@ -25,7 +26,8 @@ export { Popover, autoPlacement, placeBubble, placePopover, type Frame, type Pla
 export { PopoverSurface } from './PopoverSurface';
 export { Dialog } from './Dialog';
 export { Sheet, SheetBody, useSheetScroll, type SheetSection } from './Sheet';
-export { AreaLight, Badge, EmptyState, Equaliser, IconTile, LoadingBar, Notice, ProgressRing, ProgressTrack, Spinner } from './Feedback';
+export { AreaLight, Badge, EmptyState, Equaliser, IconTile, Notice, ProgressRing, ProgressTrack, Spinner } from './Feedback';
+export { LoadingBar } from './LoadingBar';
 export { FormGroup, FormHighlight, FormRow, SectionHeader, useLit } from './Form';
 export { ContextMenu, DragRegion, WelcomeFilm, FileDragArea, FullScreenWatch, tick, type WindowFacts } from './Native';
 export { accessibilityPress, useInteraction } from './interaction';

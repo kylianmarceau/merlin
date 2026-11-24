@@ -43,8 +43,8 @@ export function DownloadsButton() {
   </Animated.View>;
 }
 
-/** The command menu, the Library and Settings, wherever the tabs are. */
-export function LibraryButtons() {
+/** The command menu, the Library and Settings in the sidebar footer. */
+function LibraryButtons() {
   const actions = useActions();
   const modal = useSnapshot().modal.modalBrowsing !== false;
   return <>

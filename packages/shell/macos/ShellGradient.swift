@@ -1,21 +1,31 @@
 import AppKit
 import ExpoModulesCore
 
+struct MerlinGradientProfile: Record {
+  @Field var stops: [Double] = []
+  @Field var fade: [Double] = []
+  @Field var fadeStops: [Double] = []
+}
+
 // Gradients React Native cannot draw on macOS's classic bridge.
 //
 // "orb": the new tab page's sphere. Colours are four stops from highlight to
 // deep, then the horizon glow along its bottom and its shadow colour.
 // "glow": a soft elliptical wash behind the new tab page; one colour that
 // fades to nothing at the edges.
+// "vertical": colour stops down the view, with a separate left-to-right fade.
 final class MerlinGradient: ExpoView {
   var kind = "glow" { didSet { needsLayout = true } }
   var colors: [NSColor] = [] { didSet { needsLayout = true } }
+
+  var profile = MerlinGradientProfile() { didSet { needsLayout = true } }
 
   private let drop = CALayer()
   private let body = CALayer()
   private let sphere = CAGradientLayer()
   private let stripes = CAShapeLayer()
   private let horizon = CAGradientLayer()
+  private let fadeMask = CAGradientLayer()
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -51,7 +61,27 @@ final class MerlinGradient: ExpoView {
     let cg = colors.map(\.cgColor)
     body.frame = bounds
     sphere.frame = bounds
-    if kind == "orb", cg.count >= 4 {
+    sphere.type = kind == "vertical" ? .axial : .radial
+    body.mask = nil
+    if kind == "vertical", cg.count >= 2 {
+      body.cornerRadius = 0
+      body.masksToBounds = true
+      drop.isHidden = true
+      horizon.isHidden = true
+      stripes.isHidden = true
+      sphere.colors = cg
+      sphere.locations = profile.stops.count == cg.count ? profile.stops.map { NSNumber(value: $0) } : nil
+      sphere.startPoint = unit(0.5, 0)
+      sphere.endPoint = unit(0.5, 1)
+      if profile.fade.count >= 2 && profile.fade.count == profile.fadeStops.count {
+        fadeMask.frame = body.bounds
+        fadeMask.colors = profile.fade.map { CGColor(gray: 0, alpha: $0) }
+        fadeMask.locations = profile.fadeStops.map { NSNumber(value: $0) }
+        fadeMask.startPoint = CGPoint(x: 0, y: 0.5)
+        fadeMask.endPoint = CGPoint(x: 1, y: 0.5)
+        body.mask = fadeMask
+      }
+    } else if kind == "orb", cg.count >= 4 {
       let size = min(bounds.width, bounds.height)
       body.cornerRadius = size / 2
       body.masksToBounds = true

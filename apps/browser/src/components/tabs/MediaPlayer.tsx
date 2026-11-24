@@ -6,7 +6,7 @@ import type { Tab } from '../../state/types';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
 import { Favicon } from '../favicon/Favicon';
 import {
-  Equaliser, Fade, IconButton, Panel, Pressable, Text, geometry, presenceStyle, radius, space, useEased, useLatest, usePresence, useTheme,
+  Equaliser, Fade, GlassFill, IconButton, Panel, Pressable, Text, geometry, presenceStyle, radius, space, useEased, useLatest, usePresence, useTheme,
 } from '../ui';
 import { tabTitle } from './TabRow';
 
@@ -44,7 +44,7 @@ export function MediaPlayer() {
 
 function Player({ tab, onDismiss }: { tab: Tab; onDismiss(): void }) {
   const actions = useActions();
-  const { colors, reduceMotion } = useTheme();
+  const { colors, reduceMotion, glass } = useTheme();
   const [hovered, setHovered] = useState(false);
   const closeShown = useEased(hovered, reduceMotion);
   const media = tab.media;
@@ -55,7 +55,8 @@ function Player({ tab, onDismiss }: { tab: Tab; onDismiss(): void }) {
   const control = (action: 'play' | 'pause' | 'next' | 'previous') => () => void actions.mediaTab(tab.id, action);
   return <View onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     style={{ flexDirection: 'row', alignItems: 'center', borderRadius: radius.row, minHeight: geometry.tabRow + space.md }}>
-    <Panel fill="tabActive" radius="row" border="tabActiveBorder" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} />
+    {glass.on ? <GlassFill radius={radius.row} state={hovered ? 'lit' : 'rest'} />
+      : <Panel fill="tabActive" radius="row" border="tabActiveBorder" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }} />}
     <Pressable accessibilityRole="button" accessibilityLabel={`${title}${media?.artist ? `, ${media.artist}` : ''}, ${
       playing ? 'playing' : 'paused'} in ${page}. Go to tab`}
       onPress={() => { actions.closeHoverCard(); void actions.activateTab(tab.id); }}

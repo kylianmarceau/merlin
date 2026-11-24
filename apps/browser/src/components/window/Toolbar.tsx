@@ -2,7 +2,7 @@ import React from 'react';
 import { Animated, View } from 'react-native';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
-import { ContextMenu, DragRegion, IconButton, PaletteScope, duration, geometry, space, useColorFade, useTheme } from '../ui';
+import { ContextMenu, DragRegion, IconButton, PaletteScope, duration, geometry, isDarkSurface, space, useColorFade, useTheme } from '../ui';
 import { useSiteChrome } from '../tabs/siteChrome';
 import { AddressField } from '../omnibox/AddressField';
 import { useShortcut } from './shortcuts';
@@ -39,7 +39,9 @@ export function Toolbar() {
       : hidden && <IconButton label="Show sidebar" tip={toggle.tip} keys={toggle.keys} tipDetail={toggle.detail} icon="sidebar.left" size={size}
         onPress={() => { actions.endPeek(); void actions.command('sidebar'); }} />}
     <NavigationButtons size={size} />
-    <View style={{ flex: 1, flexDirection: 'row', marginHorizontal: space.sm }}><AddressField compact={compact} /></View>
+    <View style={{ flex: 1, flexDirection: 'row', marginHorizontal: space.sm }}>
+      <AddressField compact={compact} glassDark={isDarkSurface(chrome.bar)} />
+    </View>
     <IconButton label="Extensions" icon="shippingbox" disabled={!tab} size={size}
       selected={popover === 'extensions' || !!snapshot.extensionPopup}
       onFrame={frame => actions.setAnchor('extensions', frame)} onPress={() => actions.togglePopover('extensions')} />

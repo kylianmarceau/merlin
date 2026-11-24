@@ -35,7 +35,7 @@ export const font = {
 
 /** Sizes of recurring shell pieces, in points. */
 export const geometry = {
-  sidebar: 252, sidebarCollapsedInset: 84, stripTab: 173, stripTabMin: 96, stripTabIcon: 40, titlebar: 40, strip: 48, toolbar: 46,
+  sidebar: 252, sidebarCollapsedInset: 84, stripTab: 173, stripTabMin: 96, stripTabIcon: 40, titlebar: 40, strip: 42, toolbar: 46,
   joinedTab: 38, joinedEar: 10,
   /** Crowded tabs on top, as in Dia: none narrower than this, and the active one never narrower than its own minimum. */
   stripTabFloor: 64, stripTabActive: 128,
@@ -68,13 +68,13 @@ export const geometry = {
   /** Tab groups across the top: a chip with no title is its dot; titles are measured at about this much a character. */
   groupChip: 22, groupChipMax: 132, groupChipChar: 7, groupLine: 2,
   /** Peek's card over the page: its header. */
-  peekHeader: 44,
+  peekHeader: 44, stripPeekTop: space.xs,
   /** A tooltip's widest; a tab's hover card; the strip at the window's edge that brings hidden tabs in, and the room they keep around them. */
   tooltip: 280, hoverCard: 260, edgeStrip: 3, edgeStripWide: 8, peekSlack: 40, resizeHandle: 6, engineBadge: 11,
   /** A title's run before it fades: wider than any row, so the fade, not the text layout, ends it. */
   titleRun: 640,
-  /** The downloads button's progress ring, the page-loading bar under the address, and the icon that flies to the button. */
-  ringStroke: 2, loadingBar: 2, flyingIcon: 40,
+  /** The downloads button's progress ring and the icon that flies to the button. */
+  ringStroke: 2, flyingIcon: 40,
   /** A dragged tab leaves the tabs for the page once it is this far outside them. */
   tearOff: 24,
   /** A drop zone's dashed edge: how far inside the card it is drawn, and how thick, at rest and under the tab; the card's own edge. */
@@ -444,6 +444,7 @@ const withAlpha = (hex: string, alpha: number) => {
   const [r, g, b] = channels(hex);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
+export const addressLoadingTint = (alpha: number) => withAlpha('#80A8F7', alpha);
 /**
  * The selected pinned tile, tinted with its site's colour (the icon's main
  * colour, "#RRGGBB"), as Dia does; null without one, for the plain white card.
@@ -473,6 +474,10 @@ function luminance(hex: string) {
 export function contrastRatio(a: string, b: string) {
   const x = luminance(a), y = luminance(b);
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+export function isDarkSurface(color: string) {
+  return contrastRatio(white, color) >= contrastRatio(ink[900], color);
 }
 /** `fg` moved towards `toward` until it reaches `min` contrast on `bg`. */
 function readable(fg: string, bg: string, toward: string, min: number) {
@@ -545,7 +550,7 @@ export function siteChrome(mode: Mode, site: string | null | undefined, style: T
  * ink and a black one the dark theme's, whatever Merlin's own mode.
  */
 function matchChrome(bar: string, shell: string | null): SiteChrome {
-  const onDark = contrastRatio(white, bar) >= contrastRatio(ink[900], bar);
+  const onDark = isDarkSurface(bar);
   const toward = onDark ? white : black;
   const text = readable(onDark ? darkInk[25] : ink[900], bar, toward, 7);
   const muted = readable(mixColor(text, bar, 0.35), bar, toward, 4.5);
@@ -569,8 +574,8 @@ function matchChrome(bar: string, shell: string | null): SiteChrome {
 // barely changes the regular one, so a tint alone can't make a slider. Measured
 // in a test window, Transparency runs in two even halves instead: below the
 // middle a colour layer over the glass thickens it towards a solid panel;
-// above it the regular glass fades into the clear one. The middle is plain
-// regular glass, Ardia's look.
+// above it the regular glass fades into the clear one. The middle uses
+// Ardia's regular glass and tint.
 
 export type GlassLook = {
   /** Glass is chosen and macOS can draw it. */
@@ -584,27 +589,23 @@ export type GlassLook = {
 };
 export const classicLook: GlassLook = { on: false, translucent: true, tint: 0, transparency: 0.5 };
 
-const glassCurve = { solid: 0.95, middle: 0.5, tintAlpha: 0.25, accentShare: 0.55 } as const;
+// Control and panel tints adapted from Ardia's Glass.tsx (Apache-2.0, see NOTICE).
+const glassCurve = { solid: 0.95, middle: 0.5, tintLift: 0.25, controlShare: 0.15, panelShare: 0.15, panelTint: 0.575 } as const;
+export const controlGlassStrength = 0.5;
 /**
- * The least colour layer a centred pop-up's glass takes, whatever the
- * Transparency: it sits over the page undimmed, and plain glass over a white
- * page in dark mode (or a dark page in light mode) left its text grey on grey.
+ * The colour layer over clear glass where a centred pop-up sits over an
+ * undimmed page. At regular glass the native tint supplies the colour.
  */
 export const legibleGlass = 0.72;
 /**
- * The least colour layer an anchored popover's glass takes: enough that a
- * saturated page (Hacker News's orange bar) no longer smears through its
- * text, and that dark-mode text keeps its contrast, while it still reads as
- * glass at the clear end of Transparency.
+ * The colour layer over clear glass in popovers, which can overlap the
+ * toolbar and a page with a very different colour.
  */
 export const anchoredGlass = 0.82;
-const glassBase = { light: ink[0], dark: darkInk[850] } as const;
-const controlAlpha = { rest: 0, lit: 0.05, pressed: 0.1, active: 0.22 } as const;
-export type GlassState = keyof typeof controlAlpha;
-
-function glassHue(mode: Mode, accent: AccentName, tint: number) {
-  return tint > 0 ? mixColor(glassBase[mode], accentScale[accent][mode].base, tint * glassCurve.accentShare) : glassBase[mode];
-}
+const glassBase = { light: ink[0], dark: '#2A2A2A' } as const;
+const controlBaseAlpha = { light: 0.05, dark: 0.1 } as const;
+const controlGain = { rest: 1, lit: 2, pressed: 3, active: 6 } as const;
+export type GlassState = keyof typeof controlGain;
 
 const thousandths = (v: number) => Math.round(v * 1000) / 1000;
 
@@ -613,22 +614,25 @@ const thousandths = (v: number) => Math.round(v * 1000) / 1000;
  * `fade` how far the regular glass has faded into clear (0 to 1), and `tint`
  * the workspace colour the glass itself takes, if any.
  */
-export function panelGlass(mode: Mode, accent: AccentName, look: GlassLook, floor = 0) {
+export function panelGlass(mode: Mode, accent: AccentName, look: GlassLook, clearBacking = 0) {
   const t = Math.min(1, Math.max(0, look.transparency));
   const { middle } = glassCurve;
-  const solid = Math.max(floor, t < middle ? glassCurve.solid * (middle - t) / middle : 0);
   const fade = t > middle ? (t - middle) / (1 - middle) : 0;
+  const solid = t < middle ? glassCurve.solid * (middle - t) / middle : clearBacking * fade;
+  const color = mixColor(glassBase[mode], accentScale[accent][mode].base, look.tint * glassCurve.panelShare);
   return {
-    fill: withAlpha(glassHue(mode, accent, look.tint), thousandths(solid)),
+    fill: withAlpha(color, thousandths(solid)),
     fade: thousandths(fade),
-    tint: look.tint > 0 ? withAlpha(glassHue(mode, accent, 1), thousandths(look.tint * glassCurve.tintAlpha)) : undefined,
+    tint: withAlpha(color, glassCurve.panelTint),
   };
 }
 
 /** A control's glass plate (a lit button, the address field, a pinned tile). */
 export function controlGlass(mode: Mode, accent: AccentName, look: GlassLook, state: GlassState) {
-  const lift = (1 - look.transparency) * controlAlpha.lit;
-  return withAlpha(glassHue(mode, accent, look.tint), controlAlpha[state] + (state === 'rest' ? 0 : lift));
+  const base = mode === 'dark' ? white : black;
+  const color = mixColor(base, accentScale[accent][mode].base, look.tint);
+  const alpha = controlBaseAlpha[mode] * glassCurve.controlShare * controlGain[state] + look.tint * glassCurve.tintLift;
+  return withAlpha(color, thousandths(alpha));
 }
 
 /** The window shell's tint over its vibrancy: more transparent glass shows more of the desktop; Classic is opaque. */

@@ -219,7 +219,7 @@ export const FavouriteTile = React.memo(function FavouriteTile({ tab, active, wi
       backgroundColor: colors[active || glass.on ? 'fillTransparent' : pressed ? 'tilePinnedPressed' : hovered ? 'tilePinnedHover' : 'tilePinned'] })}>
     {({ pressed }) => <>
       {/* With Glass, pinned tiles are glass plates, lit on hover and brightest when chosen, as in Ardia. */}
-      {glass.on && <GlassFill radius={radius.tile} state={active ? 'active' : pressed ? 'pressed' : hovered ? 'lit' : 'rest'} />}
+      {glass.on && <GlassFill radius={radius.tile} state={pressed ? 'pressed' : active ? 'active' : hovered ? 'lit' : 'rest'} />}
       {/* Glass's own lit plate is faint; the tile still lights almost to white, as Dia's does. */}
       {glass.on && !active && (hovered || pressed) && <View pointerEvents="none" style={[cover, { borderRadius: radius.tile,
         backgroundColor: colors[pressed ? 'tilePinnedPressed' : 'tilePinnedHover'] }]} />}
@@ -271,7 +271,7 @@ export function FolderTile({ folder, tabs, activeId }: { folder: FavouriteFolder
         justifyContent: 'center', backgroundColor: colors[chosen || glass.on ? 'fillTransparent' : pressed ? 'tilePinnedPressed'
           : hovered ? 'tilePinnedHover' : 'tilePinned'] })}>
       {({ pressed }) => <>
-        {glass.on && <GlassFill radius={radius.tile} state={chosen ? 'active' : pressed ? 'pressed' : hovered ? 'lit' : 'rest'} />}
+        {glass.on && <GlassFill radius={radius.tile} state={pressed ? 'pressed' : chosen ? 'active' : hovered ? 'lit' : 'rest'} />}
         {glass.on && !chosen && (hovered || pressed) && <View pointerEvents="none" style={[cover, { borderRadius: radius.tile,
           backgroundColor: colors[pressed ? 'tilePinnedPressed' : 'tilePinnedHover'] }]} />}
         {chosen && !glass.on && <Panel fill="tilePinnedActive" radius="tile" elevation="tab" border="tabActiveBorder" style={cover} />}

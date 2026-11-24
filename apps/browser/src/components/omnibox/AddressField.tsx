@@ -6,7 +6,8 @@ import { securityBadge } from '../../lib/security';
 import { currentSuggestions } from '../../state/store';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useActiveTab, useBrowser, useSnapshot } from '../../state/window';
-import { Icon, IconButton, LoadingBar, Text, duration, useEscape, usePop, useTheme, font, geometry, radius, space, Pressable } from '../ui';
+import { GlassFill, Icon, IconButton, JoinedSurface, LoadingBar, Text, duration, useEscape, usePop, useTheme, font, geometry, radius, space, Pressable } from '../ui';
+import { useAddressDropdown } from './useAddressDropdown';
 
 /**
  * The address and search field. Chromium's address-bar engine suggests as the
@@ -21,16 +22,17 @@ import { Icon, IconButton, LoadingBar, Text, duration, useEscape, usePop, useThe
  * rings it in the accent. `listens` is false for a second field on screen
  * (the sidebar peeking over the page), which leaves focus requests alone.
  */
-export function AddressField({ variant = 'toolbar', compact = false, listens = true }: {
-  variant?: 'toolbar' | 'shell'; compact?: boolean; listens?: boolean;
+export function AddressField({ variant = 'toolbar', compact = false, listens = true, glassDark }: {
+  variant?: 'toolbar' | 'shell'; compact?: boolean; listens?: boolean; glassDark?: boolean;
 }) {
-  const { colors, reduceMotion } = useTheme();
+  const { colors, reduceMotion, glass, dark } = useTheme();
   const snapshot = useSnapshot();
   const actions = useActions();
   const tab = useActiveTab();
   const focusRequest = useBrowser(s => s.addressFocus);
   const revertRequest = useBrowser(s => s.addressRevert);
-  const omnibox = useBrowser(s => s.omnibox);
+  const dropdown = useAddressDropdown();
+  const { omnibox } = dropdown;
   const revealed = useBrowser(s => s.revealedPromptId);
   const [editing, setEditing] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -122,22 +124,28 @@ export function AddressField({ variant = 'toolbar', compact = false, listens = t
   const saved = usePop(!!tab?.bookmarked, reduceMotion, tab?.id);
   const insert = snapshot.modal.modalBrowsing !== false && snapshot.modal.mode === 'Insert';
 
-  // The field looks the same with Glass as with Classic.
   const fill = shell
     ? colors[editing ? 'fillShellControlActive' : hovered ? 'fillShellControlActive' : 'fillShellControl']
     : colors[editing ? 'omniboxActive' : hovered ? 'omniboxHover' : 'omniboxIdle'];
+  const joined = editing ? dropdown.joined : undefined;
+  const addressDark = glassDark ?? dark;
   return <View ref={frame} onLayout={measure} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     style={{ flex: shell ? undefined : 1, flexDirection: 'row', alignItems: 'center', gap: space.xs,
-      height: shell ? geometry.address : compact ? geometry.controlCompact : geometry.controlLarge, paddingLeft: space.md, paddingRight: space.xs,
-      borderRadius: radius.field, backgroundColor: fill,
-      borderWidth: geometry.hairline, borderColor: colors[insert && !editing ? 'modeInsert' : editing && !shell ? 'borderDefault' : 'fillTransparent'] }}>
-    {/* The page loading runs along the field's bottom edge; a new tab starts its own. */}
-    <LoadingBar key={tab?.id ?? ''} loading={!!tab?.loading && !start} inset={radius.field} />
+      height: shell ? geometry.address : compact ? geometry.controlCompact : geometry.controlLarge,
+      paddingLeft: space.md + (joined ? geometry.hairline : 0), paddingRight: space.xs + (joined ? geometry.hairline : 0),
+      borderRadius: joined ? 0 : radius.field, backgroundColor: joined || glass.on ? colors.fillTransparent : fill,
+      borderWidth: joined ? 0 : geometry.hairline,
+      borderColor: colors[insert && !editing ? 'modeInsert' : editing && !shell ? 'borderDefault' : 'fillTransparent'] }}>
+    {joined && <JoinedSurface fill={dropdown.colors.surfacePopoverSolid} border={dropdown.colors.surfaceBorder}
+      radius={radius.field} join="bottom" edges={joined} />}
+    {glass.on && !joined && <GlassFill radius={radius.field} state={editing ? 'active' : hovered ? 'lit' : 'rest'} dark={glassDark} />}
+    {!start && <LoadingBar key={tab?.id} loading={!!tab?.loading} />}
     {start && !editing && <Icon name="magnifyingglass" tone="iconSecondary" size="small" />}
     <View style={{ flex: 1, justifyContent: 'center' }}>
       <TextInput ref={input} accessibilityLabel="Address and search" enableFocusRing={false}
         placeholder={editing || start ? 'Search or enter an address' : undefined}
-        placeholderTextColor={colors.textSecondary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
+        placeholderTextColor={joined ? dropdown.colors.textSecondary : colors.textSecondary} selectionColor={colors.textSelection}
+        cursorColor={joined ? dropdown.colors.textPrimary : colors.textPrimary}
         value={editing ? text : ''} onFocus={begin} onBlur={finish}
         onChangeText={next => {
           // Typing always edits, even if the focus event went missing.
@@ -145,7 +153,7 @@ export function AddressField({ variant = 'toolbar', compact = false, listens = t
           if (blurTimer.current) { clearTimeout(blurTimer.current); blurTimer.current = null; }
           deleting.current = next.length < text.length;
           setText(next);
-          actions.suggest(next, deleting.current);
+          actions.suggest(next, deleting.current, 'address', addressDark);
         }}
         onSubmitEditing={() => submit(false)}
         keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Tab' }, { key: 'Enter', metaKey: true }]}
@@ -153,11 +161,11 @@ export function AddressField({ variant = 'toolbar', compact = false, listens = t
           const key = e.nativeEvent.key;
           if (key === 'ArrowDown') actions.moveSuggestion(1);
           else if (key === 'ArrowUp') actions.moveSuggestion(-1);
-          else if (key === 'Tab' && completion) { setText(text + completion); actions.suggest(text + completion, false); }
+          else if (key === 'Tab' && completion) { setText(text + completion); actions.suggest(text + completion, false, 'address', addressDark); }
           else if (key === 'Enter' && e.nativeEvent.metaKey) submit(true);
         }}
         onKeyPress={e => { if (e.nativeEvent.key === 'Escape') escape(); }}
-        style={{ color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.body }} />
+        style={{ color: joined ? dropdown.colors.textPrimary : colors.textPrimary, fontFamily: font.family, fontSize: font.size.body }} />
       {!editing && !start && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
         flexDirection: 'row', alignItems: 'center' }}>
         <Text weight="medium" lines={1} style={{ flexShrink: 0, maxWidth: '100%' }}>{leftToRight(label)}</Text>

@@ -20,11 +20,13 @@ export type WindowFacts = { key: boolean; leftEdge: boolean; topEdge: boolean };
  * screen's (`onState`); shows or hides its traffic lights (`windowButtons`)
  * and names it in the Window menu (`title`).
  */
-export function FullScreenWatch({ onChange, onState, windowButtons = true, title }: {
-  onChange(fullScreen: boolean): void; onState?(facts: WindowFacts): void; windowButtons?: boolean; title?: string;
+export function FullScreenWatch({ onChange, onState, windowButtons = true, windowButtonsCenter = 0, title }: {
+  onChange(fullScreen: boolean): void; onState?(facts: WindowFacts): void;
+  windowButtons?: boolean; windowButtonsCenter?: number; title?: string;
 }) {
   return <WindowState pointerEvents="none" style={{ position: 'absolute', width: 0, height: 0 }} windowButtons={windowButtons}
-    windowTitle={title} onFullScreen={e => onChange(e.nativeEvent.fullScreen)} onWindowState={e => onState?.(e.nativeEvent)} />;
+    windowButtonsCenter={windowButtonsCenter} windowTitle={title}
+    onFullScreen={e => onChange(e.nativeEvent.fullScreen)} onWindowState={e => onState?.(e.nativeEvent)} />;
 }
 
 /**

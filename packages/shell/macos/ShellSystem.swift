@@ -244,16 +244,59 @@ final class MerlinWindowState: ExpoView {
   // when the tabs peek in from the edge. Never hidden in macOS full screen,
   // where they live in the menu bar's drop-down title bar.
   var windowButtons = true { didSet { applyButtons() } }
+  // A browser tab strip can set the center from the top of the content view.
+  // Zero lets AppKit place the buttons.
+  var windowButtonsCenter = 0.0 { didSet { applyButtons() } }
+  private var buttonPositions: [NSWindow.ButtonType: (button: NSButton, original: CGFloat, placed: CGFloat)] = [:]
+  private var observedButtons: [NSWindow.ButtonType: (button: NSButton, observer: NSObjectProtocol)] = [:]
   // The window's name in the Window menu and Mission Control: the front tab's
   // title, as in Dia. Chromium names every window "Merlin" whenever a tab
   // changes, so the name is put back each time it does.
   var windowTitle: String? { didSet { applyTitle() } }
 
-  private func applyButtons() {
-    guard let window else { return }
-    let hide = !windowButtons && !window.styleMask.contains(.fullScreen)
+  private func observeFrame(of button: NSButton, kind: NSWindow.ButtonType) {
+    if let prior = observedButtons[kind] {
+      if prior.button === button { return }
+      NotificationCenter.default.removeObserver(prior.observer)
+    }
+    button.postsFrameChangedNotifications = true
+    let observer = NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification,
+                                                          object: button, queue: .main) { [weak self, weak button] _ in
+      guard let self, let button, let placed = self.buttonPositions[kind], placed.button === button,
+            placed.placed != button.frame.minY else { return }
+      // AppKit retiles the title bar as a group, including after title and visibility changes.
+      DispatchQueue.main.async { [weak self] in self?.applyButtons() }
+    }
+    observedButtons[kind] = (button, observer)
+  }
+
+  private func applyButtons(restorePositions: Bool = false) {
+    guard let window, let content = window.contentView else { return }
+    let fullScreen = window.styleMask.contains(.fullScreen)
+    let hide = !windowButtons && !fullScreen
     for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-      if let button = window.standardWindowButton(kind), button.isHidden != hide { button.isHidden = hide }
+      guard let button = window.standardWindowButton(kind), let parent = button.superview else { continue }
+      if button.isHidden != hide { button.isHidden = hide }
+      let current = button.frame.origin
+      let previous = buttonPositions[kind]
+      let original: CGFloat
+      if let previous, previous.button === button, previous.placed == current.y {
+        original = previous.original
+      } else {
+        original = current.y
+      }
+      if fullScreen || restorePositions || hide || windowButtonsCenter <= 0 {
+        buttonPositions[kind] = nil
+        if original != current.y { button.setFrameOrigin(NSPoint(x: current.x, y: original)) }
+        continue
+      }
+      observeFrame(of: button, kind: kind)
+      let depth = CGFloat(windowButtonsCenter)
+      let y = content.isFlipped ? content.bounds.minY + depth : content.bounds.maxY - depth
+      let center = parent.convert(NSPoint(x: 0, y: y), from: content)
+      let origin = center.y - button.frame.height / 2
+      buttonPositions[kind] = (button, original, origin)
+      if current.y != origin { button.setFrameOrigin(NSPoint(x: current.x, y: origin)) }
     }
   }
 
@@ -267,7 +310,14 @@ final class MerlinWindowState: ExpoView {
     observers.forEach(NotificationCenter.default.removeObserver)
     observers = []
     titleWatch = nil
+    buttonPositions.removeAll()
+    observedButtons.values.forEach { NotificationCenter.default.removeObserver($0.observer) }
+    observedButtons.removeAll()
     guard let window else { return }
+    observers.append(NotificationCenter.default.addObserver(forName: NSWindow.willEnterFullScreenNotification,
+                                                             object: window, queue: .main) { [weak self] _ in
+      self?.applyButtons(restorePositions: true)
+    })
     for name in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
       observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
         self?.report()
@@ -280,6 +330,7 @@ final class MerlinWindowState: ExpoView {
                  NSApplication.didResignActiveNotification] {
       let object: Any? = name.rawValue.hasPrefix("NSApplication") ? nil : window
       observers.append(NotificationCenter.default.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
+        self?.applyButtons()
         self?.reportState()
       })
     }
@@ -287,8 +338,8 @@ final class MerlinWindowState: ExpoView {
       DispatchQueue.main.async { self?.applyTitle() }
     }
     report()
-    applyButtons()
     applyTitle()
+    applyButtons()
     reportState()
   }
 

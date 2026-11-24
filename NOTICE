@@ -18,9 +18,13 @@ licensed under the Apache License, Version 2.0
   stored, announced to the Dock tile and redrawn for the system icon style
   (from Ardia's AppIcons).
 - pnpm-patches/: fixes to React Native macOS and Expo Modules Core.
+- apps/browser/src/components/ui/LoadingBar.tsx: the address-field loading
+  glow's gradient geometry (from Ardia's fieldLoadDrive and toolbar tokens).
+- apps/browser/src/components/ui/tokens.ts: Liquid Glass control and panel
+  tint calculations (from Ardia's Glass.tsx).
 
-All of it comes from Ardia's own source files (packages/shell and the
-root patches/ folder), which Ardia licenses under Apache-2.0. None comes
+All of it comes from Ardia's own source files (apps/browser, packages/shell
+and the root patches/ folder), which Ardia licenses under Apache-2.0. None comes
 from Ardia's engine patches (engine/), which are GPL-3.0.
 
 The adapted files carry a notice saying so. Changes: renamed, reduced to

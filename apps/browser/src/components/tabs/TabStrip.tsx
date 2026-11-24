@@ -3,18 +3,22 @@ import { Animated, PanResponder, ScrollView, View } from 'react-native';
 import type { Tab } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import {
-  ContextMenu, DragRegion, Fade, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
+  ContextMenu, DragRegion, Fade, GlassFill, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
   groupColorRoles, opacity, tick, useEased, useHeld, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
 } from '../ui';
 import { StripGroupChip, chipWidth } from './TabGroups';
 import { Favicon } from '../favicon/Favicon';
 import { SoundButton, tabTitle as rowTitle } from './TabRow';
 import { useSiteChrome } from './siteChrome';
-import { DownloadsButton, LibraryButtons } from './WindowButtons';
+import { DownloadsButton } from './WindowButtons';
 import { dropBefore, dropPlace, itemSlot, layoutStrip, reflow, type Slot, type StripItem, type StripLayout, type StripMetrics } from './stripLayout';
 
 // Tabs sit on the bottom of the strip, so the active one can join the toolbar.
 const tabTop = geometry.strip - geometry.joinedTab;
+// The joined shape reaches the toolbar while its controls center in the strip.
+const tabContentHeight = geometry.joinedTab - tabTop;
+const trayHeight = geometry.joinedTab - space.sm;
+const trayTop = (geometry.strip - trayHeight) / 2;
 const gap = geometry.hairline;
 const metrics: StripMetrics = {
   tab: geometry.stripTab, tabMin: geometry.stripTabMin, floor: geometry.stripTabFloor, active: geometry.stripTabActive,
@@ -51,7 +55,7 @@ export function TabStrip({ floating = false }: {
 } = {}) {
   const snapshot = useSnapshot();
   const actions = useActions();
-  const { colors } = useTheme();
+  const { colors, glass } = useTheme();
   const chrome = useSiteChrome();
   const [room, setRoom] = useState(0);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -133,14 +137,16 @@ export function TabStrip({ floating = false }: {
   const plusX = (layout.scrolls ? layout.lane : layout.end) + space.xs;
   const tabsDrawn = <>
     {!!layout.pinned.length && <View pointerEvents="none" style={{ position: 'absolute', left: -space.hair,
-      width: layout.pinnedEnd + space.xs, top: tabTop + space.xs, height: geometry.joinedTab - space.sm, borderRadius: radius.field,
-      backgroundColor: colors.fillShellGroup }} />}
+      width: layout.pinnedEnd + space.xs, top: trayTop, height: trayHeight, borderRadius: radius.field,
+      backgroundColor: glass.on ? colors.fillTransparent : colors.fillShellGroup }}>
+      {glass.on && <GlassFill radius={radius.field} state="rest" />}
+    </View>}
     {!drag && layout.chips.map(chip => chip.end > chip.x + chip.width &&
       <View key={`wash:${chip.group.id}`} pointerEvents="none" style={{ position: 'absolute', left: chip.x - space.hair,
-        width: chip.end - chip.x + space.hair * 2, top: tabTop + space.xs, height: geometry.joinedTab - space.sm,
+        width: chip.end - chip.x + space.hair * 2, top: trayTop, height: trayHeight,
         borderRadius: radius.field, backgroundColor: colors[groupColorRoles[chip.group.color]], opacity: opacity.groupWash }} />)}
     {layout.chips.map(chip => <StripGroupChip key={`chip:${chip.group.id}`} group={chip.group} x={chip.x} width={chip.width}
-      top={tabTop} height={geometry.joinedTab} />)}
+      top={tabTop} height={tabContentHeight} />)}
     {!floating && <JoinedShape slot={activeItem ? slotOf(activeItem) : null} color={chrome.bar} hidden={!!activeItem && activeItem === lifted}
       following={following && activeItem?.key === drag?.key} />}
     {[...shown, ...(lifted ? [lifted] : [])].map(item => {
@@ -161,7 +167,7 @@ export function TabStrip({ floating = false }: {
     })}
   </>;
   return <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: geometry.strip, flexDirection: 'row',
-    paddingLeft: geometry.sidebarCollapsedInset, paddingRight: space.sm + space.hair }}
+    paddingLeft: geometry.sidebarCollapsedInset + space.xs, paddingRight: space.sm + space.hair }}
     onMouseEnter={() => { inside.current = true; }} onMouseLeave={() => { inside.current = false; setHold(0); }}>
     <DragRegion style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
     {snapshot.private && <View style={{ height: geometry.strip, justifyContent: 'center', marginRight: space.sm }}>
@@ -175,9 +181,7 @@ export function TabStrip({ floating = false }: {
         <PlusButton x={plusX} onPress={() => void actions.openNewTab()} />
       </>}
     </View>
-    <View style={{ height: geometry.strip, flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
-      <LibraryButtons />
-      {/* Last, so its popover hangs at the window's right edge, as in Ardia. */}
+    <View style={{ justifyContent: 'center' }}>
       <DownloadsButton />
     </View>
   </View>;
@@ -247,7 +251,7 @@ type StripTabProps = DragHandlers & {
 
 const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow = false, dragFill, lifted, roles, pill = false, onDrag, onDrop }: StripTabProps) {
   const actions = useActions();
-  const { colors, reduceMotion } = useTheme();
+  const { colors, reduceMotion, glass } = useTheme();
   const { focused, handlers } = useInteraction();
   const [hovered, setHovered] = useState(false);
   const dragging = dragFill !== undefined;
@@ -282,10 +286,10 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
       backgroundColor: dragFill, borderTopLeftRadius: dragging ? radius.tab : undefined, borderTopRightRadius: dragging ? radius.tab : undefined }}>
     <Animated.View style={{ flex: 1, opacity: there.progress }}>
       {pill && !dragging && <Panel fill="tabActive" radius="control" elevation="tab" border="tabActiveBorder" style={{ position: 'absolute', top: space.xs,
-        bottom: space.xs, left: space.hair, right: space.hair }} />}
-      <Animated.View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs,
-        left: space.hair, right: space.hair, borderRadius: radius.control, backgroundColor: colors.tabHoverInset, opacity: wash }} />
-      {focused && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs,
+        bottom: space.xs + tabTop, left: space.hair, right: space.hair }} />}
+      {(!glass.on || !icon) && <Animated.View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop,
+        left: space.hair, right: space.hair, borderRadius: radius.control, backgroundColor: colors.tabHoverInset, opacity: wash }} />}
+      {focused && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop,
         left: space.hair, right: space.hair, borderRadius: radius.control, borderWidth: geometry.focusRing, borderColor: colors.focusRing }} />}
       <ContextMenu onOpen={() => { actions.closeHoverCard(); void actions.tabMenu(tab.id); }} style={{ flex: 1 }}>
         <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={label}
@@ -296,19 +300,25 @@ const StripTab = React.memo(function StripTab({ tab, slot, active, icon, narrow 
           // Like a folder tab: it comes forward as soon as it is pressed.
           onPressIn={() => { actions.closeHoverCard(); if (!active) void actions.activateTab(tab.id); }}
           style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.sm, justifyContent: icon ? 'center' : 'flex-start',
-            paddingLeft: icon ? 0 : space.md,
+            paddingLeft: icon ? 0 : space.md, paddingBottom: tabTop,
             paddingRight: icon ? 0 : (narrow ? space.xs : geometry.control) + (sound ? geometry.control - space.sm : 0) }}>
-          <View style={{ width: geometry.favicon, height: geometry.favicon, alignItems: 'center', justifyContent: 'center' }}>
-            <Favicon tab={tab} busy={tab.loading && !active} badges />
-          </View>
-          {/* Wider than the tab, so the fade, not the text layout, ends the title (which otherwise stopped a letter short). */}
-          {!icon && <Fade style={{ flex: 1 }}>
-            <Text lines={1} ellipsizeMode="clip" style={{ width: geometry.titleRun }}
-              tone={active ? 'tabTextActive' : tab.discarded ? 'textTertiary' : 'tabText'} weight={active ? 'medium' : undefined}>{title}</Text>
-          </Fade>}
+          {({ pressed }) => <>
+            {glass.on && icon && !dragging && (active || hovered || pressed) && <View pointerEvents="none"
+              style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop, left: space.hair, right: space.hair }}>
+              <GlassFill radius={radius.control} state={pressed ? 'pressed' : active ? 'active' : 'lit'} />
+            </View>}
+            <View style={{ width: geometry.favicon, height: geometry.favicon, alignItems: 'center', justifyContent: 'center' }}>
+              <Favicon tab={tab} busy={tab.loading && !active} badges />
+            </View>
+            {/* The fade ends the title run. */}
+            {!icon && <Fade style={{ flex: 1 }}>
+              <Text lines={1} ellipsizeMode="clip" style={{ width: geometry.titleRun }}
+                tone={active ? 'tabTextActive' : tab.discarded ? 'textTertiary' : 'tabText'} weight={active ? 'medium' : undefined}>{title}</Text>
+            </Fade>}
+          </>}
         </Pressable>
       </ContextMenu>
-      {!icon && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: 0, flexDirection: 'row', alignItems: 'center' }}>
+      {!icon && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: tabTop, flexDirection: 'row', alignItems: 'center' }}>
         {/* A muted tab's icon says so; its unmute button waits for the pointer. */}
         {sound && (!tab.muted || hovered) && <SoundButton tab={tab} title={title} />}
         <Animated.View pointerEvents={closeOn ? 'auto' : 'none'} style={{ opacity: closeShown }}>
@@ -350,7 +360,7 @@ const StripSplit = React.memo(function StripSplit({ tabs, slot, activeId, icon, 
   const body = <Animated.View
     style={{ position: 'absolute', top: tabTop, left: x, width, height: geometry.joinedTab, zIndex: dragging ? 2 : undefined,
       backgroundColor: dragFill, borderTopLeftRadius: dragging ? radius.tab : undefined, borderTopRightRadius: dragging ? radius.tab : undefined }}>
-    {!active && !pinned && !dragging && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs, left: space.hair,
+    {!active && !pinned && !dragging && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop, left: space.hair,
       right: space.hair, borderRadius: radius.field, backgroundColor: colors.splitChip }} />}
     <View style={{ flex: 1, flexDirection: 'row' }}>
       {tabs.map((tab, i) => <SplitSide key={tab.id} tab={tab} first={i === 0} focused={tab.id === activeId} inActive={active}
@@ -373,10 +383,10 @@ function SplitSide({ tab, first, focused, inActive, icon, lifted, onDrag, onDrop
   const closing = !icon && hovered;
   return <Animated.View {...pan.panHandlers} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     style={{ flex: 1, opacity: there.progress }}>
-    {(keyFocus || (!focused && hovered)) && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs,
+    {(keyFocus || (!focused && hovered)) && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs, bottom: space.xs + tabTop,
       left: space.hair, right: space.hair, borderRadius: radius.control, backgroundColor: colors[focused ? 'fillTransparent' : 'tabHoverInset'],
       borderWidth: geometry.focusRing, borderColor: colors[keyFocus ? 'focusRing' : 'fillTransparent'] }} />}
-    {!first && <View pointerEvents="none" style={{ position: 'absolute', left: -gap, top: (geometry.joinedTab - geometry.iconSmall) / 2,
+    {!first && <View pointerEvents="none" style={{ position: 'absolute', left: -gap, top: (tabContentHeight - geometry.iconSmall) / 2,
       width: geometry.hairline, height: geometry.iconSmall, backgroundColor: colors.tabDivider }} />}
     <ContextMenu onOpen={() => void actions.tabMenu(tab.id)} style={{ flex: 1 }}>
       <Pressable accessibilityRole="button" accessibilityState={{ selected: focused }}
@@ -387,7 +397,8 @@ function SplitSide({ tab, first, focused, inActive, icon, lifted, onDrag, onDrop
         }}
         onPressIn={() => { if (!focused) void actions.activateTab(tab.id); }}
         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: space.sm, justifyContent: icon ? 'center' : 'flex-start',
-          paddingLeft: icon ? 0 : first ? space.md : space.sm, paddingRight: icon ? 0 : closing ? geometry.control : space.sm }}>
+          paddingLeft: icon ? 0 : first ? space.md : space.sm, paddingBottom: tabTop,
+          paddingRight: icon ? 0 : closing ? geometry.control : space.sm }}>
         {first && !icon && <Icon name="rectangle.split.2x1" size="small" tone="iconSecondary" />}
         <View style={{ width: geometry.favicon, height: geometry.favicon, alignItems: 'center', justifyContent: 'center' }}>
           <Favicon tab={tab} busy={tab.loading && !focused} badges />
@@ -398,7 +409,7 @@ function SplitSide({ tab, first, focused, inActive, icon, lifted, onDrag, onDrop
         </Fade>}
       </Pressable>
     </ContextMenu>
-    {closing && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: 0, justifyContent: 'center' }}>
+    {closing && <View style={{ position: 'absolute', right: space.xs, top: 0, bottom: tabTop, justifyContent: 'center' }}>
       <IconButton label={`Close ${title}`} icon="xmark" size="small" onPress={() => void actions.closeTab(tab.id)} />
     </View>}
   </Animated.View>;
@@ -444,7 +455,7 @@ function ScrolledLane({ layout, activeSlot, still, children }: React.PropsWithCh
 function PlusButton({ x, onPress }: { x: number; onPress(): void }) {
   const { reduceMotion } = useTheme();
   const slide = useSlide({ x, width: 0 }, reduceMotion);
-  return <Animated.View style={{ position: 'absolute', left: slide.x, top: tabTop, height: geometry.joinedTab, justifyContent: 'center' }}>
+  return <Animated.View style={{ position: 'absolute', left: slide.x, top: tabTop, height: tabContentHeight, justifyContent: 'center' }}>
     <IconButton label="New tab" icon="plus" onPress={onPress} />
   </Animated.View>;
 }

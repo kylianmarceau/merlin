@@ -2,6 +2,7 @@ import React from 'react';
 import { Animated, ScrollView, View, type ViewStyle } from 'react-native';
 import { OutsidePress, type OutsidePressEvent } from '../../platform/shell';
 import { PopoverSurface } from './PopoverSurface';
+import { JoinedSurface } from './JoinedSurface';
 import { presenceStyle, useLatest, usePresence, type PresenceKind } from './motion';
 import { Panel } from './Panel';
 import { useTheme } from './theme';
@@ -11,8 +12,8 @@ export type Frame = { x: number; y: number; width: number; height: number };
 export type Placement = 'below-start' | 'below-end' | 'below-center' | 'above-start' | 'above-end' | 'right-start';
 
 /** Where a popover of `size` goes next to `anchor`, kept inside `bounds`. */
-export function placePopover(anchor: Frame, size: { width: number }, bounds: { width: number; height: number }, placement: Placement) {
-  const gap = space.xs + space.hair;
+export function placePopover(anchor: Frame, size: { width: number }, bounds: { width: number; height: number }, placement: Placement,
+  gap = space.xs + space.hair) {
   const end = placement === 'below-end' || placement === 'above-end';
   let left = end ? anchor.x + anchor.width - size.width
     : placement === 'below-center' ? anchor.x + anchor.width / 2 - size.width / 2
@@ -60,11 +61,10 @@ export function autoPlacement(anchor: Frame | undefined, bounds: { height: numbe
  * animates out of its arrow, closes on Escape, on a press anywhere outside it
  * (including on the web page) and when the window loses focus, and never
  * dims or blocks the page. Its content sets its own side padding (see
- * PopoverRow and MenuRow). `arrow={false}` attaches it flush, without an
- * arrow, as the address suggestions are.
+ * PopoverRow and MenuRow). `arrow={false}` draws a plain panel.
  */
 export function Popover({ open, anchor, bounds, placement = 'below-start', width = 'popover', kind = 'popover', fill,
-  label, onClose, children, flush = false, instant = false, arrow = true }: {
+  label, onClose, children, flush = false, instant = false, arrow = true, cornerRadius, joined }: {
   open: boolean; anchor: Frame | undefined; bounds: { width: number; height: number }; placement?: Placement;
   width?: keyof typeof geometry | number; kind?: PresenceKind; fill?: ColorRole; label: string;
   /** Why it should close: a press outside it (also on the page), Escape, or the window losing focus. */
@@ -73,8 +73,11 @@ export function Popover({ open, anchor, bounds, placement = 'below-start', width
   /** Shows and hides at once, like the address field's suggestions: a list that faded out over the page after Enter read as the page fading in. */
   instant?: boolean;
   arrow?: boolean;
+  cornerRadius?: number;
+  /** Continues the anchor's fill and edges down into an arrowless panel. */
+  joined?: { left: boolean; right: boolean };
 }) {
-  const { reduceMotion } = useTheme();
+  const { colors, reduceMotion } = useTheme();
   const { mounted, progress } = usePresence(open && !!anchor, kind, reduceMotion || instant);
   const frame = useLatest(anchor);
   const content = useLatest(open ? children : null);
@@ -87,7 +90,7 @@ export function Popover({ open, anchor, bounds, placement = 'below-start', width
   const escape = open && !instant;
 
   if (flush || !arrow) {
-    const place = placePopover(frame, { width: w }, bounds, placement);
+    const place = placePopover(frame, { width: w }, bounds, placement, joined ? 0 : undefined);
     const upward = place.bottom !== undefined;
     return <OutsidePress onOutsidePress={close} closesOnEscape={escape} style={{ position: 'absolute', top: place.top, bottom: place.bottom, left: place.left, width: w }}>
       <Animated.View style={presenceStyle(progress, kind, undefined, upward)} accessibilityViewIsModal={false} {...keys}>
@@ -95,8 +98,11 @@ export function Popover({ open, anchor, bounds, placement = 'below-start', width
           ? <Panel fill="contentBackground" radius="card" elevation="popover" accessibilityLabel={label} style={{ maxHeight: place.maxHeight }}>
             <View style={{ maxHeight: place.maxHeight }}>{content}</View>
           </Panel>
-          : <View accessibilityLabel={label}>
-            <PopoverSurface fill={fill ?? 'surfacePopoverSolid'} elevation={kind === 'menu' ? 'menu' : 'popover'} glassFloor={anchoredGlass} />
+          : <View accessibilityLabel={label} style={joined ? { paddingHorizontal: geometry.hairline, paddingBottom: geometry.hairline } : undefined}>
+            {joined ? <JoinedSurface fill={colors[fill ?? 'surfacePopoverSolid']} border={colors.surfaceBorder}
+              radius={cornerRadius ?? 0} join="top" edges={joined} />
+              : <PopoverSurface fill={fill ?? 'surfacePopoverSolid'} radius={cornerRadius}
+              elevation={kind === 'menu' ? 'menu' : 'popover'} glassFloor={anchoredGlass} />}
             <ScrollView style={{ maxHeight: place.maxHeight }} contentContainerStyle={{ paddingVertical: space.xs + space.hair }}>
               {content}
             </ScrollView>
