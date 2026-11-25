@@ -56,7 +56,11 @@ fixture page (`MerlinTestCase.reset`).
   get a folder of the run's own (`MERLIN_WEBKIT_TEST_FOLDER`): a data store
   made for the run (`WKWebsiteDataStore(forIdentifier:)`, removed when the
   instance closes) and an icon cache, so tests never read or clear your
-  WebKit sign-ins. Your own Merlin keeps running and its
+  WebKit sign-ins. The runner tests a copy of the app (an APFS clone) under
+  its own bundle ID, `io.github.kylianmarceau.merlin.e2e`, so the
+  interface's settings and spaces go in that copy's preferences domain,
+  which each instance starts with empty; the harness refuses to launch an
+  app under any other bundle ID. Your own Merlin keeps running and its
   profile, config, sign-ins and clipboard are not touched. No test reads or
   writes the clipboard. Shell preferences live in the app's macOS defaults,
   which tests only read. A process-only defaults argument disables the new-tab

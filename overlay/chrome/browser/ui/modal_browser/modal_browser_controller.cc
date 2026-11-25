@@ -1576,6 +1576,14 @@ void ModalBrowserController::SnapshotWorkspace(std::string_view name,
 void ModalBrowserController::WriteWorkspace(std::string_view name,
                                             std::string_view contents,
                                             std::string_view message) {
+  // One saved name per space, from now: a :space open straight after a
+  // save needn't wait for the write, or for the shell to hear of it.
+  if (!active_space_.empty()) {
+    std::erase_if(saved_spaces_, [&](const auto& entry) {
+      return entry.second == active_space_;
+    });
+    saved_spaces_[std::string(name)] = active_space_;
+  }
   workspace_store::Write(std::string(name), std::string(contents),
                          base::BindOnce(
                              [](base::WeakPtr<ModalBrowserController> self,
@@ -1595,14 +1603,6 @@ void ModalBrowserController::WriteWorkspace(std::string_view name,
                                  // The shell keeps which space is saved
                                  // under which name.
                                  if (!space.empty()) {
-                                   // One saved name per space, at once: a
-                                   // :space open right after needn't wait
-                                   // for the shell to say so.
-                                   std::erase_if(self->saved_spaces_,
-                                                 [&](const auto& entry) {
-                                                   return entry.second == space;
-                                                 });
-                                   self->saved_spaces_[name] = space;
                                    SendShellSpaceEvent(self->browser_, "saved",
                                                        name, space);
                                  }
