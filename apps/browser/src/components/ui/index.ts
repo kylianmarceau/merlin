@@ -30,7 +30,7 @@ export { Sheet, SheetBody, useSheetScroll, type SheetSection } from './Sheet';
 export { AreaLight, Badge, EmptyState, Equaliser, IconTile, Notice, ProgressRing, ProgressTrack, Spinner } from './Feedback';
 export { LoadingBar } from './LoadingBar';
 export { FormGroup, FormHighlight, FormRow, SectionHeader, useLit } from './Form';
-export { ContextMenu, DragRegion, WelcomeFilm, FileDragArea, FullScreenWatch, tick, type WindowFacts } from './Native';
+export { ContextMenu, SwipeArea, type Swipe, DragRegion, WelcomeFilm, FileDragArea, FullScreenWatch, tick, type WindowFacts } from './Native';
 export { accessibilityPress, useInteraction } from './interaction';
 export { useEscape } from './keys';
 export { Fade } from './Fade';

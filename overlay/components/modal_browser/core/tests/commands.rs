@@ -562,3 +562,47 @@ fn registry_rejects_conflicts_and_bad_specs() {
     assert_eq!(r.register(spec("mine", &["mi"])), Ok(()));
     assert_eq!(r.execute("mi", None), Ok(Effects::default()));
 }
+
+#[test]
+fn space_commands_go_to_the_shell() {
+    let space = |arg: &str| {
+        vec![Action::BrowserCommand {
+            name: "space".into(),
+            arg: arg.into(),
+        }]
+    };
+    assert_eq!(actions("space next"), space("next"));
+    assert_eq!(actions("space prev"), space("prev"));
+    assert_eq!(actions("space close"), space("close"));
+    assert_eq!(actions("space new"), space("new"));
+    assert_eq!(actions("space new Deep  work"), space("new Deep work"));
+    assert_eq!(actions("space go 2"), space("go 2"));
+    assert_eq!(actions("space rename Research"), space("rename Research"));
+    // The old name still works.
+    assert_eq!(actions("workspace next"), space("next"));
+    assert!(matches!(
+        err("space go"),
+        CommandError::MissingArgument { .. }
+    ));
+    assert!(matches!(
+        err("space rename"),
+        CommandError::MissingArgument { .. }
+    ));
+    reg()
+        .execute(&format!("space new {}", "x".repeat(65)), None)
+        .unwrap_err();
+    // With no verb, the saved spaces.
+    for line in ["space", "palette spaces", "palette workspaces"] {
+        assert!(
+            matches!(
+                &actions(line)[..],
+                [Action::OpenPalette {
+                    kind: PaletteKind::Workspaces,
+                    ..
+                }]
+            ),
+            "{line}: {:?}",
+            actions(line)
+        );
+    }
+}

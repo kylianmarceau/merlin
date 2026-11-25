@@ -4,7 +4,7 @@ import { checkDefaultBrowserTrial } from '../../state/setupHost';
 import { isStartUrl } from '../../lib/format';
 import { webKitTab } from '../../state/webkit';
 import { PAGE_FRAME, useShellPrefs } from '../../state/shellPrefs';
-import { useActions, useActiveTab, useBrowser, useCommitTrace, useSnapshot, useViewMenu } from '../../state/window';
+import { useActions, useActiveTab, useBrowser, useCommitTrace, useSnapshot, useSpaceTheme, useViewMenu } from '../../state/window';
 import {
   DragRegion, FullScreenWatch, WorkspaceTint, Glass, Panel, TooltipLayer, geometry, inactiveTabs, radius, shellTintFor, space, useColorFade, useEased,
   usePeekSpring, useSidebarSpring, useTheme,
@@ -203,7 +203,7 @@ function FloatingShell({ style, children }: React.PropsWithChildren<{ style: obj
 function ShellTint() {
   const { colors, reduceMotion, glass } = useTheme();
   const chrome = useSiteChrome();
-  const workspaceTheme = useShellPrefs(p => p.workspaceTheme);
+  const workspaceTheme = useSpaceTheme();
   const tint = useColorFade(shellTintFor(chrome.shell ?? colors.shellTint, glass), reduceMotion);
   return <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: tint }}>
     {workspaceTheme && !chrome.shell && <WorkspaceTint theme={workspaceTheme} />}

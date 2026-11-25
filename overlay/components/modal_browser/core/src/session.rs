@@ -1225,7 +1225,7 @@ impl ModalSession {
                             String::new()
                         } else {
                             format!(
-                                "Saved workspace {} ({count} tab{})",
+                                "Saved space {} ({count} tab{})",
                                 ws.name,
                                 if count == 1 { "" } else { "s" }
                             )
@@ -1234,7 +1234,7 @@ impl ModalSession {
                 }
                 Err(e) => Action::ShowMessage {
                     level: MessageLevel::Error,
-                    text: format!("Workspace: {e}"),
+                    text: format!("Space: {e}"),
                 },
             }
         };
@@ -1248,21 +1248,19 @@ impl ModalSession {
         if !found {
             actions.push(Action::ShowMessage {
                 level: MessageLevel::Error,
-                text: format!("No workspace named {name} (:workspace lists them)"),
+                text: format!("No saved space named {name} (:space lists them)"),
             });
             return self.finish(before, KeyDisposition::Consumed, actions);
         }
         match Workspace::decode(name, text) {
             Ok((workspace, skipped)) => {
-                // Reuse this window only if it holds nothing but a new tab.
-                let new_window = !(self.tabs.len() == 1 && is_new_tab_page(&self.tabs[0].url));
-                if !new_window {
-                    self.workspace = Some(workspace.name.clone());
-                    self.project = workspace.project.clone();
-                }
+                // A saved space opens in this window, as a space of its own.
+                let new_window = false;
+                self.workspace = Some(workspace.name.clone());
+                self.project = workspace.project.clone();
                 let count = workspace.tabs.len();
                 let mut text = format!(
-                    "Opened workspace {} ({count} tab{})",
+                    "Opened space {} ({count} tab{})",
                     workspace.name,
                     if count == 1 { "" } else { "s" }
                 );
@@ -1280,7 +1278,7 @@ impl ModalSession {
             }
             Err(e) => actions.push(Action::ShowMessage {
                 level: MessageLevel::Error,
-                text: format!("Workspace {name}: {e}"),
+                text: format!("Space {name}: {e}"),
             }),
         }
         self.finish(before, KeyDisposition::Consumed, actions)
@@ -2047,19 +2045,6 @@ fn completion_row(typed: &str, c: Completion) -> PaletteRow {
     }
 }
 
-fn is_new_tab_page(url: &str) -> bool {
-    let url = url.trim_end_matches('/');
-    matches!(
-        url,
-        "chrome://newtab"
-            | "chrome://new-tab-page"
-            | "chrome://merlin-start"
-            | "merlin://start"
-            | "about:blank"
-            | ""
-    )
-}
-
 /// Quotes a command argument so the tokenizer reads it back unchanged.
 pub(crate) fn quote_arg(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
@@ -2092,7 +2077,7 @@ fn ago(now: i64, then: i64) -> String {
 
 /// Merlin's menu, in place of Chromium's ⋮ menu: label, what it runs, and
 /// a hint. Keys come from the keymap, so the user's own bindings show.
-const MENU: [(&str, &str, &str); 28] = [
+const MENU: [(&str, &str, &str); 31] = [
     ("New tab", "tabnew", ""),
     ("New window", "window", ""),
     (
@@ -2105,12 +2090,15 @@ const MENU: [(&str, &str, &str); 28] = [
     ("Bookmarks", "bookmarks", ""),
     ("Bookmark this page", "bookmark", ""),
     ("Downloads", "palette downloads", ""),
-    ("Workspaces", "palette workspaces", "saved windows"),
+    ("Spaces", "palette spaces", "saved spaces"),
     (
-        "Save workspace…",
-        "cmdline workspace save",
-        "keep this window's tabs and splits",
+        "Save space…",
+        "cmdline space save",
+        "keep this space's tabs and splits",
     ),
+    ("New space", "space new", "a fresh set of tabs"),
+    ("Next space", "space next", ""),
+    ("Previous space", "space prev", ""),
     ("Split side by side", "vsplit", "this page and a new one"),
     ("Split top and bottom", "split", ""),
     ("End the split", "only", ""),
@@ -2193,7 +2181,7 @@ fn item_row(source: ItemSource, item: ListItem, now: i64) -> PaletteRow {
                 String::new()
             },
             active: item.current,
-            accept: format!("workspace open {}", item.value),
+            accept: format!("space open {}", item.value),
             ..PaletteRow::default()
         },
         // `current`: still in progress, so Enter shows it rather than

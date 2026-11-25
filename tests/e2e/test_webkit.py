@@ -304,16 +304,17 @@ class PageIdentityTest(WebKitCase):
 
     def test_workspace_saves_and_restores_the_webkit_page(self) -> None:
         url = self.show_in_webkit("/page?workspace=1")
-        self.browser.command("workspace save wk")
+        self.browser.command("space save wk")
         path = self.browser.workspace_dir / "wk.json"
         saved = self.wait(lambda: path.exists() and json.loads(path.read_text()), "the workspace file")
         tab = next(t for t in saved["tabs"] if t["url"] == url)
         self.assertEqual(tab.get("engine"), "webkit")
         self.server.clear()
-        self.browser.command("workspace save other")
-        self.browser.command("workspace open wk")
-        self.wait(lambda: len({t["window"] for t in self.browser.tabs()}) == 2, "the restored window")
-        self.assertIn(url, [t["url"] for t in self.browser.tabs()])
+        # Saved again under another name, the space showing lets go of wk: opening it comes in as a space of its own.
+        self.browser.command("space save other")
+        self.browser.command("space open wk")
+        self.wait(lambda: [t["url"] for t in self.browser.tabs()].count(url) == 2, "the restored space's WebKit tab")
+        self.assertEqual(len({t["window"] for t in self.browser.tabs()}), 1)
         self.browser.command("workspace delete other")
         self.browser.command("workspace delete wk")
 

@@ -54,6 +54,8 @@
 #include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_groups.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
+#include "base/uuid.h"
+#include "chrome/browser/ui/modal_browser/merlin_tab_space.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_change_type.h"
@@ -270,28 +272,6 @@ int64_t NowSeconds() {
   return base::Time::Now().ToTimeT();
 }
 
-// Saved window bounds moved fully onto the display they mostly cover, or
-// empty when no display shows enough of them (a monitor since removed).
-gfx::Rect OnScreenBounds(const gfx::Rect& saved) {
-  if (saved.IsEmpty()) {
-    return gfx::Rect();
-  }
-  display::Screen* screen = display::Screen::Get();
-  if (!screen) {
-    return gfx::Rect();
-  }
-  const display::Display display = screen->GetDisplayMatching(saved);
-  const gfx::Rect work = display.work_area();
-  gfx::Rect visible = work;
-  visible.Intersect(saved);
-  if (visible.width() < 100 || visible.height() < 100) {
-    return gfx::Rect();
-  }
-  gfx::Rect bounds = saved;
-  bounds.AdjustToFit(work);
-  return bounds;
-}
-
 // The set of windows that want browserctl, and the one server they share.
 // It listens while at least one normal window with browserctl enabled is
 // open.
@@ -338,6 +318,7 @@ ModalBrowserController::ModalBrowserController(BrowserWindowInterface* browser)
       scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this) {
   // Before any of this window's tabs are restored from the session.
   RegisterWebKitSessionData();
+  RegisterTabSpaceSessionData();
   browser_->GetTabStripModel()->AddObserver(this);
   ObserveActiveContents();
   router_.SetWindow(browser_->GetProfile()->IsOffTheRecord());
@@ -536,7 +517,44 @@ void ModalBrowserController::RestoreTab() {
   chrome::RestoreTab(browser_);
 }
 
+bool ModalBrowserController::StepWithinSpace(int steps) {
+  // With spaces, the next tab is the next one the window shows: the
+  // favourites and the space's own tabs, as in Zen.
+  if (active_space_.empty()) {
+    return false;
+  }
+  TabStripModel* strip = browser_->GetTabStripModel();
+  std::vector<int> shown;
+  int here = -1;
+  for (int i = 0; i < strip->count(); ++i) {
+    tabs::TabInterface* tab = strip->GetTabAtIndex(i);
+    content::WebContents* contents = tab ? tab->GetContents() : nullptr;
+    if (!contents) {
+      continue;
+    }
+    const std::string space = GetTabSpace(contents);
+    if (strip->IsTabPinned(i) || space.empty() || space == active_space_) {
+      if (i == strip->active_index()) {
+        here = static_cast<int>(shown.size());
+      }
+      shown.push_back(i);
+    }
+  }
+  if (shown.size() < 2 || here < 0) {
+    return !shown.empty();
+  }
+  const int n = static_cast<int>(shown.size());
+  const int next = ((here + steps) % n + n) % n;
+  strip->ActivateTabAt(shown[next],
+                       TabStripUserGestureDetails(
+                           TabStripUserGestureDetails::GestureType::kOther));
+  return true;
+}
+
 void ModalBrowserController::SelectNextTab(int count) {
+  if (StepWithinSpace(count)) {
+    return;
+  }
   const int tabs = browser_->GetTabStripModel()->count();
   for (int i = 0; i < count % std::max(tabs, 1); ++i) {
     chrome::SelectNextTab(browser_);
@@ -544,6 +562,9 @@ void ModalBrowserController::SelectNextTab(int count) {
 }
 
 void ModalBrowserController::SelectPreviousTab(int count) {
+  if (StepWithinSpace(-count)) {
+    return;
+  }
   const int tabs = browser_->GetTabStripModel()->count();
   for (int i = 0; i < count % std::max(tabs, 1); ++i) {
     chrome::SelectPreviousTab(browser_);
@@ -1481,6 +1502,15 @@ ModalBrowserController::CaptureWorkspace() {
     if (!contents) {
       continue;
     }
+    // A saved space holds its own tabs: not the favourites every space
+    // shares, nor other spaces' tabs. A tab not yet in a space is joining
+    // the one showing.
+    if (!active_space_.empty()) {
+      const std::string space = GetTabSpace(contents);
+      if (strip->IsTabPinned(i) || (!space.empty() && space != active_space_)) {
+        continue;
+      }
+    }
     int32_t split = -1;
     ffi::SplitLayout layout = ffi::SplitLayout::SideBySide;
     double split_ratio = 0;
@@ -1548,18 +1578,25 @@ void ModalBrowserController::WriteWorkspace(std::string_view name,
   workspace_store::Write(std::string(name), std::string(contents),
                          base::BindOnce(
                              [](base::WeakPtr<ModalBrowserController> self,
+                                std::string name, std::string space,
                                 std::string message, std::string error) {
                                if (!self) {
                                  return;
                                }
                                if (!error.empty()) {
                                  self->ShowMessage(ffi::MessageLevel::Error,
-                                                   "Workspace: " + error);
+                                                   "Space: " + error);
                                } else {
                                  // One window per workspace: another window
                                  // still kept under this name would write over
                                  // it with its own tabs.
                                  self->ReleaseWorkspaceInOtherWindows();
+                                 // The shell keeps which space is saved
+                                 // under which name.
+                                 if (!space.empty()) {
+                                   SendShellSpaceEvent(self->browser_, "saved",
+                                                       name, space);
+                                 }
                                  if (!message.empty()) {
                                    self->ShowMessage(ffi::MessageLevel::Info,
                                                      message);
@@ -1567,7 +1604,8 @@ void ModalBrowserController::WriteWorkspace(std::string_view name,
                                }
                                self->PageWorkDone();
                              },
-                             weak_factory_.GetWeakPtr(), std::string(message)));
+                             weak_factory_.GetWeakPtr(), std::string(name),
+                             active_space_, std::string(message)));
 }
 
 ModalBrowserController* ModalBrowserController::WindowWithWorkspace(
@@ -1600,21 +1638,39 @@ void ModalBrowserController::ReleaseWorkspaceInOtherWindows() {
 }
 
 void ModalBrowserController::ReadWorkspace(std::string_view name) {
-  // Already open: show that window rather than a second copy, which would
+  // Already open: show that space rather than a second copy, which would
   // save over the first.
   if (router_.workspace() == name) {
     ShowMessage(ffi::MessageLevel::Info,
-                "Workspace " + std::string(name) + " is this window");
+                "Space " + std::string(name) + " is showing");
     PageWorkDone();
     return;
+  }
+  // A space this window already has tabs in: show it. (Spaces are in every
+  // window, but each window has its own tabs in them: in a window with none
+  // there, the file's tabs come in as usual.)
+  if (auto it = saved_spaces_.find(std::string(name));
+      it != saved_spaces_.end()) {
+    TabStripModel* strip = browser_->GetTabStripModel();
+    for (int i = 0; i < strip->count(); ++i) {
+      if (!strip->IsTabPinned(i) &&
+          GetTabSpace(strip->GetWebContentsAt(i)) == it->second) {
+        SendShellSpaceEvent(browser_, "switch", name, it->second);
+        PageWorkDone();
+        return;
+      }
+    }
   }
   if (ModalBrowserController* other = WindowWithWorkspace(name)) {
     other->browser_->GetWindow()->Activate();
     other->ShowMessage(ffi::MessageLevel::Info,
-                       "Workspace " + std::string(name) + " is already open");
+                       "Space " + std::string(name) + " is open in this window");
     PageWorkDone();
     return;
   }
+  // What the space showing now last changed is saved under its own name
+  // before the window takes the new one.
+  FlushAutosave();
   workspace_store::Read(
       std::string(name),
       base::BindOnce(
@@ -1625,7 +1681,7 @@ void ModalBrowserController::ReadWorkspace(std::string_view name) {
             }
             if (!result.error.empty()) {
               self->ShowMessage(ffi::MessageLevel::Error,
-                                "Workspace " + name + ": " + result.error);
+                                "Space " + name + ": " + result.error);
             } else {
               self->router_.OnWorkspaceRead(name, result.found, result.text,
                                             *self);
@@ -1646,59 +1702,83 @@ void ModalBrowserController::DeleteWorkspace(std::string_view name) {
             }
             self->ShowMessage(
                 deleted ? ffi::MessageLevel::Info : ffi::MessageLevel::Error,
-                deleted ? "Deleted workspace " + name
-                        : "No workspace named " + name);
+                deleted ? "Deleted saved space " + name
+                        : "No saved space named " + name);
             self->PageWorkDone();
           },
           weak_factory_.GetWeakPtr(), std::string(name)));
 }
 
+void ModalBrowserController::SetActiveSpace(
+    std::string_view space,
+    std::string_view saved,
+    std::map<std::string, std::string> saved_spaces) {
+  if (!space.empty() && !IsSpaceId(space)) {
+    return;
+  }
+  std::erase_if(saved_spaces, [](const auto& entry) {
+    return !ffi::is_workspace_name(entry.first) || !IsSpaceId(entry.second);
+  });
+  if (!saved.empty() && ffi::is_workspace_name(std::string(saved)) && !space.empty()) {
+    saved_spaces[std::string(saved)] = std::string(space);
+  }
+  saved_spaces_ = std::move(saved_spaces);
+  if (space == active_space_ && saved == router_.workspace()) {
+    return;
+  }
+  // The space being left keeps its last changes, under its own name.
+  FlushAutosave();
+  if (const std::string old = router_.workspace(); !old.empty()) {
+    space_projects_[old] = router_.project();
+  }
+  active_space_ = std::string(space);
+  if (saved == router_.workspace()) {
+    return;
+  }
+  const std::string name(saved);
+  // Every window shows the same spaces, but a saved space's file holds one
+  // window's tabs: the window that saved or opened it keeps it, and a
+  // second window showing that space doesn't save over it.
+  if (name.empty() || !ffi::is_workspace_name(name) ||
+      WindowWithWorkspace(name)) {
+    router_.SetWorkspace("", "");
+    return;
+  }
+  if (auto it = space_projects_.find(name); it != space_projects_.end()) {
+    router_.SetWorkspace(name, it->second);
+    return;
+  }
+  // Not shown since Merlin started: its project folder is in its file.
+  router_.SetWorkspace(name, "");
+  workspace_store::Read(
+      name, base::BindOnce(
+                [](base::WeakPtr<ModalBrowserController> self,
+                   std::string name, workspace_store::ReadResult result) {
+                  if (!self) {
+                    return;
+                  }
+                  const std::string project =
+                      result.found && result.error.empty()
+                          ? std::string(ffi::workspace_project(result.text))
+                          : std::string();
+                  self->space_projects_[name] = project;
+                  if (!project.empty() && self->router_.workspace() == name) {
+                    self->router_.SetWorkspace(name, project);
+                  }
+                },
+                weak_factory_.GetWeakPtr(), name));
+}
+
 void ModalBrowserController::RestoreWorkspace(
     const WorkspaceRestore& workspace) {
-  // Reuse this window only if it still holds a single tab, as the core saw
-  // when it chose; otherwise its tabs would be closed below.
-  const bool new_window =
-      workspace.new_window || browser_->GetTabStripModel()->count() != 1;
+  // A saved space opens in this window as a space of its own, beside the
+  // ones it has, as Zen and Arc open a space.
   BrowserWindowInterface* target = browser_;
-  if (new_window && !workspace.new_window) {
-    // The core gave this window the workspace's name; the new window takes
-    // it instead.
-    router_.SetWorkspace("", "");
-  }
-  if (new_window) {
-    Profile* profile = browser_->GetProfile();
-    if (GetBrowserWindowCreationStatusForProfile(*profile) !=
-            BrowserWindowInterface::CreationStatus::kOk ||
-        profile->ShutdownStarted()) {
-      ShowMessage(ffi::MessageLevel::Error, "Could not open a window");
-      return;
-    }
-    BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_NORMAL,
-                                     profile, /*from_user_gesture=*/true);
-    // Where the window was when saved, if a display still shows it.
-    params.initial_bounds = OnScreenBounds(gfx::Rect(
-        workspace.x, workspace.y, workspace.width, workspace.height));
-    if (workspace.maximized) {
-      params.initial_show_state = ui::mojom::WindowShowState::kMaximized;
-    } else if (params.initial_bounds.IsEmpty() && browser_->GetWindow()) {
-      // No saved place: beside this window rather than exactly over it, so
-      // it is plain that a window opened.
-      gfx::Rect bounds = browser_->GetWindow()->GetRestoredBounds();
-      bounds.Offset(28, 28);
-      params.initial_bounds = OnScreenBounds(bounds);
-    }
-    target = CreateBrowserWindow(std::move(params));
-    if (!target) {
-      ShowMessage(ffi::MessageLevel::Error, "Could not open a window");
-      return;
-    }
+  const std::string space = base::Uuid::GenerateRandomV4().AsLowercaseString();
+  if (!workspace.project.empty()) {
+    space_projects_[workspace.name] = workspace.project;
   }
   TabStripModel* strip = target->GetTabStripModel();
-  // The tabs there now (a new-tab page) give way to the workspace.
-  std::vector<tabs::TabHandle> placeholders;
-  for (int i = 0; i < strip->count(); ++i) {
-    placeholders.push_back(strip->GetTabAtIndex(i)->GetHandle());
-  }
   std::vector<tabs::TabHandle> added;
   for (size_t i = 0; i < workspace.tabs.size(); ++i) {
     const WorkspaceRestore::Tab& tab = workspace.tabs[i];
@@ -1712,7 +1792,7 @@ void ModalBrowserController::RestoreWorkspace(
     if (visible) {
       contents = chrome::AddAndReturnTabAt(target, url, -1,
                                            /*foreground=*/false, std::nullopt,
-                                           tab.pinned);
+                                           /*pinned=*/false);
     } else {
       // The others load when first shown, as with session restore, so a
       // large workspace opens at once.
@@ -1726,7 +1806,7 @@ void ModalBrowserController::RestoreWorkspace(
       contents = chrome::AddRestoredTab(
           target, base::span_from_ref(entry), strip->count(),
           /*selected_navigation=*/0, /*extension_app_id=*/std::string(),
-          /*group=*/std::nullopt, /*select=*/false, tab.pinned,
+          /*group=*/std::nullopt, /*select=*/false, /*pin=*/false,
           base::TimeTicks::Now(), base::Time::Now(),
           /*storage_namespace=*/nullptr, sessions::SerializedUserAgentOverride(),
           /*extra_data=*/{}, /*from_session_restore=*/false,
@@ -1739,6 +1819,9 @@ void ModalBrowserController::RestoreWorkspace(
           driver->FetchFavicon(url, /*is_same_document=*/false);
         }
       }
+    }
+    if (contents) {
+      SetTabSpace(contents, space);
     }
     tabs::TabInterface* added_tab =
         contents ? tabs::TabInterface::MaybeGetFromContents(contents) : nullptr;
@@ -1754,7 +1837,7 @@ void ModalBrowserController::RestoreWorkspace(
   if (strip->SupportsTabGroups()) {
     std::map<int, std::vector<size_t>> members;
     for (size_t i = 0; i < workspace.tabs.size(); ++i) {
-      if (workspace.tabs[i].group >= 0 && !workspace.tabs[i].pinned) {
+      if (workspace.tabs[i].group >= 0) {
         members[workspace.tabs[i].group].push_back(i);
       }
     }
@@ -1804,6 +1887,9 @@ void ModalBrowserController::RestoreWorkspace(
     strip->AddToNewSplit({a, b}, visual,
                          split_tabs::SplitTabCreatedSource::kKeyboardShortcut);
   }
+  // The shell adds the space and shows it, then its active tab shows.
+  SendShellSpaceEvent(browser_, "opened", workspace.name, space);
+  SetActiveSpace(space, workspace.name, saved_spaces_);
   if (workspace.active < added.size() && added[workspace.active].Get()) {
     strip->ActivateTab(added[workspace.active].Get(),
                        TabStripUserGestureDetails(
@@ -1819,20 +1905,6 @@ void ModalBrowserController::RestoreWorkspace(
           id, tab_groups::TabGroupVisualData(visual.title(), visual.color(),
                                              /*is_collapsed=*/true));
     }
-  }
-  for (tabs::TabHandle handle : placeholders) {
-    if (tabs::TabInterface* tab = handle.Get()) {
-      const int index = strip->GetIndexOfTab(tab);
-      if (index != TabStripModel::kNoTab && strip->count() > 1) {
-        strip->CloseWebContentsAt(index, TabCloseTypes::CLOSE_NONE);
-      }
-    }
-  }
-  if (new_window) {
-    if (ModalBrowserController* other = From(target)) {
-      other->router_.SetWorkspace(workspace.name, workspace.project);
-    }
-    target->GetWindow()->Show();
   }
 }
 
@@ -1983,6 +2055,18 @@ void ModalBrowserController::ShowBrowserPage(ffi::BrowserPage page) {
 
 void ModalBrowserController::RunBrowserCommand(std::string_view name,
                                                std::string_view arg) {
+  if (name == "space") {
+    // :space next, prev, go, new, rename and close change the window's
+    // spaces, which the shell keeps (apps/browser/src/state/spaces.ts).
+    const size_t gap = arg.find(' ');
+    const std::string_view verb = arg.substr(0, gap);
+    const std::string_view rest =
+        gap == std::string_view::npos ? std::string_view() : arg.substr(gap + 1);
+    if (!SendShellSpaceEvent(browser_, verb, rest, active_space_)) {
+      ShowMessage(ffi::MessageLevel::Error, "Spaces need Merlin's interface");
+    }
+    return;
+  }
   if (name == "adblock") {
     auto* service = merlin_adblock::Service::Get(browser_->GetProfile());
     if (arg == "on" || arg == "off") {
@@ -2861,6 +2945,28 @@ void ModalBrowserController::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
     const TabStripModelChange& change,
     const TabStripSelectionChange& selection) {
+  // A new tab joins the space of the tab that opened it, else the space
+  // showing, as in Zen. Tabs restored with the session keep their own.
+  if (change.type() == TabStripModelChange::kInserted && !active_space_.empty()) {
+    for (const auto& inserted : change.GetInsert()->contents) {
+      content::WebContents* contents = inserted.contents;
+      if (!contents || !GetTabSpace(contents).empty()) {
+        continue;
+      }
+      std::string space = active_space_;
+      if (const int index = tab_strip_model->GetIndexOfWebContents(contents);
+          index != TabStripModel::kNoTab) {
+        if (tabs::TabInterface* opener =
+                tab_strip_model->GetOpenerOfTabAt(index)) {
+          if (std::string from = GetTabSpace(opener->GetContents());
+              !from.empty()) {
+            space = std::move(from);
+          }
+        }
+      }
+      SetTabSpace(contents, space);
+    }
+  }
   if (selection.active_tab_changed()) {
     OnActiveTabChanged();
   }

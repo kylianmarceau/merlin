@@ -8,10 +8,10 @@
 //! browserctl focus --tab 3
 //! browserctl current [--json]
 //! browserctl selection [--text]
-//! browserctl workspace save|open|delete <name>
-//! browserctl workspace list
-//! browserctl workspace here                  # the workspace for this folder
-//! browserctl workspace project [dir]         # tie the front window's workspace to a folder
+//! browserctl space save|open|delete <name>
+//! browserctl space list
+//! browserctl space here                      # the saved space for this folder
+//! browserctl space project [dir]             # tie the space showing to a folder
 //! browserctl command 'vsplit https://docs.rs'
 //! browserctl ping
 //! browserctl shell-call window.snapshot '{}'  # test builds only (tests/e2e)
@@ -42,10 +42,10 @@ commands:
   focus --tab N                 switch the front window to tab N
   current [--json]              the front window's tab
   selection [--text]            the selected text in that tab
-  workspace save|open|delete <name>
-  workspace list [--json]
-  workspace here                open the workspace whose project holds this folder
-  workspace project [DIR]       tie the front window's workspace to DIR (default: here)
+  space save|open|delete <name> saved spaces (`workspace` also works)
+  space list [--json]
+  space here                    open the saved space whose project holds this folder
+  space project [DIR]           tie the space showing to DIR (default: here)
   command <line>                any ':' command, e.g. 'vsplit docs.rs'
   ping                          is a browser listening?
   shell-call METHOD [JSON]      tests only: one shell bridge method in the front
@@ -136,14 +136,15 @@ fn parse_args(args: &[String]) -> Result<Invocation, String> {
                 .ok_or_else(|| format!("'{n}' is not a tab number"))?;
             Request::Focus { tab }
         }
-        "workspace" => match args {
+        // Saved spaces were workspaces before Merlin had spaces.
+        "space" | "workspace" => match args {
             ["list"] => Request::Workspace(WorkspaceRequest::List),
             ["here"] => Request::Workspace(WorkspaceRequest::Here(current_dir()?)),
             ["project"] => Request::Command {
-                line: format!("workspace project {}", quote(&current_dir()?)),
+                line: format!("space project {}", quote(&current_dir()?)),
             },
             ["project", dir] => Request::Command {
-                line: format!("workspace project {}", quote(&absolute(dir)?)),
+                line: format!("space project {}", quote(&absolute(dir)?)),
             },
             [verb, name] => {
                 let name = name.to_string();
@@ -151,12 +152,12 @@ fn parse_args(args: &[String]) -> Result<Invocation, String> {
                     "save" => WorkspaceRequest::Save(name),
                     "open" => WorkspaceRequest::Open(name),
                     "delete" => WorkspaceRequest::Delete(name),
-                    other => return Err(format!("unknown workspace action '{other}'")),
+                    other => return Err(format!("unknown space action '{other}'")),
                 })
             }
             _ => {
                 return Err(
-                    "usage: browserctl workspace save|open|delete <name> | list | here | project [dir]"
+                    "usage: browserctl space save|open|delete <name> | list | here | project [dir]"
                         .into(),
                 );
             }
@@ -419,8 +420,11 @@ mod tests {
         );
         let project = parse(&["workspace", "project", "/tmp"]).unwrap().request;
         assert!(
-            matches!(project, Request::Command { line } if line.starts_with("workspace project \"/"))
+            matches!(project, Request::Command { line } if line.starts_with("space project \"/"))
         );
+        // `space` is the name now; `workspace` still works.
+        let saved = parse(&["space", "save", "research"]).unwrap().request;
+        assert!(matches!(saved, Request::Workspace(WorkspaceRequest::Save(n)) if n == "research"));
         assert!(parse(&["tabs", "extra"]).is_err());
         assert!(parse(&["shell-call"]).is_err());
         assert!(parse(&["shell-call", "tabs.create", "[1]"]).is_err());

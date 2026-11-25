@@ -8,6 +8,7 @@ import { PopupWindow } from './components/window/PopupWindow';
 import { loadShellPrefs } from './state/shellPrefsStorage';
 import { useGlassLook } from './state/glass';
 import { useWindowConnection, WindowProvider } from './state/window';
+import { useShellPrefs } from './state/shellPrefs';
 
 const fallbackAppearance = { mode: 'system', accent: 'fern', reduceMotion: false } as const;
 
@@ -25,7 +26,9 @@ function Window({ windowId }: { windowId: string }) {
   useEffect(loadShellPrefs, []);
   const snapshot = useStore(store, s => s.snapshot);
   const error = useStore(store, s => s.connectionError);
-  const glass = useGlassLook();
+  const activeSpace = useStore(store, s => s.activeSpace);
+  const spaceColor = useShellPrefs(p => p.spaces.find(s => s.id === activeSpace)?.theme?.stops[0]);
+  const glass = useGlassLook(spaceColor);
   // Chromium logs, and tests read, that the window has drawn from the browser's state.
   const shown = !!snapshot;
   useEffect(() => {

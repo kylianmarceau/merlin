@@ -1,4 +1,4 @@
-"""Workspaces and browserctl, over the real socket."""
+"""Saved spaces and browserctl, over the real socket."""
 
 from __future__ import annotations
 
@@ -65,68 +65,86 @@ class WorkspacesTest(MerlinTestCase):
     def windows(self) -> set[int]:
         return {t["window"] for t in self.browser.tabs()}
 
-    def test_save_and_restore_tabs_pins_and_splits(self) -> None:
+    def snapshot(self) -> dict:
+        reply = self.browser.shell_call("window.snapshot")
+        self.assertTrue(reply.get("ok"), reply)
+        return reply["result"]
+
+    def test_save_and_open_a_space(self) -> None:
+        page = self.server.url("/page")
         doc = self.server.url("/doc")
         form = self.server.url("/form")
         self.browser.command(f"vsplit {doc}")
         self.wait(lambda: len(self.browser.tabs()) == 2, "the split")
-        self.browser.command("pin")
-        self.wait(lambda: all(t["pinned"] for t in self.browser.tabs()), "the split to be pinned")
+        # A favourite shows in every space, so no space's file keeps it.
         self.browser.browserctl("open", url=form, where="background")
         self.wait(lambda: len(self.browser.tabs()) == 3, "a third tab")
+        self.browser.browserctl("focus", tab=3)
+        self.wait(lambda: self.browser.active_tab()["url"] == form, "the third tab in front")
+        self.browser.command("pin")
+        self.wait(lambda: self.browser.tabs()[0]["pinned"], "the favourite")
 
-        self.browser.command("workspace save research")
+        self.browser.command("space save research")
         saved = self.wait(lambda: (self.browser.workspace_dir / "research.json").exists() and
-                          self.workspace_file("research"), "the workspace file")
+                          self.workspace_file("research"), "the saved space")
         text = json.dumps(saved)
+        self.assertIn(page, text)
         self.assertIn(doc, text)
-        self.assertIn(form, text)
-        self.assertIn("splits", saved)
+        self.assertNotIn(form, text)
+        self.assertEqual(len(saved["splits"]), 1)
 
-        # Opening the workspace this window already is changes nothing.
-        self.browser.command("workspace open research")
+        # Opening the space showing changes nothing.
+        self.browser.command("space open research")
         time.sleep(0.5)
-        self.assertEqual(self.windows(), {1})
+        self.assertEqual(len(self.browser.tabs()), 3)
 
-        # From a window that is another workspace, it opens a new window.
-        self.browser.command("workspace save other")
-        self.browser.command("workspace open research")
-        self.wait(lambda: len(self.windows()) == 2, "the research window")
-        restored = [t for t in self.browser.tabs() if t["window"] == 1]
-        self.assertEqual([t["url"] for t in restored][:2],
-                         [self.server.url("/page"), doc], "the front window is research")
-        self.assertEqual(len(restored), 3)
-        self.assertTrue(restored[0]["pinned"] and restored[1]["pinned"])
-        self.browser.command("workspace delete other")
-        self.browser.command("workspace delete research")
+        # Another saved space opens in this window, as a space of its own.
+        other = self.server.url("/page", "other.test")
+        (self.browser.workspace_dir / "other.json").write_text(json.dumps({
+            "format": "modal_browser.workspace", "version": 1, "name": "other", "tabs": [{"url": other}]}))
+        self.browser.command("space open other")
+        self.wait(lambda: self.browser.active_tab()["url"] == other, "the other space's tab")
+        self.assertEqual(self.windows(), {1})
+        tabs = {t["url"]: t for t in self.snapshot()["tabs"]}
+        research = tabs[doc].get("space")
+        self.assertTrue(research, tabs)
+        self.assertEqual(tabs[page].get("space"), research)
+        self.assertNotEqual(tabs[other].get("space"), research)
+        # Opening research again shows its space rather than a second copy.
+        self.browser.command("space open research")
+        self.wait(lambda: self.browser.active_tab()["url"] in (page, doc), "research again")
+        self.assertEqual(len(self.browser.tabs()), 4)
+        self.browser.command("space delete other")
+        self.browser.command("space delete research")
 
     def test_workspace_list_and_here(self) -> None:
         project = self.browser.dir / "proj"
         (project / "src").mkdir(parents=True)
         self.browser.workspace_dir.mkdir(parents=True, exist_ok=True)
+        doc = self.server.url("/doc")
         (self.browser.workspace_dir / "proj.json").write_text(json.dumps({
             "format": "modal_browser.workspace", "version": 1, "name": "proj",
-            "tabs": [{"url": self.server.url("/doc")}], "project": str(project)}))
+            "tabs": [{"url": doc}], "project": str(project)}))
         listed = self.browser.browserctl("workspace", action="list")
         self.assertTrue(listed["ok"], listed)
         self.assertIn("proj", json.dumps(listed["result"]))
 
-        windows = len(self.windows())
+        tabs = len(self.browser.tabs())
         reply = self.browser.browserctl("workspace", action="here", dir=str(project / "src"))
         self.assertEqual(reply.get("result"), "proj", reply)
-        self.wait(lambda: len(self.windows()) == windows + 1, "the project's window")
+        self.wait(lambda: self.browser.active_tab()["url"] == doc, "the project's space")
+        self.assertEqual(self.windows(), {1}, "it opens in this window, as a space")
         again = self.browser.browserctl("workspace", action="here", dir=str(project))
         self.assertEqual(again.get("result"), "proj")
         time.sleep(0.5)
-        self.assertEqual(len(self.windows()), windows + 1, "the same window is reused")
+        self.assertEqual(len(self.browser.tabs()), tabs + 1, "the same space is shown again")
         elsewhere = self.browser.browserctl("workspace", action="here", dir=str(self.browser.dir))
         self.assertFalse(elsewhere["ok"])
         self.assertIn("no workspace has a project folder", json.dumps(elsewhere))
 
 
-
 class WorkspaceAutosaveTest(MerlinTestCase):
-    """A window kept as a workspace saves each change a workspace records."""
+    """A window holding a saved space saves each change the space records."""
 
     # Closing a window with several tabs asks first; these tests close one.
     extra_args = ["-MerlinShell.warnBeforeClosingWindow", "off"]
@@ -174,14 +192,16 @@ class WorkspaceAutosaveTest(MerlinTestCase):
         self.assertTrue(reply.get("ok"), reply)
         self.saved_soon("auto", lambda w: not w["groups"], "the tab out of its group")
 
-    def test_autosave_keeps_pins(self) -> None:
-        self.browser.command("workspace save auto")
-        self.saved_soon("auto", lambda w: len(w["tabs"]) == 1, "the first save")
-        # Pinning the only tab moves nothing.
+    def test_favourites_stay_out_of_a_saved_space(self) -> None:
+        self.browser.browserctl("open", url=self.server.url("/doc"), where="background")
+        self.wait(lambda: len(self.browser.tabs()) == 2, "a second tab")
+        self.browser.command("space save auto")
+        self.saved_soon("auto", lambda w: len(w["tabs"]) == 2, "the first save")
+        # A favourite shows in every space; unpinned, it is back in its own.
         self.browser.command("pin")
-        self.saved_soon("auto", lambda w: w["tabs"][0].get("pinned"), "the pin")
+        self.saved_soon("auto", lambda w: len(w["tabs"]) == 1, "the pin")
         self.browser.command("pin")
-        self.saved_soon("auto", lambda w: not w["tabs"][0].get("pinned"), "the unpin")
+        self.saved_soon("auto", lambda w: len(w["tabs"]) == 2, "the unpin")
 
     def test_autosave_keeps_splits(self) -> None:
         doc = self.server.url("/doc")
@@ -195,31 +215,23 @@ class WorkspaceAutosaveTest(MerlinTestCase):
         self.saved_soon("auto", lambda w: not w["splits"] and len(w["tabs"]) == 2, "the split undone")
 
     def test_closing_just_after_a_change_keeps_it(self) -> None:
-        # A second window, kept as the workspace, closes 0.5 s after a change.
+        # A second window, holding the saved space, closes 0.5 s after a change.
         first = self.server.url("/page", "closer.test")
         self.browser.browserctl("open", url=first, where="window")
         self.wait(lambda: len(self.windows()) == 2 and self.browser.active_tab()["url"] == first,
                   "the second window in front")
-        self.browser.command("workspace save closer")
+        self.browser.command("space save closer")
         self.saved_soon("closer", lambda w: len(w["tabs"]) == 1, "the first save")
         second = self.server.url("/doc", "closer.test")
         self.browser.browserctl("open", url=second, where="background")
         self.wait(lambda: len([t for t in self.browser.tabs() if t["window"] == 1]) == 2, "its second tab")
-        self.browser.command("pin")
+        self.browser.command("group Closer")
         time.sleep(0.5)
         self.browser.command("browser close-window")
         self.wait(lambda: len(self.windows()) == 1, "the window to close")
         saved = self.saved("closer")
         self.assertEqual([t["url"] for t in saved["tabs"]], [first, second])
-        self.assertTrue(saved["tabs"][0].get("pinned"))
-        # Reopening it brings back what the window held as it closed.
-        self.browser.command("workspace open closer")
-        self.wait(lambda: len(self.windows()) == 2, "the workspace's window")
-        restored = [t for t in self.browser.tabs() if t["window"] == 1]
-        self.assertEqual([t["url"] for t in restored], [first, second])
-        self.assertTrue(restored[0]["pinned"])
-        self.browser.command("browser close-window")
-        self.wait(lambda: len(self.windows()) == 1, "the workspace's window to close")
+        self.assertEqual([g["title"] for g in saved["groups"]], ["Closer"])
 
 
 if __name__ == "__main__":

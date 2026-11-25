@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, View } from 'react-native';
 import { overallProgress } from '../../lib/format';
-import { useActions, useBrowser, useSnapshot } from '../../state/window';
+import { useActions, useBrowser, useSnapshot, useSpaces } from '../../state/window';
+import { NewSpaceButton, SpaceSwitcher } from './Spaces';
 import { Badge, IconButton, ProgressRing, duration, geometry, space, useNudge, useTheme, useTimeout } from '../ui';
 
 /**
@@ -56,12 +57,10 @@ function LibraryButtons() {
   </>;
 }
 
-/** Merlin's workspaces (saved sets of tabs), from the sidebar as Arc's spaces are. */
-function WorkspacesButton() {
+/** The command menu, the Library, Settings and saved spaces, in one ⋯ beside the spaces, as Arc keeps its bottom row to them. */
+function MoreButton() {
   const actions = useActions();
-  const modal = useSnapshot().modal.modalBrowsing !== false;
-  return <IconButton label="Workspaces" tipDetail={modal ? 'Normal mode: gw' : undefined} icon="rectangle.stack"
-    onPress={() => void actions.command('workspace')} />;
+  return <IconButton label="More" tip="Command menu, Library and Settings" icon="ellipsis" onPress={() => void actions.moreMenu()} />;
 }
 
 /** The extensions button; in the sidebar layout it lives here, as the card has no toolbar. */
@@ -74,12 +73,26 @@ export function ExtensionsButton() {
     onPress={() => actions.togglePopover('extensions')} />;
 }
 
-/** Downloads on the left, with the other sidebar controls on the right. */
+/**
+ * The sidebar's bottom row. With spaces, as Arc's: downloads and extensions
+ * on the left, a button per space in the middle, New Space and ⋯ on the
+ * right. In a window without spaces (private), downloads on the left and the
+ * other controls on the right.
+ */
 export function SidebarFooter() {
+  const { active } = useSpaces();
+  if (active) {
+    return <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
+      <DownloadsButton />
+      <ExtensionsButton />
+      <SpaceSwitcher />
+      <NewSpaceButton />
+      <MoreButton />
+    </View>;
+  }
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.hair }}>
     <DownloadsButton />
     <View style={{ flex: 1 }} />
-    <WorkspacesButton />
     <ExtensionsButton />
     <LibraryButtons />
   </View>;

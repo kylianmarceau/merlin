@@ -54,6 +54,8 @@ export const callMethods = [
   'extensions.closePopup',
   'site.info',
   'tabs.setEngineOverlay',
+  'tabs.setSpace',
+  'spaces.activate',
   'shell.report',
   'shell.reloadWindow',
 ] as const;

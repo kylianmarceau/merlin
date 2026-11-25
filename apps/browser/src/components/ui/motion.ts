@@ -172,6 +172,8 @@ export const spring = {
    * midway carries on from its speed rather than starting over.
    */
   slide: responseSpring(0.34, 0.9),
+  /** A space sliding in after a swipe or a click on its button, as Arc's do (response 0.3 s, no bounce to speak of). */
+  space: responseSpring(0.3, 0.88),
   /** A glyph popping as it takes effect (a page saved, a tab pinned): lively, settling in about 0.4 s. */
   pop: responseSpring(0.32, 0.45),
   /** The new tab page's search card settling as the page opens, as Dia's command bar does (response 0.7 s, from 99%). */

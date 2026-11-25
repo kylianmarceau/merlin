@@ -207,6 +207,8 @@ pub fn parse_request(line: &str) -> Result<Envelope, RequestError> {
         .get("cmd")
         .and_then(Value::as_str)
         .ok_or_else(|| fail(id, "missing 'cmd'".into()))?;
+    // Saved spaces were workspaces before Merlin had spaces.
+    let cmd = if cmd == "space" { "workspace" } else { cmd };
     let allowed: &[&str] = match cmd {
         "open" => &["url", "where"],
         "focus" => &["tab"],

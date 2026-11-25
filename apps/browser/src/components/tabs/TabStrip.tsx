@@ -3,7 +3,7 @@ import { Animated, PanResponder, ScrollView, View } from 'react-native';
 import type { Tab } from '../../state/types';
 import { useActions, useSnapshot } from '../../state/window';
 import {
-  ContextMenu, DragRegion, Fade, GlassFill, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
+  ContextMenu, DragRegion, Fade, SwipeArea, GlassFill, Icon, IconButton, PaletteScope, Text, duration, geometry, radius, space, useColorFade,
   groupColorRoles, opacity, tick, useHeld, useHoverFade, useInteraction, useLatest, usePresence, useSlide, useTheme, useTimeout, Panel, Pressable, type Palette,
 } from '../ui';
 import { StripGroupChip, chipWidth } from './TabGroups';
@@ -11,6 +11,7 @@ import { Favicon } from '../favicon/Favicon';
 import { SoundButton, tabTitle as rowTitle } from './TabRow';
 import { useSiteChrome } from './siteChrome';
 import { DownloadsButton } from './WindowButtons';
+import { SpaceChip, SpaceHint, useSpaceSlide } from './Spaces';
 import { dropBefore, dropPlace, itemSlot, layoutStrip, reflow, type Slot, type StripItem, type StripLayout, type StripMetrics } from './stripLayout';
 
 const rowTop = (geometry.strip - geometry.stripTabHeight) / 2;
@@ -58,6 +59,8 @@ export function TabStrip({ floating = false }: {
   const { colors, glass } = useTheme();
   const chrome = useSiteChrome();
   const [room, setRoom] = useState(0);
+  // Two fingers across the tabs change space, as over Arc's and Zen's sidebar; past the last, a new one.
+  const slide = useSpaceSlide(room);
   const [drag, setDrag] = useState<Drag | null>(null);
   const activeId = snapshot.activeTabId;
   const groups = snapshot.groups ?? [];
@@ -164,25 +167,35 @@ export function TabStrip({ floating = false }: {
         dragFill={dragFill} pill={floating && active} lifted={item === lifted} {...handlers(item.key, tab.id)} />;
     })}
   </>;
-  return <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: geometry.strip, flexDirection: 'row',
-    paddingLeft: geometry.sidebarCollapsedInset + space.xs, paddingRight: space.sm + space.hair }}
+  // Crowded tabs scroll sideways under two fingers themselves, so then the swipe is theirs.
+  return <SwipeArea onSwipe={slide.onSwipe} enabled={slide.enabled && !floating && !drag && !layout.scrolls}
+    style={{ position: 'absolute', top: 0, left: 0, right: 0, height: geometry.strip }}>
+  <View style={{ flex: 1, flexDirection: 'row', paddingLeft: geometry.sidebarCollapsedInset + space.xs, paddingRight: space.sm + space.hair }}
     onMouseEnter={() => { inside.current = true; }} onMouseLeave={() => { inside.current = false; setHold(0); }}>
     <DragRegion style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
     {snapshot.private && <View style={{ height: geometry.strip, justifyContent: 'center', marginRight: space.sm }}>
       <Icon name="eye.slash" tone="iconSecondary" size="small" />
     </View>}
+    {!floating && <View style={{ height: geometry.strip, justifyContent: 'center', marginRight: space.xs }}>
+      <SpaceChip />
+    </View>}
     <View style={{ flex: 1, height: geometry.strip }} pointerEvents="box-none" onLayout={e => setRoom(e.nativeEvent.layout.width)}>
+      <Animated.View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: slide.opacity,
+        transform: [{ translateX: slide.x }] }}>
       {room > 0 && <>
         {layout.scrolls
           ? <ScrolledLane layout={layout} activeSlot={activeItem ? itemSlot(activeItem, layout.slots) : null} still={!!drag}>{tabsDrawn}</ScrolledLane>
           : tabsDrawn}
         <PlusButton x={plusX} onPress={() => void actions.openNewTab()} />
       </>}
+      </Animated.View>
+      <SpaceHint hint={slide.hint} x={slide.x} width={room} />
     </View>
     <View style={{ justifyContent: 'center' }}>
       <DownloadsButton />
     </View>
-  </View>;
+  </View>
+  </SwipeArea>;
 }
 
 /**

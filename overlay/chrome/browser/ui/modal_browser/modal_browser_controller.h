@@ -86,6 +86,16 @@ class ModalBrowserController : public BrowserOps,
   // success.
   std::string RunCommandLine(std::string_view line);
 
+  // Spaces (apps/browser/src/state/spaces.ts): the shell shows one of the
+  // window's sets of tabs at a time, and says which (`space`), under which
+  // saved name it is kept on disk (`saved`, empty for none) and which other
+  // spaces of the window are saved (saved name to space). Saving a space
+  // (:space save) and keeping it saved take only its tabs; new tabs join it.
+  void SetActiveSpace(std::string_view space,
+                      std::string_view saved,
+                      std::map<std::string, std::string> saved_spaces);
+  const std::string& active_space() const { return active_space_; }
+
   // Tabs in the sidebar rather than along the top (Chromium's vertical tabs
   // preference, which `tabs = "top"` and :vertical-tabs change).
   bool TabsInSidebar() const;
@@ -310,6 +320,9 @@ class ModalBrowserController : public BrowserOps,
     ::rust::Vec<ffi::WindowTab> tabs;
     ffi::WindowState window{0, 0, 0, 0, false};
   };
+  // Moves `steps` tabs on among the tabs the shell shows (the favourites
+  // and the active space's own); false when no space is showing.
+  bool StepWithinSpace(int steps);
   WorkspaceCapture CaptureWorkspace();
   // Writes a pending autosave now, from the last capture taken before the
   // window began closing its tabs.
@@ -397,6 +410,13 @@ class ModalBrowserController : public BrowserOps,
   // Read-only exports (`:extract ... editor`), by increasing id.
   std::map<int, std::unique_ptr<ExternalEditor>> exports_;
   int next_export_ = 0;
+  // The space the shell shows; empty before it says (all tabs count).
+  std::string active_space_;
+  // The window's spaces kept on disk: saved name to space.
+  std::map<std::string, std::string> saved_spaces_;
+  // Project folders of saved spaces the window has shown, by saved name, so
+  // switching back keeps the folder in the file.
+  std::map<std::string, std::string> space_projects_;
   base::OneShotTimer autosave_timer_;
   // The window as the pending autosave will save it, taken at each change
   // while the window is open. Closing tabs one by one never updates it.

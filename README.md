@@ -89,7 +89,7 @@ brew upgrade --cask kylianmarceau/tap/merlin
 ```
 
 Or download the new release and replace the app in Applications. Your
-bookmarks, passwords, history, workspaces and `config.toml` are kept.
+bookmarks, passwords, history, saved spaces and `config.toml` are kept.
 **Settings › General › Updates** can check GitHub for new versions (off by
 default), and **Watch › Custom › Releases** on this repository announces
 them. Releases follow Chromium's security updates: the aim is a release
@@ -108,7 +108,7 @@ merlin` removes your data as well; otherwise, to remove it, delete:
 - `~/Library/Application Support/Merlin` and `~/Library/Caches/Merlin` (the
   browser profile and its cache)
 - `~/.config/modal_browser` (configuration) and `~/.local/share/modal_browser`
-  (workspaces)
+  (saved spaces)
 - `~/Library/Preferences/io.github.kylianmarceau.merlin.plist` (interface
   settings)
 - `~/Library/WebKit/io.github.kylianmarceau.merlin` and
@@ -145,11 +145,18 @@ of the page. Pin tabs with `gp`. Group tabs from a tab's menu or with
 Control-Tab goes to the tab you used last; hold Control to see every tab as
 a card.
 
-**Workspaces.** Save a window with `:workspace save research` and reopen it
-later with `gw`: its tabs, pins, splits, groups and place on screen come
-back. Workspaces save as you go, and your last session comes back on launch,
-even after a crash. A workspace can be tied to a project folder and opened
-from that folder's terminal with `browserctl workspace here`.
+**Spaces.** A window keeps its tabs in spaces, as Arc and Zen do: each
+has a name, an icon and its own colour, and the sidebar shows one at a time,
+with the favourites in every space. Swipe sideways with two fingers over the
+sidebar or the tabs along the top to go to the next space, or past the last
+one to make a new one. The buttons along the sidebar's foot pick a space;
+`:space next`, `:space prev`, `:space go 2` and `:space new Work` do it from
+the keyboard, and right-clicking a tab moves it to another space. A space
+can be saved to a file with `:space save research` and opened later with
+`gw` in any window: its tabs, splits and groups come back. Saved spaces keep
+up to date as you go, and your last session comes back on launch, even
+after a crash. A saved space can be tied to a project folder and opened from
+that folder's terminal with `browserctl space here`.
 
 **Edit in your editor.** Press `ge` to pick a field, or `Ctrl+Shift+E` while
 typing, and the text opens in Neovim or any editor you configure. Saving
@@ -197,7 +204,7 @@ Normal mode (`Shift+Esc` in Passthrough).
 | `/` then `n` `N` | Find in page | `yy` | Copy URL |
 | `gO` | Page outline | `gl` | Links on the page |
 | `<C-w>v` / `<C-w>s` | Split side by side / stacked | `<C-w>o` | Close split |
-| `gw` | Workspaces | `ge` | Edit field in your editor |
+| `gw` | Spaces | `ge` | Edit field in your editor |
 | `:` or `⌘K` | Command line | `?` | Search commands and keys |
 
 <details>
@@ -244,7 +251,7 @@ editor = ["/Applications/Ghostty.app/Contents/MacOS/ghostty",
 ",g" = "open https://github.com"
 
 [aliases]
-notes = "workspace open notes"
+notes = "space open notes"
 
 [unmap]
 normal = ["d"]                # give this key back to sites
@@ -267,7 +274,7 @@ normal = ["d"]                # give this key back to sites
 | `passthrough_exit` | `"<S-Esc>"` | The key that leaves Passthrough (plain `Esc` goes to the site) |
 | `passthrough_sites` | `[]` | Sites that start in Passthrough; `"*.example.com"` also matches `example.com` |
 | `restore_session` | `true` | Reopen last session's windows at launch; Settings › General › On startup wins |
-| `workspace_autosave` | `true` | Keep a workspace's file up to date as its window changes |
+| `workspace_autosave` | `true` | Keep a saved space's file up to date as its tabs change (`space_autosave` also works) |
 | `browserctl` | `true` | Accept `browserctl` commands over a socket only you can reach |
 | `editor` | `$VISUAL`, then `$EDITOR` | The program `:edit` runs, as a list; `"{file}"` is the temporary file |
 | `edit_key` | `"<C-S-e>"` | While typing, opens the field in your editor |
@@ -302,7 +309,7 @@ browserctl open --current rust lifetimes     # search in the current tab
 browserctl tabs --json                       # list tabs, with their groups
 browserctl focus --tab 3
 browserctl selection                         # print the selected text
-browserctl workspace here                    # open this folder's workspace
+browserctl space here                        # open this folder's saved space
 browserctl command 'vsplit https://docs.rs'  # run any : command
 ```
 
@@ -355,7 +362,7 @@ them all in one table, with how each is tested:
   browsing data clears both engines. A site's sign-in pop-ups open in their
   own window. Right-click a tab to move a site between engines (every tab on
   it moves), or turn this off in **Settings › General › Protected video**.
-- **One profile.** Use workspaces and private windows to keep browsing apart.
+- **One profile.** Use spaces and private windows to keep browsing apart.
 - **No Reading mode or side panels.** Extensions that use a side panel or
   `chrome.action.openPopup()` don't get them.
 - **Chrome Web Store installs may need extra steps.** Unpacked and `.crx`

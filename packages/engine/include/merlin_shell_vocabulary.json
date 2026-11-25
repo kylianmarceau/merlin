@@ -62,7 +62,7 @@
       "omnibox.enter",
       "extensions.closePopup",
       "site.info",
-      "tabs.setEngineOverlay",
+      "tabs.setEngineOverlay", "tabs.setSpace", "spaces.activate",
       "shell.report",
       "shell.reloadWindow"
     ],

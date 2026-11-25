@@ -5,6 +5,7 @@
 import { parseSiteEngines, type PageEngine } from '../lib/engines';
 import { parseWorkspaceTheme } from './workspaceTheme';
 import { parseFolders, type FavouriteFolder } from './favouriteFolders';
+import { parseSpaces, type Space } from './spaces';
 import {
   installQuitGuard, onPreferenceChanged, preference, setBookmarksMenuHidden, setPreference, setThinScrollBars, tidyMenuBar,
 } from '../platform/shell';
@@ -31,7 +32,7 @@ const amount = (fallback: number, min = 0, max = 1): Codec<number> => ({
 
 const d = defaultShellPrefs;
 /** Every simple preference, how it is saved, and its default. */
-const codecs: { [K in Exclude<keyof ShellPrefs, 'siteEngines' | 'protectedVideoInWebKit' | 'favouriteFolders'>]: Codec<ShellPrefs[K]> } = {
+const codecs: { [K in Exclude<keyof ShellPrefs, 'siteEngines' | 'protectedVideoInWebKit' | 'favouriteFolders' | 'spaces' | 'spacesLoaded'>]: Codec<ShellPrefs[K]> } = {
   newTabPopup: flag(d.newTabPopup),
   // Unset is the default, Match. Soft was the default before it and saved
   // nothing, so those windows move to Match too.
@@ -102,6 +103,8 @@ export function loadShellPrefs() {
     }, () => {});
   }
   preference('favouriteFolders').then(raw => shellPrefs.setState({ favouriteFolders: parseFolders(raw) }), () => {});
+  preference('spaces').then(raw => shellPrefs.setState({ spaces: parseSpaces(raw), spacesLoaded: true }),
+    () => shellPrefs.setState({ spacesLoaded: true }));
   void installQuitGuard().catch(() => {});
   void tidyMenuBar().catch(() => {});
   try {
@@ -110,6 +113,7 @@ export function loadShellPrefs() {
       if (key in codecs) shellPrefs.setState({ [key]: codecs[key as SimpleKey].read(raw) } as Partial<ShellPrefs>);
       // Another window changed the folders.
       if (key === 'favouriteFolders') shellPrefs.setState({ favouriteFolders: parseFolders(raw) });
+      if (key === 'spaces') shellPrefs.setState({ spaces: parseSpaces(raw) });
     });
   } catch { /* An older host without the event. */ }
   void loadEnginePrefs();
@@ -167,4 +171,10 @@ export function forgetSiteEngines() {
 export function setFavouriteFolders(folders: FavouriteFolder[]) {
   shellPrefs.setState({ favouriteFolders: folders });
   return setPreference('favouriteFolders', folders.length ? JSON.stringify(folders) : null);
+}
+
+/** Saves the spaces for every window. */
+export function setSpaces(spaces: Space[]) {
+  shellPrefs.setState({ spaces });
+  return setPreference('spaces', spaces.length ? JSON.stringify(spaces) : null);
 }

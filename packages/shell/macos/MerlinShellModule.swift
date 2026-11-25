@@ -160,6 +160,16 @@ public final class MerlinShellOutsidePressModule: Module {
   }
 }
 
+public final class MerlinShellSwipeAreaModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("MerlinShellSwipeArea")
+    View(MerlinSwipeArea.self) {
+      Events("onSwipe")
+      Prop("swipeEnabled") { (view, value: Bool) in view.enabled = value }
+    }
+  }
+}
+
 public final class MerlinShellContextMenuAreaModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MerlinShellContextMenuArea")

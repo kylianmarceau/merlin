@@ -21,7 +21,7 @@ const sections = [
   { id: 'blocking', label: 'Blocking', icon: 'nosign' },
   { id: 'performance', label: 'Performance', icon: 'speedometer' },
   { id: 'extensions', label: 'Extensions', icon: 'shippingbox' },
-  { id: 'workspaces', label: 'Workspaces', icon: 'square.on.square' },
+  { id: 'workspaces', label: 'Spaces', icon: 'square.stack' },
   { id: 'keys', label: 'Keys', icon: 'command' },
   { id: 'config', label: 'Config File', icon: 'curlybraces' },
   { id: 'about', label: 'About', icon: 'm.square' },
@@ -101,7 +101,7 @@ export function Settings({ open }: { open: boolean }) {
                 onChange={enabled => set('extension', { id: ext.id, enabled })} /></FormRow>)}
           </FormGroup>}
         </>}
-        {section === 'workspaces' && <Workspaces onOpen={name => { void actions.command(`workspace open ${name}`); actions.closePanel(); }} />}
+        {section === 'workspaces' && <Workspaces onOpen={name => { void actions.command(`space open ${name}`); actions.closePanel(); }} />}
         {p && section === 'keys' && <>
           <SectionHeader title="Keys" detail={`Normal-mode bindings from your config. Link hints use: ${p.hintChars || 'the default characters'}.`} />
           <ModalBrowsing />
@@ -191,10 +191,10 @@ function Workspaces({ onOpen }: { onOpen(name: string): void }) {
   const list = useRequest('settings.workspaces', {});
   const action = useAction();
   return <>
-    <SectionHeader title="Workspaces" detail="Saved sets of tabs. Save this window with the command “workspace save name”." />
+    <SectionHeader title="Saved spaces" detail="Spaces kept in a file too, with their tabs. Save the space showing from its ⋯ menu or with “space save name”; opening one adds it to this window as a space." />
     {(list.error || action.error) && <Notice tone="error">{list.error || action.error}</Notice>}
-    {list.loading && !list.data && <Text tone="textSecondary">Loading workspaces…</Text>}
-    {list.data && !list.data.length && <Text tone="textSecondary">No workspaces saved yet.</Text>}
+    {list.loading && !list.data && <Text tone="textSecondary">Loading saved spaces…</Text>}
+    {list.data && !list.data.length && <Text tone="textSecondary">No spaces saved yet.</Text>}
     {!!list.data?.length && <FormGroup>
       {list.data.map(w => <FormRow key={w.name} title={w.name} detail={`Saved ${new Date(w.modified * 1000).toLocaleString()}`}>
         <Box row gap="sm">

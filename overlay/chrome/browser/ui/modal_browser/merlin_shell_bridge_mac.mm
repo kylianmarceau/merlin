@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_window.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
+#include "chrome/browser/ui/modal_browser/merlin_tab_space.h"
 #include "base/time/time.h"
 #include <cstdlib>
 #include <cstring>
@@ -835,6 +836,7 @@ Dict WindowState::DescribeTab(TabStripModel* strip, int i) {
   if (const auto edge = modal_browser::PageEdgeColor::Get(contents)) entry.Set("surface", HexColor(*edge));
   if (const auto* identity = modal_browser::PageIdentity::FromWebContents(contents); identity && identity->user_initiated())
     entry.Set("userInitiated", true);
+  if (auto space = modal_browser::GetTabSpace(contents); !space.empty()) entry.Set("space", std::move(space));
   if (const auto restored = modal_browser::RestoredWebKitPage(contents))
     entry.Set("restoreInWebKit", Dict().Set("url", restored->url.spec()).Set("title", base::UTF16ToUTF8(restored->title)));
   return entry;
@@ -1417,6 +1419,22 @@ char* Call(const char* window, const char* method, const char* json) {
     const auto error = c->RunCommandLine(*text);
     return error.empty() ? Ok() : Error(error);
   }
+  if (name == shell::method::kSpacesActivate) {
+    // The space the window shows, and which of its spaces are kept on disk
+    // under which name (apps/browser/src/state/spaces.ts).
+    const auto* space = args->FindString("spaceId");
+    const auto* saved = args->FindString("saved");
+    const auto* others = args->FindDict("savedSpaces");
+    auto* c = modal_browser::ModalBrowserController::From(browser);
+    if (!space || !saved || !others || !c) return Error("Invalid space");
+    if (!modal_browser::IsSpaceId(*space)) return Error("Invalid space");
+    std::map<std::string, std::string> saved_spaces;
+    for (const auto [saved_name, id] : *others) {
+      if (id.is_string() && saved_spaces.size() < 1000) saved_spaces[saved_name] = id.GetString();
+    }
+    c->SetActiveSpace(*space, *saved, std::move(saved_spaces));
+    return Ok();
+  }
   if (name.starts_with("modal.palette.")) {
     auto* controller = modal_browser::ModalBrowserController::From(browser);
     if (!controller) return Error("Command service unavailable");
@@ -1632,6 +1650,10 @@ char* Call(const char* window, const char* method, const char* json) {
     auto& controller = contents->GetController();
     if (!at || *at < 0 || *at >= controller.GetEntryCount()) return Error("That page is no longer in this tab's history");
     if (*at != controller.GetCurrentEntryIndex()) controller.GoToIndex(*at);
+  } else if (name == shell::method::kTabsSetSpace) {
+    const auto* space = args->FindString("space");
+    if (!space || !modal_browser::SetTabSpace(contents, *space)) return Error("Invalid space");
+    state->Changed();
   } else if (name == shell::method::kTabsSetEngineOverlay) {
     const auto* overlay = args->Find("overlay");
     if (!overlay || (!overlay->is_none() && !overlay->is_dict())) return Error("Invalid engine overlay");
@@ -2197,6 +2219,13 @@ bool CycleShellTabs(BrowserWindowInterface* browser, bool forward) {
   auto* state = Enabled() && browser ? FindWindow(WindowId(browser).c_str()) : nullptr;
   if (!state || !state->switcher) return false;
   state->switcher->Cycle(forward);
+  return true;
+}
+bool SendShellSpaceEvent(BrowserWindowInterface* browser, std::string_view verb, std::string_view arg,
+                         std::string_view space) {
+  if (!Enabled() || !browser || !FindWindow(WindowId(browser).c_str())) return false;
+  GetRegistry().Emit(Dict().Set("type", "space.command").Set("windowId", WindowId(browser))
+      .Set("verb", verb).Set("arg", arg).Set("spaceId", space));
   return true;
 }
 bool OpenShellPanel(BrowserWindowInterface* browser, const char* panel) {
