@@ -13,18 +13,17 @@ import { Icon, geometry, opacity, radius, space, useBreathe, useEased, useTheme,
 export const Favicon = React.memo(function Favicon({ tab, large = false, busy = false, badges = false }: {
   tab: Tab; large?: boolean; busy?: boolean;
   /**
-   * Marks a WebKit tab with a small Safari badge, and a sleeping tab by
-   * dimming it, as in Ardia; a muted tab, and one whose media is paused,
-   * with a badge at the icon's other corner, as Dia does.
+   * Shows a Safari badge for WebKit tabs and a sound badge for muted or
+   * paused tabs. Pinned tabs keep their icon when their page unloads.
    */
   badges?: boolean;
 }) {
   const { colors, reduceMotion } = useTheme();
   const breathe = useBreathe(busy, reduceMotion);
-  // A sleeping tab shows a quiet grey square in place of its icon, as in Dia.
-  const asleep = badges && !!tab.discarded;
-  return <Animated.View style={{ opacity: asleep ? opacity.sleeping : breathe }}>
-    {asleep ? <SleepingSlot large={large} /> : <FaviconImage tab={tab} large={large} />}
+  const asleep = !!tab.discarded;
+  const showSleepingSlot = badges && asleep && !tab.pinned;
+  return <Animated.View style={{ opacity: showSleepingSlot ? opacity.sleeping : breathe }}>
+    {showSleepingSlot ? <SleepingSlot large={large} /> : <FaviconImage tab={tab} large={large} />}
     {badges && tab.engine === 'webkit' && <View accessibilityLabel="Shown in WebKit" style={{ position: 'absolute', right: -space.xs, bottom: -space.xs,
       width: geometry.engineBadge, height: geometry.engineBadge, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',
       backgroundColor: colors.engineBadge }}>

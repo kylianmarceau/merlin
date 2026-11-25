@@ -52,8 +52,13 @@ class TabsTest(MerlinTestCase):
             self.assertTrue(reply.get("ok"), reply)
             return reply["result"]
 
+        self.browser.open("/icon-page?name=pinned")
+        self.wait(lambda: snapshot()["tabs"][0].get("favicon"), "the pinned page's favicon to load")
         before = snapshot()
         tab = before["tabs"][0]
+        icon = self.browser.shell_call("favicons.get", {"tabId": tab["id"]})
+        self.assertTrue(icon.get("ok"), icon)
+        self.assertTrue(icon["result"]["url"].startswith("data:image/png;base64,"))
         self.press("gp")
         self.wait(lambda: snapshot()["tabs"][0]["pinned"], "the tab to pin")
         self.press("<D-w>")
@@ -64,6 +69,8 @@ class TabsTest(MerlinTestCase):
         self.assertEqual(len(asleep["tabs"]), 2)
         pin, replacement = asleep["tabs"]
         self.assertEqual((pin["id"], pin["url"], pin["pinned"]), (tab["id"], tab["url"], True))
+        self.assertEqual(pin["favicon"], tab["favicon"])
+        self.assertEqual(self.browser.shell_call("favicons.get", {"tabId": pin["id"]}), icon)
         self.assertEqual(asleep["activeTabId"], replacement["id"])
         self.assertTrue(replacement["start"])
 
