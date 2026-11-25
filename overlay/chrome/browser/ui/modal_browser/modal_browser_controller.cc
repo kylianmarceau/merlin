@@ -1595,6 +1595,14 @@ void ModalBrowserController::WriteWorkspace(std::string_view name,
                                  // The shell keeps which space is saved
                                  // under which name.
                                  if (!space.empty()) {
+                                   // One saved name per space, at once: a
+                                   // :space open right after needn't wait
+                                   // for the shell to say so.
+                                   std::erase_if(self->saved_spaces_,
+                                                 [&](const auto& entry) {
+                                                   return entry.second == space;
+                                                 });
+                                   self->saved_spaces_[name] = space;
                                    SendShellSpaceEvent(self->browser_, "saved",
                                                        name, space);
                                  }
@@ -1724,6 +1732,17 @@ void ModalBrowserController::SetActiveSpace(
     saved_spaces[std::string(saved)] = std::string(space);
   }
   saved_spaces_ = std::move(saved_spaces);
+  // Saved just now (:space save): the shell hears of it after the window,
+  // and until then says the space showing has no file. That doesn't undo
+  // the save; a space changing, or another name, does.
+  if (saved.empty() && !router_.workspace().empty() &&
+      (active_space_.empty() || space == active_space_)) {
+    active_space_ = std::string(space);
+    if (!active_space_.empty()) {
+      saved_spaces_[router_.workspace()] = active_space_;
+    }
+    return;
+  }
   if (space == active_space_ && saved == router_.workspace()) {
     return;
   }
@@ -1776,6 +1795,9 @@ void ModalBrowserController::RestoreWorkspace(
   // ones it has, as Zen and Arc open a space.
   BrowserWindowInterface* target = browser_;
   const std::string space = base::Uuid::GenerateRandomV4().AsLowercaseString();
+  // The shell hears of the space before its tabs, so it doesn't take them
+  // for tabs without one.
+  SendShellSpaceEvent(browser_, "opened", workspace.name, space);
   if (!workspace.project.empty()) {
     space_projects_[workspace.name] = workspace.project;
   }
@@ -1891,8 +1913,7 @@ void ModalBrowserController::RestoreWorkspace(
     strip->AddToNewSplit({a, b}, visual,
                          split_tabs::SplitTabCreatedSource::kKeyboardShortcut);
   }
-  // The shell adds the space and shows it, then its active tab shows.
-  SendShellSpaceEvent(browser_, "opened", workspace.name, space);
+  // The window shows the space, then its active tab shows.
   space_projects_[workspace.name] = workspace.project;
   SetActiveSpace(space, workspace.name, saved_spaces_);
   if (workspace.active < added.size() && added[workspace.active].Get()) {

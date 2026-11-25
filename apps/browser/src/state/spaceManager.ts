@@ -13,6 +13,8 @@ import type { WorkspaceTheme } from './workspaceTheme';
 
 /** How long a switch waits for Chromium to show the space's tab before the active tab's space counts again. */
 const arrivalMs = 1500;
+/** How long tabs of a saved space being opened wait for their space to be saved before they count as strays. */
+const incomingMs = 10_000;
 let makingFirst = false;
 
 export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e: unknown) => void) {
@@ -29,6 +31,9 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
   const placing = new Map<string, string>();
   // The tabs of the last snapshot, to tell new ones.
   let seen: Set<string> | null = null;
+  // Spaces a saved space is opening into, until they are among the spaces
+  // (by when to give up): their tabs aren't strays meanwhile.
+  const incoming = new Map<string, number>();
   let told = '';
 
   /** Tells Chromium which space shows, for :space save and open, autosave, gt and new tabs. */
@@ -71,6 +76,7 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
       return;
     }
     const all = prefs.spaces;
+    for (const [id, until] of incoming) if (Date.now() > until || all.some(s => s.id === id)) incoming.delete(id);
     if (!all.length) {
       // The first window to look makes the first space; every tab joins it.
       if (!makingFirst) { makingFirst = true; void setSpaces([firstSpace()]).finally(() => { makingFirst = false; }); }
@@ -108,7 +114,7 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
     // Tabs with no space yet, or whose space is gone, join the one showing;
     // not those of a saved space being opened, whose space is on its way.
     for (const tab of strays(snapshot.tabs, all)) {
-      if (placing.has(tab.id) || (arriving && tab.space === arriving.space)) continue;
+      if (placing.has(tab.id) || (tab.space && incoming.has(tab.space))) continue;
       place(tab.id, active);
     }
   }
@@ -221,6 +227,7 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
           if (known) { show(known.id); break; }
           if (all.length >= maxSpaces) { fail(new Error(`Merlin keeps at most ${maxSpaces} spaces`)); break; }
           const space: Space = { id: event.spaceId, name, icon: freshIcon(all), theme: null, saved: event.arg };
+          incoming.set(space.id, Date.now() + incomingMs);
           void save([...all.map(s => (s.saved === event.arg ? { ...s, saved: undefined } : s)), space]).then(() => show(space.id));
           break;
         }
