@@ -243,7 +243,9 @@ fn workspace_open_restores_in_place_or_in_a_new_window() {
     assert_eq!(workspace.splits.len(), 1);
     assert_eq!(workspace.active, 1);
     assert_eq!(message(&o).unwrap().1, "Opened space pair (2 tabs)");
-    assert_eq!(s.workspace(), Some("pair"));
+    // The window takes the name as it shows the space: an autosave before
+    // then still goes to the space showing.
+    assert_eq!(s.workspace(), None);
 
     // A window with tabs of its own opens it in place too, as a new space.
     let mut s = ModalSession::new();
@@ -256,11 +258,7 @@ fn workspace_open_restores_in_place_or_in_a_new_window() {
             ..
         }
     ));
-    assert_eq!(
-        s.workspace(),
-        Some("pair"),
-        "the space showing is the saved one"
-    );
+    assert_eq!(s.workspace(), None, "named once the window shows it");
 
     let o = s.workspace_read("gone", false, "");
     assert!(message(&o).unwrap().1.contains("No saved space named gone"));

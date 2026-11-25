@@ -1889,6 +1889,7 @@ void ModalBrowserController::RestoreWorkspace(
   }
   // The shell adds the space and shows it, then its active tab shows.
   SendShellSpaceEvent(browser_, "opened", workspace.name, space);
+  space_projects_[workspace.name] = workspace.project;
   SetActiveSpace(space, workspace.name, saved_spaces_);
   if (workspace.active < added.size() && added[workspace.active].Get()) {
     strip->ActivateTab(added[workspace.active].Get(),

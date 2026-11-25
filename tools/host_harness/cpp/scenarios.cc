@@ -677,7 +677,8 @@ void Workspaces() {
   CHECK_EQ_INT(r.tabs[1].split_with, 2);
   CHECK_EQ_INT(r.tabs[2].split_with, 1);
   CHECK_EQ_INT(r.active, 2);
-  CHECK_EQ_STR(other.router.workspace(), "research");
+  // The controller names the window as it shows the space.
+  CHECK_EQ_STR(other.router.workspace(), "");
   CHECK_EQ_STR(other.browser.message, "Opened space research (3 tabs)");
 
   // A window with tabs of its own opens it in place too, as a space beside
@@ -689,7 +690,7 @@ void Workspaces() {
                                   occupied.browser);
   const WorkspaceRestore& fresh = occupied.browser.last_restore;
   CHECK_TRUE(!fresh.new_window);
-  CHECK_EQ_STR(occupied.router.workspace(), "research");
+  CHECK_EQ_STR(occupied.router.workspace(), "");
   CHECK_EQ_STR(fresh.project, "/tmp/research-project");
   Window destination;
   destination.router.SetWorkspace(fresh.name, fresh.project);

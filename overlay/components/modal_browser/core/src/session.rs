@@ -1256,8 +1256,9 @@ impl ModalSession {
             Ok((workspace, skipped)) => {
                 // A saved space opens in this window, as a space of its own.
                 let new_window = false;
-                self.workspace = Some(workspace.name.clone());
-                self.project = workspace.project.clone();
+                // The window takes its name (and project) as it shows the
+                // space, not before: until then an autosave of the space
+                // showing must still go to that space's own file.
                 let count = workspace.tabs.len();
                 let mut text = format!(
                     "Opened space {} ({count} tab{})",
