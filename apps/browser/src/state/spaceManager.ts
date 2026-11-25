@@ -24,8 +24,11 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
   };
   // While a switch waits for its tab to show, the old active tab doesn't pull the window back.
   let arriving: { space: string; until: number } | null = null;
-  // Tabs Chromium is being told to put in the space showing.
-  const placing = new Set<string>();
+  // Tabs Chromium is being told to put in a space, and which: until a snapshot
+  // shows them there, their old space doesn't count.
+  const placing = new Map<string, string>();
+  // The tabs of the last snapshot, to tell new ones.
+  let seen: Set<string> | null = null;
   let told = '';
 
   /** Tells Chromium which space shows, for :space save and open, autosave, gt and new tabs. */
@@ -58,7 +61,11 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
   function sync() {
     const snapshot = store.getState().engineSnapshot;
     const prefs = shellPrefs.getState();
-    if (!snapshot || !prefs.spacesLoaded) return;
+    if (!snapshot) return;
+    const fresh = seen ? snapshot.tabs.filter(t => !seen!.has(t.id)) : [];
+    seen = new Set(snapshot.tabs.map(t => t.id));
+    for (const [id, space] of placing) if (!seen.has(id) || snapshot.tabs.some(t => t.id === id && t.space === space)) placing.delete(id);
+    if (!prefs.spacesLoaded) return;
     if (!enabled()) {
       if (store.getState().activeSpace) { store.setState({ activeSpace: null }); refreshOverlay(store); }
       return;
@@ -77,22 +84,39 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
       store.setState({ activeSpace: active });
       refreshOverlay(store);
     }
-    if (arriving && (Date.now() > arriving.until || !activeTab || activeTab.pinned || activeTab.space === arriving.space)) arriving = null;
+    // A new tab joins the space showing (or being arrived in), as a new tab
+    // does in Zen. Chromium files it with the tab that opened it, which for
+    // New Tab is whichever tab was active: perhaps a favourite, or the tab
+    // just left.
+    const target = arriving?.space ?? active;
+    for (const tab of fresh) {
+      if (tab.pinned || !tab.space || tab.space === target || !all.some(s => s.id === tab.space)) continue;
+      place(tab.id, target);
+    }
+    const placed = (tab: { id: string; space?: string }) => placing.get(tab.id) ?? tab.space;
+    if (arriving && (Date.now() > arriving.until || !activeTab || activeTab.pinned || placed(activeTab) === arriving.space)) arriving = null;
     // A tab chosen in another space (gt, Ctrl-Tab, a link, the palette) shows that space, as in Zen.
-    if (!arriving && activeTab && !activeTab.pinned && activeTab.space && activeTab.space !== active &&
-        all.some(s => s.id === activeTab.space)) {
-      show(activeTab.space);
+    const activeSpace = activeTab ? placed(activeTab) : undefined;
+    if (!arriving && activeTab && !activeTab.pinned && activeSpace && activeSpace !== active &&
+        all.some(s => s.id === activeSpace)) {
+      show(activeSpace);
       return;
     }
-    if (activeTab && !activeTab.pinned && (activeTab.space ?? active) === active && store.getState().lastSelected[active] !== activeTab.id)
+    if (activeTab && !activeTab.pinned && (activeSpace ?? active) === active && store.getState().lastSelected[active] !== activeTab.id)
       store.setState(s => ({ lastSelected: { ...s.lastSelected, [active]: activeTab.id } }));
     tell(active);
-    // Tabs with no space yet, or whose space is gone, join the one showing.
+    // Tabs with no space yet, or whose space is gone, join the one showing;
+    // not those of a saved space being opened, whose space is on its way.
     for (const tab of strays(snapshot.tabs, all)) {
-      if (placing.has(tab.id)) continue;
-      placing.add(tab.id);
-      void engine.call('tabs.setSpace', { tabId: tab.id, space: active }).catch(() => {}).finally(() => placing.delete(tab.id));
+      if (placing.has(tab.id) || (arriving && tab.space === arriving.space)) continue;
+      place(tab.id, active);
     }
+  }
+
+  function place(tabId: string, space: string) {
+    if (placing.get(tabId) === space) return;
+    placing.set(tabId, space);
+    void engine.call('tabs.setSpace', { tabId, space }).catch(() => placing.delete(tabId));
   }
 
   /** Shows a space: its last selected tab, else its last tab, else a new tab in it (a favourite showing stays). */
