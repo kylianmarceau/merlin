@@ -1653,6 +1653,7 @@ char* Call(const char* window, const char* method, const char* json) {
   } else if (name == shell::method::kTabsSetSpace) {
     const auto* space = args->FindString("space");
     if (!space || !modal_browser::SetTabSpace(contents, *space)) return Error("Invalid space");
+    if (auto* c = modal_browser::ModalBrowserController::From(browser)) c->TabSpaceChanged();
     state->Changed();
   } else if (name == shell::method::kTabsSetEngineOverlay) {
     const auto* overlay = args->Find("overlay");

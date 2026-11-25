@@ -95,6 +95,9 @@ class ModalBrowserController : public BrowserOps,
                       std::string_view saved,
                       std::map<std::string, std::string> saved_spaces);
   const std::string& active_space() const { return active_space_; }
+  // A tab was put in another space (tabs.setSpace): the space showing's
+  // saved file is due again, without it or with it.
+  void TabSpaceChanged();
 
   // Tabs in the sidebar rather than along the top (Chromium's vertical tabs
   // preference, which `tabs = "top"` and :vertical-tabs change).
@@ -412,6 +415,8 @@ class ModalBrowserController : public BrowserOps,
   int next_export_ = 0;
   // The space the shell shows; empty before it says (all tabs count).
   std::string active_space_;
+  // While a saved space's tabs are being added, the space they join.
+  std::string restoring_space_;
   // The window's spaces kept on disk: saved name to space.
   std::map<std::string, std::string> saved_spaces_;
   // Project folders of saved spaces the window has shown, by saved name, so

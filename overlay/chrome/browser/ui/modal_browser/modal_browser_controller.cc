@@ -54,6 +54,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_groups.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
+#include "base/auto_reset.h"
 #include "base/uuid.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_space.h"
 #include "chrome/browser/ui/modal_browser/workspace_store.h"
@@ -1779,6 +1780,9 @@ void ModalBrowserController::RestoreWorkspace(
     space_projects_[workspace.name] = workspace.project;
   }
   TabStripModel* strip = target->GetTabStripModel();
+  // Each tab is in the new space from the moment it is added: a change
+  // noted for autosave as it arrives must not count it in the space showing.
+  base::AutoReset<std::string> restoring(&restoring_space_, space);
   std::vector<tabs::TabHandle> added;
   for (size_t i = 0; i < workspace.tabs.size(); ++i) {
     const WorkspaceRestore::Tab& tab = workspace.tabs[i];
@@ -2948,15 +2952,17 @@ void ModalBrowserController::OnTabStripModelChanged(
     const TabStripSelectionChange& selection) {
   // A new tab joins the space of the tab that opened it, else the space
   // showing, as in Zen. Tabs restored with the session keep their own.
-  if (change.type() == TabStripModelChange::kInserted && !active_space_.empty()) {
+  if (change.type() == TabStripModelChange::kInserted &&
+      (!active_space_.empty() || !restoring_space_.empty())) {
     for (const auto& inserted : change.GetInsert()->contents) {
       content::WebContents* contents = inserted.contents;
       if (!contents || !GetTabSpace(contents).empty()) {
         continue;
       }
-      std::string space = active_space_;
+      std::string space =
+          restoring_space_.empty() ? active_space_ : restoring_space_;
       if (const int index = tab_strip_model->GetIndexOfWebContents(contents);
-          index != TabStripModel::kNoTab) {
+          restoring_space_.empty() && index != TabStripModel::kNoTab) {
         if (tabs::TabInterface* opener =
                 tab_strip_model->GetOpenerOfTabAt(index)) {
           if (std::string from = GetTabSpace(opener->GetContents());
@@ -3015,6 +3021,10 @@ void ModalBrowserController::WillCloseAllTabs(TabStripModel* tab_strip_model) {
   // The window is going: a change made within the autosave delay is still
   // written, from before its tabs began closing.
   FlushAutosave();
+}
+
+void ModalBrowserController::TabSpaceChanged() {
+  ScheduleAutosave();
 }
 
 void ModalBrowserController::ScheduleAutosave() {
