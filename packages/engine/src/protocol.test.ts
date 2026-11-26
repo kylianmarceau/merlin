@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { EngineClient, parseEngineEvent, validateSnapshot, type Snapshot, type Transport, type EngineEvent } from './protocol';
+import { EngineClient, EngineEventHub, parseEngineEvent, validateSnapshot, type Snapshot, type Transport, type EngineEvent } from './protocol';
 
 export function snapshot(revision = 1): Snapshot {
   return { session: 'session-one', windowId: 'window-one', revision, private: false, tabs: [], activeTabId: null,
@@ -260,4 +260,51 @@ test('a history swipe names its direction and how far it has gone', () => {
   assert.deepEqual(parseEngineEvent(JSON.stringify(swipe)), swipe);
   assert.throws(() => parseEngineEvent(JSON.stringify({ ...swipe, direction: 'up' })));
   assert.throws(() => parseEngineEvent(JSON.stringify({ ...swipe, progress: 'far' })));
+});
+
+test('the event hub parses each event once for every window, and stops listening when the last window goes', () => {
+  let native: ((event: { json: string }) => void) | null = null;
+  let listens = 0, removed = 0;
+  const hub = new EngineEventHub(listener => { native = listener; listens++; return { remove: () => { removed++; native = null; } }; });
+  const one: EngineEvent[] = [], two: EngineEvent[] = [];
+  const parses: number[] = [];
+  const offOne = hub.subscribe('window-one', e => one.push(e), (_ms, bytes) => parses.push(bytes));
+  const offTwo = hub.subscribe('window-two', e => two.push(e));
+  assert.equal(listens, 1);
+  const json = JSON.stringify({ type: 'snapshot', snapshot: snapshot(2) });
+  native!({ json });
+  assert.equal(one.length, 1);
+  assert.equal(two[0], one[0], 'both windows hear the same parsed event');
+  assert.deepEqual(parses, [json.length]);
+  // An event that does not parse is an engine error in each window's own name.
+  native!({ json: '{' });
+  assert.deepEqual(one[1], { type: 'engine.error', windowId: 'window-one', message: 'The browser sent an invalid state update.' });
+  assert.deepEqual(two[1], { type: 'engine.error', windowId: 'window-two', message: 'The browser sent an invalid state update.' });
+  offOne();
+  assert.equal(removed, 0);
+  offTwo();
+  offTwo();
+  assert.equal(removed, 1);
+  hub.subscribe('window-one', () => {});
+  assert.equal(listens, 2);
+});
+test('the event hub skips a window that unsubscribes while an event is delivered', () => {
+  let native: ((event: { json: string }) => void) | null = null;
+  const hub = new EngineEventHub(listener => { native = listener; return { remove() {} }; });
+  const heard: string[] = [];
+  let offSecond = () => {};
+  hub.subscribe('window-one', () => { heard.push('one'); offSecond(); });
+  offSecond = hub.subscribe('window-one', () => heard.push('two'));
+  native!({ json: JSON.stringify({ type: 'snapshot', snapshot: snapshot(3) }) });
+  assert.deepEqual(heard, ['one']);
+});
+test('clients on one hub hear only their own window', () => {
+  let native: ((event: { json: string }) => void) | null = null;
+  const hub = new EngineEventHub(listener => { native = listener; return { remove() {} }; });
+  const transport = (windowId: string): Transport => ({ call: async () => '{"ok":true,"value":null}', subscribe: l => hub.subscribe(windowId, l) });
+  const heard: string[] = [];
+  new EngineClient('window-one', transport('window-one')).subscribe(e => heard.push('one:' + e.type));
+  new EngineClient('window-two', transport('window-two')).subscribe(e => heard.push('two:' + e.type));
+  native!({ json: JSON.stringify({ type: 'snapshot', snapshot: snapshot(4) }) });
+  assert.deepEqual(heard, ['one:snapshot']);
 });
