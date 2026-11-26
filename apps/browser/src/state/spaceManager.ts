@@ -110,7 +110,9 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
     }
     if (activeTab && !activeTab.pinned && (activeSpace ?? active) === active && store.getState().lastSelected[active] !== activeTab.id)
       store.setState(s => ({ lastSelected: { ...s.lastSelected, [active]: activeTab.id } }));
-    tell(active);
+    // Not while a saved space is opening: Chromium has already switched to
+    // it, and the space showing here is about to change too.
+    if (!incoming.size) tell(active);
     // Tabs with no space yet, or whose space is gone, join the one showing;
     // not those of a saved space being opened, whose space is on its way.
     for (const tab of strays(snapshot.tabs, all)) {

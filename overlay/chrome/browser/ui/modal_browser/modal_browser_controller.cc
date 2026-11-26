@@ -1732,10 +1732,11 @@ void ModalBrowserController::SetActiveSpace(
     saved_spaces[std::string(saved)] = std::string(space);
   }
   saved_spaces_ = std::move(saved_spaces);
-  // Saved just now (:space save): the shell hears of it after the window,
-  // and until then says the space showing has no file. That doesn't undo
-  // the save; a space changing, or another name, does.
-  if (saved.empty() && !router_.workspace().empty() &&
+  // The window keeps the saved name it holds while its space stays: the
+  // shell hears of a save after the window makes it, so until then it gives
+  // the space showing the name it had before, or none. Changing space is
+  // what changes the name.
+  if (!router_.workspace().empty() &&
       (active_space_.empty() || space == active_space_)) {
     active_space_ = std::string(space);
     if (!active_space_.empty()) {
