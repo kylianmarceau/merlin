@@ -1,7 +1,14 @@
-Merlin 0.5.16, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.17, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.17
+
+* **Spaces.** Keep different sets of tabs in separate spaces, each with its own name, icon and colour. The sidebar shows one space at a time, with its name above its tabs. Favourites appear in every space. Switch spaces with the buttons along the bottom of the sidebar, the space menu in the top bar, or `:space next`, `:space prev` and `:space go 2`. Right-click a tab to move it to another space.
+* **Swipe between spaces.** Swipe sideways with two fingers over the sidebar or the top tabs to go to the next or previous space. Swipe past the last space to create a new one.
+* **Workspaces are now saved spaces.** `:space save`, `:space open` and `gw` work as `:workspace` did, and `:workspace` still works. A saved space now opens as a new space in the current window instead of a new window. Favourites are not saved with a space, because they appear in every space. After updating, a window is no longer tied to the workspace it had open; reopen it with `:space open <name>`.
+* **Sidebar sizing from Dia.** The sidebar is 190 points wide by default, with taller tab rows, tighter edges and smaller favourite tiles. If you have resized the sidebar, Merlin keeps your width; double-click its edge to return to the new default.
 
 ## What's new in 0.5.16
 
