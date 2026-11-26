@@ -200,10 +200,29 @@ export function shareUnchanged(previous: Snapshot, next: Snapshot): Snapshot {
   };
   return { ...next, tabs: reuse(previous.tabs, next.tabs), downloads: reuse(previous.downloads, next.downloads) };
 }
+/**
+ * Whether two records from Chromium's snapshots hold the same values. Fields
+ * are compared by identity first, then by value: every snapshot arrives as
+ * new JSON, so the nested records a tab carries (`zoom`, `media`,
+ * `restoreInWebKit`) are new objects even when nothing in them changed, and
+ * comparing them by identity alone would re-render every row each time.
+ */
 function shallowEqual(a: object, b: object) {
   const x = a as Record<string, unknown>, y = b as Record<string, unknown>;
   const keys = Object.keys(x);
-  return keys.length === Object.keys(y).length && keys.every(k => x[k] === y[k]);
+  return keys.length === Object.keys(y).length && keys.every(k => hasOwn.call(y, k) && sameValue(x[k], y[k]));
+}
+const hasOwn = Object.prototype.hasOwnProperty;
+/** Equal JSON values: the same primitives, or arrays and plain objects whose members are equal JSON values. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const other = b as unknown[];
+    return a.length === other.length && a.every((item, i) => sameValue(item, other[i]));
+  }
+  return shallowEqual(a, b);
 }
 
 export function showStatusMessage(store: BrowserStore, text: string, isError = true) {
