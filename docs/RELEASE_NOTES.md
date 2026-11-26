@@ -1,7 +1,11 @@
-Merlin 0.5.18, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.19, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.19
+
+* **Long addresses and searches stay inside the field.** On the New Tab page and in the pop-up, the field scrolls horizontally as you edit. Long suggestions end in an ellipsis, with short labels such as “Search” still visible.
 
 ## What's new in 0.5.18
 
