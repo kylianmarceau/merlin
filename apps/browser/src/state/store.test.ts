@@ -90,6 +90,34 @@ test('unchanged tabs and downloads keep their objects, so their rows skip render
   assert.equal(moved.tabs[0], after.tabs[1]);
   assert.deepEqual(moved.downloads, []);
 });
+test('tabs keep their objects when only freshly parsed nested records arrive, and not when a nested value changes', () => {
+  // Every snapshot is new JSON: a tab's zoom, media and WebKit records are new objects each time.
+  const tab = (id: string, percent: number, playing: boolean) => ({ id, title: id, url: 'https://a.test/', loading: false, pinned: false,
+    audible: playing, canGoBack: false, canGoForward: false, zoom: { percent, default: percent === 100 },
+    media: { playing, title: 'Song', artist: 'Band', canNext: true, canPrevious: false },
+    restoreInWebKit: { url: 'https://tv.test/', title: 'TV' } });
+  const store = createBrowserStore('w');
+  acceptSnapshot(store, { ...snapshot(1), tabs: [tab('1', 100, false), tab('2', 100, true)] });
+  const before = store.getState().snapshot!;
+  acceptSnapshot(store, { ...snapshot(2), tabs: [tab('1', 100, false), tab('2', 100, true)] });
+  const same = store.getState().snapshot!;
+  assert.equal(same.tabs[0], before.tabs[0]);
+  assert.equal(same.tabs[1], before.tabs[1]);
+  assert.equal(same.tabs, before.tabs);
+  acceptSnapshot(store, { ...snapshot(3), tabs: [tab('1', 125, false), tab('2', 100, false)] });
+  const changed = store.getState().snapshot!;
+  assert.notEqual(changed.tabs[0], same.tabs[0]);
+  assert.deepEqual(changed.tabs[0].zoom, { percent: 125, default: false });
+  assert.notEqual(changed.tabs[1], same.tabs[1]);
+  assert.equal(changed.tabs[1].media?.playing, false);
+  // A record that goes is a change.
+  const { media: _gone, ...noMedia } = tab('2', 100, false);
+  acceptSnapshot(store, { ...snapshot(4), tabs: [tab('1', 125, false), noMedia] });
+  const removed = store.getState().snapshot!;
+  assert.equal(removed.tabs[0], changed.tabs[0]);
+  assert.notEqual(removed.tabs[1], changed.tabs[1]);
+  assert.equal(removed.tabs[1].media, undefined);
+});
 
 test('a pinned tab remembers the page it was pinned on until it is unpinned or closes', () => {
   const tab = (id: string, url: string, pinned: boolean) => ({ id, title: url, url, loading: false, pinned, audible: false,

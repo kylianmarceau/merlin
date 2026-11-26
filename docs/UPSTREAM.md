@@ -43,6 +43,7 @@ checkout changes; it fails on conflicts rather than resetting files.
 | 0076 `merlin-spare-page-compositor` | Keeps one page compositor ready, so a tab switch doesn't create one |
 | 0077 `merlin-auto-pip-pref` | Registers the "float videos when you switch tabs" pref (`merlin_auto_pip.h`) |
 | 0078 `merlin-rounded-pip-window` | Rounds the frameless picture-in-picture window and its shadow |
+| 0094 `merlin-no-reading-mode-voices` | The React shell doesn't register the component with reading mode's voices (`WasmTtsEngine`, about 23 MB): it has no reading mode (0072) |
 
 ### Name, icons and visible strings
 

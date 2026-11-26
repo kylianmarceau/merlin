@@ -1,7 +1,7 @@
 import { createElement, type ComponentType } from 'react';
 import { requireNativeModule, requireNativeViewManager } from 'expo-modules-core';
 import type { ViewProps } from 'react-native';
-import { EngineClient, parseEngineEvent, type EngineEvent, type Transport } from './protocol';
+import { EngineClient, EngineEventHub, type Transport } from './protocol';
 export * from './protocol';
 
 type NativeEngine = {
@@ -28,26 +28,23 @@ export async function openSetupImportTool(windowId: string, category: 'passwords
   if (!reply.ok) throw new Error(reply.error || 'Merlin couldn’t open the file importer.');
 }
 
+// Every window's root runs in the same JavaScript runtime: one native
+// subscription parses each event once and hands it to every window's
+// listeners, instead of each listener parsing every event itself.
+let hub: EngineEventHub | undefined;
+
 /**
  * `onParse`, for timing traces: how long each event took to parse and check,
- * and its size. Every window's listener parses every event.
+ * and its size. Each event is parsed once, whichever windows listen.
  */
 export function connectEngine(windowId: string, onParse?: (ms: number, bytes: number) => void): EngineClient {
   // A missing engine is an integration error, never a reason to invent browser state.
   const native = requireNativeModule<NativeEngine>('MerlinEngine');
+  hub ??= new EngineEventHub(listener => native.addListener('browserEvent', listener));
+  const events = hub;
   const transport: Transport = {
     call: (id, method, args) => native.call(id, method, args),
-    subscribe: listener => {
-      const subscription = native.addListener('browserEvent', event => {
-        let parsed: EngineEvent;
-        const start = onParse ? performance.now() : 0;
-        try { parsed = parseEngineEvent(event.json); }
-        catch { parsed = { type: 'engine.error', windowId, message: 'The browser sent an invalid state update.' }; }
-        onParse?.(performance.now() - start, event.json.length);
-        listener(parsed);
-      });
-      return () => subscription.remove();
-    },
+    subscribe: listener => events.subscribe(windowId, listener, onParse),
   };
   return new EngineClient(windowId, transport);
 }

@@ -7,7 +7,7 @@
 // its bundle).
 //
 //   node bench.mjs --out DIR [--browsers merlin,ardia,...] [--rounds 3]
-//        [--suites launch,session,real,scale,energy,web]
+//        [--suites launch,session,real,scale,energy,web] [--settle SECONDS]
 //
 // Results are appended as JSON lines to DIR/results.jsonl.
 import { spawn, execFile } from "node:child_process";
@@ -40,6 +40,11 @@ const WINDOW_PROBE = join(OUT, "window_onscreen");
 const VIDEO = args.video;
 const MERLIN_APP = args.merlin;
 const QUICK = args.quick === "1";
+// How long each fresh browser's template stays open on its second pass, so
+// components (Chromium's first check is about a minute after launch) and
+// filter lists are installed before any run copies it. Every fresh browser
+// gets the same wait; 20 s keeps the old behaviour.
+const SETTLE_S = Number(args.settle ?? (QUICK ? 20 : 180));
 const IDLE_S = QUICK ? 30 : 60, SETTLED = !QUICK, RESTORE_TIMEOUT = QUICK ? 10000 : 30000;
 const SUITE_DIR = args.suites_dir ? resolve(args.suites_dir) : null;
 const MIME = { html: "text/html; charset=utf-8", js: "text/javascript", mjs: "text/javascript", cjs: "text/javascript", css: "text/css", json: "application/json",
@@ -426,7 +431,7 @@ async function prepareTemplate(B) {
     const keep = tabs.find((t) => t.url.includes("id=template"));
     for (const t of tabs) if (t !== keep && !t.url.startsWith("about:blank")) await d.close(t.id).catch(() => {});
     if (!keep) log("WARN template tab missing", B.name, tabs.map((t) => t.url));
-    await sleep(pass ? 20000 : 3000);
+    await sleep(pass ? SETTLE_S * 1000 : 3000);
     await d.quit();
   }
   if (B.key === "ardia") {
@@ -782,6 +787,30 @@ async function suiteWeb(B, round, which) {
 
 // ------------------------------------------------------------------ main
 const order = args.browsers.split(",");
+// Merlin keeps its interface settings and Spaces in its app's preferences
+// domain, so a run under Merlin's own bundle ID would write into the
+// maintainer's Merlin. Bench an APFS clone as io.github.kylianmarceau.merlin.bench
+// instead (ad hoc signed, as the e2e runner does), starting from an empty domain.
+const BENCH_ID = "io.github.kylianmarceau.merlin.bench";
+if (order.includes("merlin")) {
+  const B = BROWSERS.merlin;
+  if (!B.app) throw Error("--merlin APP required");
+  const plist = join(B.app, "Contents/Info.plist");
+  const { stdout } = await run("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleIdentifier", plist]);
+  if (stdout.trim() !== BENCH_ID) {
+    const copy = join(WORK, "app", "Merlin.app");
+    await rm(join(WORK, "app"), { recursive: true, force: true });
+    await mkdir(join(WORK, "app"), { recursive: true });
+    await run("cp", ["-cR", B.app, copy]);
+    await run("xattr", ["-dr", "com.apple.quarantine", copy]).catch(() => {});
+    await run("/usr/libexec/PlistBuddy", ["-c", `Set :CFBundleIdentifier ${BENCH_ID}`, join(copy, "Contents/Info.plist")]);
+    await run("python3", [join(HERE, "..", "sign_app.py"), copy], { maxBuffer: 1 << 24 });
+    log("merlin", `benching ${copy} as ${BENCH_ID}`);
+    B.app = B.bundle = copy;
+    B.binPath = join(copy, "Contents/MacOS", B.bin);
+  }
+  await run("defaults", ["delete", BENCH_ID]).catch(() => {});
+}
 for (const k of order) {
   const B = BROWSERS[k];
   if (!B) throw Error("unknown browser " + k);

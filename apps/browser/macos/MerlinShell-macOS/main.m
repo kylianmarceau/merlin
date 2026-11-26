@@ -31,11 +31,20 @@ int main(int argc, const char* argv[]) {
         return 0;
       }
     }
-    const char** arguments = calloc((size_t)argc + 2, sizeof(char*));
+    const char** arguments = calloc((size_t)argc + 3, sizeof(char*));
     if (!arguments) return 71;
     for (int i = 0; i < argc; ++i) arguments[i] = argv[i];
-    arguments[argc] = "--merlin-react-shell";
-    int result = chromeMain(argc + 1, arguments);
+    int count = argc;
+    arguments[count++] = "--merlin-react-shell";
+    // Chromium's stack sampling profiler only feeds usage metrics, which
+    // Merlin doesn't send: without it the browser runs no sampling thread at
+    // startup and periodically after, and starts none in its helpers.
+    // --modal-browser-upstream-defaults keeps Chromium's own choice.
+    BOOL upstream = NO;
+    for (int i = 1; i < argc; ++i)
+      if (!strcmp(argv[i], "--modal-browser-upstream-defaults")) upstream = YES;
+    if (!upstream) arguments[count++] = "--disable-stack-profiler";
+    int result = chromeMain(count, arguments);
     MerlinShellGetAPI(1)->shutdown();
     free(arguments);
     // Chromium may retain thread-local framework data until process exit.

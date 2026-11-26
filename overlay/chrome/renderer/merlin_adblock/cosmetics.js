@@ -129,7 +129,9 @@
       }
       if (roots.length === MAX_ROOTS) break;
     }
-    schedule();
+    // A pass with nothing queued does nothing (a page's clock rewriting its
+    // text, without procedural rules), so it needn't wake the page for one.
+    if (roots.length || classes.length || ids.length || walker || node) schedule();
   });
   // Without procedural rules only element additions and class/id changes
   // matter, so ordinary attribute and text churn is not observed at all.

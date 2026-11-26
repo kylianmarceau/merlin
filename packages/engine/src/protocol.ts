@@ -393,6 +393,45 @@ export function parseEngineEvent(json: string): EngineEvent {
     return { type: 'test.throw', windowId: v.windowId, where: v.where };
   throw new Error('Unknown engine event');
 }
+type Subscriber = { windowId: string; listener: (event: EngineEvent) => void; onParse?: (ms: number, bytes: number) => void };
+
+/**
+ * One subscription to the native event stream for the whole runtime. Each
+ * event is parsed and checked once and the same result goes to every
+ * subscriber, in the order they subscribed. Subscribers only read events.
+ * An event that does not parse reaches each subscriber as an engine error
+ * for its own window, as it did when each subscriber parsed for itself.
+ */
+export class EngineEventHub {
+  private readonly subscribers = new Set<Subscriber>();
+  private subscription: { remove(): void } | null = null;
+  constructor(private readonly listen: (listener: (event: { json: string }) => void) => { remove(): void }) {}
+  subscribe(windowId: string, listener: (event: EngineEvent) => void, onParse?: (ms: number, bytes: number) => void): () => void {
+    const subscriber: Subscriber = { windowId, listener, onParse };
+    this.subscribers.add(subscriber);
+    this.subscription ??= this.listen(event => this.deliver(event.json));
+    return () => {
+      if (!this.subscribers.delete(subscriber) || this.subscribers.size) return;
+      this.subscription?.remove();
+      this.subscription = null;
+    };
+  }
+  private deliver(json: string) {
+    // Listeners can subscribe and unsubscribe while an event is delivered.
+    const subscribers = [...this.subscribers];
+    const timed = subscribers.some(s => s.onParse);
+    const start = timed ? performance.now() : 0;
+    let parsed: EngineEvent | null = null;
+    try { parsed = parseEngineEvent(json); } catch { /* each subscriber hears an engine error below */ }
+    const ms = timed ? performance.now() - start : 0;
+    for (const subscriber of subscribers) {
+      if (!this.subscribers.has(subscriber)) continue;
+      subscriber.onParse?.(ms, json.length);
+      subscriber.listener(parsed ?? { type: 'engine.error', windowId: subscriber.windowId, message: 'The browser sent an invalid state update.' });
+    }
+  }
+}
+
 export interface Transport {
   call(windowId: string, method: string, args: string): Promise<string>;
   subscribe(listener: (event: EngineEvent) => void): () => void;
