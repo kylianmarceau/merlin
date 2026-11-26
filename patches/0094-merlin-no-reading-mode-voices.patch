@@ -1,0 +1,26 @@
+diff --git a/chrome/browser/component_updater/registration.cc b/chrome/browser/component_updater/registration.cc
+--- a/chrome/browser/component_updater/registration.cc
++++ b/chrome/browser/component_updater/registration.cc
+@@ -4,6 +4,7 @@
+ 
+ #include "chrome/browser/component_updater/registration.h"
+ 
++#include "base/command_line.h"
+ #include "base/feature_list.h"
+ #include "base/files/file_path.h"
+ #include "base/files/file_util.h"
+@@ -231,7 +232,13 @@ void RegisterComponentsForUpdate() {
+         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+ 
+ #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+-  RegisterWasmTtsEngineComponent(cus, g_browser_process->local_state());
++  // Reading mode's voices. Merlin's React window (--merlin-react-shell) has
++  // no side panel, so it has no reading mode (patch 0072) and nothing would
++  // speak with them.
++  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
++          "merlin-react-shell")) {
++    RegisterWasmTtsEngineComponent(cus, g_browser_process->local_state());
++  }
+ #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+ 
+   RegisterCaptchaProviderComponent(cus);
