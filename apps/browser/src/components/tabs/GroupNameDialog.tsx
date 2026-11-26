@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { folderTitle } from '../../state/favouriteFolders';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
+import { nextName } from '../../state/spaces';
 import { CenteredPopup, PopupField, PopupFooter, useRefusal } from '../ui';
 import { tabTitle } from './TabRow';
 
@@ -19,14 +20,18 @@ export function GroupNameDialog() {
   const tab = dialog?.kind === 'renameTab' ? snapshot.tabs.find(t => t.id === dialog.tabId) : undefined;
   const folders = useShellPrefs(p => p.favouriteFolders);
   const folder = dialog?.kind === 'renameFolder' ? folders.find(f => f.id === dialog.folderId) : undefined;
+  const spaces = useShellPrefs(p => p.spaces);
+  const space = dialog?.kind === 'renameSpace' ? spaces.find(s => s.id === dialog.spaceId) : undefined;
   const [name, setName] = useState('');
   const refused = useRefusal(null);
   const key = !dialog ? '' : dialog.kind === 'rename' ? `rename:${dialog.groupId}`
-    : dialog.kind === 'renameFolder' ? `folder:${dialog.folderId}` : `${dialog.kind}:${dialog.tabId}`;
-  // Each opening starts from the group's, tab's or folder's name (or nothing, for a new group).
-  useEffect(() => { setName(current?.title ?? tab?.name ?? folder?.name ?? ''); }, [key]);  // eslint-disable-line react-hooks/exhaustive-deps
-  // A group, tab or folder that goes away (closed, or ungrouped elsewhere) takes its dialog with it.
-  const gone = (dialog?.kind === 'rename' && !current) || (dialog?.kind === 'renameTab' && !tab) || (dialog?.kind === 'renameFolder' && !folder);
+    : dialog.kind === 'renameFolder' ? `folder:${dialog.folderId}` : dialog.kind === 'renameSpace' ? `space:${dialog.spaceId}`
+    : dialog.kind === 'newSpace' ? 'newSpace' : `${dialog.kind}:${dialog.tabId}`;
+  // Each opening starts from the group's, tab's, folder's or space's name (or nothing, for a new group or space).
+  useEffect(() => { setName(current?.title ?? tab?.name ?? folder?.name ?? space?.name ?? ''); }, [key]);  // eslint-disable-line react-hooks/exhaustive-deps
+  // A group, tab, folder or space that goes away (closed, or ungrouped elsewhere) takes its dialog with it.
+  const gone = (dialog?.kind === 'rename' && !current) || (dialog?.kind === 'renameTab' && !tab) || (dialog?.kind === 'renameFolder' && !folder) ||
+    (dialog?.kind === 'renameSpace' && !space);
   useEffect(() => { if (gone) actions.closeGroupDialog(); }, [gone, actions]);
   if (!dialog || gone) return null;
   if (dialog.kind === 'renameTab' && tab) {
@@ -44,6 +49,19 @@ export function GroupNameDialog() {
     </CenteredPopup>;
   }
   if (dialog.kind === 'renameFolder') return null;
+  if (dialog.kind === 'newSpace' || dialog.kind === 'renameSpace') {
+    // A space needs a name: renaming to nothing is refused; a new one left unnamed takes the next "Space n".
+    const label = dialog.kind === 'newSpace' ? 'New Space' : 'Rename Space';
+    const submit = () => {
+      if (dialog.kind === 'renameSpace' && !name.trim()) { refused.again(); return; }
+      void actions.submitGroupDialog(name);
+    };
+    return <CenteredPopup label={label} onDismiss={actions.closeGroupDialog} shake={refused.count}>
+      <PopupField icon="square.stack" value={name} label={label} placeholder={space?.name ?? nextName(spaces)}
+        onChangeText={setName} onSubmit={submit} onEscape={actions.closeGroupDialog} />
+      <PopupFooter accept={dialog.kind === 'newSpace' ? 'Create Space' : 'Rename'} />
+    </CenteredPopup>;
+  }
   const label = dialog.kind === 'new' ? 'Name the New Group' : 'Rename Group';
   // A group renamed to nothing, or to another group's name, is refused: the pop-up shakes.
   const trimmed = name.trim();

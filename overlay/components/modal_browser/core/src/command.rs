@@ -627,12 +627,18 @@ impl CommandRegistry {
                         .iter()
                         .map(|n| ((*n).to_string(), format!("pin {n}")))
                         .collect(),
-                    "workspace" => [
-                        ("save", "save this window's tabs"),
-                        ("open", "open a saved workspace"),
-                        ("delete", "delete a saved workspace"),
-                        ("list", "list saved workspaces"),
-                        ("project", "tie this workspace to a project folder"),
+                    "space" => [
+                        ("next", "show the next space"),
+                        ("prev", "show the previous space"),
+                        ("go", "show a space by number or name"),
+                        ("new", "make a new space"),
+                        ("rename", "rename this space"),
+                        ("close", "close this space and its tabs"),
+                        ("save", "keep this space's tabs on disk"),
+                        ("open", "open a saved space"),
+                        ("delete", "delete a saved space"),
+                        ("list", "list saved spaces"),
+                        ("project", "tie this space to a project folder"),
                     ]
                     .iter()
                     .map(|(n, d)| ((*n).to_string(), (*d).to_string()))
@@ -889,7 +895,7 @@ const SCROLL_USAGE: &str =
 const FIND_USAGE: &str = ":find [next|previous]";
 const ADDRESS_USAGE: &str = ":focus-address";
 const CMDLINE_USAGE: &str = ":cmdline [text]";
-const PALETTE_USAGE: &str = ":palette [commands|tabs|history|bookmarks|workspaces|outline|links]";
+const PALETTE_USAGE: &str = ":palette [commands|tabs|history|bookmarks|spaces|outline|links]";
 const HINT_USAGE: &str = ":hint [follow|tab|yank|input|edit|code|select]";
 const YANK_USAGE: &str = ":yank [url|title|markdown|selection]";
 const PASTE_USAGE: &str = ":paste [tab]";
@@ -911,8 +917,7 @@ const SPLIT_SWAP_USAGE: &str = ":split-swap";
 const PIN_USAGE: &str = ":pin [on|off]";
 const WINDOW_USAGE: &str = ":window";
 const PRIVATE_USAGE: &str = ":private";
-const WORKSPACE_USAGE: &str =
-    ":workspace [save [name] | open <name> | delete <name> | list | project <dir|clear>]";
+const WORKSPACE_USAGE: &str = ":space [next | prev | go <n|name> | new [name] | rename <name> | close | save [name] | open <name> | delete <name> | list | project <dir|clear>]";
 const MARK_USAGE: &str = ":mark [a-z|A-Z]";
 const JUMP_MARK_USAGE: &str = ":jump-mark [a-z|A-Z]";
 const MARKS_USAGE: &str = ":marks";
@@ -1150,7 +1155,7 @@ fn cmd_palette(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
             invalid(
                 inv,
                 name,
-                "expected commands, tabs, history, bookmarks, workspaces, outline, links, menu or downloads",
+                "expected commands, tabs, history, bookmarks, spaces, outline, links, menu or downloads",
             )
         })?,
     };
@@ -1449,6 +1454,30 @@ fn cmd_adblock(inv: &Invocation, _: &Context) -> Result<Effects, CommandError> {
     }))
 }
 
+/// A change to the window's spaces, which the shell makes.
+fn space_command(verb: &str, arg: &str) -> Effects {
+    Effects::action(Action::BrowserCommand {
+        name: "space".into(),
+        arg: if arg.is_empty() {
+            verb.to_string()
+        } else {
+            format!("{verb} {arg}")
+        },
+    })
+}
+
+/// A space's name as it shows in the sidebar: at most 64 characters.
+fn space_label(inv: &Invocation, name: &str) -> Result<(), CommandError> {
+    if name.chars().count() > 64 {
+        return Err(invalid(
+            inv,
+            name,
+            "a space's name is at most 64 characters",
+        ));
+    }
+    Ok(())
+}
+
 fn workspace_name<'a>(inv: &Invocation, name: &'a str) -> Result<&'a str, CommandError> {
     workspace::validate_name(name).map_err(|e| CommandError::InvalidArgument {
         name: inv.name,
@@ -1480,8 +1509,7 @@ fn cmd_workspace(inv: &Invocation, ctx: &Context) -> Result<Effects, CommandErro
                 [] => ctx.workspace.ok_or_else(|| CommandError::InvalidArgument {
                     name: inv.name,
                     arg: "save".into(),
-                    reason: "this window has no workspace yet; name it: :workspace save <name>"
-                        .into(),
+                    reason: "this space isn't saved yet; name it: :space save <name>".into(),
                 })?,
                 [name] => workspace_name(inv, name)?,
                 _ => return Err(too_many()),
@@ -1518,10 +1546,27 @@ fn cmd_workspace(inv: &Invocation, ctx: &Context) -> Result<Effects, CommandErro
                 Action::DeleteWorkspace { name }
             }))
         }
+        // The window's spaces themselves are the shell's (state/spaces.ts).
+        [verb] if verb == "next" || verb == "prev" || verb == "close" => {
+            Ok(space_command(verb, ""))
+        }
+        [verb, rest @ ..] if verb == "new" => {
+            let name = rest.join(" ");
+            space_label(inv, &name)?;
+            Ok(space_command("new", name.trim()))
+        }
+        [verb, rest @ ..] if verb == "go" || verb == "rename" => {
+            let name = rest.join(" ");
+            if name.trim().is_empty() {
+                return Err(missing());
+            }
+            space_label(inv, &name)?;
+            Ok(space_command(verb, name.trim()))
+        }
         [other, ..] => Err(invalid(
             inv,
             other,
-            "expected save, open, delete, list or project",
+            "expected next, prev, go, new, rename, close, save, open, delete, list or project",
         )),
     }
 }
@@ -2121,10 +2166,10 @@ fn builtin_specs() -> Vec<CommandSpec> {
             cmd_private,
         ),
         available(
-            "workspace",
-            &["ws"],
+            "space",
+            &["workspace", "ws"],
             WORKSPACE_USAGE,
-            "save, open or list workspaces",
+            "switch, make, save or open spaces",
             cmd_workspace,
         ),
         available("history", &[], HISTORY_USAGE, "search history", cmd_history),

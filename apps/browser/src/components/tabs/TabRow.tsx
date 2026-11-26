@@ -136,8 +136,8 @@ export const TabRow = React.memo(function TabRow({ tab, active, onReorder, onSte
         // A tab is chosen as the button goes down, as in Dia, so switching feels immediate.
         onPressIn={() => { setPressed(true); actions.closeHoverCard(); void actions.activateTab(tab.id); }}
         onPressOut={() => setPressed(false)}
-        style={{ flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: space.sm + space.hair,
-          paddingLeft: space.sm + space.hair }}>
+        style={{ flex: 1, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: geometry.tabRowTitleGap,
+          paddingLeft: geometry.tabRowInset }}>
         <Favicon tab={tab} busy={tab.loading && !active} badges />
         {/* The title dissolves at its end instead of stopping at an ellipsis, as in Dia and Ardia. */}
         <Fade style={{ flex: 1 }}>

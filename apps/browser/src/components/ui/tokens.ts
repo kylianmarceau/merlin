@@ -49,9 +49,20 @@ export const geometry = {
   unreadBadge: 15,
   /** A swipe back or forward's round arrow at the page's edge, and how far in it comes when letting go would navigate. */
   swipeChip: 40, swipeReach: 56,
-  control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 34, address: 36, favourite: 44, favouriteSmall: 28,
-  /** Dia's sidebar rhythm: 3 pt between tab rows (a 37 pt pitch), and the selected pinned tile's ring. */
-  tabRowGap: 3, tileRing: 2.5,
+  control: 28, controlLarge: 34, button: 30, row: 30, tabRow: 38, address: 36, favourite: 41, favouriteSmall: 28,
+  /**
+   * Spaces, as Arc draws them: each one's button in the sidebar's bottom row
+   * (a dot once they no longer fit), the space's heading, and how far a space
+   * slides in when chosen by its button rather than swiped.
+   */
+  spaceButton: 22, spaceDot: 6, spaceHeading: 30, spaceSlide: 36,
+  /**
+   * Dia's sidebar, measured: 6 pt in from each side; tab rows 38 pt tall with
+   * 3.5 pt between them (a 41.5 pt pitch), the favicon 9 pt in and the title
+   * 7.5 pt after it; its rules 5 pt further in than the rows; and the
+   * selected pinned tile's ring.
+   */
+  sidebarInset: 6, tabRowGap: 3.5, tabRowInset: 9, tabRowTitleGap: 7.5, sidebarRuleInset: 5, tileRing: 2.5,
   /** The new tab page's breathing area light: how tall its wash is. */
   areaLight: 640,
   /** A dashed rule's dashes and the gaps between them (under the favourite tiles, as in Ardia). */
@@ -458,7 +469,7 @@ export const opacity = { disabled: 0.4, pressed: 0.75, dim: 0.6, groupWash: 0.16
 
 export type ToolbarColor = 'match' | 'soft' | 'vivid' | 'workspace' | 'white';
 export const toolbarColors: readonly ToolbarColor[] = ['match', 'soft', 'vivid', 'workspace', 'white'];
-export const toolbarColorLabels: Record<ToolbarColor, string> = { match: 'Match', soft: 'Soft', vivid: 'Vivid', workspace: 'Workspace', white: 'White' };
+export const toolbarColorLabels: Record<ToolbarColor, string> = { match: 'Match', soft: 'Soft', vivid: 'Vivid', workspace: 'Space', white: 'White' };
 
 type Rgb = [number, number, number];
 const channels = (hex: string): Rgb => {

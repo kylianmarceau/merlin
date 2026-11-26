@@ -14,7 +14,7 @@
 //! hide_tabs = false                # start with tabs hidden; Cmd-S (:hide-tabs) toggles
 //! popup_transparency = "medium"    # frosted pop-ups: "solid", "low", "medium" or "high"
 //! restore_session = true           # reopen last session's windows at launch
-//! workspace_autosave = true        # keep an opened workspace saved as it changes
+//! workspace_autosave = true        # keep a saved space saved as it changes (space_autosave also works)
 //! browserctl = true                # accept commands from browserctl (same user only)
 //! editor = ["/Applications/Ghostty.app/Contents/MacOS/ghostty", "--quit-after-last-window-closed=true", "-e", "nvim", "{file}"]  # for :edit; else $VISUAL
 //!
@@ -225,6 +225,7 @@ const OPTION_NAMES: &[&str] = &[
     "popup_transparency",
     "restore_session",
     "workspace_autosave",
+    "space_autosave",
     "browserctl",
     "editor",
     "edit_key",
@@ -541,7 +542,9 @@ impl ConfigFile {
                 })
             }
             "restore_session" => self.restore_session = Some(expect_bool(name, value)?),
-            "workspace_autosave" => self.workspace_autosave = Some(expect_bool(name, value)?),
+            "workspace_autosave" | "space_autosave" => {
+                self.workspace_autosave = Some(expect_bool(name, value)?)
+            }
             "browserctl" => self.browserctl = Some(expect_bool(name, value)?),
             "editor" => {
                 let argv = expect_str_array(name, value)?;

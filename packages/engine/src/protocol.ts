@@ -53,6 +53,11 @@ export type Tab = {
   /** The ID of the tab group it is in (one of the snapshot's `groups`). Absent when ungrouped. */
   group?: string;
   /**
+   * The space it belongs to (apps/browser/src/state/spaces.ts), kept with the
+   * session. Absent before the shell gives it one, and from older engines.
+   */
+  space?: string;
+  /**
    * The ID of the split view it is in, shared with the tab beside it (which
    * is next to it in `tabs`). Absent when it isn't in one, and from older engines.
    */
@@ -248,6 +253,14 @@ export type Calls = {
    * restores that page, not the hidden one.
    */
   'tabs.setEngineOverlay': { args: { tabId: string; overlay: { engine: 'webkit'; url: string; title: string } | null }; result: null };
+  /** Puts the tab in a space (letters, digits, '-' and '_'; at most 64), or with "" in none. */
+  'tabs.setSpace': { args: { tabId: string; space: string }; result: null };
+  /**
+   * The space the window shows, the name it is saved under ("" when not
+   * saved) and the window's other saved spaces by saved name, so :space save
+   * and open, autosave, gt and gT work on the space showing.
+   */
+  'spaces.activate': { args: { spaceId: string; saved: string; savedSpaces: Record<string, string> }; result: null };
   /** The window's interface showed its first snapshot, or its error boundary caught a failure (logged by Chromium). */
   'shell.report': { args: { state: ShellReport; message?: string; stack?: string }; result: null };
   /** "Reload Interface": Chromium gives the window a new React root; its tabs carry on. */
@@ -339,9 +352,17 @@ export type EngineEvent = { type: 'snapshot'; snapshot: Snapshot } | { type: 'ad
    * its end), whether letting go would navigate, and whether it has ended.
    */
   | HistorySwipe
+  /**
+   * A :space command for the shell's spaces: next, prev, go, new, rename or
+   * close (`arg` its argument), switch to `spaceId`, opened (a saved space
+   * named `arg` just opened in the window as `spaceId`) or saved (`spaceId`
+   * was just saved as `arg`).
+   */
+  | SpaceCommand
   /** Tests only (native code sends it only to a test instance): fail while drawing, or from a timer outside React. */
   | { type: 'test.throw'; windowId: string; where: 'render' | 'timer' };
 
+export type SpaceCommand = { type: 'space.command'; windowId: string; verb: string; arg: string; spaceId: string };
 export type HistorySwipe = { type: 'history.swipe'; windowId: string; direction: 'back' | 'forward'; progress: number; ready: boolean; ended: boolean };
 
 export function parseEngineEvent(json: string): EngineEvent {
@@ -366,6 +387,8 @@ export function parseEngineEvent(json: string): EngineEvent {
   if (v.type === 'history.swipe' && typeof v.windowId === 'string' && (v.direction === 'back' || v.direction === 'forward') &&
       isNumber(v.progress) && isBool(v.ready) && isBool(v.ended))
     return { type: 'history.swipe', windowId: v.windowId, direction: v.direction, progress: v.progress, ready: v.ready, ended: v.ended };
+  if (v.type === 'space.command' && typeof v.windowId === 'string' && isString(v.verb) && isString(v.arg) && isString(v.spaceId))
+    return { type: 'space.command', windowId: v.windowId, verb: v.verb, arg: v.arg, spaceId: v.spaceId };
   if (v.type === 'test.throw' && typeof v.windowId === 'string' && (v.where === 'render' || v.where === 'timer'))
     return { type: 'test.throw', windowId: v.windowId, where: v.where };
   throw new Error('Unknown engine event');
@@ -488,6 +511,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
         (tab.color !== undefined && (typeof tab.color !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.color))) ||
         (tab.surface !== undefined && (typeof tab.surface !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(tab.surface))) ||
         (tab.group !== undefined && typeof tab.group !== 'string') ||
+        (tab.space !== undefined && (typeof tab.space !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(tab.space))) ||
         (tab.split !== undefined && (typeof tab.split !== 'string' || !tab.split)) ||
         (tab.restoreInWebKit !== undefined && !fields(tab.restoreInWebKit, { url: isString, title: isString })) ||
         (tab.userInitiated !== undefined && typeof tab.userInitiated !== 'boolean') ||

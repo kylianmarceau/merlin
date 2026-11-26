@@ -56,7 +56,11 @@ fixture page (`MerlinTestCase.reset`).
   get a folder of the run's own (`MERLIN_WEBKIT_TEST_FOLDER`): a data store
   made for the run (`WKWebsiteDataStore(forIdentifier:)`, removed when the
   instance closes) and an icon cache, so tests never read or clear your
-  WebKit sign-ins. Your own Merlin keeps running and its
+  WebKit sign-ins. The runner tests a copy of the app (an APFS clone) under
+  its own bundle ID, `io.github.kylianmarceau.merlin.e2e`, so the
+  interface's settings and spaces go in that copy's preferences domain,
+  which each instance starts with empty; the harness refuses to launch an
+  app under any other bundle ID. Your own Merlin keeps running and its
   profile, config, sign-ins and clipboard are not touched. No test reads or
   writes the clipboard. Shell preferences live in the app's macOS defaults,
   which tests only read. A process-only defaults argument disables the new-tab
@@ -120,7 +124,7 @@ fixture page (`MerlinTestCase.reset`).
 | `test_hints` | `f` follows, `F` opens in the background, a field hint enters Insert, `gi`, Esc cancels, hints in same-site and cross-site frames; an `F` answered after a tab switch opens nothing |
 | `test_tabs` | `t`, `d`/`u`, `J`/`K`, `gp`, `:vsplit` with both halves visible, `<C-w>w`, `<C-w>o`, background tabs hidden |
 | `test_config` | Bindings, `[unmap]`, `scroll_step`, a bad line keeps the rest, aliases, `passthrough_sites`, `modal_browsing = false` |
-| `test_workspaces` | browserctl `ping`, `open`, `tabs`, `focus`, `current`, `selection`, `command`, refusals, socket permissions; workspace save and restore with pins and splits, `list`, `here`; autosave after a group is made, renamed, recoloured, collapsed or ungrouped, a pin or unpin, a split undone, and a window closed (`:browser close-window`) 0.5 s after a change, then reopened |
+| `test_workspaces` | browserctl `ping`, `open`, `tabs`, `focus`, `current`, `selection`, `command`, refusals, socket permissions; saved spaces: save with splits and without favourites, open in the same window as a space of its own and shown again rather than copied, `list`, `here`; autosave after a group is made, renamed, recoloured, collapsed or ungrouped, a pin or unpin, a split undone, and a window closed (`:browser close-window`) 0.5 s after a change |
 | `test_editor` | `:edit` writes back with an ordinary input event, the editor receives the field's text, password fields never leave the browser; a save written a piece at a time reaches the field only whole; an editor that exits 1 at once ends the edit with an error and no watch; closing the window mid-edit keeps the file and another window says where |
 | `test_adblock` | Ad requests blocked before the network, generic cosmetic filters, per-site toggle |
 | `test_groups` | `:group` starts a named group and joins one by name, `:ungroup`, pinned tabs stay out (browserctl `tabs` reports each tab's group) |

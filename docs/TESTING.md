@@ -90,9 +90,9 @@ scroll state. Its 30 scenarios cover:
     toggles, and a config default never overrides the user's own choice.
 24. Splits: `<C-w>v`, `<C-w>w`, `<C-w>o`, `:split url` stacked, refusing a
     second split and script URLs; `gp` and `:pin off`.
-25. Workspaces: save, open in another window that holds only a new tab
-    (reused, pins and split pairs restored, active tab), missing names,
-    delete, private windows refused.
+25. Saved spaces: save, open in the same window as a space of its own
+    (split pairs restored, active tab), missing names, delete, private
+    windows refused.
 26. Lists: the history palette loaded by the host, filtered, Enter opens; a
     bookmarklet is not opened; `:private`, `:downloads`, `gB`, `:devtools`.
 27. Outline: `gO` requests the document, rows appear, search and Enter

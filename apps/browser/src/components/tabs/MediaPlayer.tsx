@@ -20,6 +20,9 @@ import { tabTitle } from './TabRow';
 export function MediaPlayer() {
   const snapshot = useSnapshot();
   const recent = useBrowser(s => s.recentTabs);
+  // Media plays on in other spaces' tabs, so the player looks at every tab, not just the space's.
+  const every = useBrowser(s => s.allTabs);
+  const tabs = every.length ? every : snapshot.tabs;
   const { reduceMotion } = useTheme();
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
   // Whether each tab played at the last snapshot, so a dismissal ends when it starts again.
@@ -27,12 +30,12 @@ export function MediaPlayer() {
   useEffect(() => {
     setDismissed(old => {
       if (!old.size) return old;
-      const next = keepDismissed(old, snapshot.tabs, was.current);
+      const next = keepDismissed(old, tabs, was.current);
       return next.size === old.size ? old : next;
     });
-    was.current = new Map(snapshot.tabs.map(t => [t.id, mediaPlaying(t)]));
-  }, [snapshot.tabs]);
-  const tab = playerTab(snapshot.tabs, snapshot.activeTabId, recent, dismissed);
+    was.current = new Map(tabs.map(t => [t.id, mediaPlaying(t)]));
+  }, [tabs]);
+  const tab = playerTab(tabs, snapshot.activeTabId, recent, dismissed);
   const { mounted, progress } = usePresence(!!tab, 'mediaPlayer', reduceMotion);
   // The tab stays on the card while it goes.
   const shown = useLatest(tab);

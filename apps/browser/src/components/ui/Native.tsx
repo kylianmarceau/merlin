@@ -1,10 +1,19 @@
 import React from 'react';
 import type { ViewProps } from 'react-native';
-import { ContextMenuArea as NativeContextMenuArea, FileDrag as NativeFileDrag, WindowDragRegion, WindowState, haptic, type HapticKind } from '../../platform/shell';
+import { ContextMenuArea as NativeContextMenuArea, FileDrag as NativeFileDrag, SwipeArea as NativeSwipeArea, WindowDragRegion, WindowState, haptic, type HapticKind } from '../../platform/shell';
 
 /** Empty space that moves the window when dragged and zooms it on a double click. */
 export function DragRegion(props: ViewProps) {
   return <WindowDragRegion {...props} />;
+}
+
+/** A sideways two-finger swipe over the area, as `onSwipe` hears it: the phase, the fingers' travel in points (right positive) and, at the end, their speed. */
+export type Swipe = { phase: 'begin' | 'move' | 'end' | 'cancel'; dx: number; velocity: number };
+/** Hears sideways trackpad swipes over its children (spaces, as in Zen and Arc); clicks and vertical scrolling reach them as usual. */
+export function SwipeArea({ onSwipe, enabled = true, style, children }: React.PropsWithChildren<{
+  onSwipe(swipe: Swipe): void; enabled?: boolean; style?: ViewProps['style'];
+}>) {
+  return <NativeSwipeArea swipeEnabled={enabled} style={style} onSwipe={e => onSwipe(e.nativeEvent)}>{children}</NativeSwipeArea>;
 }
 
 /** Turns a right click or Control-click inside it into `onOpen`, for a native menu. */

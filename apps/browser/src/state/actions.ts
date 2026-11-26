@@ -20,6 +20,9 @@ import {
 } from './store';
 import type { BookmarkItem, MediaAction } from '../platform/protocol';
 import { awayFromHome } from './pinned';
+import { createSpaces } from './spaceManager';
+import { maxSpaces, savedNameFor, spaceIcons } from './spaces';
+import type { WorkspaceTheme } from './workspaceTheme';
 
 let queryCounter = 0;
 /** The symbols a tab can show in place of its page's icon (Change Icon), with their names in the menu. */
@@ -30,6 +33,11 @@ const symbolTitles = {
   airplane: 'Travel',
 } as const satisfies Partial<Record<SymbolName, string>>;
 const tabSymbols = Object.keys(symbolTitles) as (keyof typeof symbolTitles)[];
+/** A space's icons by name, for its Change Icon menu. */
+const spaceIconTitle = (icon: string) => icon === 'chevron.left.forwardslash.chevron.right' ? 'Code' : icon === 'circle.fill' ? 'Dot'
+  : icon.split('.')[0].replace(/^./, c => c.toUpperCase());
+/** A colour a space can take from its menu: its name and the theme it gives. */
+export type SpaceSwatch = { name: string; theme: WorkspaceTheme };
 const groupColorTitle = (color: GroupColor) => color[0].toUpperCase() + color.slice(1);
 /** How soon after an outside press closes a popover its own button is ignored. */
 const reopenGuardMs = 400;
@@ -97,8 +105,104 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     }
   };
   let lastClosed: { name: PopoverName | null; at: number } = { name: null, at: 0 };
+  const spaces = createSpaces(store, engine, fail);
 
   const actions = {
+    /** The window's spaces (state/spaceManager.ts). */
+    spaces,
+    /** The spaces to choose from, from the space at the start of the tabs across the top; and New Space. */
+    async spaceSwitchMenu(swatches: SpaceSwatch[]) {
+      const all = shellPrefs.getState().spaces;
+      const activeSpace = store.getState().activeSpace;
+      let choice: string | null;
+      try {
+        choice = await menu([
+          ...all.map((s, i) => ({ id: `go:${s.id}`, title: s.name, checked: s.id === activeSpace,
+            ...(spaceIcons.includes(s.icon as SymbolName) ? { symbol: s.icon as SymbolName } : {}) })),
+          { separator: true },
+          { id: 'new', title: 'New Space…', symbol: 'plus', enabled: all.length < maxSpaces },
+          ...(activeSpace ? [{ id: 'edit', title: 'This Space', symbol: 'ellipsis' as const }] : []),
+        ]);
+      } catch (e) { fail(e); return; }
+      if (choice?.startsWith('go:')) void spaces.switchSpace(choice.slice('go:'.length));
+      else if (choice === 'new') actions.nameGroup({ kind: 'newSpace', theme: swatches[all.length % Math.max(1, swatches.length)]?.theme ?? null });
+      else if (choice === 'edit' && activeSpace) void actions.spaceMenu(activeSpace, swatches);
+    },
+    /** The sidebar's ⋯ beside the spaces, as Arc keeps its bottom row to them: the command menu, the Library and Settings. */
+    async moreMenu() {
+      let choice: string | null;
+      try {
+        choice = await menu([
+          { id: 'command', title: 'Command Menu', symbol: 'command' },
+          { id: 'library', title: 'Library', symbol: 'books.vertical' },
+          { id: 'settings', title: 'Settings…', symbol: 'gearshape' },
+          { separator: true },
+          { id: 'saved', title: 'Saved Spaces…', symbol: 'square.stack' },
+        ]);
+      } catch (e) { fail(e); return; }
+      if (choice === 'command') void actions.command('palette menu');
+      else if (choice === 'library') actions.openPanel('history');
+      else if (choice === 'settings') actions.openPanel('settings');
+      else if (choice === 'saved') void actions.command('space');
+    },
+    /**
+     * A space's menu, from its switcher button or heading: rename, icon,
+     * colour (`swatches`), keep it on disk, order, delete. Delete asks first:
+     * it closes the space's tabs.
+     */
+    async spaceMenu(spaceId: string, swatches: SpaceSwatch[]) {
+      const all = shellPrefs.getState().spaces;
+      const space = all.find(s => s.id === spaceId);
+      if (!space) return;
+      const at = all.indexOf(space);
+      const saveAs = space.saved ?? savedNameFor(space.name);
+      const items: MenuItem[] = [
+        { id: 'rename', title: 'Rename Space…', symbol: 'pencil' },
+        { title: 'Change Icon', symbol: 'face.smiling', children: spaceIcons.map(icon => ({
+          id: `icon:${icon}`, title: spaceIconTitle(icon), symbol: icon, checked: space.icon === icon })) },
+        { title: 'Colour', symbol: 'paintpalette', children: [
+          ...swatches.map((swatch, i) => ({ id: `theme:${i}`, title: swatch.name, checked: space.theme?.stops[0] === swatch.theme.stops[0] })),
+          { separator: true },
+          { id: 'theme:none', title: 'Use Appearance’s Colour', checked: !space.theme },
+          { id: 'theme:edit', title: 'Edit Gradient…', symbol: 'paintbrush' },
+        ] },
+        { separator: true },
+        { id: 'save', title: space.saved ? `Saved as ${space.saved}` : 'Save Space', enabled: !space.saved && !!saveAs &&
+          spaceId === store.getState().activeSpace, symbol: 'arrow.down.to.line' },
+        { id: 'left', title: 'Move Left', enabled: at > 0, symbol: 'chevron.left' },
+        { id: 'right', title: 'Move Right', enabled: at < all.length - 1, symbol: 'chevron.right' },
+        { separator: true },
+        { id: 'new', title: 'New Space', symbol: 'plus' },
+        { id: 'delete', title: 'Delete Space…', enabled: all.length > 1, destructive: true, symbol: 'trash' },
+      ];
+      let choice: string | null;
+      try { choice = await menu(items); } catch (e) { fail(e); return; }
+      if (!choice) return;
+      if (choice === 'rename') actions.nameGroup({ kind: 'renameSpace', spaceId });
+      else if (choice === 'new') actions.nameGroup({ kind: 'newSpace', theme: swatches[all.length % Math.max(1, swatches.length)]?.theme ?? null });
+      else if (choice === 'save') void actions.command(`space save ${saveAs}`);
+      else if (choice === 'left') spaces.moveSpace(spaceId, at - 1);
+      else if (choice === 'right') spaces.moveSpace(spaceId, at + 1);
+      else if (choice === 'delete') {
+        const tabs = (store.getState().engineSnapshot?.tabs ?? []).filter(t => !t.pinned && t.space === spaceId).length;
+        let sure: string | null = null;
+        try {
+          sure = await menu([
+            { id: 'info', title: tabs ? `Delete ${space.name} and close its ${tabs} tab${tabs === 1 ? '' : 's'}?` : `Delete ${space.name}?`,
+              enabled: false },
+            { id: 'yes', title: 'Delete Space', destructive: true, symbol: 'trash' },
+            { id: 'no', title: 'Cancel' },
+          ]);
+        } catch (e) { fail(e); }
+        if (sure === 'yes') await spaces.closeSpace(spaceId);
+      } else if (choice === 'theme:none') spaces.setSpaceTheme(spaceId, null);
+      else if (choice === 'theme:edit') { void spaces.switchSpace(spaceId); actions.openPanel('settings'); }
+      else if (choice.startsWith('theme:')) {
+        const swatch = swatches[Number(choice.slice('theme:'.length))];
+        if (swatch) spaces.setSpaceTheme(spaceId, swatch.theme);
+      } else if (choice.startsWith('icon:')) spaces.setSpaceIcon(spaceId, choice.slice('icon:'.length));
+    },
+
     // Browser requests that answer later (settings, history, bookmarks…).
     request<R extends Request>(method: R, args: Requests[R]['args'], timeoutMs?: number) {
       return engine.request(method, args, timeoutMs);
@@ -286,6 +390,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         store.setState({ groupDialog: null });
         return;
       }
+      if (dialog.kind === 'newSpace') { store.setState({ groupDialog: null }); await spaces.createSpace(name, dialog.theme); return; }
+      if (dialog.kind === 'renameSpace') { store.setState({ groupDialog: null }); if (name) spaces.renameSpace(dialog.spaceId, name); return; }
       const ok = dialog.kind === 'new' ? await actions.groupTab(dialog.tabId, null, name)
         : await actions.updateGroup(dialog.groupId, { title: name });
       if (ok) store.setState({ groupDialog: null });
@@ -513,6 +619,8 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       const inFolder = !!folderKey && shellPrefs.getState().favouriteFolders.some(f => f.members.includes(folderKey));
       const page = !!tab.url && !/^(about|chrome|merlin):/.test(tab.url);
       const groups = (store.getState().snapshot?.groups ?? []).filter(g => g.id !== tab.group);
+      const activeSpace = store.getState().activeSpace;
+      const otherSpaces = shellPrefs.getState().spaces.filter(s => s.id !== (tab.space ?? activeSpace));
       // As in Ardia, every item carries a symbol; the tab's own title says which tab.
       const look = store.getState().tabLooks[tabId];
       const items: MenuItem[] = [
@@ -543,6 +651,10 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         tab.split ? { id: 'unsplit', title: 'Separate Split View', symbol: 'rectangle.portrait.and.arrow.right' }
           : { id: 'split', title: 'Open in Split View', enabled: tab.id !== snap?.activeTabId && !shownTogether, symbol: 'rectangle.split.2x1' },
         { id: 'window', title: 'Move to New Window', enabled: tabs.length > 1, symbol: 'arrow.up.forward.app' },
+        // Favourites show in every space.
+        ...(activeSpace && !tab.pinned && otherSpaces.length ? [{ title: 'Move to Space', symbol: 'square.stack' as const,
+          children: otherSpaces.map(s => ({ id: `space:${s.id}`, title: s.name,
+            ...(spaceIcons.includes(s.icon as SymbolName) ? { symbol: s.icon as SymbolName } : {}) })) }] : []),
         { separator: true },
         // Chromium keeps pinned tabs out of groups.
         { id: 'group-new', title: 'Add to New Group…', enabled: !tab.pinned, symbol: 'rectangle.stack.badge.plus' },
@@ -585,6 +697,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         case 'others': for (const t of others) if (!(await actions.closeTab(t.id))) break; break;
         default:
           if (choice?.startsWith('group:')) await actions.groupTab(tabId, choice.slice('group:'.length));
+          else if (choice?.startsWith('space:')) spaces.moveTabToSpace(tabId, choice.slice('space:'.length));
           else if (choice?.startsWith('icon:')) actions.setTabLook(tabId, { symbol: choice.slice('icon:'.length) });
           break;
       }

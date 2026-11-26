@@ -330,6 +330,8 @@ class ModalInputRouter {
   void SetEnvironment(std::string_view visual, std::string_view editor);
   void SetWorkspace(std::string_view name, std::string_view project = {});
   std::string workspace() const;
+  // The project folder of the window's saved space; empty for none.
+  std::string project() const;
   // Empty when the window's workspace should not be saved automatically.
   std::string autosave_workspace() const;
   bool restore_session_default() const;

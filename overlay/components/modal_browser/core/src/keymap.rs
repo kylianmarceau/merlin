@@ -317,7 +317,7 @@ pub const DEFAULT_NORMAL: &[(&str, &str, &str)] = &[
     ("<C-w>x", "split-swap", "Swap the split"),
     ("<C-w>o", "only", "End the split"),
     ("<C-w>q", "tabclose", "Close this side"),
-    ("gw", "workspace", "Workspaces"),
+    ("gw", "space", "Spaces"),
     ("M", "palette menu", "Merlin menu"),
     ("gh", "history", "Search history"),
     ("gb", "bookmarks", "Search bookmarks"),

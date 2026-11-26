@@ -14,6 +14,9 @@ import { traceNow, traceTiming, tracing } from './trace';
 import { followUpdateSetting } from './updates';
 import { overlays } from './surfaces';
 import { attachWebKit } from './webkit';
+import { attachSpaces } from './spaceManager';
+import type { Space } from './spaces';
+import type { WorkspaceTheme } from './workspaceTheme';
 
 timeSnapshots(tracing);
 
@@ -73,9 +76,10 @@ export function useWindowConnection(windowId: string) {
     // WebKit first: Chromium's first snapshot already shows its WebKit tabs.
     const detachWebKit = attachWebKit(store, engine, url => void actions.newTab(url));
     const detachEngine = attachEngine(store, engine);
+    const detachSpaces = attachSpaces(store, actions.spaces);
     open.add(store);
     followUpdates();
-    return () => { detachEngine(); detachWebKit(); open.delete(store); };
+    return () => { detachSpaces(); detachEngine(); detachWebKit(); open.delete(store); };
   }, [connection]);
   return connection;
 }
@@ -118,6 +122,20 @@ export function useSnapshot() {
   const snapshot = useBrowser(s => s.snapshot);
   if (!snapshot) throw new Error('The browser snapshot has not arrived');
   return snapshot;
+}
+/** The spaces and the one this window shows; none in windows without spaces (private, pop-ups). */
+export function useSpaces(): { spaces: Space[]; active: Space | null } {
+  const spaces = useShellPrefs(p => p.spaces);
+  const activeId = useBrowser(s => s.activeSpace);
+  const active = activeId ? spaces.find(s => s.id === activeId) ?? null : null;
+  return { spaces: active ? spaces : [], active };
+}
+/** The colour over the window: the space's own, else Appearance's. */
+export function useSpaceTheme(): WorkspaceTheme | null {
+  const fallback = useShellPrefs(p => p.workspaceTheme);
+  const own = useShellPrefs(p => p.spaces);
+  const activeId = useBrowser(s => s.activeSpace);
+  return (activeId ? own.find(s => s.id === activeId)?.theme : null) ?? fallback;
 }
 export function useActiveTab() {
   return useBrowser(s => s.snapshot?.tabs.find(t => t.id === s.snapshot?.activeTabId));

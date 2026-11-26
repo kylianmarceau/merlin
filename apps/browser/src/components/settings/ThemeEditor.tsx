@@ -72,7 +72,7 @@ export function ThemeEditor({ accent, theme, onAccent, onTheme }: {
     if (theme) onTheme({ ...theme, stops: theme.stops.map((color, i) => i === stop ? toHex(hue, saturation, lightness) : color) });
   };
   return <View style={{ gap: space.sm }}>
-    <View accessibilityRole="radiogroup" accessibilityLabel="Workspace colour" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+    <View accessibilityRole="radiogroup" accessibilityLabel="Space colour" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
       {accents.map(name => <Pressable key={name} accessibilityRole="radio" accessibilityLabel={accentLabel(name)}
         accessibilityState={{ selected: !theme && name === accent }} onPress={() => { onAccent(name); onTheme(null); }}
         style={{ width: geometry.swatch, height: geometry.swatch, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',

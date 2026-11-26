@@ -142,6 +142,8 @@ source_set("modal_browser") {
     "merlin_suggestions.h",
     "merlin_tab_groups.cc",
     "merlin_tab_groups.h",
+    "merlin_tab_space.cc",
+    "merlin_tab_space.h",
     "merlin_urls.cc",
     "merlin_urls.h",
     "modal_browser_controller.cc",

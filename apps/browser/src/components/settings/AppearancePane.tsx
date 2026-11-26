@@ -6,7 +6,7 @@ import { setShellFollowsSite, setShellPref, setToolbarColor, setNewTabPopup } fr
 import { ThemeEditor } from './ThemeEditor';
 import { useAppIcons } from '../../state/system';
 import type { Preferences, PreferenceKey } from '../../state/types';
-import { useActions, useSnapshot } from '../../state/window';
+import { useActions, useSnapshot, useSpaces } from '../../state/window';
 import {
   Button, FormGroup, FormRow, GlassFill, GlassScope, PictureChoice, PopUp, Segmented, Slider, Text, Toggle, accents, accentSwatch,
   geometry, radius, space, toolbarColorLabels, toolbarColors, useLit, useTheme,
@@ -32,8 +32,8 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
           selected={appearance.mode === mode} onPress={() => void actions.setAppearance({ mode })} />)}
       </View>
       <FormGroup>
-        <FormRow stacked title="Workspace colour" detail="Colours highlights in both modes and tints the window in Light mode.">
-          <View accessibilityRole="radiogroup" accessibilityLabel="Workspace colour" style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: space.md }}>
+        <FormRow stacked title="Space colour" detail="Colours highlights in both modes and tints the window in Light mode, for spaces without a colour of their own.">
+          <View accessibilityRole="radiogroup" accessibilityLabel="Space colour" style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: space.md }}>
             {accents.map(a => <Swatch key={a} name={a} selected={appearance.accent === a}
               onPress={() => void actions.setAppearance({ accent: a })} />)}
           </View>
@@ -55,11 +55,11 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
           <AmountRow label="Transparency" value={prefs.glassTransparency} onChange={v => void setShellPref('glassTransparency', v)}
             reset={GLASS_DEFAULTS.transparency} />
         </FormRow>
-        <FormRow title="Tint glass with the workspace colour" detail="Off, the glass stays neutral whatever the workspace colour.">
-          <Toggle label="Tint glass with the workspace colour" value={prefs.glassTintWithTheme}
+        <FormRow title="Tint glass with the space colour" detail="Off, the glass stays neutral whatever the space colour.">
+          <Toggle label="Tint glass with the space colour" value={prefs.glassTintWithTheme}
             onChange={on => void setShellPref('glassTintWithTheme', on)} />
         </FormRow>
-        {prefs.glassTintWithTheme && <FormRow title="Tint amount" detail="How much of the workspace colour the glass takes, from a hint to fully coloured.">
+        {prefs.glassTintWithTheme && <FormRow title="Tint amount" detail="How much of the space colour the glass takes, from a hint to fully coloured.">
           <AmountRow label="Tint amount" value={prefs.glassTintAmount} onChange={v => void setShellPref('glassTintAmount', v)} />
         </FormRow>}
       </FormGroup>}
@@ -301,13 +301,15 @@ function AppIconSection() {
 }
 
 
+/** The gradient over the window: the space showing's own, as Arc and Zen colour each space; Appearance's in a window without spaces. */
 function WorkspaceColourEditor() {
   const actions = useActions();
   const { appearance } = useSnapshot();
-  const theme = useShellPrefs(p => p.workspaceTheme);
-  return <Section title="Workspace gradient">
-    <ThemeEditor accent={appearance.accent} theme={theme}
+  const fallback = useShellPrefs(p => p.workspaceTheme);
+  const { active } = useSpaces();
+  return <Section title={active ? `${active.name} gradient` : 'Window gradient'}>
+    <ThemeEditor accent={appearance.accent} theme={active ? active.theme ?? fallback : fallback}
       onAccent={accent => { void actions.setAppearance({ accent }); }}
-      onTheme={value => { void setShellPref('workspaceTheme', value); }} />
+      onTheme={value => { if (active) actions.spaces.setSpaceTheme(active.id, value); else void setShellPref('workspaceTheme', value); }} />
   </Section>;
 }

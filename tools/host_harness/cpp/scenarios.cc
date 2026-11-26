@@ -647,7 +647,7 @@ void Workspaces() {
   CHECK_EQ_STR(w.Run("workspace save research"), "");
   CHECK_EQ_STR(w.browser.snapshot_request, "research");
   w.AnswerSnapshot();
-  CHECK_EQ_STR(w.browser.message, "Saved workspace research (3 tabs)");
+  CHECK_EQ_STR(w.browser.message, "Saved space research (3 tabs)");
   CHECK_EQ_STR(w.router.workspace(), "research");
   CHECK_EQ_STR(w.router.autosave_workspace(), "research");
   CHECK_TRUE(w.browser.workspace_files.count("research") == 1);
@@ -677,18 +677,20 @@ void Workspaces() {
   CHECK_EQ_INT(r.tabs[1].split_with, 2);
   CHECK_EQ_INT(r.tabs[2].split_with, 1);
   CHECK_EQ_INT(r.active, 2);
-  CHECK_EQ_STR(other.router.workspace(), "research");
-  CHECK_EQ_STR(other.browser.message, "Opened workspace research (3 tabs)");
+  // The controller names the window as it shows the space.
+  CHECK_EQ_STR(other.router.workspace(), "");
+  CHECK_EQ_STR(other.browser.message, "Opened space research (3 tabs)");
 
-  // Project metadata survives the real bridge/router and the new-window
-  // handoff, then remains in the destination's next autosave.
+  // A window with tabs of its own opens it in place too, as a space beside
+  // them; its project folder stays in the next save.
   Window occupied;
   occupied.browser.tabs[0].history = {"https://example.com/"};
   occupied.router.OnWorkspaceRead("research", true,
                                   w.browser.workspace_files["research"],
                                   occupied.browser);
   const WorkspaceRestore& fresh = occupied.browser.last_restore;
-  CHECK_TRUE(fresh.new_window);
+  CHECK_TRUE(!fresh.new_window);
+  CHECK_EQ_STR(occupied.router.workspace(), "");
   CHECK_EQ_STR(fresh.project, "/tmp/research-project");
   Window destination;
   destination.router.SetWorkspace(fresh.name, fresh.project);
@@ -700,7 +702,7 @@ void Workspaces() {
 
   other.router.OnWorkspaceRead("nope", false, "", other.browser);
   CHECK_EQ_STR(other.browser.message,
-               "error: No workspace named nope (:workspace lists them)");
+               "error: No saved space named nope (:space lists them)");
   CHECK_EQ_STR(other.Run("workspace delete research"), "");
   CHECK_TRUE(other.browser.workspace_files.count("research") == 0);
 

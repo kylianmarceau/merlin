@@ -122,7 +122,7 @@ fn windows_and_browser_pages() {
 fn workspace_save_needs_a_name_until_it_has_one() {
     let mut s = ModalSession::new();
     let o = s.submit_command_line("workspace save");
-    assert!(o.error.unwrap().contains("no workspace yet"));
+    assert!(o.error.unwrap().contains("isn't saved yet"));
     let o = run(&mut s, "workspace save research");
     assert_eq!(
         o.actions,
@@ -160,7 +160,7 @@ fn workspace_save_needs_a_name_until_it_has_one() {
         panic!("{:?}", o.actions);
     };
     assert_eq!(name, "research");
-    assert_eq!(message, "Saved workspace research (2 tabs)");
+    assert_eq!(message, "Saved space research (2 tabs)");
     assert!(contents.contains("https://github.com"));
     assert_eq!(s.workspace(), Some("research"));
     // Now a bare save reuses the name, and autosave knows it.
@@ -242,24 +242,26 @@ fn workspace_open_restores_in_place_or_in_a_new_window() {
     assert_eq!(workspace.tabs.len(), 2);
     assert_eq!(workspace.splits.len(), 1);
     assert_eq!(workspace.active, 1);
-    assert_eq!(message(&o).unwrap().1, "Opened workspace pair (2 tabs)");
-    assert_eq!(s.workspace(), Some("pair"));
+    assert_eq!(message(&o).unwrap().1, "Opened space pair (2 tabs)");
+    // The window takes the name as it shows the space: an autosave before
+    // then still goes to the space showing.
+    assert_eq!(s.workspace(), None);
 
-    // A window with real tabs gets a new window instead.
+    // A window with tabs of its own opens it in place too, as a new space.
     let mut s = ModalSession::new();
     s.set_tabs(vec![tab(1, "https://x.example", true)]);
     let o = s.workspace_read("pair", true, &file);
     assert!(matches!(
         &o.actions[0],
         Action::RestoreWorkspace {
-            new_window: true,
+            new_window: false,
             ..
         }
     ));
-    assert_eq!(s.workspace(), None, "the new window owns the workspace");
+    assert_eq!(s.workspace(), None, "named once the window shows it");
 
     let o = s.workspace_read("gone", false, "");
-    assert!(message(&o).unwrap().1.contains("No workspace named gone"));
+    assert!(message(&o).unwrap().1.contains("No saved space named gone"));
     let o = s.workspace_read("bad", true, "{oops");
     assert_eq!(message(&o).unwrap().0, MessageLevel::Error);
     assert_eq!(
@@ -777,11 +779,7 @@ fn with_modal_browsing_off_the_menu_shows_no_keys_and_offers_splits() {
     let p = s.palette().unwrap();
     assert!(p.rows.iter().all(|r| r.keys.is_empty()), "no key runs them");
     let names = rows(&s);
-    for want in [
-        "Split side by side",
-        "Split top and bottom",
-        "Save workspace…",
-    ] {
+    for want in ["Split side by side", "Split top and bottom", "Save space…"] {
         assert!(names.iter().any(|n| n == want), "{want} in {names:?}");
     }
     run(&mut s, "palette commands");

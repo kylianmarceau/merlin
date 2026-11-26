@@ -4,9 +4,9 @@ import { SIDEBAR_WIDTH, useShellPrefs } from '../../state/shellPrefs';
 import { previewShellPref, setShellPref } from '../../state/shellPrefsStorage';
 import { tabUnits } from '../../state/splits';
 import { contactRow, reorderTarget, rowShift, type ListDrag } from '../../state/tabDrag';
-import { useActions, useBrowser, useSnapshot } from '../../state/window';
+import { useActions, useBrowser, useSnapshot, useSpaces } from '../../state/window';
 import {
-  DashedRule, DragRegion, Icon, IconButton, Pressable, Text, animateListChange, duration, geometry, radius, rubberBand, snapDistance, space,
+  DashedRule, DragRegion, Icon, IconButton, Pressable, SwipeArea, Text, animateListChange, duration, geometry, radius, rubberBand, snapDistance, space,
   springBack, tick, useEased, useHoverFade, useInteraction, useTheme, useTimeout,
 } from '../ui';
 import { SidebarBookmarks } from '../bookmarks/SidebarBookmarks';
@@ -18,6 +18,7 @@ import { TabRow, rowStep } from './TabRow';
 import { SidebarGroup, tabBlocks } from './TabGroups';
 import { MediaPlayer } from './MediaPlayer';
 import { SidebarFooter } from './WindowButtons';
+import { SpaceHeading, SpaceHint, useSpaceSlide } from './Spaces';
 
 const sidePadding = space.md + space.sm + space.hair;
 
@@ -122,8 +123,11 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
   const list = useActiveRowPointer(snapshot.activeTabId);
   // The list takes only the height its rows need and shrinks to make room for New Tab.
   const [contentHeight, setContentHeight] = useState<number>();
-  return <View style={{ width, paddingLeft: space.md, paddingRight: space.sm + space.hair, paddingBottom: space.sm + space.hair,
-    gap: space.sm + space.hair }}>
+  // Spaces, as in Arc: the space's heading over its tabs, which slide with two fingers.
+  const { active: activeSpace } = useSpaces();
+  const slide = useSpaceSlide(width);
+  return <SwipeArea onSwipe={slide.onSwipe} enabled={slide.enabled} style={{ width, paddingLeft: geometry.sidebarInset, paddingRight: geometry.sidebarInset,
+    paddingBottom: space.sm + space.hair, gap: space.sm + space.hair }}>
     <View style={{ height: geometry.titlebar, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: space.hair }}>
       {!floating && <DragRegion style={{ position: 'absolute', top: 0, left: -space.md, right: -space.sm, bottom: 0 }} />}
       <IconButton label={floating ? 'Keep sidebar open' : 'Hide sidebar'} icon="sidebar.left"
@@ -142,6 +146,8 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
     {!!pinned.length && <DashedRule inset="xs" />}
     {bookmarks && <SidebarBookmarks onShown={setBookmarksShown} />}
     <View style={{ flex: 1 }}>
+    <Animated.View style={{ flex: 1, opacity: slide.opacity, transform: [{ translateX: slide.x }] }}>
+      {activeSpace && <SpaceHeading space={activeSpace} />}
       {/* As in Dia, a hairline divides the bookmarks from the open tabs; with nothing above (or only the
           favourites' own rule), it fades in only once the list has scrolled under it. */}
       <ScrollEdge shown={(bookmarks && bookmarksShown) || list.scrolled} />
@@ -170,11 +176,13 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
       </View>
       {/* Double-clicking the empty space under the tabs opens a new one, as in Arc. */}
       <View style={{ flex: 1 }} onDoubleClick={actions.openNewTab} />
+    </Animated.View>
+    <SpaceHint hint={slide.hint} x={slide.x} width={width} />
     </View>
     <MediaPlayer />
     <SidebarFooter />
     {!floating && <ResizeEdge width={width} />}
-  </View>;
+  </SwipeArea>;
 }
 
 /**
@@ -221,7 +229,7 @@ function useActiveRowPointer(activeId: string | null) {
 function ScrollEdge({ shown }: { shown: boolean }) {
   const { colors, reduceMotion } = useTheme();
   const value = useEased(shown, reduceMotion);
-  return <Animated.View pointerEvents="none" style={{ height: geometry.hairline, marginHorizontal: space.xs, marginBottom: space.xs,
+  return <Animated.View pointerEvents="none" style={{ height: geometry.hairline, marginHorizontal: geometry.sidebarRuleInset, marginBottom: space.xs,
     opacity: value, backgroundColor: colors.sidebarRule }} />;
 }
 

@@ -5,6 +5,7 @@ import { createStore } from 'zustand/vanilla';
 import { useStore } from 'zustand';
 import type { SiteEngines } from '../lib/engines';
 import type { FavouriteFolder } from './favouriteFolders';
+import type { Space } from './spaces';
 import type { WorkspaceTheme } from './workspaceTheme';
 
 export type InterfaceStyle = 'glass' | 'classic';
@@ -35,6 +36,10 @@ export type ShellPrefs = {
   siteEngines: SiteEngines;
   /** Favourites gathered into folders, by their pinned home pages. */
   favouriteFolders: FavouriteFolder[];
+  /** The spaces, in the switcher's order, the same in every window (state/spaces.ts). */
+  spaces: Space[];
+  /** The spaces have been read; until then no window makes its first one. Not saved. */
+  spacesLoaded: boolean;
 
   // Appearance › Interface style (Ardia's), plus Merlin's transparency.
   /** Glass draws popovers, fields and buttons in Liquid Glass; Classic keeps them solid. */
@@ -90,11 +95,11 @@ export type ShellPrefs = {
 };
 
 export const PAGE_FRAME = { min: 0, max: 12, default: 8 } as const;
-export const SIDEBAR_WIDTH = { min: 200, max: 400, default: 252 } as const;
+export const SIDEBAR_WIDTH = { min: 180, max: 400, default: 190 } as const;
 export const GLASS_DEFAULTS = { tintAmount: 0.8, transparency: 0.5 } as const;
 
 export const defaultShellPrefs: ShellPrefs = {
-  newTabPopup: false, toolbarColor: 'match', shellFollowsSite: false, protectedVideoInWebKit: true, siteEngines: {}, favouriteFolders: [],
+  newTabPopup: false, toolbarColor: 'match', shellFollowsSite: false, protectedVideoInWebKit: true, siteEngines: {}, favouriteFolders: [], spaces: [], spacesLoaded: false,
   workspaceTheme: null, interfaceStyle: 'glass', glassTintWithTheme: false, glassTintAmount: GLASS_DEFAULTS.tintAmount,
   glassTransparency: GLASS_DEFAULTS.transparency,
   addressBar: 'sidebar', commandBarPlacement: 'field', compactToolbar: false,

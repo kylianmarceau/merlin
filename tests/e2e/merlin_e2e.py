@@ -139,9 +139,21 @@ def describe_and_verify(app: Path, allow_other: bool) -> list[str]:
 _verified: dict[Path, bool] = {}
 
 
+# The bundle ID scripts/run_e2e_tests.sh gives the copy it tests: the
+# interface keeps its settings and spaces in the app's preferences domain,
+# and the tests start each instance with that domain empty.
+E2E_BUNDLE_ID = "io.github.kylianmarceau.merlin.e2e"
+
+
 def app_path() -> Path:
     """The app under test, described and checked against the checkout once per run."""
     app = find_app()
+    with (app / "Contents/Info.plist").open("rb") as info:
+        bundle_id = plistlib.load(info).get("CFBundleIdentifier")
+    if bundle_id != E2E_BUNDLE_ID:
+        raise RuntimeError(f"Refusing to test {app} as {bundle_id}: its interface settings would go in that "
+                           "app's own preferences. Run the tests with scripts/run_e2e_tests.sh, which tests a "
+                           f"copy as {E2E_BUNDLE_ID}.")
     if app not in _verified:
         allow = os.environ.get("MERLIN_E2E_ALLOW_OTHER_BUILD") == "1"
         refuse_quarantined(app)  # whatever --allow-other-build says
@@ -858,6 +870,9 @@ class Merlin:
         for key, value in env.items():
             command += ["--env", f"{key}={value}"]
         self._launch_command = command + ["--args", *args]
+        # Each instance starts with the interface's settings and spaces unset;
+        # a relaunch within a test keeps them, as a restart keeps a person's.
+        subprocess.run(["defaults", "delete", E2E_BUNDLE_ID], capture_output=True)
         self._launch()
 
     def _launch(self) -> None:

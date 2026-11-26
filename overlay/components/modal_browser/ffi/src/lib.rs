@@ -733,6 +733,8 @@ mod ffi {
         fn set_workspace(self: &mut Session, name: &str, project: &str);
         /// Empty when the window has no workspace.
         fn workspace(self: &Session) -> String;
+        /// The project folder of the window's saved space; empty for none.
+        fn project(self: &Session) -> String;
         /// The workspace to keep saved as tabs change; empty for none.
         fn autosave_workspace(self: &Session) -> String;
         fn restore_session_default(self: &Session) -> bool;
@@ -788,6 +790,8 @@ mod ffi {
         /// one whose project folder contains `dir` most closely; empty if
         /// none.
         fn workspace_for_dir(names: &[String], texts: &[String], dir: &str) -> String;
+        /// The project folder a saved space's file names; empty for none.
+        fn workspace_project(text: &str) -> String;
     }
 }
 
@@ -1104,6 +1108,10 @@ impl Session {
 
     fn workspace(&self) -> String {
         self.inner.workspace().unwrap_or_default().to_string()
+    }
+
+    fn project(&self) -> String {
+        self.inner.project().unwrap_or_default().to_string()
     }
 
     fn autosave_workspace(&self) -> String {
@@ -1467,6 +1475,10 @@ pub fn workspace_for_dir(names: &[String], texts: &[String], dir: &str) -> Strin
     core_api::workspace::best_for_dir(&entries, dir)
         .unwrap_or_default()
         .to_string()
+}
+
+pub fn workspace_project(text: &str) -> String {
+    core_api::workspace::project_of(text).unwrap_or_default()
 }
 
 pub fn is_workspace_name(name: &str) -> bool {

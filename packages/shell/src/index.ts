@@ -27,7 +27,10 @@ export type SymbolName = 'arrow.left' | 'arrow.right' | 'arrow.up' | 'arrow.down
   // The tab menu (Ardia gives every item a symbol), and the icons a tab can take instead of its page's.
   'rectangle.stack.badge.plus' | 'rectangle.stack.badge.minus' | 'xmark.square' | 'face.smiling' | 'arrow.counterclockwise' |
   'star' | 'heart' | 'flag' | 'book' | 'briefcase' | 'cart' | 'envelope' | 'music.note' | 'gamecontroller' | 'house' |
-  'graduationcap' | 'paintpalette' | 'chart.bar' | 'calendar' | 'film' | 'newspaper' | 'bubble.left' | 'leaf' | 'airplane';
+  'graduationcap' | 'paintpalette' | 'chart.bar' | 'calendar' | 'film' | 'newspaper' | 'bubble.left' | 'leaf' | 'airplane' |
+  // Spaces' icons (as in Zen and Arc) and their menus.
+  'circle.fill' | 'flame' | 'cup.and.saucer' | 'chevron.left.forwardslash.chevron.right' | 'camera' | 'dumbbell' | 'pawprint' |
+  'atom' | 'square.grid.2x2' | 'square.stack' | 'arrow.right.square';
 
 // Each view is its own native module (MerlinShell<Name>); see MerlinShellModule.swift.
 function view<P>(name: string) {
@@ -69,6 +72,11 @@ export type OutsidePressEvent = NativeSyntheticEvent<{ reason: 'press' | 'blur' 
 export const OutsidePress = view<ViewProps & { onOutsidePress(event: OutsidePressEvent): void; closesOnEscape?: boolean }>('OutsidePress');
 
 export const ContextMenuArea = view<ViewProps & { onContextMenu(): void }>('ContextMenuArea');
+
+/** A sideways two-finger swipe over the area: how far the fingers have gone (points, right positive) and, at the end, how fast. */
+export type SwipeEvent = NativeSyntheticEvent<{ phase: 'begin' | 'move' | 'end' | 'cancel'; dx: number; velocity: number }>;
+/** Reports sideways trackpad swipes over it (spaces, as in Zen and Arc); vertical scrolling and clicks reach its children as usual. */
+export const SwipeArea = view<ViewProps & { onSwipe(event: SwipeEvent): void; swipeEnabled?: boolean }>('SwipeArea');
 
 /** Lets the file at `filePath` be dragged out, as from Finder; clicks inside still reach its children. */
 export const FileDrag = view<ViewProps & { filePath: string; onDragEnd?(event: NativeSyntheticEvent<{ dropped: boolean }>): void }>('FileDrag');

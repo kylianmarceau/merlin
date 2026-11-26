@@ -3,6 +3,7 @@
 #define CHROME_BROWSER_UI_MODAL_BROWSER_MERLIN_SHELL_BRIDGE_H_
 
 #include <string>
+#include <string_view>
 #include "base/functional/callback.h"
 #include "base/values.h"
 #include "ui/gfx/native_ui_types.h"
@@ -42,6 +43,12 @@ void SendShellEvent(BrowserWindowInterface* browser, const char* type);
 // whether letting go would navigate, and whether it has ended. False when
 // the view isn't in a window of the shell, which then draws nothing.
 bool ShellHistorySwipe(gfx::NativeView view, bool forward, double progress, bool ready, bool ended);
+// Spaces (apps/browser/src/state/spaces.ts): asks the window's shell to
+// change its spaces. `verb` is one of next, prev, go, new, rename, close,
+// switch (to `space`), opened (`space` is a saved space, named `arg`, that
+// was just opened in the window) or saved (`space` was saved as `arg`). False when `browser` has no React window.
+bool SendShellSpaceEvent(BrowserWindowInterface* browser, std::string_view verb, std::string_view arg,
+                         std::string_view space);
 // Opens a React shell panel: "settings", "history", "bookmarks", "downloads",
 // "extensions" or "newTab". False when `browser` has no React window.
 bool OpenShellPanel(BrowserWindowInterface* browser, const char* panel);

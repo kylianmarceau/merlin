@@ -12,12 +12,14 @@ export const liquidGlass = isLiquidGlass();
 
 export type GlassChoice = { on: boolean; translucent: boolean; tint: number; transparency: number; workspaceColor?: string };
 
-export function useGlassLook(): GlassChoice {
+/** `spaceColor`: the colour of the space the window shows, if it has its own (state/spaces.ts). */
+export function useGlassLook(spaceColor?: string): GlassChoice {
   const style = useShellPrefs(p => p.interfaceStyle);
   const tinted = useShellPrefs(p => p.glassTintWithTheme);
   const amount = useShellPrefs(p => p.glassTintAmount);
   const transparency = useShellPrefs(p => p.glassTransparency);
-  const workspaceColor = useShellPrefs(p => p.workspaceTheme?.stops[0]);
-  return useMemo(() => ({ on: liquidGlass && style === 'glass', translucent: style === 'glass', tint: tinted ? amount : 0, transparency, workspaceColor }),
-    [style, tinted, amount, transparency, workspaceColor]);
+  const workspaceColor = useShellPrefs(p => p.workspaceTheme?.stops[0]) ?? undefined;
+  const color = spaceColor ?? workspaceColor;
+  return useMemo(() => ({ on: liquidGlass && style === 'glass', translucent: style === 'glass', tint: tinted ? amount : 0, transparency, workspaceColor: color }),
+    [style, tinted, amount, transparency, color]);
 }

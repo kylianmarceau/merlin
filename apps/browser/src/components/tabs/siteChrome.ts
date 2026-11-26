@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { isStartUrl } from '../../lib/format';
 import { useShellPrefs } from '../../state/shellPrefs';
-import { useActiveTab } from '../../state/window';
+import { useActiveTab, useSpaceTheme } from '../../state/window';
 import { siteChrome, useTheme } from '../ui';
 
 /**
@@ -18,7 +18,7 @@ export function useSiteChrome() {
   const { dark, colors } = useTheme();
   const style = useShellPrefs(s => s.toolbarColor);
   const follow = useShellPrefs(s => s.shellFollowsSite);
-  const workspace = useShellPrefs(s => s.workspaceTheme?.stops[0]) ?? colors.accent;
+  const workspace = useSpaceTheme()?.stops[0] ?? colors.accent;
   const page = tab && !tab.crashed && !tab.start && !isStartUrl(tab.url) ? tab : undefined;
   const site = page?.color, surface = page?.surface;
   return useMemo(() => style === 'workspace'

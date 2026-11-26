@@ -94,7 +94,7 @@ impl PaletteKind {
         (PaletteKind::Tabs, "tabs"),
         (PaletteKind::History, "history"),
         (PaletteKind::Bookmarks, "bookmarks"),
-        (PaletteKind::Workspaces, "workspaces"),
+        (PaletteKind::Workspaces, "spaces"),
         (PaletteKind::Outline, "outline"),
         (PaletteKind::Links, "links"),
         (PaletteKind::Menu, "menu"),
@@ -102,6 +102,8 @@ impl PaletteKind {
     ];
 
     pub fn from_name(name: &str) -> Option<PaletteKind> {
+        // Saved spaces were workspaces before Merlin had spaces.
+        let name = if name == "workspaces" { "spaces" } else { name };
         Self::NAMED
             .iter()
             .find(|(_, n)| *n == name)
@@ -115,7 +117,7 @@ impl PaletteKind {
             PaletteKind::Commands => "Commands",
             PaletteKind::History => "History",
             PaletteKind::Bookmarks => "Bookmarks",
-            PaletteKind::Workspaces => "Workspaces",
+            PaletteKind::Workspaces => "Spaces",
             PaletteKind::Outline => "Outline",
             PaletteKind::Links => "Links",
             PaletteKind::Menu => "Merlin",
@@ -138,7 +140,7 @@ impl PaletteKind {
             PaletteKind::Commands => "Search commands and keys",
             PaletteKind::History => "Search history by title or URL",
             PaletteKind::Bookmarks => "Search bookmarks",
-            PaletteKind::Workspaces => "Open a workspace",
+            PaletteKind::Workspaces => "Open a saved space",
             PaletteKind::Outline => "Jump to a section, code block or table   ← → fold",
             PaletteKind::Links => "Search links on this page",
             PaletteKind::Menu => "New window, history, settings, zoom, print…",
@@ -159,7 +161,7 @@ impl PaletteKind {
         match self {
             PaletteKind::History => "No history yet",
             PaletteKind::Bookmarks => "No bookmarks yet (gB bookmarks this page)",
-            PaletteKind::Workspaces => "No saved workspaces (:workspace save <name>)",
+            PaletteKind::Workspaces => "No saved spaces (:space save <name>)",
             PaletteKind::Outline => "No headings, code or tables on this page",
             PaletteKind::Links => "No links on this page",
             PaletteKind::Downloads => "No downloads yet",

@@ -6,11 +6,14 @@
 import { createStore } from 'zustand/vanilla';
 import { shellPrefs } from './shellPrefs';
 import type { IconTone } from '../platform/shell';
-import { validateSnapshot, type EngineClient, type HistorySwipe, type PanelName, type Snapshot, type Suggestion } from '../platform/protocol';
+import { validateSnapshot, type EngineClient, type HistorySwipe, type PanelName, type Snapshot, type SpaceCommand, type Suggestion } from '../platform/protocol';
 import { acceptResults, type Omnibox } from './omnibox';
 import { rememberActive, type TabDrag } from './tabDrag';
 import type { GridZone } from './favouriteGrid';
 import { dressSnapshot, type TabLooks } from './tabLooks';
+import { spaceView } from './spaces';
+import type { WorkspaceTheme } from './workspaceTheme';
+import type { Tab } from '../platform/protocol';
 
 /** `location` is ⌘L's centred field for the current tab (Settings › Appearance › ⌘L opens the command bar: In the centre). */
 export type Panel = 'settings' | 'history' | 'bookmarks' | 'downloads' | 'command' | 'newTab' | 'location' | null;
@@ -22,7 +25,9 @@ export type Rect = { x: number; y: number; width: number; height: number };
 export type HoverCard = { tabId: string; anchor: Rect; side: 'right' | 'below' };
 /** Naming a tab group: a new one for `tabId`, or renaming `groupId`. */
 export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string } | { kind: 'renameTab'; tabId: string }
-  | { kind: 'renameFolder'; folderId: string };
+  | { kind: 'renameFolder'; folderId: string }
+  /** Naming a new space (with the colour it will take), or renaming one. */
+  | { kind: 'newSpace'; theme: WorkspaceTheme | null } | { kind: 'renameSpace'; spaceId: string };
 export type StatusMessage = { text: string; isError: boolean };
 export { currentSuggestions, type Omnibox, type SearchOwner } from './omnibox';
 
@@ -75,6 +80,14 @@ export type BrowserState = {
   tabLooks: TabLooks;
   /** Where each pinned tab started, by tab: its tile offers to go back there once it has navigated away. */
   pinnedHomes: Record<string, { url: string; title: string }>;
+  /** The space the window shows (state/spaces.ts); null in windows without spaces (private and pop-up ones). */
+  activeSpace: string | null;
+  /** The tab last selected in each space, by space, to come back to. */
+  lastSelected: Record<string, string>;
+  /** Every tab, as `snapshot` would show them without spaces: for the Ctrl-Tab cards and the media player. */
+  allTabs: Tab[];
+  /** The last change of space, for the slide between them: which way (1 to the right) and a count that changes each time. */
+  spaceMove: { direction: 1 | -1; serial: number } | null;
   /** Tests only: the window's interface fails as it next draws, to show its error boundary. */
   failInRender: boolean;
 };
@@ -84,6 +97,7 @@ export function initialState(): BrowserState {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, statusMessage: null,
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
     downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, openFolder: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, historySwipe: null, tabLooks: {}, pinnedHomes: {},
+    activeSpace: null, lastSelected: {}, allTabs: [], spaceMove: null,
     failInRender: false,
   };
 }
@@ -93,7 +107,9 @@ export type SnapshotOverlay = (snapshot: Snapshot) => Snapshot;
 
 export function createBrowserStore(windowId: string) {
   const store = createStore<BrowserState>()(() => initialState());
-  return Object.assign(store, { windowId, overlay: ((s: Snapshot) => s) as SnapshotOverlay });
+  return Object.assign(store, { windowId, overlay: ((s: Snapshot) => s) as SnapshotOverlay,
+    /** :space commands from Chromium; state/spaceManager.ts handles them once attached. */
+    spaceCommand: ((_event: SpaceCommand) => {}) as (event: SpaceCommand) => void });
 }
 export type BrowserStore = ReturnType<typeof createBrowserStore>;
 
@@ -112,7 +128,7 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
   const engineSnapshot = current ? shareUnchanged(current, next) : next;
   const recentTabs = rememberActive(store.getState().recentTabs, next.activeTabId, next.tabs.map(t => t.id));
   if (timing) snapshotAccepted.set(store, { revision: next.revision, at, tabs: next.tabs.length });
-  const snapshot = dressSnapshot(store.overlay(engineSnapshot), store.getState().tabLooks);
+  const { snapshot, allTabs } = present(store, engineSnapshot);
   const state = store.getState();
   const pinnedHomes = rememberPinnedHomes(state.pinnedHomes, snapshot.tabs);
   // A card for a tab that closed, or a peek with the tabs shown again, goes.
@@ -128,7 +144,7 @@ export function acceptSnapshot(store: BrowserStore, input: unknown) {
   const statusMessage = modal.message && modalMessageChanged
     ? { text: modal.message, isError: !!modal.messageIsError }
     : state.statusMessage;
-  store.setState({ engineSnapshot, snapshot, connectionError: null, recentTabs, pinnedHomes, hoverCard, peeking, statusMessage });
+  store.setState({ engineSnapshot, snapshot, allTabs, connectionError: null, recentTabs, pinnedHomes, hoverCard, peeking, statusMessage });
 }
 
 /**
@@ -153,10 +169,16 @@ const isBlank = (url: string) => url === 'about:blank' || /^(chrome|merlin):\/\/
 
 /** Shows the snapshot again after the overlay's own state changed. */
 export function refreshOverlay(store: BrowserStore) {
-  const { engineSnapshot, snapshot } = store.getState();
+  const { engineSnapshot, snapshot, allTabs } = store.getState();
   if (!engineSnapshot) return;
-  const next = dressSnapshot(store.overlay(engineSnapshot), store.getState().tabLooks);
-  if (next !== snapshot) store.setState({ snapshot: next });
+  const next = present(store, engineSnapshot);
+  if (next.snapshot !== snapshot || next.allTabs !== allTabs) store.setState(next);
+}
+
+/** What the window shows of Chromium's snapshot: WebKit's pages and the tabs' own names laid over it, then only the space showing. */
+function present(store: BrowserStore, engineSnapshot: Snapshot) {
+  const dressed = dressSnapshot(store.overlay(engineSnapshot), store.getState().tabLooks);
+  return { snapshot: spaceView(dressed, shellPrefs.getState().spaces, store.getState().activeSpace), allTabs: dressed.tabs };
 }
 
 /**
@@ -233,6 +255,7 @@ export function attachEngine(store: BrowserStore, engine: EngineClient) {
         case 'command.open': store.setState({ panel: 'command', popover: null }); break;
         case 'panel.open': openNativePanel(store, event.panel); break;
         case 'history.swipe': store.setState({ historySwipe: event }); break;
+        case 'space.command': store.spaceCommand(event); break;
         case 'omnibox.results': {
           // Results for an older query never replace newer ones.
           const next = acceptResults(store.getState().omnibox, event.queryId, event.items);

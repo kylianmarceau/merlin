@@ -207,6 +207,10 @@ std::string ModalInputRouter::workspace() const {
   return std::string(session_->workspace());
 }
 
+std::string ModalInputRouter::project() const {
+  return std::string(session_->project());
+}
+
 std::string ModalInputRouter::autosave_workspace() const {
   return std::string(session_->autosave_workspace());
 }

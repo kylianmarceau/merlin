@@ -52,8 +52,8 @@ passthrough_sites = [
 # Reopen last session's windows and tabs at launch (also after a crash).
 # Only the default: a choice in Settings > On startup wins.
 restore_session = true
-# A window opened from (or saved as) a workspace keeps that workspace's
-# file up to date as its tabs change, a few seconds after each change.
+# A space opened from (or saved to) a file keeps that file up to date as
+# its tabs change, a few seconds after each change. (Also `space_autosave`.)
 workspace_autosave = true
 # Accept commands from `browserctl` over a Unix socket only this user can
 # reach. Private windows are never visible to it. Settings › General ›
@@ -83,7 +83,7 @@ edit_key = "<C-S-e>"
 # X = "tabrestore"
 # ",y" = "yank markdown"
 # ",g" = "open https://github.com"
-# ",w" = "workspace save"
+# ",w" = "space save"
 # ",v" = "vsplit"
 
 # Your own commands: name = "command line". Extra words you type after the
@@ -92,7 +92,7 @@ edit_key = "<C-S-e>"
 [aliases]
 # issues = "open github.com/issues"
 # rs = "open docs.rs"
-# notes = "workspace open notes"
+# notes = "space open notes"
 
 # Visual mode (after v): motions extend the selection, y copies it.
 [keys.visual]
