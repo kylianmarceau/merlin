@@ -1,0 +1,172 @@
+diff --git a/chrome/browser/ui/views/extensions/extension_install_dialog_view.cc b/chrome/browser/ui/views/extensions/extension_install_dialog_view.cc
+--- a/chrome/browser/ui/views/extensions/extension_install_dialog_view.cc
++++ b/chrome/browser/ui/views/extensions/extension_install_dialog_view.cc
+@@ -5,6 +5,7 @@
+ #include "chrome/browser/ui/views/extensions/extension_install_dialog_view.h"
+ 
+ #include <memory>
++#include <optional>
+ #include <string>
+ #include <utility>
+ 
+@@ -55,6 +56,7 @@
+ #include "ui/views/layout/fill_layout.h"
+ #include "ui/views/layout/table_layout.h"
+ #include "ui/views/layout/table_layout_view.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/metadata/view_factory.h"
+ #include "ui/views/widget/widget.h"
+ #include "ui/views/widget/widget_delegate.h"
+@@ -514,13 +516,20 @@
+   }
+ 
+   const ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
+-  const gfx::Insets content_insets = provider->GetDialogInsetsForContentType(
+-      views::DialogContentType::kControl, views::DialogContentType::kControl);
++  const gfx::Insets content_insets = views::merlin_style::IsEnabled()
++      ? gfx::Insets::VH(12, 0)
++      : provider->GetDialogInsetsForContentType(
++            views::DialogContentType::kControl,
++            views::DialogContentType::kControl);
+   set_margins(
+       gfx::Insets::TLBR(content_insets.top(), 0, content_insets.bottom(), 0));
+ 
+   std::unique_ptr<views::ScrollView> scroll_view = CreateExtensionInfoContainer(
+       has_permissions, requires_justification, has_site_access_options);
++  if (views::merlin_style::IsEnabled()) {
++    // The permissions should sit on the same glass as the title and buttons.
++    scroll_view->SetBackgroundColor(std::nullopt);
++  }
+   scroll_view_ = scroll_view.get();
+   AddChildView(std::move(scroll_view));
+ }
+@@ -623,7 +632,9 @@
+           // Equalize padding on the left and the right of the icon.
+           .AddPaddingColumn(
+               views::TableLayout::kFixedSize,
+-              provider->GetInsetsMetric(views::INSETS_DIALOG).left())
++              views::merlin_style::IsEnabled()
++                  ? 12
++                  : provider->GetInsetsMetric(views::INSETS_DIALOG).left())
+           // Set a resize weight so that the message label will be expanded to
+           // the available width.
+           .AddColumn(views::LayoutAlignment::kStretch,
+diff --git a/chrome/browser/ui/extensions/extension_dialog_utils.h b/chrome/browser/ui/extensions/extension_dialog_utils.h
+--- a/chrome/browser/ui/extensions/extension_dialog_utils.h
++++ b/chrome/browser/ui/extensions/extension_dialog_utils.h
+@@ -48,6 +48,14 @@
+                 const std::vector<extensions::ExtensionId>& extension_ids,
+                 std::unique_ptr<ui::DialogModel> dialog_model);
+ 
++#if BUILDFLAG(IS_MAC)
++// Shows the installed extension notice using Merlin's dialog surface.
++void ShowInstalledExtensionDialog(
++    gfx::NativeWindow parent,
++    const extensions::ExtensionId& extension_id,
++    std::unique_ptr<ui::DialogModel> dialog_model);
++#endif
++
+ // Shows a modal dialog constructed from `dialog_model` on the `parent` window.
+ void ShowModalDialog(gfx::NativeWindow parent,
+                      std::unique_ptr<ui::DialogModel> dialog_model);
+diff --git a/chrome/browser/ui/extensions/extension_post_install_dialog.cc b/chrome/browser/ui/extensions/extension_post_install_dialog.cc
+--- a/chrome/browser/ui/extensions/extension_post_install_dialog.cc
++++ b/chrome/browser/ui/extensions/extension_post_install_dialog.cc
+@@ -184,8 +184,14 @@
+ #endif  // !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
+ 
+   std::unique_ptr<ui::DialogModel> dialog_model = dialog_model_builder.Build();
++#if BUILDFLAG(IS_MAC)
++  ShowInstalledExtensionDialog(native_window,
++                               weak_delegate->model()->extension_id(),
++                               std::move(dialog_model));
++#else
+   ShowDialog(native_window, weak_delegate->model()->extension_id(),
+              std::move(dialog_model));
++#endif
+ }
+ 
+ }  // namespace
+diff --git a/chrome/browser/ui/extensions/extension_dialog_utils_views.cc b/chrome/browser/ui/extensions/extension_dialog_utils_views.cc
+--- a/chrome/browser/ui/extensions/extension_dialog_utils_views.cc
++++ b/chrome/browser/ui/extensions/extension_dialog_utils_views.cc
+@@ -14,6 +14,14 @@
+ #include "ui/views/bubble/bubble_dialog_model_host.h"
+ #include "ui/views/widget/widget.h"
+ 
++#if BUILDFLAG(IS_MAC)
++#include <optional>
++
++#include "ui/views/controls/scroll_view.h"
++#include "ui/views/merlin_style.h"
++#include "ui/views/view_utils.h"
++#endif
++
+ namespace {
+ 
+ // Returns the action view corresponding to the extension if a single
+@@ -29,6 +37,16 @@
+   }
+ 
+   return container->GetExtensionsButtonAnchor();
++}
++
++ExtensionsContainerViews* GetVisibleDialogContainer(
++    gfx::NativeWindow parent,
++    const std::vector<extensions::ExtensionId>& extension_ids) {
++  auto* container = parent ? GetExtensionsContainerViews(parent) : nullptr;
++  return container && container->IsVisible() &&
++                 !GetDialogAnchor(container, extension_ids).IsNull()
++             ? container
++             : nullptr;
+ }
+ 
+ }  // namespace
+@@ -52,16 +70,43 @@
+ void ShowDialog(gfx::NativeWindow parent,
+                 const std::vector<extensions::ExtensionId>& extension_ids,
+                 std::unique_ptr<ui::DialogModel> dialog_model) {
+-  ExtensionsContainerViews* const container =
+-      parent ? GetExtensionsContainerViews(parent) : nullptr;
+-  if (container && container->IsVisible() &&
+-      !GetDialogAnchor(container, extension_ids).IsNull()) {
++  if (auto* container = GetVisibleDialogContainer(parent, extension_ids)) {
+     ShowDialog(container, extension_ids, std::move(dialog_model));
+   } else {
+     // If the container is not available, show a modal dialog.
+     ShowModalDialog(parent, std::move(dialog_model));
+   }
+ }
++
++#if BUILDFLAG(IS_MAC)
++void ShowInstalledExtensionDialog(
++    gfx::NativeWindow parent,
++    const extensions::ExtensionId& extension_id,
++    std::unique_ptr<ui::DialogModel> dialog_model) {
++  if (!views::merlin_style::IsEnabled()) {
++    ShowDialog(parent, extension_id, std::move(dialog_model));
++    return;
++  }
++
++  const std::vector<extensions::ExtensionId> extension_ids{extension_id};
++  if (auto* container = GetVisibleDialogContainer(parent, extension_ids)) {
++    ShowDialog(container, extension_ids, std::move(dialog_model));
++    return;
++  }
++
++  // The shell hides the native toolbar, so the notice is a window modal.
++  // Keep the dialog model and let the body show the shared glass frame.
++  auto dialog = views::BubbleDialogModelHost::CreateModal(
++      std::move(dialog_model), ui::mojom::ModalType::kWindow);
++  auto* scroll_view =
++      views::AsViewClass<views::ScrollView>(dialog->GetContentsView());
++  if (scroll_view) {
++    scroll_view->SetBackgroundColor(std::nullopt);
++  }
++  constrained_window::CreateBrowserModalDialogViews(std::move(dialog), parent)
++      ->Show();
++}
++#endif
+ 
+ void ShowDialog(content::WebContents* web_contents,
+                 const std::vector<extensions::ExtensionId>& extension_ids,
