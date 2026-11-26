@@ -20,12 +20,12 @@ import { StatusLine } from './StatusLine';
 import { Toolbar } from './Toolbar';
 
 const cover = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
+const sidebarPeekInset = space.xs + space.hair;
 
 /**
  * A browser window in Tide: the page sits in a card on a light, tinted or
- * dark grey shell. Tabs run down a sidebar (which also
- * holds navigation and the address, so the card has no toolbar) or across the
- * top (the card gets one quiet toolbar row, joined by the active tab, both in
+ * dark grey shell. Tabs run down a sidebar with an optional address field,
+ * or across the top (the card's toolbar is joined by the active tab, both in
  * the site's colour). Command-S hides the tabs either way: the sidebar slides
  * away on Dia's spring and the traffic lights go with it; the pointer at the
  * window's left (or top) edge brings the tabs back over the page until it
@@ -59,10 +59,12 @@ export function BrowserWindow() {
   const hideToolbarOnScroll = useShellPrefs(p => p.hideToolbarOnScroll);
   const toolbarFocused = useBrowser(s => !!s.omnibox || !!s.panel);
   const addressInToolbar = useShellPrefs(p => p.addressBar === 'toolbar');
+  const compactToolbar = useShellPrefs(p => p.compactToolbar);
   const sidebarWidth = useShellPrefs(p => p.sidebarWidth);
   const barWhen = useShellPrefs(p => (p.showBookmarks ? p.bookmarksBar : 'never'));
   const peeking = useBrowser(s => s.peeking);
   const bounds = useBrowser(s => s.windowSize);
+  const windowButtonsMaxCenter = useBrowser(s => s.windowButtonsMaxCenter) || geometry.strip / 2;
   const hoverCard = useBrowser(s => !!s.hoverCard);
   // While the window isn't in front its tabs fade back and the shell turns opaque, as macOS sidebars do.
   const inactive = useEased(!windowKey, reduceMotion);
@@ -82,11 +84,15 @@ export function BrowserWindow() {
   const frame = !tabs || borderless || (macFullScreen && (zeroInFullScreen || (zeroWhenHidden && hidden)))
     ? 0 : Math.max(PAGE_FRAME.min, Math.min(PAGE_FRAME.max, frameSetting));
   const framed = frame > 0;
-  // With tabs in the sidebar the card has a toolbar only when the address is
-  // set to be in it (Settings › Appearance › Address bar).
+  const navigationOnly = side && !addressInToolbar;
+  const toolbarHeight = compactToolbar ? geometry.toolbarCompact : side ? geometry.titlebar : geometry.toolbar;
+  // Fit the shared centerline inside AppKit's clickable area, even with a thick page frame.
+  const toolbarTop = side && !macFullScreen ? Math.min(frame, Math.max(0, windowButtonsMaxCenter - toolbarHeight / 2)) : frame;
+  const sidebarHeaderHeight = toolbarTop + toolbarHeight;
+  // Keep navigation available while scrolling when the address is in the sidebar.
   const scrollHidden = active?.id && webKitTab(active.id) ? !!active.toolbarHidden : !!snapshot.toolbarHidden;
-  const toolbar = !fullscreen && (!side || addressInToolbar) &&
-    !(hideToolbarOnScroll && scrollHidden && !onStart && !toolbarFocused);
+  const toolbar = !fullscreen &&
+    !(hideToolbarOnScroll && !navigationOnly && scrollHidden && !onStart && !toolbarFocused);
   const toolbarWasHidden = React.useRef(false);
   const addressFocus = useBrowser(s => s.addressFocus);
   const [revealedForAddress, revealForAddress] = useState(false);
@@ -95,18 +101,23 @@ export function BrowserWindow() {
   }, [addressFocus]);
   React.useEffect(() => { if (!scrollHidden) revealForAddress(false); }, [scrollHidden, active?.id]);
   toolbarWasHidden.current = !toolbar && !revealedForAddress;
-  const showToolbar = toolbar || (!fullscreen && revealedForAddress && (!side || addressInToolbar));
+  const showToolbar = toolbar || (!fullscreen && revealedForAddress);
   const peekable = hidden && !fullscreen;
+  const sidebarPeekCenter = Math.min(sidebarPeekInset + geometry.titlebar / 2, windowButtonsMaxCenter);
+  const buttonsCenter = fullscreen ? undefined : top ? geometry.strip / 2 + (peekable && peeking ? geometry.stripPeekTop : 0)
+    : side ? toolbarTop + toolbarHeight / 2 : peeking ? sidebarPeekCenter : undefined;
   // With tabs on top the strip is drawn after the card, so the active tab can
   // overlap the card's top edge and join its toolbar.
   const card = <View style={{ flex: 1, padding: frame, paddingLeft: side ? 0 : undefined,
-    paddingTop: tabs && top ? geometry.strip : undefined }}>
+    paddingTop: tabs && top ? geometry.strip : toolbarTop }}>
     <Panel fill="contentBackground" radius={framed ? 'window' : 'none'} border={framed ? 'contentBorder' : null}
       elevation={framed ? 'card' : 'none'} style={{ flex: 1 }}>
       <View style={{ flex: 1, overflow: 'hidden', borderRadius: framed ? radius.window : 0 }}>
         {showToolbar && <View style={{ borderBottomWidth: geometry.hairline,
           // A toolbar in the page's own colour runs straight on into it.
-          borderBottomColor: chrome.seamless ? chrome.bar : colors.toolbarDivider }}><Toolbar /></View>}
+          borderBottomColor: chrome.seamless ? chrome.bar : colors.toolbarDivider }}>
+          <Toolbar height={toolbarHeight} compact={compactToolbar} navigationOnly={navigationOnly} />
+        </View>}
         {bookmarksBar && <BookmarksBar />}
         <View style={{ flex: 1 }}><PageArea /></View>
         {!fullscreen && <StatusLine />}
@@ -119,7 +130,7 @@ export function BrowserWindow() {
     onLayout={e => actions.setWindowSize(e.nativeEvent.layout.width, e.nativeEvent.layout.height)}>
     {/* The traffic lights hide with the tabs, as in Dia, and come back with them when they peek in. */}
     <FullScreenWatch onChange={setMacFullScreen} onState={actions.setWindowFacts} windowButtons={!peekable || peeking || macFullScreen}
-      windowButtonsCenter={top && !fullscreen ? geometry.strip / 2 + (peekable && peeking ? geometry.stripPeekTop : 0) : undefined}
+      windowButtonsCenter={buttonsCenter}
       title={active ? tabTitle(active) : undefined} />
     {/* Glass lets the desktop through the shell; Classic is solid. */}
     {shell && glass.translucent && <Glass material="sidebar" style={cover} />}
@@ -130,7 +141,9 @@ export function BrowserWindow() {
     {slide.shown && !top && !fullscreen && <Animated.View style={{ width: slide.width, overflow: 'hidden' }}>
       {/* Pinned to the right edge, so it slides out to the left as the column narrows. */}
       <View style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: sidebarWidth, flexDirection: 'row' }}>
-        <Animated.View style={{ flexDirection: 'row', opacity: tabsFade }}><Sidebar width={sidebarWidth} /></Animated.View>
+        <Animated.View style={{ flexDirection: 'row', opacity: tabsFade }}>
+          <Sidebar width={sidebarWidth} headerHeight={sidebarHeaderHeight} />
+        </Animated.View>
       </View>
     </Animated.View>}
     {card}
@@ -139,7 +152,7 @@ export function BrowserWindow() {
     {peekable && !peeking && <View pointerEvents="none" onMouseEnter={actions.peek}
       style={top ? { position: 'absolute', top: 0, left: 0, right: 0, height: edgeStrip }
         : { position: 'absolute', top: 0, bottom: 0, left: 0, width: edgeStrip }} />}
-    {peekable && (top ? <StripPeek /> : <SidebarPeek width={sidebarWidth} />)}
+    {peekable && (top ? <StripPeek /> : <SidebarPeek width={sidebarWidth} headerHeight={(sidebarPeekCenter - sidebarPeekInset) * 2} />)}
     <Overlays />
   </View></TooltipLayer>;
 }
@@ -150,18 +163,18 @@ export function BrowserWindow() {
  * stays while the pointer is on it or within a little of it, and slides away
  * a moment after it leaves; Hide sidebar's button keeps it open instead.
  */
-function SidebarPeek({ width }: { width: number }) {
+function SidebarPeek({ width, headerHeight }: { width: number; headerHeight: number }) {
   const actions = useActions();
   const peeking = useBrowser(s => s.peeking);
   const { reduceMotion } = useTheme();
   const { progress, mounted } = usePeekSpring(peeking, reduceMotion);
   if (!mounted) return null;
-  const inset = space.xs + space.hair;
+  const inset = sidebarPeekInset;
   return <Animated.View pointerEvents="box-none" onMouseEnter={actions.peek} onMouseLeave={actions.unpeek}
     style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: width + inset + geometry.peekSlack,
       transform: [{ translateX: progress.interpolate({ inputRange: [0, 1], outputRange: [-(width + inset * 2), 0] }) }] }}>
     <FloatingShell style={{ position: 'absolute', top: inset, bottom: inset, left: inset, width }}>
-      <Sidebar width={width} floating />
+      <Sidebar width={width} headerHeight={headerHeight} floating />
     </FloatingShell>
   </Animated.View>;
 }

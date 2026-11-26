@@ -1,6 +1,6 @@
 // Everything a window's components can ask for. Components never hold the
 // engine or call getState(); they call these, and failures become notices.
-import { copyText, haptic, imageTone, showMenu, type MenuItem, type SymbolName } from '../platform/shell';
+import { copyText, haptic, imageTone, showMenu, type MenuItem, type SymbolName, type WindowStateEvent } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { setFavouriteFolders } from './shellPrefsStorage';
 import { foldInto, homeKey, leaveFolder, renameFolder, ungroupFolder } from './favouriteFolders';
@@ -297,11 +297,11 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         store.setState({ peeking: false });
       }, hoverTiming.peekClose);
     },
-    /** The window came to the front or left it, or moved against or away from the screen's edges. */
-    setWindowFacts(facts: { key: boolean; leftEdge: boolean; topEdge: boolean }) {
+    /** Window activity, screen edges and the native title bar's clickable depth. */
+    setWindowFacts({ key, leftEdge, topEdge, windowButtonsMaxCenter }: WindowStateEvent['nativeEvent']) {
       const s = store.getState();
-      if (s.windowKey !== facts.key || s.screenEdges.left !== facts.leftEdge || s.screenEdges.top !== facts.topEdge)
-        store.setState({ windowKey: facts.key, screenEdges: { left: facts.leftEdge, top: facts.topEdge } });
+      if (s.windowKey !== key || s.screenEdges.left !== leftEdge || s.screenEdges.top !== topEdge || s.windowButtonsMaxCenter !== windowButtonsMaxCenter)
+        store.setState({ windowKey: key, screenEdges: { left: leftEdge, top: topEdge }, windowButtonsMaxCenter });
     },
     endPeek() {
       if (peekClose) { clearTimeout(peekClose); peekClose = null; }

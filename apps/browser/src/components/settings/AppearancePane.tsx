@@ -67,7 +67,7 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
 
     <Section title="Address Bar" detail={top
       ? 'Tabs are across the top of the window, so the address bar stays in the toolbar.'
-      : 'In the sidebar, the page gets the toolbar’s height. While the sidebar is hidden, the address bar is in the toolbar.'}>
+      : 'Choose where the address appears. Navigation stays above the page. Hiding the sidebar moves the address into the toolbar.'}>
       {!top && <View accessibilityRole="radiogroup" accessibilityLabel="Address bar" style={{ flexDirection: 'row', gap: space.xl }}>
         <AddressBarChoice place="toolbar" selected={prefs.addressBar === 'toolbar'} onPress={() => void setShellPref('addressBar', 'toolbar')} />
         <AddressBarChoice place="sidebar" selected={prefs.addressBar !== 'toolbar'} onPress={() => void setShellPref('addressBar', 'sidebar')} />
@@ -90,7 +90,7 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
       <FormGroup>
         {<FormRow title="Site colour" detail={top
           ? "The active tab and toolbar take the site's colour. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white."
-          : "The toolbar, when the page has one (tabs hidden, or the address in the toolbar), takes the site's colour, as can the window. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white."}>
+          : "The toolbar takes the site's colour, as can the window. Match continues the top of the page; Soft and Vivid use the site's brand colour. New tabs stay white."}>
           <Segmented label="Site colour" value={prefs.toolbarColor} onChange={style => void setToolbarColor(style)}
             options={toolbarColors.map(value => ({ value, label: toolbarColorLabels[value] }))} /></FormRow>}
         {prefs.toolbarColor !== 'white' && prefs.toolbarColor !== 'workspace' && <FormRow title="Tint the window with the site colour"
@@ -106,7 +106,7 @@ export function AppearancePane({ p, set }: { p: Preferences | null; set: Set }) 
           <Toggle label="Favorite tiles adapt to the sidebar" value={prefs.adaptiveFavorites}
             onChange={value => void setShellPref('adaptiveFavorites', value)} />
         </FormRow>
-        <FormRow title="Hide toolbar while scrolling" detail="Scroll up or press ⌘L to show it again.">
+        <FormRow title="Hide toolbar while scrolling" detail="Applies when the toolbar contains the address. Scroll up or press ⌘L to show it again.">
           <Toggle label="Hide toolbar while scrolling" value={prefs.hideToolbarOnScroll}
             onChange={value => void setShellPref('hideToolbarOnScroll', value)} />
         </FormRow>

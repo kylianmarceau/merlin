@@ -74,6 +74,8 @@ export type BrowserState = {
   windowKey: boolean;
   /** Which of the window's edges meet the screen's: there the pointer stops, so the peek strip can stay thin. */
   screenEdges: { left: boolean; top: boolean };
+  /** Deepest center that keeps each native window button inside its clickable title bar. */
+  windowButtonsMaxCenter: number;
   /** A two-finger swipe back or forward over the page, as Chromium reports it; the shell draws its arrow. */
   historySwipe: HistorySwipe | null;
   /** Names and icons the user gave tabs in Merlin (Rename Tab, Change Icon), by tab. */
@@ -97,7 +99,7 @@ export function initialState(): BrowserState {
     snapshot: null, engineSnapshot: null, connectionError: null, panel: null, popover: null, revealedPromptId: null, statusMessage: null,
     addressFocus: 0, addressRevert: 0, omnibox: null, favicons: {}, iconTones: {}, anchors: {}, windowSize: { width: 0, height: 0 },
     downloadLandings: 0, tabDrag: null, panes: {}, favouriteZone: null, pinDrop: null, recentTabs: [], groupDialog: null, openFolder: null, hoverCard: null, peeking: false, windowKey: true, screenEdges: { left: true, top: true }, historySwipe: null, tabLooks: {}, pinnedHomes: {},
-    activeSpace: null, lastSelected: {}, allTabs: [], spaceMove: null,
+    windowButtonsMaxCenter: 0, activeSpace: null, lastSelected: {}, allTabs: [], spaceMove: null,
     failInRender: false,
   };
 }

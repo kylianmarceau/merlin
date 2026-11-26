@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ViewProps } from 'react-native';
-import { ContextMenuArea as NativeContextMenuArea, FileDrag as NativeFileDrag, SwipeArea as NativeSwipeArea, WindowDragRegion, WindowState, haptic, type HapticKind } from '../../platform/shell';
+import { ContextMenuArea as NativeContextMenuArea, FileDrag as NativeFileDrag, SwipeArea as NativeSwipeArea, WindowDragRegion, WindowState, haptic, type HapticKind, type WindowStateEvent } from '../../platform/shell';
 
 /** Empty space that moves the window when dragged and zooms it on a double click. */
 export function DragRegion(props: ViewProps) {
@@ -21,7 +21,7 @@ export function ContextMenu({ onOpen, children, style }: React.PropsWithChildren
   return <NativeContextMenuArea onContextMenu={onOpen} style={style}>{children}</NativeContextMenuArea>;
 }
 
-export type WindowFacts = { key: boolean; leftEdge: boolean; topEdge: boolean };
+export type WindowFacts = WindowStateEvent['nativeEvent'];
 
 /**
  * Reports whether the window is in macOS full screen (not a page's own
