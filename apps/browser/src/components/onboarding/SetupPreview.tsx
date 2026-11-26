@@ -141,6 +141,7 @@ function BrowserScene({ v, screen, compact, mode }: { v: SetupValues; screen: Sc
   const popup = screen === 'command' || screen === 'newTab' && v.shell.newTabPopup;
   function window(second: boolean) {
     const side = v.sidebar && !little && (!sharing || v.shell.sharedTabs);
+    const addressInSidebar = side && v.shell.addressBar === 'sidebar';
     const frame = v.shell.borderlessMode ? 0 : Math.max(space.hair, v.shell.pageFrame * .55);
     const tabs = second && !v.shell.sharedTabs ? ['Trail map', 'Weekend plans'] : ['Field notes', 'Inbox', 'Trail map', 'Weekend plans'];
     if (screen === 'position') tabs.splice(v.shell.newTabPosition === 'top' ? 0 : v.shell.newTabPosition === 'adjacent' ? 1 : tabs.length, 0, 'New Tab');
@@ -151,11 +152,10 @@ function BrowserScene({ v, screen, compact, mode }: { v: SetupValues; screen: Sc
         <Mark id={['safari', 'gmail', 'google', 'calendar'][index % 4]} size={space.sm} /><View style={{ flex: 1 }}><Small strong={index === 0}>{name}</Small></View>
       </View>)}
     </View>;
-    const address = <View style={[row, { gap: space.xs, paddingHorizontal: space.sm, borderRadius: radius.sm, height: geometry.controlCompact,
+    const address = <View style={[row, { flex: addressInSidebar ? undefined : 1, paddingHorizontal: space.sm, borderRadius: radius.sm, height: geometry.controlCompact,
       backgroundColor: glass.on ? colors.fillTransparent : screen === 'siteColor'
         ? v.shell.toolbarColor === 'workspace' ? stock.chrome : stock.stock : colors.contentBackground }]}>
       {glass.on && <GlassFill radius={radius.sm} state="rest" dark={mode === 'dark'} />}
-      <Icon name="chevron.left" size="chevron" tone="iconSecondary" /><Icon name="arrow.clockwise" size="chevron" tone="iconSecondary" />
       <View style={{ flex: 1 }}><Small strong>{start ? 'New Tab' : 'fieldnotes.merlin  /  Journal'}</Small></View>
     </View>;
     return <Panel key={String(second)} radius="card" border="borderDefault" elevation="card" fill="sidebarFallback"
@@ -166,7 +166,7 @@ function BrowserScene({ v, screen, compact, mode }: { v: SetupValues; screen: Sc
         <View style={{ flex: 1, flexDirection: 'row', gap: space.xs }}>
           {side && <View style={{ width: sharing ? g.previewFalcon : g.previewSidebar, paddingHorizontal: space.xs, gap: space.sm }}>
             <View style={{ height: geometry.controlCompact, justifyContent: 'center' }}><Lights /></View>
-            {v.shell.addressBar === 'sidebar' && address}
+            {addressInSidebar && address}
             {(screen === 'material' || screen === 'habits') && <View style={{ flexDirection: 'row', gap: space.hair, flexWrap: 'wrap' }}>
               {['gmail', 'github', 'calendar', 'spotify'].map(id => <View key={id} style={{ ...centered,
                 width: v.shell.adaptiveFavorites ? '22%' : '44%', height: geometry.icon, borderRadius: radius.xs,
@@ -178,7 +178,14 @@ function BrowserScene({ v, screen, compact, mode }: { v: SetupValues; screen: Sc
             {tabList}<Small>＋ New tab</Small>
           </View>}
           <View style={{ flex: 1, borderRadius: frame ? radius.sm : 0, overflow: 'hidden', backgroundColor: colors.contentBackground }}>
-            {(!side || v.shell.addressBar === 'toolbar') && !(screen === 'details' && v.shell.hideToolbarOnScroll) && address}
+            {(addressInSidebar || !(screen === 'details' && v.shell.hideToolbarOnScroll)) &&
+              <View style={[row, { height: geometry.controlCompact, gap: space.xs, paddingHorizontal: space.xs }]}>
+                {side && <Icon name="sidebar.left" size="chevron" tone="iconSecondary" />}
+                <Icon name="chevron.left" size="chevron" tone="iconSecondary" />
+                <Icon name="chevron.right" size="chevron" tone="iconSecondary" />
+                <Icon name="arrow.clockwise" size="chevron" tone="iconSecondary" />
+                {!addressInSidebar && address}
+              </View>}
             {(v.shell.bookmarksBar === 'always' || v.shell.bookmarksBar === 'newTab' && start) &&
               <View style={{ paddingHorizontal: space.sm }}><Small>☆ Bookmarks     Field notes     Trail map</Small></View>}
             {start ? <View style={{ flex: 1, ...centered, gap: space.sm }}>

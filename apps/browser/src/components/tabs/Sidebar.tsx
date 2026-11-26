@@ -11,7 +11,6 @@ import {
 } from '../ui';
 import { SidebarBookmarks } from '../bookmarks/SidebarBookmarks';
 import { AddressField } from '../omnibox/AddressField';
-import { NavigationButtons } from '../window/Toolbar';
 import { useShortcut } from '../window/shortcuts';
 import { FavouriteGrid } from './FavouriteGrid';
 import { TabRow, rowStep } from './TabRow';
@@ -23,13 +22,15 @@ import { SpaceHeading, SpaceHint, useSpaceSlide } from './Spaces';
 const sidePadding = space.md + space.sm + space.hair;
 
 /**
- * Tabs down the left of the window, on the tinted shell. The top row holds
- * the window controls and navigation and moves the window when dragged; then
- * the address, pinned tabs as favourite tiles, bookmarks, and the open tabs.
+ * Tabs down the left of the window, on the tinted shell. The top row leaves
+ * space for the window controls and drags the window. Below it are the address,
+ * pinned tabs as favourite tiles, bookmarks, and the open tabs.
  * Its right edge drags to resize it. `floating` is the same sidebar peeking
  * in over the page while the tabs are hidden.
  */
-export function Sidebar({ width, floating = false }: { width: number; floating?: boolean }) {
+export function Sidebar({ width, headerHeight, floating = false }: {
+  width: number; headerHeight: number; floating?: boolean;
+}) {
   const snapshot = useSnapshot();
   const actions = useActions();
   const { reduceMotion } = useTheme();
@@ -113,12 +114,12 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
     lastShape.current = shape;
     animateListChange(reduceMotion);
   }
-  // Settings › Appearance › Address bar: in the toolbar, the page card carries navigation and the address.
+  // Settings › Appearance › Address bar can move the field into the page toolbar.
   const addressHere = useShellPrefs(p => p.addressBar !== 'toolbar');
   const bookmarks = useShellPrefs(p => p.showBookmarks && p.sidebarBookmarks);
   // Whether the bookmarks section has anything to show, so an empty one draws no rule under it.
   const [bookmarksShown, setBookmarksShown] = useState(false);
-  const hide = useShortcut('Hide sidebar', ['⌘', 'S'], 'gs');
+  const keepOpen = useShortcut('Keep sidebar open', ['⌘', 'S'], 'gs');
   const newTab = useShortcut('New tab', ['⌘', 'T'], 't');
   const list = useActiveRowPointer(snapshot.activeTabId);
   // The list takes only the height its rows need and shrinks to make room for New Tab.
@@ -128,12 +129,10 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
   const slide = useSpaceSlide(width);
   return <SwipeArea onSwipe={slide.onSwipe} enabled={slide.enabled} style={{ width, paddingLeft: geometry.sidebarInset, paddingRight: geometry.sidebarInset,
     paddingBottom: space.sm + space.hair, gap: space.sm + space.hair }}>
-    <View style={{ height: geometry.titlebar, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: space.hair }}>
-      {!floating && <DragRegion style={{ position: 'absolute', top: 0, left: -space.md, right: -space.sm, bottom: 0 }} />}
-      <IconButton label={floating ? 'Keep sidebar open' : 'Hide sidebar'} icon="sidebar.left"
-        tip={floating ? 'Keep sidebar open' : hide.tip} keys={hide.keys} tipDetail={hide.detail}
+    <View style={{ height: headerHeight, alignItems: 'flex-end', justifyContent: 'center' }}>
+      {floating ? <IconButton label={keepOpen.tip} icon="sidebar.left" keys={keepOpen.keys} tipDetail={keepOpen.detail}
         onPress={() => { actions.endPeek(); void actions.command('sidebar'); }} />
-      {addressHere && <NavigationButtons />}
+        : <DragRegion style={{ position: 'absolute', top: 0, left: -geometry.sidebarInset, right: -geometry.sidebarInset, bottom: 0 }} />}
     </View>
     {addressHere && <AddressField variant="shell" listens={!floating} />}
     {snapshot.private && <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs + space.hair, paddingHorizontal: space.sm + space.hair }}>
@@ -181,7 +180,7 @@ export function Sidebar({ width, floating = false }: { width: number; floating?:
     </View>
     <MediaPlayer />
     <SidebarFooter />
-    {!floating && <ResizeEdge width={width} />}
+    {!floating && <ResizeEdge width={width} top={headerHeight} />}
   </SwipeArea>;
 }
 
@@ -255,7 +254,7 @@ function ActiveTabPill({ direction, onPress }: { direction: 'up' | 'down'; onPre
  * springs back carrying the drag's speed; near the default width it snaps
  * there. A trackpad tick marks the snap and each limit reached.
  */
-function ResizeEdge({ width }: { width: number }) {
+function ResizeEdge({ width, top }: { width: number; top: number }) {
   const { reduceMotion } = useTheme();
   const start = useRef(width);
   const latest = useRef(width);
@@ -286,7 +285,7 @@ function ResizeEdge({ width }: { width: number }) {
     onPanResponderTerminate: () => void setShellPref('sidebarWidth', clampWidth(latest.current)),
   }), []);  // eslint-disable-line react-hooks/exhaustive-deps
   return <View {...pan.panHandlers} accessibilityLabel="Resize sidebar" onDoubleClick={() => void setShellPref('sidebarWidth', SIDEBAR_WIDTH.default)}
-    style={{ position: 'absolute', top: geometry.titlebar, bottom: 0, right: -geometry.resizeHandle / 2, width: geometry.resizeHandle,
+    style={{ position: 'absolute', top, bottom: 0, right: -geometry.resizeHandle / 2, width: geometry.resizeHandle,
       cursor: 'col-resize' }} />;
 }
 const clampWidth = (w: number) => Math.round(Math.max(SIDEBAR_WIDTH.min, Math.min(SIDEBAR_WIDTH.max, w)));

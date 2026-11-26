@@ -120,7 +120,7 @@ export const PopoverBubble = view<PopoverBubbleProps>('PopoverBubble');
 
 export type FullScreenEvent = NativeSyntheticEvent<{ fullScreen: boolean }>;
 /** Whether the window is in front, and which of its edges touch the screen's. */
-export type WindowStateEvent = NativeSyntheticEvent<{ key: boolean; leftEdge: boolean; topEdge: boolean }>;
+export type WindowStateEvent = NativeSyntheticEvent<{ key: boolean; leftEdge: boolean; topEdge: boolean; windowButtonsMaxCenter: number }>;
 /** Reports whether its window is in macOS full screen, in front, and at the screen's edges; names the window. */
 export const WindowState = view<ViewProps & { onFullScreen(event: FullScreenEvent): void; onWindowState?(event: WindowStateEvent): void;
   windowButtons?: boolean; windowButtonsCenter?: number; windowTitle?: string }>('WindowState');

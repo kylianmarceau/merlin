@@ -313,6 +313,7 @@ final class MerlinWindowState: ExpoView {
     buttonPositions.removeAll()
     observedButtons.values.forEach { NotificationCenter.default.removeObserver($0.observer) }
     observedButtons.removeAll()
+    lastState = nil
     guard let window else { return }
     observers.append(NotificationCenter.default.addObserver(forName: NSWindow.willEnterFullScreenNotification,
                                                              object: window, queue: .main) { [weak self] _ in
@@ -347,20 +348,31 @@ final class MerlinWindowState: ExpoView {
     onFullScreen(["fullScreen": window?.styleMask.contains(.fullScreen) ?? false])
   }
 
-  private var lastState: [String: Bool] = [:]
+  private var lastState: (key: Bool, leftEdge: Bool, topEdge: Bool, windowButtonsMaxCenter: Double)?
   private func reportState() {
     guard let window else { return }
     let screen = (window.screen ?? NSScreen.main)?.visibleFrame ?? .zero
     let frame = window.frame
     let slack: CGFloat = 2
-    let state = [
-      "key": window.isKeyWindow && NSApp.isActive,
-      "leftEdge": frame.minX <= screen.minX + slack,
-      "topEdge": frame.maxY >= screen.maxY - slack,
-    ]
-    guard state != lastState else { return }
+    let state = (
+      key: window.isKeyWindow && NSApp.isActive,
+      leftEdge: frame.minX <= screen.minX + slack,
+      topEdge: frame.maxY >= screen.maxY - slack,
+      windowButtonsMaxCenter: Double(windowButtonsMaxCenter(in: window))
+    )
+    if let lastState, state == lastState { return }
     lastState = state
-    onWindowState(state)
+    onWindowState(["key": state.key, "leftEdge": state.leftEdge, "topEdge": state.topEdge,
+                   "windowButtonsMaxCenter": state.windowButtonsMaxCenter])
+  }
+
+  // A button can draw past the title bar, but it stops taking clicks there.
+  private func windowButtonsMaxCenter(in window: NSWindow) -> CGFloat {
+    guard let content = window.contentView, let button = window.standardWindowButton(.closeButton),
+          let titlebar = button.superview else { return 0 }
+    let region = titlebar.convert(titlebar.bounds, to: content)
+    let bottom = content.isFlipped ? region.maxY - content.bounds.minY : content.bounds.maxY - region.minY
+    return max(0, floor(bottom - button.frame.height / 2))
   }
 
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
