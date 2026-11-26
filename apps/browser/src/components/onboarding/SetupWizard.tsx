@@ -9,7 +9,8 @@ import {
 import { useShellPrefs, type ShellPrefs } from '../../state/shellPrefs';
 import { setShellPref } from '../../state/shellPrefsStorage';
 import { useActions, useSnapshot } from '../../state/window';
-import { Button, Icon, PageTurn, Panel, Pressable, Text, useInteraction, geometry, radius, setupGeometry, space, setupPaper, useTheme } from '../ui';
+import { Icon, PageTurn, PaletteScope, Plate, Text, geometry, radius, setupGeometry, setupInk, shadow, space, useTheme, type Palette } from '../ui';
+import { CircleButton, PrimaryButton, SecondaryButton, SetupInkScope, setupType, useSetupInk } from './SetupParts';
 import { SetupPage, headings, type SetupValues } from './SetupPages';
 import { SetupPreview, previewKey } from './SetupPreview';
 import { browsers, browserPreset, makeSetupCode, nextScreen, readProgress, readSetupCode, route, screens, type Progress, type Screen, type SetupPreferences } from './setup';
@@ -22,17 +23,11 @@ function saveShell(patch: ShellPatch) {
 }
 
 function Back({ disabled, onPress }: { disabled: boolean; onPress(): void }) {
-  const { colors } = useTheme();
-  const { focused, hovered, handlers } = useInteraction();
-  return <Pressable accessibilityRole="button" accessibilityLabel="Back" disabled={disabled} onPress={onPress} {...handlers}
-    style={{ width: geometry.controlLarge, height: geometry.controlLarge, borderRadius: radius.pill, borderWidth: geometry.hairline,
-      borderColor: colors[focused ? 'focusRing' : 'borderDefault'], backgroundColor: colors[hovered ? 'fillHover' : 'fillTransparent'],
-      alignItems: 'center', justifyContent: 'center' }}>
-    <Icon name="chevron.left" size="small" tone="iconSecondary" />
-  </Pressable>;
+  return <CircleButton label="Back" icon="chevron.left" disabled={disabled} onPress={onPress} />;
 }
 
 function Heading({ title, detail, focus }: { title: string; detail: string; focus: boolean }) {
+  const ink = useSetupInk();
   const heading = useRef<View>(null);
   useEffect(() => {
     if (!focus) return;
@@ -43,9 +38,9 @@ function Heading({ title, detail, focus }: { title: string; detail: string; focu
     return () => cancelAnimationFrame(frame);
   }, [focus]);
   return <View ref={heading} accessible focusable accessibilityRole="header" accessibilityLabel={title} enableFocusRing={false}
-    style={{ gap: space.sm, paddingBottom: space.md }}>
-    <Text weight="regular" style={{ fontSize: setupGeometry.headingSize, lineHeight: setupGeometry.headingLine, letterSpacing: setupGeometry.tracking }}>{title}</Text>
-    <Text variant="body" tone="textSecondary">{detail}</Text>
+    style={{ gap: setupGeometry.titleGap, paddingBottom: space.sm }}>
+    <Text style={{ ...setupType.title, color: ink.title }}>{title}</Text>
+    <Text variant="body" style={{ color: ink.subtitle }}>{detail}</Text>
   </View>;
 }
 
@@ -53,7 +48,7 @@ export function SetupWizard({ replayIntro }: { replayIntro?: () => void }) {
   const actions = useActions();
   const snapshot = useSnapshot();
   const { colors, dark } = useTheme();
-  const paper = setupPaper[dark ? 'dark' : 'light'];
+  const ink = setupInk[dark ? 'dark' : 'light'];
   const shell = useShellPrefs(prefs => prefs);
   const [progress, setProgress] = useState(() => readProgress(snapshot.welcomeProgress));
   const [preferences, setPreferences] = useState<Preferences>();
@@ -228,10 +223,10 @@ export function SetupWizard({ replayIntro }: { replayIntro?: () => void }) {
 
   const compact = size.width < setupGeometry.compactWidth;
   const question = visible.filter(item => screens[item] === group);
-  const footer = importOpen ? <Button label="Back to browsers" variant="secondary" disabled={importBusy}
+  const footer = importOpen ? <SecondaryButton label="Back to browsers" filled disabled={importBusy}
     onPress={() => setImportOpen(false)} /> : codeEntry ? <>
     <Back disabled={busy} onPress={() => void advance('back')} />
-    <Button label={codeReview ? 'Apply setup code' : 'Review code'} variant="primary" size="large" disabled={busy || !code.trim()}
+    <PrimaryButton label={codeReview ? 'Apply setup code' : 'Review code'} disabled={busy || !code.trim()}
       onPress={() => codeReview ? void applyCode() : void perform(async () => {
         const parsed = readSetupCode(code);
         if (!parsed) throw new Error('This isn’t a valid Merlin setup code.');
@@ -239,22 +234,22 @@ export function SetupWizard({ replayIntro }: { replayIntro?: () => void }) {
       })} />
   </> : screen === 'finish' ? <>
     <Back disabled={busy} onPress={() => void advance('back')} />
-    <Button label="Start browsing" variant="primary" size="large" disabled={busy}
+    <PrimaryButton label="Start browsing" disabled={busy}
       onPress={() => void perform(async () => {
         if (!await actions.advanceWelcome('browse')) throw new Error('Merlin couldn’t close setup.');
       })} />
-    <Button label="Take the Tour" variant="outline" size="large" disabled={busy}
+    <SecondaryButton label="Take the Tour" disabled={busy}
       onPress={() => void perform(async () => {
         if (!await actions.advanceWelcome('tutorial')) throw new Error('Merlin couldn’t open the field guide.');
       })} />
   </> : <>
     {screen !== 'source' && <Back disabled={busy}
       onPress={() => void advance('back')} />}
-    <Button label={screen === 'cli' && wantsCli && !installed ? 'Install Merlin CLI' :
+    <PrimaryButton label={screen === 'cli' && wantsCli && !installed ? 'Install Merlin CLI' :
       screen === 'favorites' && values.favorites.length ? 'Pin ' + values.favorites.length + (values.favorites.length === 1 ? ' Tab' : ' Tabs') : 'Continue'}
-      variant="primary" size="large" disabled={busy || screen === 'source' && !progress.source || screen === 'system' && !hostOptions}
+      disabled={busy || screen === 'source' && !progress.source || screen === 'system' && !hostOptions}
       onPress={() => void advance('next')} />
-    <Button label="Skip" variant="outline" size="large" disabled={busy} onPress={() => void advance('skip')} />
+    <SecondaryButton label="Skip" disabled={busy} onPress={() => void advance('skip')} />
 
   </>;
 
@@ -263,23 +258,31 @@ export function SetupWizard({ replayIntro }: { replayIntro?: () => void }) {
     codeEntry ? 'Paste a code copied from another Merlin installation.' : headings[screen][1];
   const pageId = screen + (importOpen ? '-import' : codeEntry ? codeReview ? '-review' : '-code' : '');
   const preview = <SetupPreview values={values} screen={screen} compact={compact} />;
+  const roles: Partial<Palette> = { contentBackground: ink.card, textPrimary: ink.title, textSecondary: ink.subtitle, borderSubtle: ink.tileBorder,
+    borderDefault: ink.outlineBorder, fillControl: ink.button, fillControlHover: ink.buttonHover, fillHover: ink.outlinedHover,
+    buttonPrimary: ink.primary, buttonPrimaryHover: ink.primaryHover, textOnPrimary: ink.primaryText, sidebarFallback: ink.tile };
+  const dialog = shadow.dialog;
   return <View onLayout={event => setSize(event.nativeEvent.layout)}
-    style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: compact ? space.lg : space.xl, backgroundColor: paper.canvas }}>
-    <Panel fill="contentBackground" radius="dialog" border="borderSubtle" elevation="popover"
-      style={{ width: '100%', height: '100%', maxWidth: compact ? setupGeometry.compactCard : setupGeometry.width, maxHeight: setupGeometry.height }}>
-      <View style={{ flex: 1, flexDirection: 'row', borderRadius: radius.dialog, overflow: 'hidden', backgroundColor: paper.card }}>
-      <View style={{ flex: 1, paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.md }}>
+    style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: compact ? space.lg : space.xl, backgroundColor: ink.canvas }}>
+    <SetupInkScope value={ink}>
+    <View style={{ width: '100%', height: '100%', maxWidth: compact ? setupGeometry.compactCard : setupGeometry.width, maxHeight: setupGeometry.height }}>
+      <Plate fill={ink.card} radius={radius.panel} edge={ink.cardBorder} edgeWidth={geometry.hairline}
+        shadow={{ color: colors.shadowColor, opacity: dark ? Math.min(1, dialog.opacity * 2) : dialog.opacity, radius: dialog.radius, offsetY: dialog.offsetY }}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <View style={{ flex: 1, flexDirection: 'row', borderRadius: radius.panel, overflow: 'hidden' }}>
+      <PaletteScope roles={roles}>
+      <View style={{ flex: 1, paddingHorizontal: setupGeometry.columnPad, paddingTop: space.xxl, paddingBottom: space.md }}>
         <View accessible accessibilityLabel={'Step ' + group + ' of 9, question ' + (question.indexOf(screen) + 1) + ' of ' + question.length}
-          style={{ gap: space.sm, paddingBottom: space.xl }}>
+          style={{ gap: space.sm + space.hair, paddingBottom: space.xl }}>
           <View style={{ flexDirection: 'row', gap: space.xs, maxWidth: setupGeometry.progressWidth }}>
             {Array.from({ length: 9 }, (_, index) => <View key={index} style={{ flex: 1, height: setupGeometry.stepHeight,
-              borderRadius: radius.pill, backgroundColor: index < group ? paper.progress : colors.borderDefault }} />)}
+              borderRadius: radius.pill, backgroundColor: index < group ? ink.progressFill : ink.progressTrack }} />)}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-            <Text variant="section" tone="textSecondary">{'Step ' + group + ' of 9'}</Text>
+            <Text variant="section" style={{ color: ink.steps }}>{'Step ' + group + ' of 9'}</Text>
             {question.length > 1 && <View style={{ flexDirection: 'row', gap: space.xs }}>
               {question.map((id, i) => <View key={id} style={{ width: setupGeometry.stepDot, height: setupGeometry.stepDot,
-                borderRadius: radius.pill, backgroundColor: colors[id === screen ? 'textPrimary' : i < question.indexOf(screen) ? 'iconSecondary' : 'borderDefault'] }} />)}
+                borderRadius: radius.pill, backgroundColor: id === screen ? ink.title : i < question.indexOf(screen) ? ink.subtitle : ink.progressTrack }} />)}
             </View>}
           </View>
         </View>
@@ -287,7 +290,7 @@ export function SetupWizard({ replayIntro }: { replayIntro?: () => void }) {
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: space.lg, gap: space.md }}>
             <Heading title={title} detail={detail} focus={!codeEntry || !!codeReview} />
-            {compact && <View style={{ height: screen === 'favorites' ? setupGeometry.compactPinsHeight : setupGeometry.compactPreview, backgroundColor: paper.stage, borderRadius: radius.card }}>{preview}</View>}
+            {compact && <View style={{ height: screen === 'favorites' ? setupGeometry.compactPinsHeight : setupGeometry.compactPreview, backgroundColor: ink.stage, borderRadius: radius.card }}>{preview}</View>}
             <SetupPage screen={screen} values={values} busy={busy} actions={{
               option: (key, value) => setPatch(previous => ({ ...previous, [key]: value })),
               appearance: value => setAppearance(previous => ({ ...previous, ...value })),
@@ -311,22 +314,27 @@ export function SetupWizard({ replayIntro }: { replayIntro?: () => void }) {
               }),
             }} />
     {screen === 'source' && progress.source && progress.source !== 'fresh' &&
-      <Button label="Customize more" variant="secondary" disabled={busy} onPress={() => void advance('next', true)} />}
+      <SecondaryButton label="Customize more" filled disabled={busy} onPress={() => void advance('next', true)} />}
         </ScrollView>
         </PageTurn>
         {!!(error || notice) && <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs }} accessibilityLiveRegion="polite">
           <Icon name={error ? 'exclamationmark.triangle' : 'checkmark'} tone={error ? 'textDanger' : 'textSuccess'} />
           <Text flex={1} variant="caption" tone={error ? 'textDanger' : 'textSuccess'}>{error || notice}</Text>
         </View>}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: space.sm, paddingTop: space.md, paddingBottom: space.md }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm + space.hair, paddingTop: space.md, paddingBottom: space.md }}>
           {footer}
         </View>
       </View>
-      {!compact && <View style={{ width: '51.2%', marginVertical: space.md, marginRight: space.md, padding: space.lg,
-        borderRadius: radius.panel, borderWidth: geometry.hairline, borderColor: colors.borderDefault, backgroundColor: paper.stage }}>
-        <PageTurn id={previewKey(screen, values)} backwards={backwards}>{preview}</PageTurn>
+      </PaletteScope>
+      {!compact && <View style={{ width: '51.2%', margin: setupGeometry.paneMargin, marginLeft: 0 }}>
+        <Plate fill={ink.stage} radius={radius.panel} edge={ink.stageBorder} edgeWidth={geometry.hairline}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+        <View style={{ flex: 1, padding: space.lg, borderRadius: radius.panel, overflow: 'hidden' }}>
+          <PageTurn id={previewKey(screen, values)} backwards={backwards}>{preview}</PageTurn>
+        </View>
       </View>}
       </View>
-    </Panel>
+    </View>
+    </SetupInkScope>
   </View>;
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Animated, Image, View, type ImageSourcePropType } from 'react-native';
 import { Icon, Pressable, Text, favoriteTint, geometry, pressScale, radius, setupGeometry, space, useInteraction, usePressScale, useTheme } from '../ui';
+import { CheckRing, ChoiceCard, useSetupInk } from './SetupParts';
 
 // Local product marks keep the catalog available offline and avoid requests to third parties during setup.
 const marks: Record<string, ImageSourcePropType> = {
@@ -43,25 +44,24 @@ export function Mark({ id, size = setupGeometry.catalogIcon }: { id: string; siz
 export function CatalogTile({ id, label, selected, onPress, multiple = false }: {
   id: string; label: string; selected: boolean; onPress(): void; multiple?: boolean;
 }) {
-  const { colors, dark, reduceMotion } = useTheme();
+  const { dark, reduceMotion } = useTheme();
+  const ink = useSetupInk();
   const { hovered, focused, handlers } = useInteraction();
   const tint = multiple && selected ? favoriteTint(id, dark) : undefined;
   const [down, setDown] = React.useState(false);
   const scale = usePressScale(down, pressScale.tile, reduceMotion);
   return <Pressable accessibilityRole={multiple ? 'checkbox' : 'radio'} accessibilityLabel={label}
     accessibilityState={multiple ? { checked: selected } : { selected }} onPress={onPress} {...handlers}
-    onPressIn={() => setDown(true)} onPressOut={() => setDown(false)}
-    style={{ width: '23%', minHeight: setupGeometry.tileHeight, alignItems: 'center', justifyContent: 'center',
-      borderRadius: radius.card, borderWidth: geometry.hairline,
-      borderColor: focused ? colors.focusRing : tint?.edge ?? colors[selected ? 'borderStrong' : 'borderSubtle'],
-      backgroundColor: tint?.fill ?? colors[selected ? 'accentSoft' : hovered ? 'fillHover' : 'contentBackground'] }}>
-    <Animated.View style={{ alignItems: 'center', gap: space.xs, transform: [{ scale }] }}>
-      <Mark id={id} />
-      <Text variant="micro" tone={selected ? 'textPrimary' : 'textSecondary'} lines={1}>{label}</Text>
+    onPressIn={() => setDown(true)} onPressOut={() => setDown(false)} style={{ width: '23%' }}>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <ChoiceCard selected={selected} hovered={hovered} focused={focused} strong
+        style={{ minHeight: setupGeometry.tileHeight, alignItems: 'center', justifyContent: 'center', gap: space.xs + space.hair }}>
+        {tint && <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius.card,
+          backgroundColor: tint.fill, borderWidth: geometry.hairline, borderColor: tint.edge }} />}
+        <Mark id={id} />
+        <Text variant="caption" weight="medium" lines={1} style={{ color: selected ? ink.title : ink.subtitle, paddingHorizontal: space.xs }}>{label}</Text>
+        {selected && <View pointerEvents="none" style={{ position: 'absolute', top: space.xs + 1, right: space.xs + 1 }}><CheckRing on small /></View>}
+      </ChoiceCard>
     </Animated.View>
-    {selected && <View style={{ position: 'absolute', top: space.xs, right: space.xs, backgroundColor: colors.buttonPrimary,
-      width: geometry.iconSmall, height: geometry.iconSmall, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' }}>
-      <Icon name="checkmark" size="chevron" tone="textOnPrimary" />
-    </View>}
   </Pressable>;
 }

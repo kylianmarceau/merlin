@@ -22,10 +22,20 @@ licensed under the Apache License, Version 2.0
   glow's gradient geometry (from Ardia's fieldLoadDrive and toolbar tokens).
 - apps/browser/src/components/ui/tokens.ts: Liquid Glass control and panel
   tint calculations (from Ardia's Glass.tsx).
+- apps/browser/src/components/onboarding/previews/: setup's preview window,
+  its scenes, their timing and the window's layout morph (from Ardia's
+  onboarding previews: MockWindow.tsx, director.ts, WindowState.tsx,
+  Kit.tsx, Floating.tsx, StylePreview and scenes/).
+- apps/browser/src/components/onboarding/SetupParts.tsx and the setup
+  colours, sizes and scene timings in apps/browser/src/components/ui/tokens.ts
+  and motion.ts: setup's buttons, option cards, radios and checks (from
+  Ardia's onboarding Buttons.tsx, OptionCard.tsx, ChoiceCard.tsx and
+  Parts.tsx, and its onboarding tokens).
 
 All of it comes from Ardia's own source files (apps/browser, packages/shell
 and the root patches/ folder), which Ardia licenses under Apache-2.0. None comes
 from Ardia's engine patches (engine/), which are GPL-3.0.
 
 The adapted files carry a notice saying so. Changes: renamed, reduced to
-what Merlin uses, solid Classic surfaces, Merlin's colour handling.
+what Merlin uses, solid Classic surfaces, Merlin's colour handling, and
+setup's previews drawn with Merlin's own tabs, toolbar, pages and sites.

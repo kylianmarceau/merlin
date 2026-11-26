@@ -37,6 +37,7 @@ export { Fade } from './Fade';
 export { CenteredPopup, PopupField, PopupFooter, PopupRow } from './CenteredPopup';
 export { PictureChoice, PopUp, Slider } from './Choice';
 export { Pressable } from './Pressable';
+export { Glyph, Plate } from './Plate';
 export { Shake, useRefusal } from './Shake';
 export type { IconTone } from '../../platform/shell';
 export { WorkspaceTint } from './WorkspaceTint';

@@ -8,6 +8,7 @@ import type { Appearance } from '../../state/types';
 import { useSnapshot } from '../../state/window';
 import { errorText } from '../../lib/result';
 import { CatalogTile } from './SetupMarks';
+import { CheckCard, OptionCard, SegmentRow, TextButton, useSetupInk } from './SetupParts';
 import type { ShellPrefs } from '../../state/shellPrefs';
 import { useAppIcons } from '../../state/system';
 import { Button, Icon, KeyCap, PictureChoice, Pressable, Slider, Text, type SymbolName, geometry, radius, setupGeometry, space, useInteraction, useTheme } from '../ui';
@@ -102,47 +103,13 @@ function Rows<T extends string | number | boolean>({ label, value, choices, onCh
 function ChoiceRow({ title, detail, selected, onPress }: {
   title: string; detail?: string; selected: boolean; onPress(): void;
 }) {
-  const { colors } = useTheme();
-  const { hovered, focused, handlers } = useInteraction();
-  return <Pressable accessibilityRole="radio" accessibilityState={{ selected }}
-    accessibilityLabel={detail ? title + ', ' + detail : title} onPress={onPress} {...handlers}
-    style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: setupGeometry.choiceHeight, paddingHorizontal: space.md, paddingVertical: space.sm,
-      borderWidth: geometry.hairline, borderRadius: radius.card, borderColor: colors[focused ? 'focusRing' : selected ? 'borderDefault' : 'borderSubtle'],
-      backgroundColor: colors[selected ? 'fillControl' : hovered ? 'fillHover' : 'contentBackground'] }}>
-    <View style={{ width: geometry.icon, height: geometry.icon, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',
-      borderWidth: geometry.focusRing, borderColor: colors[selected ? 'buttonPrimary' : 'borderStrong'],
-      backgroundColor: colors[selected ? 'buttonPrimary' : 'fillTransparent'] }}>
-      {selected && <View style={{ width: space.hair * 3, height: space.hair * 3, borderRadius: radius.pill, backgroundColor: colors.textOnPrimary }} />}
-    </View>
-    <View style={{ flex: 1, gap: space.hair }}>
-      <Text variant="bodyStrong">{title}</Text>
-      {detail && <Text variant="caption" tone="textSecondary">{detail}</Text>}
-    </View>
-  </Pressable>;
+  return <OptionCard title={title} detail={detail} selected={selected} onPress={onPress} />;
 }
 
 function Switch({ label, detail, icon, value, onChange, disabled }: {
   label: string; detail?: string; icon?: SymbolName; value: boolean; onChange(value: boolean): void; disabled?: boolean;
 }) {
-  const { colors } = useTheme();
-  const { hovered, focused, handlers } = useInteraction();
-  return <Pressable accessibilityRole="checkbox" accessibilityLabel={label} accessibilityHint={detail}
-    accessibilityState={{ checked: value, disabled }} disabled={disabled} onPress={() => onChange(!value)} {...handlers}
-    style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: detail ? setupGeometry.choiceHeight : geometry.rowTall,
-      paddingHorizontal: space.md, paddingVertical: space.sm, borderWidth: geometry.hairline, borderRadius: radius.card,
-      borderColor: colors[focused ? 'focusRing' : 'borderSubtle'], backgroundColor: colors[value ? 'fillControl' : hovered ? 'fillHover' : 'contentBackground'] }}>
-    {icon && <View style={{ width: geometry.tile, height: geometry.tile, alignItems: 'center', justifyContent: 'center',
-      borderRadius: radius.field, backgroundColor: colors.fillControl }}><Icon name={icon} size="small" /></View>}
-    <View style={{ flex: 1, gap: space.hair }}>
-      <Text variant="bodyStrong">{label}</Text>
-      {detail && <Text variant="caption" tone="textSecondary">{detail}</Text>}
-    </View>
-    <View style={{ width: geometry.icon, height: geometry.icon, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center',
-      borderWidth: geometry.hairline, borderColor: colors[value ? 'buttonPrimary' : 'borderStrong'],
-      backgroundColor: colors[value ? 'buttonPrimary' : 'fillTransparent'] }}>
-      {value && <Icon name="checkmark" size="tiny" weight="bold" tone="textOnPrimary" />}
-    </View>
-  </Pressable>;
+  return <CheckCard title={label} detail={detail} icon={icon} value={value} onChange={onChange} disabled={disabled} />;
 }
 
 function Shortcut({ keys, children }: { keys: string; children: string }) {
@@ -166,6 +133,7 @@ export function SetupSlider({ title, value, unit, onChange }: {
 function SourcePage({ values, actions, busy }: { values: SetupValues; actions: PageActions; busy: boolean }) {
   const installed = values.foundBrowsers;
   const { colors } = useTheme();
+  const ink = useSetupInk();
   if (values.codeEntry) return values.codeReview ? <>
     <Text>Review these preferences before applying them.</Text>
     <Text variant="bodyStrong">{values.codeReview.layout === 'side' ? 'Sidebar tabs' : 'Top tabs'} · {values.codeReview.mode} appearance</Text>
@@ -181,18 +149,18 @@ function SourcePage({ values, actions, busy }: { values: SetupValues; actions: P
   const others = browsers.filter(b => !installed.includes(b.bundle) && b.id !== 'helium');
   const selected = found.find(b => b.id === values.progress.source);
   if (selected && values.importOpen) return <ImportChoices key={selected.id} browser={selected} onBusy={actions.importBusy} />;
-  const tiles = (items: Array<{ id: Source; name: string }>) => <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs }}>
+  const tiles = (items: Array<{ id: Source; name: string }>) => <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
     {items.map(browser => <CatalogTile key={browser.id} id={browser.id} label={browser.name}
       selected={values.progress.source === browser.id} onPress={() => actions.source(browser.id)} />)}
   </View>;
   return <>
-    {!!found.length && <View style={{ gap: space.sm }}><Text variant="label">Found on this Mac</Text>{tiles(found)}</View>}
-    <View style={{ gap: space.sm }}><Text variant="label">{found.length ? 'Other browsers' : 'Browser presets'}</Text>
+    {!!found.length && <View style={{ gap: space.sm }}><Text variant="label" style={{ color: ink.label }}>Found on this Mac</Text>{tiles(found)}</View>}
+    <View style={{ gap: space.sm }}><Text variant="label" style={{ color: ink.label }}>{found.length ? 'Others' : 'Browser presets'}</Text>
       {tiles([...others, { id: 'fresh', name: 'Starting fresh' }])}</View>
     {!!selected && <Button label={'Import from ' + selected.name + '…'} icon="arrow.down" variant="secondary" onPress={actions.startImport} disabled={busy} />}
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-      <Button label="Have a setup code?" variant="ghost" onPress={actions.startCode} />
-      {actions.replayIntro && <Button label="Replay intro" icon="play" variant="ghost" onPress={actions.replayIntro} />}
+      <TextButton label="Have a setup code?" onPress={actions.startCode} />
+      {actions.replayIntro && <TextButton label="Replay intro" icon="play" onPress={actions.replayIntro} />}
     </View>
   </>;
 }
@@ -263,7 +231,7 @@ function ImportChoices({ browser, onBusy }: { browser: { id: Source; name: strin
     </View>)}
     {!!error && <Text tone="textDanger" accessibilityLiveRegion="polite">{error}</Text>}
     <Text variant="caption" tone="textSecondary">Export bookmarks as HTML or passwords as CSV from your source browser to import them from a file.</Text>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
       <Button label="Import a bookmarks file…" variant="secondary" disabled={busy} onPress={() => tool('bookmarks')} />
       <Button label="Import passwords…" variant="secondary" disabled={busy} onPress={() => tool('passwords')} />
     </View>
@@ -275,7 +243,7 @@ function IconChoices({ icon, onChange }: { icon?: string; onChange(value: string
   if (!choices.length) return null;
   return <View style={{ gap: space.sm }}>
     <Text variant="label">App icon</Text>
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
       {choices.map(choice => <PictureChoice key={choice.id} title={choice.name} size="icon"
         selected={(icon ?? current) === choice.id} onPress={() => onChange(choice.id)}>
         <Image accessible={false} source={{ uri: choice.preview }} style={{ width: geometry.control, height: geometry.control }} />
@@ -297,36 +265,36 @@ export function SetupPage({ screen, values: v, actions: a, busy }: {
     case 'source': return <SourcePage values={v} actions={a} busy={busy} />;
     case 'layout': return <Rows label="Tab layout" value={v.layout} onChange={a.layout}
       choices={[[ 'side', 'In the sidebar', 'A vertical list of tabs' ], ['top', 'Across the top', 'A tab strip above the page']]} />;
-    case 'address': return pick('addressBar', 'Address bar', [['toolbar', 'In the toolbar'], ['sidebar', 'In the sidebar']]);
-    case 'command': return pick('commandBarPlacement', 'Command bar', [['field', 'Under the address'], ['centred', 'In the centre']]);
-    case 'newTab': return pick('newTabPopup', 'New Tab behavior', [[false, 'New Tab page'], [true, 'Command bar']]);
+    case 'address': return pick('addressBar', 'Address bar', [['toolbar', 'In the toolbar', 'Above the page, with the back and forward buttons'], ['sidebar', 'In the sidebar', 'Above your tabs, leaving the page more room']]);
+    case 'command': return pick('commandBarPlacement', 'Command bar', [['field', 'Under the address', 'Drops down from the address field'], ['centred', 'In the centre', 'Floats over the page']]);
+    case 'newTab': return pick('newTabPopup', 'New Tab behavior', [[false, 'The New Tab page', 'Your favourite sites and a search field'], [true, 'The command bar', 'Start typing right away']]);
     case 'position': return pick('newTabPosition', 'New tab placement', [
       ['end', v.sidebar ? 'At the bottom' : 'On the right', 'After the other tabs'],
       ['top', v.sidebar ? 'At the top' : 'On the left', 'Before the other tabs'],
-      ['adjacent', v.sidebar ? 'Below the current tab' : 'Beside the current tab'],
+      ['adjacent', v.sidebar ? 'Below the current tab' : 'Beside the current tab', 'Right after the tab you’re on'],
     ]);
     case 'tidy': return <>
       <Rows label="Inactive tabs" value={v.shell.tabTidyHours !== 'off'} onChange={enabled => a.option('tabTidyHours', enabled ? '12' : 'off')}
-        choices={[[false, 'Keep them open'], [true, 'Tidy them up']]} />
+        choices={[[false, 'Keep them open', 'Tabs stay until you close them'], [true, 'Tidy them up', 'Close the ones you haven’t used in a while']]} />
       {v.shell.tabTidyHours !== 'off' && pick('tabTidyHours', 'Tidy after', [['12', '12 hours'], ['24', 'One day'], ['168', 'One week']])}
     </>;
     case 'startup': return <Rows label="At launch" value={v.startup} onChange={a.startup}
-      choices={[[ 'last', 'Restore my tabs' ], ['start', 'Start fresh']]} />;
+      choices={[[ 'last', 'Restore my tabs', 'Pick up where you left off' ], ['start', 'Start fresh', 'Open to a new tab']]} />;
     case 'sharing': return pick('sharedTabs', 'Window behavior', [[false, 'Separate', 'Each window has its own tabs'],
       [true, 'Shared', 'Normal windows show the same open tabs']]);
     case 'habits': return <>
       {toggle('adaptiveFavorites', 'Favorite tiles grow with the sidebar')}
-      <Text variant="label">Peek at a link with</Text>
-      {pick('peekModifier', 'Peek gesture', [['shift', 'Shift-click'], ['option', 'Option-click'], ['off', 'Off']])}
+      <SegmentRow title="Peek a link with" value={v.shell.peekModifier} options={[['shift', '⇧-click'], ['option', '⌥-click'], ['off', 'Off']]}
+        onChange={option('peekModifier')} />
       {toggle('undoReopensTab', '⌘Z reopens tabs outside text fields')}
       {toggle('groupLinkTabs', '⌘-click groups related tabs')}
     </>;
     case 'color': return <ThemeEditor accent={v.appearance.accent} theme={v.shell.workspaceTheme}
       onAccent={accent => a.appearance({ accent })} onTheme={option('workspaceTheme')} />;
     case 'appearance': return <Rows label="Appearance" value={v.appearance.mode} onChange={mode => a.appearance({ mode })}
-      choices={[[ 'system', 'System', 'Follow your Mac' ], ['light', 'Light'], ['dark', 'Dark']]} />;
+      choices={[[ 'system', 'System', 'Follow your Mac' ], ['light', 'Light', 'Always light'], ['dark', 'Dark', 'Always dark']]} />;
     case 'material': return <>
-      {pick('interfaceStyle', 'Window material', [['glass', 'Liquid Glass'], ['classic', 'Classic']])}
+      {pick('interfaceStyle', 'Window material', [['glass', 'Liquid Glass', 'Buttons and panels catch the light'], ['classic', 'Classic', 'Solid and quiet']])}
       {v.shell.interfaceStyle === 'glass' && toggle('glassTintWithTheme', 'Tint the glass with the workspace colour')}
       {v.shell.interfaceStyle === 'glass' && v.shell.glassTintWithTheme &&
         <SetupSlider title="Tint strength" value={v.shell.glassTintAmount} unit={Math.round(v.shell.glassTintAmount * 100) + '%'} onChange={option('glassTintAmount')} />}
@@ -335,27 +303,28 @@ export function SetupPage({ screen, values: v, actions: a, busy }: {
       const frame = v.shell.borderlessMode ? 0 : v.shell.pageFrame;
       const setFrame = (next: number) => { a.option('borderlessMode', false); a.option('pageFrame', next); };
       return <>
-        <Rows label="Page frame" value={frame} onChange={setFrame} choices={[[8, 'Framed'], [4, 'Thin'], [0, 'Edge to edge']]} />
+        <Rows label="Page frame" value={frame} onChange={setFrame} choices={[[8, 'Framed', 'Rounded corners with a little room around the page'], [4, 'Thin', 'A slim frame and softer corners'],
+          [0, 'Edge to edge', 'The page meets the window and the sidebar']]} />
         <SetupSlider title="Thickness" value={frame / 12} unit={frame + ' pt'} onChange={value => setFrame(Math.round(value * 12))} />
       </>;
     }
     case 'siteColor': return <Rows label="Toolbar colour" value={!['workspace', 'white'].includes(v.shell.toolbarColor)} onChange={on => a.option('toolbarColor', on ? 'match' : 'workspace')}
-      choices={[[true, 'Use the site colour'], [false, 'Use the workspace colour']]} />;
+      choices={[[true, 'Use the site colour', 'The toolbar blends into the page'], [false, 'Use the workspace colour', 'The same colour on every site']]} />;
     case 'details': return <>
       <IconChoices icon={v.icon} onChange={a.icon} />
       {toggle('hideToolbarOnScroll', 'Hide the toolbar while scrolling')}
-      <Text variant="label">Bookmarks bar</Text>
-      {pick('bookmarksBar', 'Bookmarks bar', [['always', 'Always'], ['newTab', 'New Tab only'], ['never', 'Never']])}
+      <SegmentRow title="Bookmarks bar" value={v.shell.bookmarksBar} options={[['always', 'Always'], ['newTab', 'New Tab'], ['never', 'Never']]}
+        onChange={option('bookmarksBar')} />
     </>;
     case 'search': return v.managedSearch ? <Text>Your organization manages the search engine.</Text> :
-      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs }}>
+      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
         {searchEngines.map(([id, name]) => <CatalogTile key={id} id={id} label={name} onPress={() => a.search(id)} selected={v.search === id} />)}
       </View>;
     case 'privacy': return <>
       <Switch label="Block ads and trackers" value={v.blocking.enabled} disabled={!v.blockingAvailable} onChange={enabled => a.blocking({ enabled })} />
       <Switch label="Update filter lists automatically" value={v.blocking.automatic} disabled={!v.blockingAvailable} onChange={automatic => a.blocking({ automatic })} />
     </>;
-    case 'favorites': return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs }}>
+    case 'favorites': return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
       {favorites.map(site => <CatalogTile key={site.id} id={site.id} label={site.label} multiple
         selected={v.favorites.includes(site.id)} onPress={() => a.favorite(site.id)} />)}
     </View>;

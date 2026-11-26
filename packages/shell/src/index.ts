@@ -30,7 +30,10 @@ export type SymbolName = 'arrow.left' | 'arrow.right' | 'arrow.up' | 'arrow.down
   'graduationcap' | 'paintpalette' | 'chart.bar' | 'calendar' | 'film' | 'newspaper' | 'bubble.left' | 'leaf' | 'airplane' |
   // Spaces' icons (as in Zen and Arc) and their menus.
   'circle.fill' | 'flame' | 'cup.and.saucer' | 'chevron.left.forwardslash.chevron.right' | 'camera' | 'dumbbell' | 'pawprint' |
-  'atom' | 'square.grid.2x2' | 'square.stack' | 'arrow.right.square';
+  'atom' | 'square.grid.2x2' | 'square.stack' | 'arrow.right.square' |
+  // Setup's preview window: its sites' icons, the appearance pill and the pointer.
+  'leaf.fill' | 'envelope.fill' | 'map.fill' | 'doc.text.fill' | 'fork.knife' | 'arrow.triangle.pull' | 'moon.fill' | 'sun.max.fill' |
+  'cursorarrow';
 
 // Each view is its own native module (MerlinShell<Name>); see MerlinShellModule.swift.
 function view<P>(name: string) {

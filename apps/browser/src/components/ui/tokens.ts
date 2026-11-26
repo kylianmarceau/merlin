@@ -28,7 +28,7 @@ export type Radius = keyof typeof radius;
 export const font = {
   family: 'System', mono: 'Menlo', serif: 'Georgia',
   size: { micro: 10, caption: 11, label: 12, body: 13, callout: 14, title: 15, input: 17, headline: 20, display: 30, greeting: 52 },
-  weight: { regular: '400', medium: '500', semibold: '600', bold: '700' },
+  weight: { light: '300', regular: '400', medium: '500', semibold: '600', bold: '700' },
   line: { micro: 13, caption: 14, label: 16, body: 18, row: 16, callout: 19, title: 20, input: 22, headline: 26, display: 36, greeting: 56 },
   tracking: { tight: -0.6, snug: -0.2, normal: 0, wide: 0.4, label: 0.8 },
 } as const;
@@ -99,18 +99,109 @@ export const geometry = {
   suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, startFalcon: 88, startPrompt: 18, newTabInput: 52, siteWidth: 64,
 } as const;
 
+// Setup's card, after Ardia's onboarding (Apache-2.0, see NOTICE): its
+// measurements and colours, measured from Ardia 0.2.48 and its tokens.
 export const setupGeometry = {
   width: 880, height: 560, compactWidth: 700, compactCard: 500, compactPreview: 150, compactPinsHeight: 86,
-  colourWheel: 134, headingSize: 26, headingLine: 33, tracking: -1.05, progressWidth: 230, stepDot: 5, stepHeight: 3,
-  tileHeight: 62, catalogIcon: 22, catalogPreview: 42, previewText: 8, previewLine: 11,
+  colourWheel: 134, headingSize: 26, headingLine: 32, tracking: -0.4, progressWidth: 230, stepDot: 5, stepHeight: 3,
+  tileHeight: 68, catalogIcon: 22, catalogPreview: 42, previewText: 8, previewLine: 11,
   pictureHeight: 82, previewCard: 268,
-  choiceHeight: 54, codeHeight: 82, filmNoticeBottom: 82,
+  choiceHeight: 56, codeHeight: 82, filmNoticeBottom: 82,
   previewHeight: 280, smallPreviewHeight: 120, previewSidebar: 85, previewIcon: 105, previewFalcon: 50,
+  /** Ardia's onboarding: its column's padding, the gaps under the title, the pane's margin and padding. */
+  columnPad: 24, titleGap: 10, sectionGap: 24, paneMargin: 13, panePad: 28,
+  button: 36, buttonPad: 20, buttonPadSecondary: 16, radioRing: 16, radioOn: 5, radioOff: 1.5, tagHeight: 20,
+  /** The preview window: wider than tall, as a browser window is, and never wider than this. */
+  mockAspect: 1.42, mockMaxWidth: 760, mockInsetX: 8, mockInsetTop: 5, mockInsetBottom: 13,
 } as const;
+const setupDark = {
+  canvas: '#121111', card: '#161616', cardBorder: 'rgba(255, 255, 255, 0.3)', stage: '#1F1F1F', stageBorder: 'rgba(255, 255, 255, 0.1)',
+  title: '#FFFFFF', subtitle: 'rgba(255, 255, 255, 0.6)', steps: 'rgba(255, 255, 255, 0.3)', label: 'rgba(255, 255, 255, 0.6)',
+  tile: 'rgba(255, 255, 255, 0.06)', tileLit: 'rgba(255, 255, 255, 0.1)', tileBorder: 'rgba(255, 255, 255, 0.07)',
+  tileBorderSelected: 'rgba(255, 255, 255, 0.34)', row: 'rgba(255, 255, 255, 0.08)', rowSubtitle: 'rgba(255, 255, 255, 0.6)',
+  primary: 'rgba(255, 255, 255, 0.85)', primaryHover: 'rgba(255, 255, 255, 0.9)', primaryText: '#161616',
+  button: 'rgba(255, 255, 255, 0.08)', buttonHover: 'rgba(255, 255, 255, 0.1)', outlinedHover: 'rgba(255, 255, 255, 0.03)',
+  outlineBorder: 'rgba(255, 255, 255, 0.2)', outlineText: 'rgba(255, 255, 255, 0.5)', iconContainer: 'rgba(255, 255, 255, 0.15)',
+  progressTrack: 'rgba(255, 255, 255, 0.12)', progressFill: '#FDD023', radioOn: '#FFFFFF', radioBorder: 'rgba(255, 255, 255, 0.28)',
+  radioFill: '#161616', glyph: 'rgba(255, 255, 255, 0.75)',
+} as const;
+export type SetupInk = Record<keyof typeof setupDark, string>;
+export const setupInk: { dark: SetupInk; light: SetupInk } = {
+  dark: setupDark,
+  light: {
+    canvas: '#F4F4F5', card: '#FFFFFF', cardBorder: 'rgba(0, 0, 0, 0.08)', stage: '#F7F7F7', stageBorder: 'rgba(0, 0, 0, 0.07)',
+    title: '#000000', subtitle: 'rgba(0, 0, 0, 0.53)', steps: 'rgba(0, 0, 0, 0.3)', label: 'rgba(0, 0, 0, 0.53)',
+    tile: 'rgba(255, 255, 255, 0.9)', tileLit: 'rgba(0, 0, 0, 0.035)', tileBorder: 'rgba(0, 0, 0, 0.06)',
+    tileBorderSelected: 'rgba(0, 0, 0, 0.3)', row: 'rgba(0, 0, 0, 0.015)', rowSubtitle: 'rgba(0, 0, 0, 0.6)',
+    primary: 'rgba(0, 0, 0, 0.85)', primaryHover: 'rgba(0, 0, 0, 0.9)', primaryText: '#FFFFFF',
+    button: 'rgba(0, 0, 0, 0.08)', buttonHover: 'rgba(0, 0, 0, 0.1)', outlinedHover: 'rgba(0, 0, 0, 0.03)',
+    outlineBorder: 'rgba(0, 0, 0, 0.1)', outlineText: 'rgba(0, 0, 0, 0.5)', iconContainer: 'rgba(0, 0, 0, 0.03)',
+    progressTrack: 'rgba(0, 0, 0, 0.08)', progressFill: '#FDD023', radioOn: '#000000', radioBorder: 'rgba(0, 0, 0, 0.22)',
+    radioFill: '#FFFFFF', glyph: 'rgba(0, 0, 0, 0.6)',
+  },
+};
+/** Older setup colours the source, privacy and finish scenes still draw with. */
 export const setupPaper = {
-  light: { canvas: '#f6f6f8', stage: '#f8f9fa', card: '#ffffff', progress: '#dcac48', chrome: '#dce7e6', stock: '#eff3f2' },
-  dark: { canvas: '#14171b', stage: '#202329', card: '#292b30', progress: '#e7ba67', chrome: '#344344', stock: '#2b3637' },
+  light: { canvas: setupInk.light.canvas, stage: setupInk.light.stage, card: setupInk.light.card, progress: setupInk.light.progressFill, chrome: '#dce7e6', stock: '#eff3f2' },
+  dark: { canvas: setupDark.canvas, stage: setupDark.stage, card: setupDark.card, progress: setupDark.progressFill, chrome: '#344344', stock: '#2b3637' },
 } as const;
+
+/**
+ * Setup's preview window, a small Merlin drawn on an 860 × 600 canvas and
+ * scaled to fit. The layout follows Ardia's onboarding mock (Apache-2.0, see
+ * NOTICE) with Merlin's own measurements: Dia's 38 pt tab rows 41.5 pt apart,
+ * and the 173 pt tabs in a 42 pt strip.
+ */
+export const setupMock = {
+  canvas: { width: 860, height: 600 },
+  sidebar: 196,
+  row: { x: 6, w: 184, h: 38, pitch: 41.5, top: 58, topWithField: 98, inset: 9, gap: 7.5, favicon: 16 },
+  field: { x: 6, y: 46, w: 184, h: 36 },
+  toolbar: 42,
+  crumbX: 150, crumbXTop: 118, crumbTrailing: 20, crumbH: 18, crumbTop: 12,
+  fieldCrumb: { x: 12, y: 9, w: 160, h: 18 },
+  strip: 42,
+  chip: { x: 76, w: 173, gap: 4, top: 5, h: 32 },
+  lights: { x: 25, toolbar: 21, field: 24, strip: 20.75, size: 12, pitch: 20 },
+  toolbarIcons: [21, 56, 92, 127], sidebarIcons: [104, 139, 174], topIcons: [21, 56, 92],
+  /** A window's corners and a framed page's, in canvas points; the page frame is Merlin's pageFrame setting. */
+  windowRadius: 14, cardRadius: 10, thinRadius: 6, defaultFrame: 8,
+  page: { band: 58, hero: 150, column: 600, columnShare: 0.84, siteSize: 17, titleSize: 22, bodySize: 12, captionSize: 11, bodyLine: 17 },
+  ntp: { barTop: 120, barMax: 520, bar: 46, barRadius: 23, tile: 46, tileRadius: 12, favicon: 22 },
+  suggestion: { height: 36, padX: 10, gap: 10, listX: 8, icon: 13, iconBox: 18, input: 52, inputField: 40 },
+  panel: { radius: 16, fieldRadius: 12, maxWidth: 560, fieldMax: 480 },
+  keycap: { size: 13, padX: 7, height: 22, radius: 6, right: 22, bottom: 50 },
+  pill: { height: 32, padX: 12, gap: 8, glyph: 14 },
+  glyph: { nav: 14, navBox: 20 },
+  /** Pinned sites: the sidebar's favourite tiles, or the strip's pinned tabs in their dock. */
+  pins: { tileH: 41, gap: 6, columns: 4, icon: 18, rule: 9, dash: 3, strip: 32, stripGap: 2, dockPad: 2, stripIcon: 15 },
+  /** Liquid Glass up close: Merlin's painted coast drifting behind glass tiles, a field and buttons. */
+  stage: { width: 420, height: 380, pad: 22, tilesTop: 50, tileH: 84, tileGap: 14, tileCount: 3, tileRadius: 18, tileIcon: 30,
+    fieldTop: 156, fieldH: 52, fieldRadius: 16, buttonsTop: 232, button: 50, buttonGap: 12, favicon: 20, glyph: 17, glyphBox: 22,
+    paintAspect: 1.6, paintZoom: 1.25, label: 17, lightsX: 29, lightsY: 24 },
+  shadowWindow: { radius: 22, offsetY: 10, dark: 0.55, light: 0.22 },
+  shadowFloat: { radius: 18, offsetY: 6, dark: 0.5, light: 0.18 },
+} as const;
+
+/** Colours only the preview window draws with: the sites in its tabs, its articles and the glass scene. */
+export const setupMockInk = {
+  tabs: { notes: '#4E8A5B', mail: '#3A7BEA', maps: '#E8664A', docs: '#7C6BD6', music: '#E0457B', cooking: '#E3A21A', code: '#24292F', newTab: '#8E8E93', blank: '#A1A1A6' },
+  glyphOnTint: '#FFFFFF',
+  lightsRim: 'rgba(0, 0, 0, 0.14)',
+  windowEdge: { dark: 'rgba(255, 255, 255, 0.18)', light: 'rgba(0, 0, 0, 0.16)' },
+  shadow: '#000000',
+  moon: '#C7CCE6', sun: '#E3A21A',
+  cursor: '#111111', cursorRim: '#FFFFFF',
+  desktop: { light: ['#D9DCE4', '#C4C9D6'], dark: ['#1C1D22', '#2B2D35'] },
+  /** The two articles' title bands, which a site-coloured toolbar takes on. */
+  band: { notes: ['#E6EEE3', '#1E2722'], trip: ['#E5ECF6', '#1C2330'] },
+  stage: {
+    dark: { ink: '#FFFFFF', classic: '#2E2B2A', classicEdge: 'rgba(255, 255, 255, 0.10)' },
+    light: { ink: '#1D1D1F', classic: '#F4F4F2', classicEdge: 'rgba(0, 0, 0, 0.10)' },
+  },
+} as const;
+/** A pair of colours for light and dark, picked by the mock's appearance. */
+export const setupPick = <T,>(pair: readonly [T, T], dark: boolean) => pair[dark ? 1 : 0];
 const favoriteColors: Record<string, string> = {
   gmail: '#dd665d', calendar: '#5489df', slack: '#ba6aab', notion: '#84888f',
   figma: '#b17be3', github: '#8591a8', linear: '#8d87db', docs: '#538ce8',

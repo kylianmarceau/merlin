@@ -805,3 +805,135 @@ export function leaveGuide(value: Animated.Value, reduced: boolean) {
       easing: curve.exit, useNativeDriver: true }).start(() => resolve());
   });
 }
+
+// Setup's preview window, after Ardia's onboarding previews (Apache-2.0, see
+// NOTICE): each choice plays a short scene on a loop, and the window glides
+// between layouts as the choices change.
+
+/** How long each preview scene runs before it starts again. */
+export const setupScene = {
+  tabs: 2800, commandBar: 3000, newTab: 3000, newTabPosition: 2800, tidy: 3600, quit: 3400,
+  windows: 3800, appearance: 3000, siteColor: 2800, links: 4000, rest: 4000,
+  /** The glass scene's sun crossing the window, each way. */
+  drift: 9000,
+} as const;
+/** The preview window's own moves: a layout change, a colour or appearance fade, a scene arriving or leaving. */
+export const setupMotion = { move: 400, fade: 400, focus: 250, swap: 400, settle: 600 } as const;
+
+export type Stop = readonly [number, number];
+const keyframeSamples = 8;
+const easeOutCubic = (x: number) => 1 - (1 - x) ** 3;
+export const linearEase = (x: number) => x;
+
+/** A value along a looping scene, from stops given in milliseconds; eased between stops. */
+export function track(p: Animated.Value, total: number, stops: readonly Stop[], ease: (x: number) => number = easeOutCubic) {
+  const input: number[] = [];
+  const output: number[] = [];
+  const push = (ms: number, value: number) => {
+    const last = input.length ? input[input.length - 1] * total : -Infinity;
+    input.push(Math.max(ms, last + 0.5) / total);
+    output.push(value);
+  };
+  stops.forEach(([ms, value], i) => {
+    if (i === 0) return push(ms, value);
+    const [from, start] = stops[i - 1];
+    if (value === start) return push(ms, value);
+    for (let k = 1; k <= keyframeSamples; k++) push(from + ((ms - from) * k) / keyframeSamples, start + (value - start) * ease(k / keyframeSamples));
+  });
+  if (input.length === 1) push(input[0] * total + 1, output[0]);
+  return p.interpolate({ inputRange: input, outputRange: output, extrapolate: 'clamp' });
+}
+
+/** A scene's usual fade or move, as in Ardia's previews. */
+const sceneStep = 240;
+
+export type Tracker = ReturnType<typeof tracker>;
+
+/** Shorthands for a scene's choreography: fade in or out, step, go there and back. */
+export function tracker(p: Animated.Value, total: number) {
+  const t = (stops: readonly Stop[], ease?: (x: number) => number) => track(p, total, stops, ease);
+  const quick = sceneStep;
+  t.in = (ms: number, dur = quick) => t([[ms, 0], [ms + dur, 1]]);
+  t.out = (ms: number, dur = quick) => t([[ms, 1], [ms + dur, 0]]);
+  t.trip = (from: number, to: number, at: number, back: number, dur = quick, backDur = dur) =>
+    t([[at, from], [at + dur, to], [back, to], [back + backDur, from]]);
+  t.pulse = (at: number, back: number, dur = quick, backDur = dur) => t.trip(0, 1, at, back, dur, backDur);
+  t.deg = (stops: readonly Stop[]) => t(stops).interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'], extrapolate: 'extend' });
+  return t;
+}
+
+/** A scene's clock, 0 → 1 over `total` and again; held at its resting end when motion is reduced. */
+export function useSceneLoop(total: number, reduce: boolean) {
+  const value = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduce) { value.setValue(0); return; }
+    value.setValue(0);
+    const loop = Animated.loop(Animated.timing(value, { toValue: 1, duration: total, easing: curve.linear, useNativeDriver: true, isInteraction: false }));
+    loop.start();
+    return () => loop.stop();
+  }, [total, reduce, value]);
+  return value;
+}
+
+/** Eases to `target` whenever it changes (not on mount); `native` where only transforms and opacity follow it. */
+export function useMockTo(target: number, native: boolean, ms: number = setupMotion.move, reduce = false) {
+  const value = useRef(new Animated.Value(target)).current;
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    const run = Animated.timing(value, { toValue: target, duration: reduce ? duration.instant : ms, easing: curve.enter,
+      useNativeDriver: native, isInteraction: false });
+    run.start();
+    return () => run.stop();
+  }, [target]); // eslint-disable-line react-hooks/exhaustive-deps
+  return value;
+}
+
+/** Crossfades from the last value to a new one: draw `below` under `above`, which fades in. */
+export function useFadeBetween<T>(value: T, reduce = false) {
+  const [layers, setLayers] = useState<{ below: T | null; above: T }>({ below: null, above: value });
+  const fade = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (value === layers.above) return;
+    if (reduce) { setLayers({ below: null, above: value }); return; }
+    setLayers({ below: layers.above, above: value });
+    fade.setValue(0);
+    const run = Animated.timing(fade, { toValue: 1, duration: setupMotion.fade, easing: curve.enter, useNativeDriver: true, isInteraction: false });
+    run.start(({ finished }) => { if (finished) setLayers({ below: null, above: value }); });
+    return () => run.stop();
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { layers, fade };
+}
+
+/** A layer fading in while `live`, and out before `onGone` unmounts it. */
+export function useLayerFade(live: boolean, onGone: () => void, ms: number = setupMotion.focus) {
+  const shown = useRef(new Animated.Value(0)).current;
+  const gone = useRef(onGone);
+  gone.current = onGone;
+  useEffect(() => {
+    const run = Animated.timing(shown, { toValue: live ? 1 : 0, duration: ms, easing: curve.enter, useNativeDriver: true, isInteraction: false });
+    run.start(({ finished }) => { if (finished && !live) gone.current(); });
+    return () => run.stop();
+  }, [live, ms, shown]);
+  return shown;
+}
+
+/** The glass scene's painting: drifting across behind the controls and back, easing at each end. */
+export function useStageDrift(reduce: boolean) {
+  const travel = useRef(new Animated.Value(reduce ? 0.5 : 0)).current;
+  useEffect(() => {
+    if (reduce) { travel.setValue(0.5); return; }
+    const leg = (to: number) => Animated.timing(travel, { toValue: to, duration: setupScene.drift, easing: Easing.inOut(Easing.sin),
+      useNativeDriver: true, isInteraction: false });
+    const loop = Animated.loop(Animated.sequence([leg(1), leg(0)]));
+    loop.start();
+    return () => loop.stop();
+  }, [reduce, travel]);
+  return travel;
+}
+
+/** Waits `ms` after `key` changes, then calls `run`; for a scene that starts once a layout change has landed. */
+export function after(ms: number, run: () => void) {
+  const timer = setTimeout(run, ms);
+  return () => clearTimeout(timer);
+}
