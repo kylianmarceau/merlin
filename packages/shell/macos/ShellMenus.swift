@@ -43,7 +43,7 @@ final class MerlinMenus: NSObject, NSMenuItemValidation {
       if id == "-" {
         item = .separator()
       } else {
-        item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: "")
+        item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: id == "tabs.hide" ? "s" : "")
         item.target = self
       }
       item.representedObject = "\(Self.marker).\(id)"
