@@ -199,7 +199,7 @@ function ProtectedVideo() {
 }
 
 /**
- * The browserctl socket on or off. Like modal browsing, the value lives in
+ * Command-line access to the browser. Like modal browsing, the value lives in
  * the config file (`browserctl`), so Settings writes it there; every window
  * rereads it, and the socket opens or closes at once.
  */
@@ -208,9 +208,9 @@ function Browserctl() {
   const action = useAction();
   const [error, setError] = useState('');
   return <FormGroup title="Command line">
-    <FormRow title="Allow browserctl"
+    <FormRow title="Allow command-line access"
       detail="Programs on this Mac running as you can list your tabs, read the selected text and run commands in Merlin. Private windows are never visible to them.">
-      <Toggle label="Allow browserctl" value={on} disabled={action.busy} onChange={async value => {
+      <Toggle label="Allow command-line access" value={on} disabled={action.busy} onChange={async value => {
         setError('');
         const result = await action.run('settings.setOption', { name: 'browserctl', value });
         if (result.ok && result.value) setError(result.value);

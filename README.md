@@ -156,7 +156,7 @@ can be saved to a file with `:space save research` and opened later with
 `gw` in any window: its tabs, splits and groups come back. Saved spaces keep
 up to date as you go, and your last session comes back on launch, even
 after a crash. A saved space can be tied to a project folder and opened from
-that folder's terminal with `browserctl space here`.
+that folder's terminal with `merlin space here`.
 
 **Edit in your editor.** Press `ge` to pick a field, or `Ctrl+Shift+E` while
 typing, and the text opens in Neovim or any editor you configure. Saving
@@ -177,8 +177,8 @@ the video and choose **Enter Picture in Picture**.
 **Marks and macros.** `ma` sets a mark and `'a` returns to it. `qa` … `q`
 records a macro and `@a` replays it. Counts work too, as in `5j`.
 
-**Scripting.** `browserctl` controls the running browser from a terminal,
-Neovim or a script. See [browserctl](#browserctl).
+**Scripting.** `merlin` controls the running browser from a terminal,
+Neovim or a script. See [Merlin CLI](#merlin-cli).
 
 **Looks.** **Settings › Appearance** offers ten workspace colours, Glass (Liquid
 Glass, on macOS 26) or Classic surfaces (macOS 14 and 15 always draw
@@ -275,7 +275,7 @@ normal = ["d"]                # give this key back to sites
 | `passthrough_sites` | `[]` | Sites that start in Passthrough; `"*.example.com"` also matches `example.com` |
 | `restore_session` | `true` | Reopen last session's windows at launch; Settings › General › On startup wins |
 | `workspace_autosave` | `true` | Keep a saved space's file up to date as its tabs change (`space_autosave` also works) |
-| `browserctl` | `true` | Accept `browserctl` commands over a socket only you can reach |
+| `browserctl` | `true` | Accept commands from `merlin` over a socket only you can reach |
 | `editor` | `$VISUAL`, then `$EDITOR` | The program `:edit` runs, as a list; `"{file}"` is the temporary file |
 | `edit_key` | `"<C-S-e>"` | While typing, opens the field in your editor |
 
@@ -288,32 +288,35 @@ commented example of everything.
 
 </details>
 
-## browserctl
+## Merlin CLI
 
-`browserctl` talks to the running browser over a Unix socket that only your
+`merlin` talks to the running browser over a Unix socket that only your
 user can open. There is no network listener, and private windows are not
 visible to it.
 
-It isn't in the app yet. Install it from a clone of this repository with
-[Rust](https://rustup.rs):
+Choose **Install Merlin CLI** in setup to add `merlin` to `~/.local/bin`. If
+you already completed setup, follow the
+[CLI installation steps](docs/RELEASE.md#install-the-cli).
+To build and install from a clone with Rust, run:
 
 ```bash
 git clone https://github.com/kylianmarceau/merlin.git
 cd merlin
-scripts/install_browserctl.sh                # installs to ~/.local/bin
+scripts/install_merlin_cli.sh                # installs to ~/.local/bin
 ```
 
 ```bash
-browserctl open https://docs.rs              # open in a new tab
-browserctl open --current rust lifetimes     # search in the current tab
-browserctl tabs --json                       # list tabs, with their groups
-browserctl focus --tab 3
-browserctl selection                         # print the selected text
-browserctl space here                        # open this folder's saved space
-browserctl command 'vsplit https://docs.rs'  # run any : command
+merlin open https://docs.rs                # open in a new tab
+merlin open --current rust lifetimes       # search in the current tab
+merlin tabs --json                         # list tabs, with their groups
+merlin focus --tab 3
+merlin selection                           # print the selected text
+merlin space here                          # open this folder's saved space
+merlin command 'vsplit https://docs.rs'    # run any : command
 ```
 
-Turn it off with `browserctl = false` in the config.
+Turn it off in **Settings › General › Allow command-line access** or set
+`browserctl = false` in the config.
 
 ## Privacy and your data
 
@@ -358,7 +361,7 @@ them all in one table, with how each is tested:
   WebKit tabs keep their own sign-ins and have no modal keys, link hints,
   find in page, downloads, ad blocking or Chromium history; commands that
   need them say "Not available in WebKit tabs". Bookmarks, workspaces,
-  `browserctl` and session restore keep the WebKit page itself, and Clear
+  `merlin` and session restore keep the WebKit page itself, and Clear
   browsing data clears both engines. A site's sign-in pop-ups open in their
   own window. Right-click a tab to move a site between engines (every tab on
   it moves), or turn this off in **Settings › General › Protected video**.
@@ -447,7 +450,7 @@ interface's checks build and test without a Chromium checkout.
 | `apps/browser/` | The React Native macOS interface and its host app |
 | `packages/` | Native modules: the engine bridge, AppKit views, WebKit pages |
 | `patches/` | Edits to Chromium's own files, one small patch each |
-| `tools/` | `browserctl`, `modalctl` and a fake-browser test harness for the C++ router |
+| `tools/` | `merlin`, `modalctl` and a fake-browser test harness for the C++ router |
 | `tests/e2e/` | End-to-end tests that drive the assembled app ([how they work](tests/e2e/README.md)) |
 | `scripts/` | Setup, build, test and packaging |
 

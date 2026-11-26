@@ -44,7 +44,7 @@ export const settingsIndex: readonly SettingsHit[] = [
   { section: 'general', title: 'Import from another browser', words: 'chrome safari firefox' },
   { section: 'general', title: 'Export bookmarks', words: 'html' },
   { section: 'general', title: 'Open protected video sites in WebKit', words: 'netflix drm safari' },
-  { section: 'general', title: 'Allow browserctl', words: 'command line cli socket' },
+  { section: 'general', title: 'Allow command-line access', words: 'merlin command line cli browserctl socket' },
   { section: 'privacy', title: 'Offer to save passwords', words: 'passwords keychain' },
   { section: 'privacy', title: 'Clear browsing data', words: 'history cookies cache delete' },
   { section: 'blocking', title: 'Block ads and trackers', words: 'ad blocker adblock' },

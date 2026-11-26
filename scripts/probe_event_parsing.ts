@@ -10,7 +10,7 @@
 //
 //   node --jitless --import tsx ../../scripts/probe_event_parsing.ts snapshot.json
 //
-// snapshot.json is a real window snapshot (browserctl shell-call
+// snapshot.json is a real window snapshot (merlin shell-call
 // window.snapshot's result); its tabs are repeated to make larger windows.
 import { readFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';

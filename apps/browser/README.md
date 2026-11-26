@@ -238,7 +238,7 @@ request button instead of interrupting the page.
 ### Release checklist
 
 `tests/e2e` drives the assembled app for keys, hints, tabs, splits, config,
-browserctl, workspaces, the editor, ad blocking, groups, Peek and picture in
+the Merlin CLI, workspaces, the editor, ad blocking, groups, Peek and picture in
 picture. It can't see React's own surfaces, so before each release also check
 by hand the assembled app's window
 lifecycle, tab/page focus, keyboard shortcuts, native view layering, light/dark

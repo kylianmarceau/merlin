@@ -3,7 +3,7 @@ import { AccessibilityInfo, findNodeHandle, ScrollView, View } from 'react-nativ
 import type { Appearance, Preferences } from '../../state/types';
 import { errorText } from '../../lib/result';
 import {
-  addMerlinToDock, copyText, installBrowserctl, installedSetupApps, isDefaultBrowser, isLiquidGlass, loginItem,
+  addMerlinToDock, copyText, installCli, installedSetupApps, isDefaultBrowser, isLiquidGlass, loginItem,
   makeDefaultBrowser, setAppIcon, setLoginItem, setPreference, setupDockStatus,
 } from '../../state/setupHost';
 import { useShellPrefs, type ShellPrefs } from '../../state/shellPrefs';
@@ -193,9 +193,9 @@ export function SetupWizard({ replayIntro }: { replayIntro?: () => void }) {
           }
         }
         if (screen === 'cli' && wantsCli && !installed) {
-          await installBrowserctl();
+          await installCli();
           setInstalled(true);
-          setNotice('Installed at ~/.local/bin/browserctl. If your shell can’t find it, add ~/.local/bin to PATH.');
+          setNotice('Installed at ~/.local/bin/merlin. If your shell can’t find it, add ~/.local/bin to PATH.');
           return;
         }
       }
@@ -250,7 +250,7 @@ export function SetupWizard({ replayIntro }: { replayIntro?: () => void }) {
   </> : <>
     {screen !== 'source' && <Back disabled={busy}
       onPress={() => void advance('back')} />}
-    <Button label={screen === 'cli' && wantsCli && !installed ? 'Install browserctl' :
+    <Button label={screen === 'cli' && wantsCli && !installed ? 'Install Merlin CLI' :
       screen === 'favorites' && values.favorites.length ? 'Pin ' + values.favorites.length + (values.favorites.length === 1 ? ' Tab' : ' Tabs') : 'Continue'}
       variant="primary" size="large" disabled={busy || screen === 'source' && !progress.source || screen === 'system' && !hostOptions}
       onPress={() => void advance('next')} />

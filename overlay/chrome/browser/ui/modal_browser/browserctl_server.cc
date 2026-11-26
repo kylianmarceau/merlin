@@ -45,17 +45,17 @@ constexpr base::TimeDelta kIdleTimeout = base::Seconds(30);
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("modal_browser_browserctl", R"(
         semantics {
-          sender: "browserctl"
+          sender: "Merlin CLI"
           description:
-            "Replies to browserctl, a command-line tool run by the same user "
+            "Replies to merlin, a command-line tool run by the same user "
             "on this computer, over a local Unix-domain socket."
-          trigger: "The user runs browserctl."
+          trigger: "The user runs merlin."
           data: "Tab titles and URLs, or the result of a command."
           destination: LOCAL
         }
         policy {
           cookies_allowed: NO
-          setting: "Settings > General > Allow browserctl, or "
+          setting: "Settings > General > Allow command-line access, or "
                    "browserctl = false in config.toml."
           policy_exception_justification: "Local socket, not network traffic."
         })");

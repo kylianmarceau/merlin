@@ -82,7 +82,7 @@ launch.
 | Shell preferences: appearance, layout, warnings, update channel and the sites you moved between Chromium and WebKit (hostnames only) | macOS defaults, `~/Library/Preferences/io.github.kylianmarceau.merlin.plist`, keys `MerlinShell.*` | user-owned | when you change a setting; a default value is never written |
 
 Private (incognito) page data is not saved by the workspace/editor layer: private windows cannot save
-workspaces and browserctl cannot see them. External editing and exports to an
+workspaces and the Merlin CLI cannot see them. External editing and exports to an
 editor are also disabled in private windows. Explicit downloads and browser
 settings changes still follow Chromium and Merlin Settings behaviour.
 Native blocker preferences in private windows use Chromium's in-memory
@@ -136,16 +136,16 @@ The modal layer's scripts run in Chrome's isolated world and return:
 * for recording/sharing controls: Chromium's current camera, microphone and
   capture state and the capturing tabs' top-level origins, used for the current
   window's indicator and menu. This state stays in memory, including in private
-  windows; it is not logged, persisted or added to browserctl replies. Stopping
+  windows; it is not logged, persisted or added to CLI replies. Stopping
   capture uses Chromium's existing user-media/display-media stop callbacks.
 
 ## Clipboard
 
 Written only by explicit yank commands; read only by `p`/`P`.
 
-## browserctl
+## Merlin CLI
 
 Replies to same-user processes with tab titles and URLs of normal windows,
-the active tab, the selection in it (`browserctl selection`), and command
-results. Off with Settings › General › Allow browserctl, which writes
+the active tab, the selection in it (`merlin selection`), and command
+results. Off with Settings › General › Allow command-line access, which writes
 `browserctl = false` to the config file; the socket closes at once.

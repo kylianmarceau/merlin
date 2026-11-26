@@ -55,7 +55,7 @@ keeps a single Chromium profile and offers no profile UI (patch 0051).
  Per window: an ExternalEditor session for :edit, and a share of the
  process-wide BrowserctlServer.
 
- browserctl (CLI) --JSON line--> Unix socket (0700 dir, same uid only)
+ merlin (CLI) --JSON line--> Unix socket (0700 dir, same uid only)
       --> BrowserctlServer (IO thread) --> UI thread:
       core::ipc parses --> front window's controller runs it
 ```
@@ -95,7 +95,7 @@ threading and security checks.
 | `patches/` | The only edits to upstream files | `scripts/apply_overlay.sh` |
 | `tools/host_harness` | Compiles the real router `.cc` against the real bridge with a fake browser | Cargo only |
 | `tools/modalctl` | Terminal REPL over the core (keys, hints, palette, config) | Cargo only |
-| `tools/browserctl` | The `browserctl` CLI; shares `core::ipc` with the browser | Cargo only (a standalone binary, not part of the app bundle yet) |
+| `tools/merlin` | The `merlin` CLI shares `core::ipc` with the browser | Cargo builds the executable bundled with the app |
 | `docs/config.example.toml` | Documented example of the user config | `check_config` example validates it |
 
 Core modules: `session` (state machine), `command` (registry, parser,
@@ -204,7 +204,7 @@ Policy in `ModalSession` (`core/src/session.rs`), in order:
 
 Every operation is a named command in one `CommandRegistry`. Key bindings
 store command lines (`"scroll down"`, `"cmdline open"`), not closures, so
-mappings, the `:` line, and later the palette, `browserctl` and plugins share
+mappings, the `:` line, and later the palette, `merlin` and plugins share
 one path. Handlers are pure functions `Invocation -> Effects`, which is why
 bindings can be validated by dry-running them at bind time.
 
@@ -227,7 +227,7 @@ holds only commands that work, and a test checks it: there is no `read`
 and no `script` (plugins need a permission model first).
 
 The same registry serves the keymap, the `:` line, the palettes and
-`browserctl command`.
+`merlin command`.
 
 Handlers receive a read-only `Context` (registry, tab snapshot, options) and
 return `Effects` (actions, a mode, keymap edits). They never mutate state,
@@ -284,8 +284,9 @@ the assembled app.
   except same-process frames that cannot see up to their local root. The
   outline and `:extract` read the main frame only. `:edit`, Visual mode and
   scrolling work in the focused frame.
-* `browserctl` is built by Cargo and installed with
-  `scripts/install_browserctl.sh`; it is not inside the app bundle.
+* Cargo builds the `merlin` CLI for `Merlin.app/Contents/Helpers/merlin`.
+  Setup links it into `~/.local/bin`. Use `scripts/install_merlin_cli.sh`
+  to install directly from source.
 * Marks are per window and not persisted.
 * `OpenGURL` is slated for removal upstream; move to `TabListInterface` when
   it lands.

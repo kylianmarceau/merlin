@@ -144,7 +144,7 @@ type NativeShell = {
   installedSetupApps(ids: string[]): Promise<string[]>;
   setupDockStatus(): Promise<boolean>;
   addMerlinToDock(): Promise<boolean>;
-  installBrowserctl(): Promise<string>;
+  installCli(): Promise<string>;
   checkDefaultBrowserTrial(): Promise<void>;
   isDefaultBrowser(): Promise<boolean>;
   makeDefaultBrowser(): Promise<boolean>;
@@ -180,7 +180,7 @@ export const fileIcon = (ext: string, size: number) => native().fileIcon(ext, si
 export const installedSetupApps = (ids: string[]) => native().installedSetupApps(ids);
 export const setupDockStatus = () => native().setupDockStatus();
 export const addMerlinToDock = () => native().addMerlinToDock();
-export const installBrowserctl = () => native().installBrowserctl();
+export const installCli = () => native().installCli();
 export const checkDefaultBrowserTrial = () => native().checkDefaultBrowserTrial();
 export const isDefaultBrowser = () => native().isDefaultBrowser();
 /** macOS asks the person to confirm; resolves with whether Merlin is now the default. */

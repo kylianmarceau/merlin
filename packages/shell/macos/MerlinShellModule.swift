@@ -40,7 +40,7 @@ public final class MerlinShellModule: Module {
     AsyncFunction("checkDefaultBrowserTrial") { SetupSystem.checkDefaultTrial() }.runOnQueue(.main)
     AsyncFunction("setupDockStatus") { SetupSystem.inDock }.runOnQueue(.main)
     AsyncFunction("addMerlinToDock") { try SetupSystem.addToDock() }.runOnQueue(.main)
-    AsyncFunction("installBrowserctl") { try SetupSystem.installBrowserctl() }
+    AsyncFunction("installCli") { try SetupSystem.installCli() }
     AsyncFunction("isDefaultBrowser") { DefaultBrowser.isDefault }.runOnQueue(.main)
     AsyncFunction("makeDefaultBrowser") { (promise: Promise) in DefaultBrowser.make { promise.resolve($0) } }.runOnQueue(.main)
     AsyncFunction("loginItem") { LoginItem.status }.runOnQueue(.main)

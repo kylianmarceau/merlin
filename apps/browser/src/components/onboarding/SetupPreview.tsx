@@ -123,7 +123,7 @@ export function SetupPreview({ values: v, screen, compact = false }: { values: S
     </View>
   </View>;
   else if (screen === 'cli') scene = <Panel fill="contentBackground" radius="card" elevation="card" border="borderDefault" style={{ width: '80%', padding: space.lg, gap: space.lg }}>
-    <Lights /><View style={{ gap: space.xs }}><Text variant="mono">$ browserctl tabs</Text><Text variant="mono" tone="textSecondary">1   Field notes</Text>
+    <Lights /><View style={{ gap: space.xs }}><Text variant="mono">$ merlin tabs</Text><Text variant="mono" tone="textSecondary">1   Field notes</Text>
       <Text variant="mono" tone="textSecondary">2   Trail map</Text></View>
   </Panel>;
   else scene = <BrowserScene v={v} screen={screen} compact={compact} mode={mode} />;

@@ -37,7 +37,7 @@ export const headings: Record<Screen, [string, string]> = {
   favorites: ['Pin your favorite sites', 'Keep the sites you visit most within reach when you open Merlin.'],
   system: ['Make Merlin at home', 'Choose how Merlin fits into macOS. Continue applies the selected changes.'],
   links: ['Open links from other apps', 'Choose where links from Mail, Messages, and other apps appear.'],
-  cli: ['Use Merlin from Terminal', 'Install browserctl to open pages, list tabs, and work with workspaces from your Mac.'],
+  cli: ['Use Merlin from Terminal', 'Install the Merlin CLI to open pages, list tabs, and work with workspaces from your Mac.'],
   finish: ['Your workspace is ready', 'Start browsing or try Merlin’s keyboard shortcuts in the field guide.'],
 };
 
@@ -371,7 +371,7 @@ export function SetupPage({ screen, values: v, actions: a, busy }: {
     </>;
     case 'links': return pick('externalLinks', 'External links', [['compact', 'Compact Merlin window', 'A small window for the link'],
       ['tab', 'A new tab', 'In your main Merlin window']]);
-    case 'cli': return <Switch icon="chevron.right" label="Command line" detail={v.installed ? 'Installed at ~/.local/bin/browserctl' : 'Install browserctl in ~/.local/bin'}
+    case 'cli': return <Switch icon="chevron.right" label="Command line" detail={v.installed ? 'Installed at ~/.local/bin/merlin' : 'Install merlin in ~/.local/bin'}
       value={v.wantsCli || v.installed} disabled={v.installed || busy} onChange={a.selectCli} />;
     case 'finish': return <>
       <Shortcut keys="⌘T">{v.shell.newTabPopup ? 'Open the command bar' : 'Open a new tab'}</Shortcut>

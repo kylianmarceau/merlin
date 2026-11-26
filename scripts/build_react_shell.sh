@@ -55,11 +55,13 @@ done
 # The Dock tile plug-in that keeps the chosen app icon after Merlin quits.
 packages/shell/docktile/build.sh "$APP"
 # The setup assistant installs a link to this bundled, signed CLI.
-cli_target="$DERIVED_DATA/browserctl-target"
-CARGO_PROFILE_RELEASE_DEBUG=1 cargo build --locked --release -p browserctl --target-dir "$cli_target"
+cli_target="$DERIVED_DATA/merlin-cli-target"
+CARGO_PROFILE_RELEASE_DEBUG=1 cargo build --locked --release -p merlin --target-dir "$cli_target"
 mkdir -p "$APP/Contents/Helpers"
-install -m 755 "$cli_target/release/browserctl" "$APP/Contents/Helpers/browserctl"
-xcrun dsymutil "$APP/Contents/Helpers/browserctl" -o "$(dirname "$APP")/browserctl.dSYM"
+install -m 755 "$cli_target/release/merlin" "$APP/Contents/Helpers/merlin"
+# Incremental builds can retain the previous CLI in the app bundle.
+rm -f -- "$APP/Contents/Helpers/browserctl"
+xcrun dsymutil "$APP/Contents/Helpers/merlin" -o "$(dirname "$APP")/merlin.dSYM"
 # What the host was built from, checked by assembly (scripts/lib/build_stamp.py).
 python3 scripts/stamp_build.py shell "$APP" --since "$snapshot"
 echo "React host: $APP"

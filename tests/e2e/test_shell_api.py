@@ -161,7 +161,7 @@ class ShellApiRefusedTest(MerlinTestCase):
 
 
 class BrowserctlSwitchTest(MerlinTestCase):
-    """Settings › General › Allow browserctl (7.8): it writes `browserctl` with settings.setOption."""
+    """Settings › General › Allow command-line access: it writes `browserctl` with settings.setOption."""
 
     def test_the_switch_closes_the_socket_and_the_config_reopens_it(self):
         snapshot = self.browser.shell_call("window.snapshot")["result"]

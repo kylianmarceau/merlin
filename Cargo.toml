@@ -11,7 +11,7 @@ members = [
   "overlay/components/modal_browser/ffi",
   "tools/host_harness",
   "tools/modalctl",
-  "tools/browserctl",
+  "tools/merlin",
 ]
 # libFuzzer targets; their own workspace (fuzz/README.md).
 exclude = ["fuzz"]

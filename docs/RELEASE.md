@@ -277,10 +277,8 @@ browser. Encrypted sessions may need to be exported by the source browser.
 
 Setup can set Merlin as your default browser, add it to the Dock, or register
 it as a login item after you select the option and continue. The seven-day
-default browser trial prompts you locally after the trial. The optional
-**Install browserctl** action links the bundled executable at
-`~/.local/bin/browserctl`. If your shell cannot find it, add
-`export PATH="$HOME/.local/bin:$PATH"` to your shell configuration.
+default browser trial prompts you locally after the trial. Setup also offers
+to [install the CLI](#install-the-cli).
 
 Choose **Start browsing** when you’re ready or **Take the Tour** to open
 the offline keyboard guide. **Help › Keyboard Tutorial** opens it again.
@@ -294,3 +292,19 @@ to replay first launch using a temporary profile, configuration and workspace.
 To update, quit Merlin, download the newer GitHub release and replace the
 app in Applications. Keep the existing profile and configuration folders.
 macOS may require approval again for a new download.
+
+### Install the CLI
+
+**Install Merlin CLI** in setup links the bundled `merlin` executable at
+`~/.local/bin/merlin`. If you already completed setup, with Merlin installed
+in `/Applications`, create the link from Terminal:
+
+```bash
+mkdir -p "$HOME/.local/bin"
+ln -s /Applications/Merlin.app/Contents/Helpers/merlin "$HOME/.local/bin/merlin"
+```
+
+If your shell cannot find `merlin`, add
+`export PATH="$HOME/.local/bin:$PATH"` to your shell configuration. Run
+`merlin --help` to list the commands. If you used the previous `browserctl`
+command in scripts or editor mappings, switch those invocations to `merlin`.

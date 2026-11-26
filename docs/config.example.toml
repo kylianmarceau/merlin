@@ -12,7 +12,7 @@
 
 [options]
 # Modes, link hints and key bindings. With false, every key goes to the page
-# as in any other browser; Merlin's pages, toolbar and browserctl keep
+# as in any other browser; Merlin's pages, toolbar and CLI keep
 # working. The switch in Settings > Keys sets this.
 modal_browsing = true
 # Pixels per j/k/h/l step.
@@ -55,9 +55,9 @@ restore_session = true
 # A space opened from (or saved to) a file keeps that file up to date as
 # its tabs change, a few seconds after each change. (Also `space_autosave`.)
 workspace_autosave = true
-# Accept commands from `browserctl` over a Unix socket only this user can
+# Accept commands from `merlin` over a Unix socket only this user can
 # reach. Private windows are never visible to it. Settings › General ›
-# Allow browserctl changes this line.
+# Allow command-line access changes this line.
 browserctl = true
 # The program :edit (and ge, :extract ... editor) runs, as a list: no shell
 # is involved. "{file}" is replaced by the temporary file's path. Without

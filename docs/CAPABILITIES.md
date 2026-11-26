@@ -22,7 +22,7 @@ Chromium.
 | Private windows: one WebKit session in memory that ends with the last private window | Supported | e2e `test_webkit` |
 | Clear browsing data and "Forget this site" | Supported in both engines at once | e2e `test_webkit` |
 | Site icons | Supported, fetched without cookies or credentials, kept apart from Chromium's | e2e `test_webkit` |
-| The page's address and title in `browserctl`, bookmarks, `:yank`, workspaces and session restore | Supported | e2e `test_webkit` |
+| The page's address and title in `merlin`, bookmarks, `:yank`, workspaces and session restore | Supported | e2e `test_webkit` |
 | Sign-in pop-ups that keep `window.opener` | Supported for the same site; another site's opens a tab | e2e `test_webkit` |
 | Modal keys (Normal mode, counts, sequences) | Unavailable: browser shortcuts still reach the shell | By hand |
 | Hints, find in page, `:edit` and the outline | Unavailable: they refuse rather than act on the hidden Chromium page | e2e `test_webkit` |
@@ -81,8 +81,8 @@ the surfaces it can't see.
 | Profiles and sync | Unavailable: one profile; use workspaces and private windows | Unit tests: no profile command, panel or request |
 | Ad blocking in Chromium tabs | Supported, on by default | e2e `test_adblock`, `test_site_panel`, `test_adblock_states` (off, no lists, a broken list, rules still loading); browser tests, with a development build |
 | Lean defaults: Gemini, Lens, Help me write, Cast and the built-in AI APIs off, Memory Saver on, no field trials, no prewarmed or preloaded hidden pages | Supported | e2e `test_defaults` |
-| Private windows: no history or workspace, invisible to `browserctl` | Supported | e2e `test_private` |
-| Turning `browserctl` off from Settings › General | Supported: the socket closes at once | e2e `test_shell_api` |
+| Private windows: no history or workspace, invisible to `merlin` | Supported | e2e `test_private` |
+| Turning command-line access off from Settings › General | Supported: the socket closes at once | e2e `test_shell_api` |
 | Session restore after quitting, and after a crash once you choose Restore | Supported | e2e `test_session` |
 | Site permission prompts and page dialogs (`alert`, `confirm`, `prompt`) | Supported, answered in the shell | e2e `test_prompts` |
 | Input methods and dead keys, in fields and in Normal mode | Supported: their keys always reach the page | e2e `test_input`, with the keys an input method sends; no real input method |

@@ -449,14 +449,14 @@ enum SetupSystem {
     return true
   }
 
-  static func installBrowserctl() throws -> String {
+  static func installCli() throws -> String {
     let files = FileManager.default
     let bin = files.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin", isDirectory: true)
-    let link = bin.appendingPathComponent("browserctl")
-    let source = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/browserctl")
+    let link = bin.appendingPathComponent("merlin")
+    let source = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/merlin")
     guard files.isExecutableFile(atPath: source.path), !source.path.contains("/AppTranslocation/"),
           !source.path.hasPrefix("/Volumes/") else {
-      throw setupError("Install Merlin in Applications to install browserctl.")
+      throw setupError("Move Merlin to Applications before installing the command-line tool.")
     }
     try files.createDirectory(at: bin, withIntermediateDirectories: true)
     if (try? files.destinationOfSymbolicLink(atPath: link.path)) == source.path { return link.path }
@@ -464,7 +464,7 @@ enum SetupSystem {
       // Creating the link fails atomically if there is already a command at that path.
       try files.createSymbolicLink(at: link, withDestinationURL: source)
     } catch {
-      throw setupError("Couldn’t install browserctl at ~/.local/bin/browserctl. An existing command there is kept.")
+      throw setupError("Couldn’t install merlin at ~/.local/bin/merlin. Check whether that path is already in use.")
     }
     return link.path
   }

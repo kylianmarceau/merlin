@@ -1,20 +1,20 @@
-//! `browserctl`: drive the running browser from a terminal, Neovim or a
+//! `merlin`: drive the running browser from a terminal, Neovim or a
 //! script.
 //!
 //! ```text
-//! browserctl open https://docs.rs            # new tab (default)
-//! browserctl open --current rust lifetimes   # search in the current tab
-//! browserctl tabs [--json]
-//! browserctl focus --tab 3
-//! browserctl current [--json]
-//! browserctl selection [--text]
-//! browserctl space save|open|delete <name>
-//! browserctl space list
-//! browserctl space here                      # the saved space for this folder
-//! browserctl space project [dir]             # tie the space showing to a folder
-//! browserctl command 'vsplit https://docs.rs'
-//! browserctl ping
-//! browserctl shell-call window.snapshot '{}'  # test builds only (tests/e2e)
+//! merlin open https://docs.rs            # new tab (default)
+//! merlin open --current rust lifetimes   # search in the current tab
+//! merlin tabs [--json]
+//! merlin focus --tab 3
+//! merlin current [--json]
+//! merlin selection [--text]
+//! merlin space save|open|delete <name>
+//! merlin space list
+//! merlin space here                      # the saved space for this folder
+//! merlin space project [dir]             # tie the space showing to a folder
+//! merlin command 'vsplit https://docs.rs'
+//! merlin ping
+//! merlin shell-call window.snapshot '{}'  # test builds only (tests/e2e)
 //! ```
 //!
 //! It talks to the browser over a Unix-domain socket that only the same user
@@ -34,7 +34,7 @@ use modal_browser_core::ipc::{
 use modal_browser_core::json::Value;
 
 const USAGE: &str = "\
-usage: browserctl [--socket PATH] <command> [options]
+usage: merlin [--socket PATH] <command> [options]
 
 commands:
   open [--tab|--background|--window|--current] <url or search terms>
@@ -127,7 +127,7 @@ fn parse_args(args: &[String]) -> Result<Invocation, String> {
         "focus" => {
             let n = match args {
                 ["--tab", n] | [n] => n,
-                _ => return Err("usage: browserctl focus --tab N".into()),
+                _ => return Err("usage: merlin focus --tab N".into()),
             };
             let tab = n
                 .parse::<u32>()
@@ -157,7 +157,7 @@ fn parse_args(args: &[String]) -> Result<Invocation, String> {
             }
             _ => {
                 return Err(
-                    "usage: browserctl space save|open|delete <name> | list | here | project [dir]"
+                    "usage: merlin space save|open|delete <name> | list | here | project [dir]"
                         .into(),
                 );
             }
@@ -174,7 +174,7 @@ fn parse_args(args: &[String]) -> Result<Invocation, String> {
             let (method, args) = match args {
                 [method] => (*method, "{}"),
                 [method, args] => (*method, *args),
-                _ => return Err("usage: browserctl shell-call METHOD [JSON object]".into()),
+                _ => return Err("usage: merlin shell-call METHOD [JSON object]".into()),
             };
             match modal_browser_core::json::parse(args) {
                 Ok(Value::Object(_)) => {}
@@ -234,7 +234,7 @@ fn no_more(args: &[&str], request: Request) -> Result<Request, String> {
 fn exchange(socket: &PathBuf, line: &str) -> Result<String, String> {
     let mut stream = UnixStream::connect(socket).map_err(|e| {
         format!(
-            "no browser at {} ({e}). Is it running with browserctl enabled?",
+            "no browser at {} ({e}). Is Merlin running with command-line access enabled?",
             socket.display()
         )
     })?;
@@ -305,7 +305,7 @@ fn main() -> ExitCode {
         Ok(i) => i,
         Err(e) => {
             if !e.is_empty() {
-                eprintln!("browserctl: {e}");
+                eprintln!("merlin: {e}");
             }
             eprintln!("{USAGE}");
             return ExitCode::from(if e.is_empty() && !args.is_empty() {
@@ -319,14 +319,14 @@ fn main() -> ExitCode {
     let reply = match exchange(&invocation.socket, &line) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("browserctl: {e}");
+            eprintln!("merlin: {e}");
             return ExitCode::from(EXIT_UNREACHABLE);
         }
     };
     let reply = match parse_reply(&reply) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("browserctl: bad reply: {e}");
+            eprintln!("merlin: bad reply: {e}");
             return ExitCode::from(EXIT_REFUSED);
         }
     };
@@ -340,7 +340,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(e) => {
-            eprintln!("browserctl: {e}");
+            eprintln!("merlin: {e}");
             ExitCode::from(EXIT_REFUSED)
         }
     }
@@ -435,7 +435,7 @@ mod tests {
     #[test]
     fn talks_to_a_socket() {
         // A fake browser: replies to one request on a temporary socket.
-        let dir = std::env::temp_dir().join(format!("browserctl-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("merlin-cli-test-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("s.sock");
         let _ = std::fs::remove_file(&path);
