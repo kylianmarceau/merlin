@@ -1,7 +1,15 @@
-Merlin 0.5.17, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.18, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.18
+
+Nothing looks or works differently in this release; Merlin does less work to show the same thing.
+
+* **Tab switching uses far less power.** The sidebar and top tabs redraw only the tabs that changed, not every tab, each time the window updates. With 100 tabs open, switching once a second used about 85% less energy in Merlin's main process, and the tab list finished updating after a switch in about 15 ms instead of about 100 ms.
+* **Each browser update is read once.** Every window, and every request waiting for an answer, used to read every update from the browser on its own; one reader now hands each update to all of them.
+* **Quieter background work.** Chromium's stack sampling profiler, which only feeds usage statistics that Merlin never sends, no longer runs. Pages whose text changes often, such as a ticking clock, no longer wake the ad blocker's page helper when it has nothing to check. A new profile no longer downloads the voices for Chromium's reading mode (about 23 MB), which Merlin doesn't have.
 
 ## What's new in 0.5.17
 
