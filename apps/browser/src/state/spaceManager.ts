@@ -31,8 +31,8 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
   const placing = new Map<string, string>();
   // The tabs of the last snapshot, to tell new ones.
   let seen: Set<string> | null = null;
-  // Spaces a saved space is opening into, until they are among the spaces
-  // (by when to give up): their tabs aren't strays meanwhile.
+  // Spaces a saved space is opening into, until the window shows them (by
+  // when to give up): their tabs aren't strays or new tabs to place meanwhile.
   const incoming = new Map<string, number>();
   let told = '';
 
@@ -76,7 +76,7 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
       return;
     }
     const all = prefs.spaces;
-    for (const [id, until] of incoming) if (Date.now() > until || all.some(s => s.id === id)) incoming.delete(id);
+    for (const [id, until] of incoming) if (Date.now() > until || store.getState().activeSpace === id) incoming.delete(id);
     if (!all.length) {
       // The first window to look makes the first space; every tab joins it.
       if (!makingFirst) { makingFirst = true; void setSpaces([firstSpace()]).finally(() => { makingFirst = false; }); }
@@ -96,7 +96,7 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
     // just left.
     const target = arriving?.space ?? active;
     for (const tab of fresh) {
-      if (tab.pinned || !tab.space || tab.space === target || !all.some(s => s.id === tab.space)) continue;
+      if (tab.pinned || !tab.space || tab.space === target || incoming.has(tab.space) || !all.some(s => s.id === tab.space)) continue;
       place(tab.id, target);
     }
     const placed = (tab: { id: string; space?: string }) => placing.get(tab.id) ?? tab.space;
