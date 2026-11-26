@@ -1,7 +1,11 @@
-Merlin 0.5.19, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.20, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.20
+
+* **Aligned controls in sidebar mode.** The sidebar toggle, Back, Forward, and Reload sit above the page, level with the three macOS window buttons. The address bar follows your placement setting.
 
 ## What's new in 0.5.19
 
