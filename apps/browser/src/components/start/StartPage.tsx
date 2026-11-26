@@ -42,18 +42,21 @@ export function StartPage({ tab }: { tab: Tab }) {
           <View style={{ paddingTop: space.sm, paddingHorizontal: space.sm + space.hair, paddingBottom: space.sm + space.hair }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, height: geometry.newTabInput, paddingHorizontal: space.sm }}>
               <Icon name="magnifyingglass" tone="iconSecondary" />
-              <TextInput ref={input} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel="Search or enter an address"
-                placeholder="Search or enter an address" placeholderTextColor={colors.textSecondary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
-                value={search.text} onChangeText={search.change} onSubmitEditing={go}
-                keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Escape' }]}
-                onKeyDown={e => {
-                  const key = e.nativeEvent.key;
-                  if (key === 'ArrowDown') search.move(1);
-                  else if (key === 'ArrowUp') search.move(-1);
-                  else if (key === 'Escape') escape();
-                }}
-                onKeyPress={e => { if (e.nativeEvent.key === 'Escape') escape(); }}
-                style={{ flex: 1, color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.input }} />
+              {/* Give AppKit's scrolling field editor a viewport that stays inside the card. */}
+              <View style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                <TextInput ref={input} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel="Search or enter an address"
+                  placeholder="Search or enter an address" placeholderTextColor={colors.textSecondary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
+                  value={search.text} onChangeText={search.change} onSubmitEditing={go}
+                  keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Escape' }]}
+                  onKeyDown={e => {
+                    const key = e.nativeEvent.key;
+                    if (key === 'ArrowDown') search.move(1);
+                    else if (key === 'ArrowUp') search.move(-1);
+                    else if (key === 'Escape') escape();
+                  }}
+                  onKeyPress={e => { if (e.nativeEvent.key === 'Escape') escape(); }}
+                  style={{ color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.input }} />
+              </View>
             </View>
             {search.suggestions.length > 0 && <View style={{ gap: space.hair, paddingBottom: space.sm }}>
               {search.suggestions.map((item, index) => <PopupRow key={index} title={item.title || item.url}

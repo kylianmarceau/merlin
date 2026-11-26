@@ -79,20 +79,22 @@ export function PopupField({ value, placeholder, label, icon = 'magnifyingglass'
   return <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, height: geometry.paletteInput,
     paddingHorizontal: space.lg + space.xs, borderBottomWidth: geometry.hairline, borderBottomColor: colors.borderSubtle }}>
     <Icon name={icon} tone="iconSecondary" size="large" weight="regular" />
-    <TextInput ref={input} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel={label}
-      value={value} placeholder={placeholder} placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
-      style={{ flex: 1, color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.input }}
-      onBlur={() => setTimeout(focus, duration.refocus)}
-      keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Tab' }, { key: 'Escape' }]}
-      onKeyDown={e => {
-        const key = e.nativeEvent.key;
-        if (key === 'ArrowDown') onKey?.('down');
-        else if (key === 'ArrowUp') onKey?.('up');
-        else if (key === 'Tab') onKey?.('tab');
-        else if (key === 'Escape') escape();
-      }}
-      onKeyPress={e => { if (e.nativeEvent.key === 'Escape') escape(); }}
-      onSubmitEditing={onSubmit} onChangeText={onChangeText} />
+    <View style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+      <TextInput ref={input} autoFocus blurOnSubmit={false} enableFocusRing={false} accessibilityLabel={label}
+        value={value} placeholder={placeholder} placeholderTextColor={colors.textTertiary} selectionColor={colors.textSelection} cursorColor={colors.textPrimary}
+        style={{ color: colors.textPrimary, fontFamily: font.family, fontSize: font.size.input }}
+        onBlur={() => setTimeout(focus, duration.refocus)}
+        keyDownEvents={[{ key: 'ArrowDown' }, { key: 'ArrowUp' }, { key: 'Tab' }, { key: 'Escape' }]}
+        onKeyDown={e => {
+          const key = e.nativeEvent.key;
+          if (key === 'ArrowDown') onKey?.('down');
+          else if (key === 'ArrowUp') onKey?.('up');
+          else if (key === 'Tab') onKey?.('tab');
+          else if (key === 'Escape') escape();
+        }}
+        onKeyPress={e => { if (e.nativeEvent.key === 'Escape') escape(); }}
+        onSubmitEditing={onSubmit} onChangeText={onChangeText} />
+    </View>
     {trailing}
   </View>;
 }
@@ -109,10 +111,9 @@ export function PopupRow({ title, detail, keys, leading, selected, disabled, onP
       borderRadius: radius.field, opacity: disabled ? opacity.disabled : 1,
       backgroundColor: colors[selected ? 'paletteSelected' : hovered && !disabled ? 'fillHover' : 'fillTransparent'] }}>
     {leading}
-    <Text lines={1} style={{ flexShrink: 1 }} tone={selected ? 'paletteSelectedText' : 'textPrimary'}>{title}</Text>
-    <View style={{ flex: 1 }} />
+    <Text lines={1} style={{ flex: 1, minWidth: 0 }} tone={selected ? 'paletteSelectedText' : 'textPrimary'}>{title}</Text>
     {!!detail && <Text variant="label" weight="regular" lines={1} tone={selected ? 'paletteSelectedText' : 'textSecondary'}
-      style={{ flexShrink: 1 }}>{detail}</Text>}
+      style={{ maxWidth: '40%' }}>{detail}</Text>}
     {!!keys && <KeyCap>{keys}</KeyCap>}
   </Pressable>;
 }
