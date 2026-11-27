@@ -13,30 +13,32 @@ export const FormHighlight = createContext<string | null>(null);
 export function FormGroup({ title, detail, children }: React.PropsWithChildren<{ title?: string; detail?: string }>) {
   const { colors } = useTheme();
   const lit = useLit(title ?? '');
-  return <View style={{ gap: space.sm, marginBottom: space.xl }}>
-    {(title || detail) && <View ref={lit.ref} style={{ gap: space.hair, paddingHorizontal: space.xs }}>
+  return <View style={{ gap: space.sm, marginBottom: space.xxl }}>
+    {(title || detail) && <View ref={lit.ref} style={{ gap: space.hair, paddingHorizontal: space.md }}>
       {!!title && lit.glow}
-      {!!title && <Text variant="label" weight="semibold" tone="groupLabel">{title}</Text>}
+      {!!title && <Text variant="bodyStrong" tone="groupLabel">{title}</Text>}
       {!!detail && <Text variant="label" weight="regular" tone="textSecondary">{detail}</Text>}
     </View>}
-    <View style={{ borderRadius: radius.card, backgroundColor: colors.surfaceCard, borderWidth: geometry.hairline,
-      borderColor: colors.borderSubtle, paddingHorizontal: space.lg }}>
-      {React.Children.toArray(children).filter(Boolean).map((child, i) => <View key={i}
-        style={i ? { borderTopWidth: geometry.hairline, borderTopColor: colors.borderSubtle } : undefined}>{child}</View>)}
+    <View style={{ borderRadius: radius.card, backgroundColor: colors.surfaceCard, paddingHorizontal: space.md }}>
+      {React.Children.toArray(children).filter(Boolean).map((child, i) => <React.Fragment key={React.isValidElement(child) ? child.key : i}>
+        {i > 0 && <View style={{ height: geometry.hairline, backgroundColor: colors.borderSubtle }} />}
+        {child}
+      </React.Fragment>)}
     </View>
   </View>;
 }
 
 /** A setting with its control alongside the label, or below it for wider controls. */
-export function FormRow({ title, detail, stacked = false, children }: React.PropsWithChildren<{ title: string; detail?: string; stacked?: boolean }>) {
+export function FormRow({ title, detail, leading, stacked = false, children }: React.PropsWithChildren<{ title: string; detail?: string; leading?: React.ReactNode; stacked?: boolean }>) {
   const lit = useLit(title);
   return <View ref={lit.ref} style={{
-    flexDirection: stacked ? 'column' : 'row', alignItems: stacked ? 'stretch' : 'center',
-    gap: stacked ? space.md : space.lg, paddingVertical: space.md, minHeight: geometry.rowTall,
+    flexDirection: stacked ? 'column' : 'row', flexWrap: stacked ? 'nowrap' : 'wrap', alignItems: stacked ? 'stretch' : 'center',
+    gap: space.md, paddingVertical: space.sm, minHeight: geometry.rowTall - space.xs,
   }}>
     {lit.glow}
-    <View style={{ flex: stacked ? undefined : 1, gap: space.hair }}>
-      <Text>{title}</Text>
+    {leading}
+    <View style={{ flexGrow: stacked ? 0 : 1, flexBasis: stacked ? undefined : geometry.slider, minWidth: 0, gap: space.hair }}>
+      <Text weight={leading ? 'semibold' : 'regular'}>{title}</Text>
       {!!detail && <Text variant="label" weight="regular" tone="textSecondary">{detail}</Text>}
     </View>
     {children}
@@ -66,7 +68,7 @@ export function useLit(title: string) {
 export function SectionHeader({ title, detail, children }: React.PropsWithChildren<{ title: string; detail?: string }>) {
   return <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.md, marginBottom: space.lg }}>
     <View style={{ flex: 1, gap: space.xs }}>
-      <Text variant="headline">{title}</Text>
+      <Text variant="bodyStrong">{title}</Text>
       {!!detail && <Text variant="caption">{detail}</Text>}
     </View>
     {children}

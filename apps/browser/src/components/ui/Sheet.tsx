@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { Animated, ScrollView, View } from 'react-native';
-import { Field } from './Field';
 import { Pressable } from './Pressable';
 import { IconButton } from './Button';
 import { Icon, type SymbolName } from './Icon';
@@ -10,29 +9,15 @@ import { Panel } from './Panel';
 import { Text } from './Text';
 import { TooltipCover } from './Tooltip';
 import { useTheme } from './theme';
-import { geometry, radius, space } from './tokens';
+import { geometry, radius, space, type ColorRole } from './tokens';
 
 export type SheetSection<K extends string> = { id: K; label: string; icon: SymbolName; badge?: string };
 
-/**
- * A large centred surface over a dimmed window. Settings shows its sections
- * down a sidebar under a search field (`nav="sidebar"`, `size="tall"`), as
- * System Settings does; the Library as a segmented control beside its title.
- * Both share one frame and one motion.
- *
- * It takes the keyboard as it opens, so Escape closes it: opened from a
- * button or Command-comma, the keyboard stayed in the page, which never
- * passed Escape on. `onClosed` gives it back (to the page) once it closes.
- */
-export function Sheet<K extends string>({ open = true, title, sections, section, onSection, onClose, onClosed, children, footer,
-  nav = 'tabs', size = 'regular', search }: {
-  open?: boolean; title: string; sections: readonly SheetSection<K>[]; section: K; onSection(id: K): void; onClose(): void;
-  onClosed?(): void; children?: React.ReactNode; footer?: React.ReactNode; nav?: 'tabs' | 'segments' | 'sidebar';
-  /** Tall takes most of the window's height. */
-  size?: 'regular' | 'tall';
-  /** A search field at the top of the sidebar. */
-  search?: { value: string; placeholder: string; onChange(text: string): void };
-}) {
+/** Shared sheet presentation, including dismissal, focus restoration and exit motion. */
+export function SheetFrame({ open = true, title, onClose, onClosed, fill, width = geometry.sheetWidth,
+  height = geometry.sheetHeight, children }: React.PropsWithChildren<{
+  open?: boolean; title: string; onClose(): void; onClosed?(): void; fill: ColorRole; width?: number; height?: number;
+}>) {
   const { colors, reduceMotion } = useTheme();
   const { mounted, progress } = usePresence(open, 'sheet', reduceMotion);
   const body = useLatest(open ? children : null);
@@ -51,60 +36,48 @@ export function Sheet<K extends string>({ open = true, title, sections, section,
     <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: progress }}>
       <Pressable accessible={false} style={{ flex: 1, backgroundColor: colors.scrim }} onPress={() => { if (open) onClose(); }} />
     </Animated.View>
-    <Animated.View style={[{ width: geometry.sheetWidth, maxWidth: '94%', height: size === 'tall' ? geometry.sheetTall : geometry.sheetHeight,
-      maxHeight: size === 'tall' ? '94%' : '90%' },
+    <Animated.View style={[{ width, height, maxWidth: '94%', maxHeight: '90%' },
       presenceStyle(progress, 'sheet')]}
       keyDownEvents={[{ key: 'Escape' }]} onKeyDown={e => { if (e.nativeEvent.key === 'Escape' && open) onClose(); }}>
       <View ref={keys} focusable enableFocusRing={false} style={{ flex: 1 }}>
-      <Panel fill={nav === 'tabs' ? 'surfaceSheetBody' : 'surfaceSheet'} radius="panel" elevation="dialog" accessibilityLabel={title}
-        accessibilityViewIsModal style={{ flex: 1 }}>
-        {nav === 'sidebar' ? <View style={{ flex: 1, flexDirection: 'row', borderRadius: radius.panel, overflow: 'hidden' }}>
-          <View style={{ width: geometry.sheetNav, backgroundColor: colors.surfaceSheetNav, borderRightWidth: geometry.hairline,
-            borderRightColor: colors.borderSubtle, paddingTop: space.lg, paddingHorizontal: space.sm + space.hair, gap: space.md }}>
-            <View style={{ paddingHorizontal: space.sm }}><Text variant="headline">{title}</Text></View>
-            {search && <Field icon="magnifyingglass" accessibilityLabel={search.placeholder} placeholder={search.placeholder}
-              value={search.value} onChangeText={search.onChange} />}
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: space.hair, paddingBottom: space.md }}>
-              <View accessibilityRole="tablist" accessibilityLabel={title} style={{ gap: space.hair }}>
-                {sections.map(s => <SideTab key={s.id} label={s.label} icon={s.icon} selected={!search?.value && s.id === section}
-                  onPress={() => { search?.onChange(''); onSection(s.id); }} />)}
-              </View>
-            </ScrollView>
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={{ position: 'absolute', top: space.md, right: space.md, zIndex: 1 }}>
-              <IconButton label={`Close ${title}`} icon="xmark" onPress={onClose} />
-            </View>
-            {body}
-          </View>
-        </View> : <View style={{ flex: 1, borderRadius: radius.panel, overflow: 'hidden' }}>
-          {nav === 'tabs' ? <View style={{ backgroundColor: colors.surfaceSheetNav, borderBottomWidth: geometry.hairline,
-            borderBottomColor: colors.borderSubtle, paddingTop: space.md, paddingBottom: space.sm, paddingHorizontal: space.xxl + space.sm }}>
-            <View accessibilityRole="tablist" accessibilityLabel={title}
-              style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: space.hair }}>
-              {sections.map(s => <IconTab key={s.id} label={s.label} icon={s.icon} selected={s.id === section} onPress={() => onSection(s.id)} />)}
-            </View>
-            <View style={{ position: 'absolute', top: space.md, right: space.md }}>
-              <IconButton label={`Close ${title}`} icon="xmark" onPress={onClose} />
-            </View>
-          </View> : <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md + space.hair,
-            paddingHorizontal: space.lg + space.xs, paddingTop: space.lg + space.hair, paddingBottom: space.md + space.hair }}>
-            <Text variant="headline">{title}</Text>
-            <View accessibilityRole="tablist" accessibilityLabel={title} style={{ flexDirection: 'row', gap: space.hair,
-              padding: space.hair, borderRadius: radius.field, backgroundColor: colors.fillControl }}>
-              {sections.map(s => <SegmentTab key={s.id} label={s.label} badge={s.badge} selected={s.id === section}
-                onPress={() => onSection(s.id)} />)}
-            </View>
-            <View style={{ flex: 1 }} />
-            <IconButton label={`Close ${title}`} icon="xmark" onPress={onClose} />
-          </View>}
-          <View style={{ flex: 1 }}>{body}</View>
-          {footer}
-        </View>}
-      </Panel>
+        <Panel fill={fill} radius="panel" elevation="dialog" accessibilityLabel={title} accessibilityViewIsModal style={{ flex: 1 }}>
+          <View style={{ flex: 1, borderRadius: radius.panel, overflow: 'hidden' }}>{body}</View>
+        </Panel>
       </View>
     </Animated.View>
   </View></TooltipCover>;
+}
+
+export function Sheet<K extends string>({ open, title, sections, section, onSection, onClose, onClosed, children, footer,
+  nav = 'tabs' }: React.PropsWithChildren<{
+  open?: boolean; title: string; sections: readonly SheetSection<K>[]; section: K; onSection(id: K): void; onClose(): void;
+  onClosed?(): void; footer?: React.ReactNode; nav?: 'tabs' | 'segments';
+}>) {
+  const { colors } = useTheme();
+  return <SheetFrame open={open} title={title} onClose={onClose} onClosed={onClosed} fill={nav === 'tabs' ? 'surfaceSheetBody' : 'surfaceSheet'}>
+    {nav === 'tabs' ? <View style={{ backgroundColor: colors.surfaceSheetNav, borderBottomWidth: geometry.hairline,
+      borderBottomColor: colors.borderSubtle, paddingTop: space.md, paddingBottom: space.sm, paddingHorizontal: space.xxl + space.sm }}>
+      <View accessibilityRole="tablist" accessibilityLabel={title}
+        style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: space.hair }}>
+        {sections.map(s => <IconTab key={s.id} label={s.label} icon={s.icon} selected={s.id === section} onPress={() => onSection(s.id)} />)}
+      </View>
+      <View style={{ position: 'absolute', top: space.md, right: space.md }}>
+        <IconButton label={`Close ${title}`} icon="xmark" onPress={onClose} />
+      </View>
+    </View> : <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md + space.hair,
+      paddingHorizontal: space.lg + space.xs, paddingTop: space.lg + space.hair, paddingBottom: space.md + space.hair }}>
+      <Text variant="headline">{title}</Text>
+      <View accessibilityRole="tablist" accessibilityLabel={title} style={{ flexDirection: 'row', gap: space.hair,
+        padding: space.hair, borderRadius: radius.field, backgroundColor: colors.fillControl }}>
+        {sections.map(s => <SegmentTab key={s.id} label={s.label} badge={s.badge} selected={s.id === section}
+          onPress={() => onSection(s.id)} />)}
+      </View>
+      <View style={{ flex: 1 }} />
+      <IconButton label={`Close ${title}`} icon="xmark" onPress={onClose} />
+    </View>}
+    <View style={{ flex: 1 }}>{children}</View>
+    {footer}
+  </SheetFrame>;
 }
 
 function IconTab({ label, icon, selected, onPress }: { label: string; icon: SymbolName; selected: boolean; onPress(): void }) {
@@ -117,19 +90,6 @@ function IconTab({ label, icon, selected, onPress }: { label: string; icon: Symb
       backgroundColor: colors[selected ? 'accentSoft' : hovered ? 'fillHover' : 'fillTransparent'] }}>
     <Icon name={icon} size="large" weight="regular" tone={selected ? 'accentSoftText' : 'iconPrimary'} />
     <Text variant="caption" weight="medium" lines={1} tone={selected ? 'accentSoftText' : 'textSecondary'}>{label}</Text>
-  </Pressable>;
-}
-
-/** A section in the sheet's sidebar: its symbol and name, the chosen one on a soft accent fill. */
-function SideTab({ label, icon, selected, onPress }: { label: string; icon: SymbolName; selected: boolean; onPress(): void }) {
-  const { colors } = useTheme();
-  const { hovered, handlers } = useInteraction();
-  return <Pressable accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected }} onPress={onPress} {...handlers}
-    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm + space.hair, height: geometry.popoverRow,
-      paddingHorizontal: space.sm, borderRadius: radius.control,
-      backgroundColor: colors[selected ? 'accentSoft' : pressed ? 'fillPressed' : hovered ? 'fillHover' : 'fillTransparent'] })}>
-    <Icon name={icon} weight="regular" tone={selected ? 'accentSoftText' : 'iconPrimary'} />
-    <Text weight={selected ? 'medium' : undefined} lines={1} tone={selected ? 'accentSoftText' : 'textPrimary'}>{label}</Text>
   </Pressable>;
 }
 
@@ -155,12 +115,12 @@ const SheetScrollContext = createContext<SheetScroll | null>(null);
 export const useSheetScroll = () => useContext(SheetScrollContext);
 
 /** Scrollable content for one Sheet section. */
-export function SheetBody({ children }: React.PropsWithChildren) {
+export function SheetBody({ children, inset = space.huge, top = space.xl }: React.PropsWithChildren<{ inset?: number; top?: number }>) {
   const scroll = useRef<ScrollView>(null);
   const content = useRef<View>(null);
   const value = React.useMemo<SheetScroll>(() => ({ content, scrollTo: y => scroll.current?.scrollTo({ y: Math.max(0, y), animated: true }) }), []);
   return <SheetScrollContext.Provider value={value}>
-    <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: space.huge, paddingTop: space.xl,
+    <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: inset, paddingTop: top,
       paddingBottom: space.xl }}>
       <View ref={content}>{children}</View>
     </ScrollView>

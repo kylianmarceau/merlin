@@ -1,7 +1,11 @@
-Merlin 0.5.22, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.23, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.23
+
+* **Redesigned Settings.** Press ⌘, to open a searchable sidebar with illustrated categories, grouped controls, and Back and Forward buttons. Appearance shows previews of colour schemes and interface styles. Existing preferences carry over.
 
 ## What's new in 0.5.22
 

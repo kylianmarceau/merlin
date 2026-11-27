@@ -6,7 +6,7 @@ import { View } from 'react-native';
 import { clearRanges as ranges, clearSince, type ClearRange } from '../../lib/clearData';
 import type { ClearDataType } from '../../state/types';
 import { useAction } from '../../state/window';
-import { Button, Checkbox, FormGroup, FormRow, ListRow, Notice, PopUp, Text, space } from '../ui';
+import { Button, Checkbox, FormGroup, FormRow, Icon, ListRow, Notice, PopUp, Text, space } from '../ui';
 
 const kinds: readonly { type: ClearDataType; title: string }[] = [
   { type: 'history', title: 'Browsing history' },
@@ -52,7 +52,7 @@ export function ClearData({ openPage }: { openPage(key: string): void }) {
     </View>}
     <FormGroup>
       <ListRow title="Passwords, autofill and other Chromium data" onPress={() => openPage('clear-data')}
-        trailing={<Text variant="caption">Open</Text>} />
+        tall trailing={<Icon name="chevron.right" size="chevron" tone="iconSecondary" />} />
     </FormGroup>
   </>;
 }
