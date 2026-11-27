@@ -1,11 +1,13 @@
-Merlin 0.5.21, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.22, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
 
-## Not released yet
+## What's new in 0.5.22
 
 * **Spaces with their own data.** A space can keep its own logins and cookies, history, passwords, bookmarks, extensions and favourites, as in Arc. Sign in to your work accounts in a Work space and your own in Personal, in the same window. Choose **New Space with Its Own Data** from a space's menu, or turn on **Keep its own data** when you name a new space. Spaces can share data, and settings stay the same in every space. Deleting the last space that uses some data deletes that data too.
+* **A new setup.** Setup's cards, choices and buttons are redrawn, each choice says what it does in one line, and a live Merlin window beside them shows your choices as you make them: tabs in the sidebar or along the top, your favourites and the window's glass.
+* **The command-line tool is now `merlin`.** It was `browserctl`. Choose **Install Merlin CLI** in setup, or follow [Install the CLI](https://github.com/kylianmarceau/merlin/blob/main/docs/RELEASE.md#install-the-cli) if you finished setup already, and change any scripts or editor mappings that call `browserctl`.
 
 ## What's new in 0.5.21
 
