@@ -99,6 +99,32 @@ export const geometry = {
   suggestions: 8, fileWidth: 26, fileHeight: 32, fileFold: 8, findBar: 300, avatar: 30, historyHost: 170, timeColumn: 54, startColumn: 600, startInput: 48, siteCircle: 44, startFalcon: 88, startPrompt: 18, newTabInput: 52, siteWidth: 64,
 } as const;
 
+/** Preferences use neutral window materials so the miniature previews stand apart. */
+export const settingsGeometry = {
+  width: 740, height: 572, sidebar: 214, rail: 52, compactWidth: 640, bar: 50, category: 32,
+  badge: 20, inset: 20, galleryWidth: 420, preview: 82, previewHeight: 60, miniWindow: 45, miniHeight: 41, material: 41,
+  close: 14, arrow: 16, arrowButton: 35, switchWidth: 36, thumbWidth: 21, thumbHeight: 13,
+} as const;
+
+export const settingsArt = {
+  classic: '#242322', glass: '#1D2531', glassEdge: '#4D5869', previewEdge: 'rgba(209, 229, 255, 0.2)',
+  close: '#FF6059', closeEdge: '#FF8E88', closeGlyph: '#741D18',
+} as const;
+export const settingsPalette = {
+  dark: { surfaceSheet: '#1E1E1E', surfaceSheetNav: '#282623', surfaceCard: '#252525',
+    textPrimary: '#DEDEDE', tabText: '#EAE9E8', textSecondary: '#9D9D9D', textTertiary: '#868482', groupLabel: '#DDDDDD',
+    iconPrimary: '#FFFFFF', iconSecondary: '#ABAAA9', iconDisabled: '#747474',
+    fillControl: '#333333', fillSelectedStrong: '#515151', fillTrack: '#393939', fillThumb: '#FFFFFF',
+    fillField: '#383633', fillFieldFocus: '#403D39', fillSelected: '#302F2C', fillHover: 'rgba(255,255,255,0.025)', borderSubtle: '#363636',
+    surfaceBorder: '#43413F', borderDefault: '#545352', roundFill: '#3C3C3C', focusRing: '#0084FF', accent: '#0084FF' },
+  light: { surfaceSheet: '#F4F3F2', surfaceSheetNav: '#EAE8E5', surfaceCard: '#FFFFFF',
+    textPrimary: '#252527', tabText: '#202022', textSecondary: '#626168', textTertiary: '#68676C', groupLabel: '#2C2C2E',
+    iconPrimary: '#303033', iconSecondary: '#66656B', iconDisabled: '#969598',
+    fillControl: '#E8E7E6', fillSelectedStrong: '#FFFFFF', fillTrack: '#C7C6C6', fillThumb: '#FFFFFF',
+    fillField: '#DEDCDA', fillFieldFocus: '#FFFFFF', fillSelected: '#D8D5D1', borderSubtle: '#DFDEDE',
+    surfaceBorder: '#C8C6C3', borderDefault: '#CBC9C7', roundFill: '#E6E4E2', focusRing: '#0075E8', accent: '#0075E8' },
+} as const;
+
 // Setup's card, after Ardia's onboarding (Apache-2.0, see NOTICE): its
 // measurements and colours, measured from Ardia 0.2.48 and its tokens.
 export const setupGeometry = {

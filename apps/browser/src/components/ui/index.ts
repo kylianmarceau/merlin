@@ -26,7 +26,7 @@ export { Layer } from './Layer';
 export { Popover, autoPlacement, placeBubble, placePopover, type Frame, type Placement } from './Popover';
 export { PopoverSurface } from './PopoverSurface';
 export { Dialog } from './Dialog';
-export { Sheet, SheetBody, useSheetScroll, type SheetSection } from './Sheet';
+export { Sheet, SheetFrame, SheetBody, useSheetScroll, type SheetSection } from './Sheet';
 export { AreaLight, Badge, EmptyState, Equaliser, IconTile, Notice, ProgressRing, ProgressTrack, Spinner } from './Feedback';
 export { LoadingBar } from './LoadingBar';
 export { FormGroup, FormHighlight, FormRow, SectionHeader, useLit } from './Form';

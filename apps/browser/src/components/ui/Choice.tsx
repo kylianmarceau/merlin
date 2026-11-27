@@ -25,12 +25,14 @@ export function PopUp<T extends string>({ label, value, options, onChange, disab
   };
   return <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${current}`} accessibilityState={{ disabled }}
     disabled={disabled} onPress={() => void open()} {...handlers}
-    style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, minWidth: geometry.popUpMin, minHeight: geometry.control - space.xs,
-      paddingLeft: space.md, paddingRight: space.sm, borderRadius: radius.sm, opacity: disabled ? opacity.disabled : 1,
-      backgroundColor: colors[hovered ? 'fillControlHover' : 'fillControl'],
-      borderWidth: geometry.hairline, borderColor: colors[focused ? 'focusRing' : 'borderSubtle'] }}>
-    <Text variant="label" weight="medium" flex={1} lines={1}>{current}</Text>
-    <Icon name="chevron.up.chevron.down" tone="iconSecondary" size="chevron" weight="semibold" />
+    style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, maxWidth: '100%', minHeight: geometry.control,
+      paddingLeft: space.xs, borderRadius: radius.pill, opacity: disabled ? opacity.disabled : 1,
+      borderWidth: geometry.hairline, borderColor: colors[focused ? 'focusRing' : 'fillTransparent'] }}>
+    <Text weight="medium" lines={1} style={{ flexShrink: 1 }}>{current}</Text>
+    <View style={{ width: geometry.iconLarge, height: geometry.iconLarge, alignItems: 'center', justifyContent: 'center',
+      borderRadius: radius.pill, backgroundColor: colors[hovered ? 'fillControlHover' : 'fillControl'] }}>
+      <Icon name="chevron.up.chevron.down" size="chevron" weight="semibold" />
+    </View>
   </Pressable>;
 }
 

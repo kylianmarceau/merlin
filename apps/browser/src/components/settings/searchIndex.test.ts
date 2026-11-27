@@ -14,7 +14,7 @@ test('every setting the search can find is still a row or heading in Settings', 
 test('search matches every word, titles first', () => {
   assert.equal(searchSettings('')[0], undefined);
   assert.equal(searchSettings('tab pos')[0].title, 'Tab position');
-  assert.equal(searchSettings('dark')[0].title, 'Appearance Theme');
+  assert.equal(searchSettings('dark')[0].title, 'Colour scheme');
   assert.ok(searchSettings('vertical').some(h => h.title === 'Tab position'));
   assert.deepEqual(searchSettings('zzz'), []);
 });
