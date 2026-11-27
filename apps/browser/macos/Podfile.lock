@@ -2575,7 +2575,7 @@ SPEC CHECKSUMS:
   glog: 0b31c25149b9d350b2666c7d459229861a00ec07
   hermes-engine: 7219f6e751ad6ec7f3d7ec121830ee34dae40749
   MerlinEngine: 1b712fdbb531a064f2011acf8fcb8dab38859df4
-  MerlinShellViews: 296f448b1fac4d2da463e933158aa4cc5ef67c08
+  MerlinShellViews: c6d5792ed21ee93e444269dd3826921c627522d4
   MerlinWebKit: d233afa543f039e57c46e2ca4ace117f43d21c80
   RCT-Folly: a3d9b23289a456c318f4814703664bdc33c771cc
   RCTDeprecation: ae9e1391708bf992a2a94fb724b0923015be995b
