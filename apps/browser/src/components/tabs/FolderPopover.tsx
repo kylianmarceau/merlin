@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { View } from 'react-native';
-import { folderTitle, gridItems, homeKey } from '../../state/favouriteFolders';
+import { favouriteFolderKey, folderTitle, gridItems } from '../../state/favouriteFolders';
 import { columnsFor, tileWidth } from '../../state/favouriteGrid';
 import { useShellPrefs } from '../../state/shellPrefs';
 import { useActions, useBrowser, useSnapshot } from '../../state/window';
@@ -22,11 +22,12 @@ export function FolderPopover() {
   const open = useBrowser(s => s.openFolder);
   const bounds = useBrowser(s => s.windowSize);
   const homes = useBrowser(s => s.pinnedHomes);
+  const data = useBrowser(s => s.engineSnapshot?.data);
   const folders = useShellPrefs(p => p.favouriteFolders);
   const item = useMemo(() => {
     if (!open) return null;
     const pinned = snapshot.tabs.filter(t => t.pinned);
-    const found = gridItems(pinned, t => homeKey(homes[t.id]?.url ?? t.url), folders).find(i => i.kind === 'folder' && i.folder.id === open.folderId);
+    const found = gridItems(pinned, t => favouriteFolderKey(homes[t.id]?.url ?? t.url, data), folders).find(i => i.kind === 'folder' && i.folder.id === open.folderId);
     return found?.kind === 'folder' ? found : null;
   }, [open, snapshot.tabs, homes, folders]);
   // Ungrouped, or down to one tab, it closes; so it does when a tab is chosen.

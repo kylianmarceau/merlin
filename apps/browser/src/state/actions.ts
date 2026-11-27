@@ -3,7 +3,7 @@
 import { copyText, haptic, imageTone, showMenu, type MenuItem, type SymbolName, type WindowStateEvent } from '../platform/shell';
 import { shellPrefs } from './shellPrefs';
 import { setFavouriteFolders } from './shellPrefsStorage';
-import { foldInto, homeKey, leaveFolder, renameFolder, ungroupFolder } from './favouriteFolders';
+import { favouriteFolderKey, foldInto, leaveFolder, renameFolder, ungroupFolder } from './favouriteFolders';
 import { canUseWebKit } from '../lib/engines';
 import { pageLabel } from '../lib/format';
 import { dropOutcome, type DropTarget, type SplitSide } from './tabDrag';
@@ -21,7 +21,7 @@ import {
 import type { BookmarkItem, MediaAction } from '../platform/protocol';
 import { awayFromHome } from './pinned';
 import { createSpaces } from './spaceManager';
-import { maxSpaces, savedNameFor, spaceIcons } from './spaces';
+import { dataLeftUnused, dataOf, homeData, listNames, maxSpaces, savedNameFor, sharingWith, spaceIcons } from './spaces';
 import type { WorkspaceTheme } from './workspaceTheme';
 
 let queryCounter = 0;
@@ -121,11 +121,13 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
             ...(spaceIcons.includes(s.icon as SymbolName) ? { symbol: s.icon as SymbolName } : {}) })),
           { separator: true },
           { id: 'new', title: 'New Space…', symbol: 'plus', enabled: all.length < maxSpaces },
+          { id: 'new-own', title: 'New Space with Its Own Data…', symbol: 'person.crop.rectangle.stack', enabled: all.length < maxSpaces },
           ...(activeSpace ? [{ id: 'edit', title: 'This Space', symbol: 'ellipsis' as const }] : []),
         ]);
       } catch (e) { fail(e); return; }
       if (choice?.startsWith('go:')) void spaces.switchSpace(choice.slice('go:'.length));
-      else if (choice === 'new') actions.nameGroup({ kind: 'newSpace', theme: swatches[all.length % Math.max(1, swatches.length)]?.theme ?? null });
+      else if (choice === 'new' || choice === 'new-own') actions.nameGroup({ kind: 'newSpace',
+        theme: swatches[all.length % Math.max(1, swatches.length)]?.theme ?? null, ownData: choice === 'new-own' });
       else if (choice === 'edit' && activeSpace) void actions.spaceMenu(activeSpace, swatches);
     },
     /** The sidebar's ⋯ beside the spaces, as Arc keeps its bottom row to them: the command menu, the Library and Settings. */
@@ -146,9 +148,10 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       else if (choice === 'saved') void actions.command('space');
     },
     /**
-     * A space's menu, from its switcher button or heading: rename, icon,
-     * colour (`swatches`), keep it on disk, order, delete. Delete asks first:
-     * it closes the space's tabs.
+     * A space's menu, from its switcher button or heading: which data it
+     * uses, rename, icon, colour (`swatches`), keep it on disk, order, delete.
+     * Delete asks first: it closes the space's tabs, and deletes its data
+     * when no other space uses it.
      */
     async spaceMenu(spaceId: string, swatches: SpaceSwatch[]) {
       const all = shellPrefs.getState().spaces;
@@ -156,7 +159,13 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
       if (!space) return;
       const at = all.indexOf(space);
       const saveAs = space.saved ?? savedNameFor(space.name);
+      const sharers = sharingWith(all, spaceId);
+      // Which data it uses, as Arc names a space's profile; Home's data alone needs no word.
+      const dataNote = sharers.length ? `Shares data with ${listNames(sharers)}`
+        : dataOf(space) !== homeData ? 'Keeps its own data' : null;
       const items: MenuItem[] = [
+        ...(dataNote ? [{ id: 'data', title: dataNote, enabled: false, symbol: 'person.crop.rectangle.stack' as const },
+          { separator: true } as MenuItem] : []),
         { id: 'rename', title: 'Rename Space…', symbol: 'pencil' },
         { title: 'Change Icon', symbol: 'face.smiling', children: spaceIcons.map(icon => ({
           id: `icon:${icon}`, title: spaceIconTitle(icon), symbol: icon, checked: space.icon === icon })) },
@@ -172,14 +181,16 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         { id: 'left', title: 'Move Left', enabled: at > 0, symbol: 'chevron.left' },
         { id: 'right', title: 'Move Right', enabled: at < all.length - 1, symbol: 'chevron.right' },
         { separator: true },
-        { id: 'new', title: 'New Space', symbol: 'plus' },
+        { id: 'new', title: 'New Space', symbol: 'plus', enabled: all.length < maxSpaces },
+        { id: 'new-own', title: 'New Space with Its Own Data', symbol: 'person.crop.rectangle.stack', enabled: all.length < maxSpaces },
         { id: 'delete', title: 'Delete Space…', enabled: all.length > 1, destructive: true, symbol: 'trash' },
       ];
       let choice: string | null;
       try { choice = await menu(items); } catch (e) { fail(e); return; }
       if (!choice) return;
       if (choice === 'rename') actions.nameGroup({ kind: 'renameSpace', spaceId });
-      else if (choice === 'new') actions.nameGroup({ kind: 'newSpace', theme: swatches[all.length % Math.max(1, swatches.length)]?.theme ?? null });
+      else if (choice === 'new' || choice === 'new-own') actions.nameGroup({ kind: 'newSpace',
+        theme: swatches[all.length % Math.max(1, swatches.length)]?.theme ?? null, ownData: choice === 'new-own' });
       else if (choice === 'save') void actions.command(`space save ${saveAs}`);
       else if (choice === 'left') spaces.moveSpace(spaceId, at - 1);
       else if (choice === 'right') spaces.moveSpace(spaceId, at + 1);
@@ -190,6 +201,9 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
           sure = await menu([
             { id: 'info', title: tabs ? `Delete ${space.name} and close its ${tabs} tab${tabs === 1 ? '' : 's'}?` : `Delete ${space.name}?`,
               enabled: false },
+            // Its data goes too when no other space uses it.
+            ...(dataLeftUnused(all, spaceId) ? [{ id: 'data', title: 'Its logins, history, passwords, bookmarks and extensions are deleted too.',
+              enabled: false }] : []),
             { id: 'yes', title: 'Delete Space', destructive: true, symbol: 'trash' },
             { id: 'no', title: 'Cancel' },
           ]);
@@ -324,7 +338,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
     favouriteKey(tabId: string): string | null {
       const s = store.getState();
       const tab = s.snapshot?.tabs.find(t => t.id === tabId);
-      return tab ? homeKey(s.pinnedHomes[tabId]?.url ?? tab.url) : null;
+      return tab ? favouriteFolderKey(s.pinnedHomes[tabId]?.url ?? tab.url, s.engineSnapshot?.data) : null;
     },
     /** A favourite dropped onto another, as in Ardia: the two make a folder, or it joins the one the other is in. */
     foldFavourite(tabId: string, targetId: string) {
@@ -390,7 +404,7 @@ export function createActions(store: BrowserStore, engine: EngineClient) {
         store.setState({ groupDialog: null });
         return;
       }
-      if (dialog.kind === 'newSpace') { store.setState({ groupDialog: null }); await spaces.createSpace(name, dialog.theme); return; }
+      if (dialog.kind === 'newSpace') { store.setState({ groupDialog: null }); await spaces.createSpace(name, dialog.theme, !!dialog.ownData); return; }
       if (dialog.kind === 'renameSpace') { store.setState({ groupDialog: null }); if (name) spaces.renameSpace(dialog.spaceId, name); return; }
       const ok = dialog.kind === 'new' ? await actions.groupTab(dialog.tabId, null, name)
         : await actions.updateGroup(dialog.groupId, { title: name });

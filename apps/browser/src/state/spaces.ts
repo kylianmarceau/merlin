@@ -13,9 +13,18 @@
 // like Zen's; each window shows its own tabs in them. A space saved with
 // :space save keeps its tabs in a file too (`saved`, the file's name).
 //
+// A space can keep its own data, as Arc's spaces have profiles: cookies,
+// logins, passwords, history, bookmarks, extensions and favourites
+// (`data`; several spaces can share it). Chromium keeps each data's tabs in
+// a window of their own, so a Merlin window is a group of them in one place
+// (overlay/.../merlin_space_windows.h): each places tabs only in its own
+// data's spaces (`ownSpaces`), and going to a space with other data shows
+// the window holding it. The interface calls this a space's data, never a
+// profile.
+//
 // Pure rules, so they are tested without a window.
 import type { SymbolName } from '../platform/shell';
-import type { Tab } from '../platform/protocol';
+import { isSpaceData, type Tab } from '../platform/protocol';
 import { parseWorkspaceTheme, type WorkspaceTheme } from './workspaceTheme';
 
 export type Space = {
@@ -27,7 +36,45 @@ export type Space = {
   theme: WorkspaceTheme | null;
   /** The name it is saved under on disk (:space save), when it is. */
   saved?: string;
+  /** Its data (Snapshot.data); absent for Home's ("Default"). */
+  data?: string;
 };
+
+/** The data Merlin started with: Home's, and every space's that doesn't keep its own. */
+export const homeData = 'Default';
+
+/** The data a space uses. */
+export function dataOf(space: Pick<Space, 'data'>) {
+  return space.data ?? homeData;
+}
+
+/**
+ * The spaces whose tabs a window holding `data` keeps: those with that data.
+ * All of them without data to go by (an engine that doesn't say).
+ */
+export function ownSpaces(spaces: readonly Space[], data: string | undefined): Space[] {
+  if (!data) return [...spaces];
+  return spaces.filter(s => dataOf(s) === data);
+}
+
+/** Whether deleting space `id` leaves its data unused, so the data goes too; never Home's. */
+export function dataLeftUnused(spaces: readonly Space[], id: string) {
+  const space = spaces.find(s => s.id === id);
+  if (!space || dataOf(space) === homeData) return false;
+  return !spaces.some(s => s.id !== id && dataOf(s) === dataOf(space));
+}
+
+/** Names as a sentence lists them: "Home", "Home and Work", "Home, Work and Study". */
+export function listNames(names: readonly string[]) {
+  if (names.length < 2) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/** The other spaces that use the same data as space `id`, by name. */
+export function sharingWith(spaces: readonly Space[], id: string) {
+  const space = spaces.find(s => s.id === id);
+  return space ? spaces.filter(s => s.id !== id && dataOf(s) === dataOf(space)).map(s => s.name) : [];
+}
 
 /** The icons a space can take (Change Icon). */
 export const spaceIcons: readonly SymbolName[] = [
@@ -91,6 +138,7 @@ export function parseSpaces(raw: string | null): Space[] {
     seen.add(s.id);
     const space: Space = { id: s.id, name, icon: s.icon, theme: parseWorkspaceTheme(s.theme) };
     if (typeof s.saved === 'string' && savedPattern.test(s.saved)) space.saved = s.saved;
+    if (typeof s.data === 'string' && s.data !== homeData && isSpaceData(s.data)) space.data = s.data;
     out.push(space);
     if (out.length >= maxSpaces) break;
   }

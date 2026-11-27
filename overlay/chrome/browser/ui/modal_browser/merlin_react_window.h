@@ -18,6 +18,10 @@ void PrewarmReactShell();
 // or an error. Browser UI thread only.
 void ClearWebKitData(const std::string& json,
                      base::OnceCallback<void(std::string error)> done);
+// Runs `callback` once `browser`'s React window has drawn and is on screen
+// (soon, when it already has, or has no React window). Browser UI thread.
+void WhenReactWindowDrawn(BrowserWindowInterface* browser,
+                          base::OnceClosure callback);
 // "Reload Interface": releases `browser`'s React root and creates another,
 // so its interface starts again from the browser's state while its tabs carry
 // on. False when `browser` has no React window. Browser UI thread only.

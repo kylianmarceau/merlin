@@ -10,6 +10,15 @@ export type FavouriteFolder = { id: string; name: string; members: string[] };
 export type GridItem = { kind: 'tab'; id: string; tab: Tab } | { kind: 'folder'; id: string; folder: FavouriteFolder; tabs: Tab[] };
 
 /** A pinned page as a folder remembers it: its origin and path, without the query or fragment. */
+/**
+ * A favourite's key in the folders: its home page's (homeKey), with the
+ * space data it belongs to for spaces that keep their own, so Gmail pinned
+ * with Home's data and with Work's are two favourites, not one.
+ */
+export function favouriteFolderKey(url: string, data: string | undefined): string {
+  return !data || data === 'Default' ? homeKey(url) : `${data}|${homeKey(url)}`;
+}
+
 export function homeKey(url: string): string {
   try {
     const u = new URL(url);

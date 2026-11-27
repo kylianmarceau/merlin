@@ -97,6 +97,10 @@ inline constexpr char kExtensionsRun[] = "extensions.run";
 inline constexpr char kExtensionsManage[] = "extensions.manage";
 inline constexpr char kDownloadsList[] = "downloads.list";
 inline constexpr char kPrivacyClearData[] = "privacy.clearData";
+inline constexpr char kSpacesNewData[] = "spaces.newData";
+inline constexpr char kSpacesShowData[] = "spaces.showData";
+inline constexpr char kSpacesMoveTabToData[] = "spaces.moveTabToData";
+inline constexpr char kSpacesDeleteData[] = "spaces.deleteData";
 // nativeOnly
 inline constexpr char kApplicationWindows[] = "application.windows";
 inline constexpr char kTestShell[] = "test.shell";
@@ -159,7 +163,7 @@ inline constexpr std::array<std::string_view, 57> kCalls = {
     kShellReport,
     kShellReloadWindow,
 };
-inline constexpr std::array<std::string_view, 25> kRequests = {
+inline constexpr std::array<std::string_view, 29> kRequests = {
     kSettingsGet,
     kSettingsSet,
     kSettingsChooseDownloadDir,
@@ -185,6 +189,10 @@ inline constexpr std::array<std::string_view, 25> kRequests = {
     kExtensionsManage,
     kDownloadsList,
     kPrivacyClearData,
+    kSpacesNewData,
+    kSpacesShowData,
+    kSpacesMoveTabToData,
+    kSpacesDeleteData,
 };
 inline constexpr std::array<std::string_view, 2> kNativeOnly = {
     kApplicationWindows,

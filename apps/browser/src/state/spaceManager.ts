@@ -1,12 +1,18 @@
 // A window's spaces at work, as Zen's space manager (gZenWorkspaces) runs
 // them: which space shows, switching between them, new tabs joining the one
 // showing, and the :space commands. The rules are in spaces.ts.
+//
+// A window holds one data's tabs (Snapshot.data): it shows and places tabs
+// in its own data's spaces, and going to a space with other data asks
+// Chromium to show the window of this Merlin window that holds it
+// (spaces.showData), whose own manager then shows the space.
 import type { EngineClient, SpaceCommand } from '../platform/protocol';
+import { removeWebKitData } from '../platform/webkit';
 import { shellPrefs } from './shellPrefs';
 import { setSpaces } from './shellPrefsStorage';
 import {
-  arrivalTab, cleanName, findSpace, firstSpace, maxSpaces, neighbour, newSpaceId, nextName, savedSpaces, spaceIcons, startingSpace,
-  strays, tabsOf, type Space,
+  arrivalTab, cleanName, dataLeftUnused, dataOf, findSpace, firstSpace, homeData, maxSpaces, neighbour, newSpaceId, nextName,
+  ownSpaces, savedSpaces, spaceIcons, startingSpace, strays, tabsOf, type Space,
 } from './spaces';
 import { refreshOverlay, type BrowserStore } from './store';
 import type { WorkspaceTheme } from './workspaceTheme';
@@ -16,9 +22,18 @@ const arrivalMs = 1500;
 /** How long tabs of a saved space being opened wait for their space to be saved before they count as strays. */
 const incomingMs = 10_000;
 let makingFirst = false;
+let makingOwn = false;
+/** Data being deleted: its windows are closing, and don't make a space for it meanwhile (shared by every window). */
+const deletingData = new Set<string>();
 
 export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e: unknown) => void) {
   const spaces = () => shellPrefs.getState().spaces;
+  /** The data this window holds; undefined from an engine that doesn't say. */
+  const windowData = () => store.getState().engineSnapshot?.data || undefined;
+  /** The spaces this window has tabs in: those with its data. */
+  const mine = () => ownSpaces(spaces(), windowData());
+  /** Whether space `id` keeps its tabs in this window. */
+  const isOwn = (id: string) => mine().some(s => s.id === id);
   /** Spaces are for normal windows that keep a session: not private windows (as in Zen) or pop-ups. */
   const enabled = () => {
     const s = store.getState().engineSnapshot;
@@ -75,11 +90,24 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
       if (store.getState().activeSpace) { store.setState({ activeSpace: null }); refreshOverlay(store); }
       return;
     }
-    const all = prefs.spaces;
+    const every = prefs.spaces;
     for (const [id, until] of incoming) if (Date.now() > until || store.getState().activeSpace === id) incoming.delete(id);
-    if (!all.length) {
+    if (!every.length) {
       // The first window to look makes the first space; every tab joins it.
       if (!makingFirst) { makingFirst = true; void setSpaces([firstSpace()]).finally(() => { makingFirst = false; }); }
+      return;
+    }
+    // Tabs are placed only in the spaces with this window's data.
+    const all = ownSpaces(every, snapshot.data || undefined);
+    if (!all.length) {
+      // Data no space has any more (its spaces deleted while it was closed):
+      // a space of its own takes its tabs.
+      if (!makingOwn && every.length < maxSpaces && !deletingData.has(snapshot.data ?? '')) {
+        makingOwn = true;
+        const data = snapshot.data && snapshot.data !== homeData ? snapshot.data : undefined;
+        void setSpaces([...every, { id: newSpaceId(), name: nextName(every), icon: freshIcon(every), theme: null, ...(data ? { data } : {}) }])
+          .finally(() => { makingOwn = false; });
+      }
       return;
     }
     const activeTab = snapshot.tabs.find(t => t.id === snapshot.activeTabId);
@@ -131,8 +159,16 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
   async function switchTo(id: string, direction?: 1 | -1) {
     const state = store.getState();
     const snapshot = state.engineSnapshot;
-    const all = spaces();
-    if (!snapshot || !state.activeSpace || id === state.activeSpace || !all.some(s => s.id === id)) return;
+    const every = spaces();
+    if (!snapshot || !state.activeSpace || id === state.activeSpace || !every.some(s => s.id === id)) return;
+    if (!isOwn(id)) {
+      // Another data's space: the window holding that data takes this one's
+      // place and shows it. This window keeps showing its own space, hidden.
+      const target = every.find(s => s.id === id)!;
+      try { await engine.request('spaces.showData', { spaceId: id, data: dataOf(target) }); } catch (e) { fail(e); }
+      return;
+    }
+    const all = mine();
     const activeTab = snapshot.tabs.find(t => t.id === snapshot.activeTabId);
     const target = arrivalTab(snapshot.tabs, id, all, state.activeSpace, state.lastSelected[id]);
     arriving = { space: id, until: Date.now() + arrivalMs };
@@ -144,10 +180,9 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
   }
 
   const save = (next: Space[]) => setSpaces(next).catch(fail);
-  const update = (id: string, change: Partial<Space>) => save(spaces().map(s => (s.id === id ? { ...s, ...change } : s)));
   /** An icon no other space uses yet, so new spaces are told apart. */
   const freshIcon = (all: Space[]) => spaceIcons.find(icon => !all.some(s => s.icon === icon)) ?? 'circle.fill';
-
+  const update = (id: string, change: Partial<Space>) => save(spaces().map(s => (s.id === id ? { ...s, ...change } : s)));
   const api = {
     sync,
     /** Shows space `id`. */
@@ -158,13 +193,24 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
       const to = active ? neighbour(spaces(), active, step) : null;
       if (to) void switchTo(to.id, step);
     },
-    /** Makes a space after the others and shows it, as Arc's New Space does. */
-    async createSpace(name?: string, theme?: WorkspaceTheme | null) {
+    /**
+     * Makes a space after the others and shows it, as Arc's New Space does:
+     * with the data of the space showing, or with data of its own (`ownData`),
+     * logged out everywhere, with its own history, passwords, bookmarks,
+     * extensions and favourites.
+     */
+    async createSpace(name?: string, theme?: WorkspaceTheme | null, ownData = false) {
       const all = spaces();
       if (!enabled()) return;
       if (all.length >= maxSpaces) { fail(new Error(`Merlin keeps at most ${maxSpaces} spaces`)); return; }
-      const space: Space = { id: newSpaceId(), name: cleanName(name ?? '') || nextName(all), icon: freshIcon(all), theme: theme ?? null };
-      await save([...all, space]);
+      const named = cleanName(name ?? '') || nextName(all);
+      let data = windowData();
+      if (ownData) {
+        try { data = await engine.request('spaces.newData', { name: named }); } catch (e) { fail(e); return; }
+      }
+      const space: Space = { id: newSpaceId(), name: named, icon: freshIcon(spaces()), theme: theme ?? null,
+        ...(data && data !== homeData ? { data } : {}) };
+      await save([...spaces(), space]);
       await switchTo(space.id, 1);
     },
     renameSpace(id: string, name: string) {
@@ -182,24 +228,53 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
       rest.splice(Math.max(0, Math.min(rest.length, index)), 0, space);
       void save(rest);
     },
-    /** Deletes a space everywhere and closes its tabs in this window; its saved file, if any, stays. */
+    /**
+     * Deletes a space everywhere and closes its tabs in this window; its saved
+     * file, if any, stays. Data no other space uses goes with it.
+     */
     async closeSpace(id: string) {
       const all = spaces();
       if (all.length < 2) { fail(new Error('Merlin keeps at least one space')); return; }
+      const gone = all.find(s => s.id === id);
+      if (!gone) return;
+      const unused = dataLeftUnused(all, id);
       const state = store.getState();
       if (state.activeSpace === id) {
         const to = neighbour(all, id, -1, false) ?? neighbour(all, id, 1, false);
         if (to) await switchTo(to.id, to === neighbour(all, id, 1, false) ? 1 : -1);
       }
       const snapshot = store.getState().engineSnapshot;
-      const doomed = snapshot ? tabsOf(snapshot.tabs, id, all, store.getState().activeSpace ?? id).filter(t => t.space === id) : [];
-      await save(all.filter(s => s.id !== id));
+      const doomed = snapshot && isOwn(id)
+        ? tabsOf(snapshot.tabs, id, mine(), store.getState().activeSpace ?? id).filter(t => t.space === id) : [];
+      // Its data, when no space has it now: its windows close with it. That
+      // comes first, so its windows never see their data without a space
+      // (they would make one for it).
+      if (unused) {
+        deletingData.add(dataOf(gone));
+        try {
+          await engine.request('spaces.deleteData', { data: dataOf(gone) });
+          // Its WebKit pages' sign-ins and site data go too.
+          await removeWebKitData(dataOf(gone)).catch(() => {});
+        } catch (e) { deletingData.delete(dataOf(gone)); fail(e); return; }
+        await save(spaces().filter(s => s.id !== id));
+        return;
+      }
+      await save(spaces().filter(s => s.id !== id));
       for (const tab of doomed) {
         try { await engine.call('tabs.close', { tabId: tab.id }); } catch { /* Already closed. */ }
       }
     },
-    /** Puts a tab in another space; the window goes with it when it is the tab showing. */
+    /**
+     * Puts a tab in another space; the window goes with it when it is the tab
+     * showing. A space with other data opens the page again there, logged in
+     * as that data is, and the tab here closes.
+     */
     moveTabToSpace(tabId: string, id: string) {
+      const target = spaces().find(s => s.id === id);
+      if (target && !isOwn(id)) {
+        void engine.request('spaces.moveTabToData', { tabId, spaceId: id, data: dataOf(target) }).catch(fail);
+        return;
+      }
       void engine.call('tabs.setSpace', { tabId, space: id }).catch(fail);
     },
     /** :space commands typed in the command line or sent by browserctl. */
@@ -224,11 +299,16 @@ export function createSpaces(store: BrowserStore, engine: EngineClient, fail: (e
           // A saved space opened here: the space kept under that name takes
           // its tabs (they join the space showing), else it becomes a space.
           const name = cleanName(event.arg) || nextName(all);
-          const known = all.find(s => s.saved === event.arg) ?? all.find(s => s.id === event.spaceId);
+          // Its tabs came into this window, so with this window's data: a
+          // space with other data under the same name doesn't take them.
+          const own = mine();
+          const known = own.find(s => s.saved === event.arg) ?? own.find(s => s.id === event.spaceId);
           arriving = { space: known?.id ?? event.spaceId, until: Date.now() + arrivalMs };
           if (known) { show(known.id); break; }
           if (all.length >= maxSpaces) { fail(new Error(`Merlin keeps at most ${maxSpaces} spaces`)); break; }
-          const space: Space = { id: event.spaceId, name, icon: freshIcon(all), theme: null, saved: event.arg };
+          const data = windowData();
+          const space: Space = { id: event.spaceId, name, icon: freshIcon(all), theme: null, saved: event.arg,
+            ...(data && data !== homeData ? { data } : {}) };
           incoming.set(space.id, Date.now() + incomingMs);
           void save([...all.map(s => (s.saved === event.arg ? { ...s, saved: undefined } : s)), space]).then(() => show(space.id));
           break;

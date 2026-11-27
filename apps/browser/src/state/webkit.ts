@@ -139,7 +139,7 @@ function reconcile(store: BrowserStore, engine: EngineClient) {
       if (visible) {
         if (engineOf(wk.url) === 'webkit') {
           patch(tab.id, { asleep: false, loading: true });
-          void loadWebKitPage(tab.id, wk.url, snapshot.private).catch(() => {});
+          void loadWebKitPage(tab.id, wk.url, snapshot.private, snapshot.data ?? '').catch(() => {});
         } else {
           remove(tab.id);
           void engine.call('navigation.open', { tabId: tab.id, text: wk.url }).catch(() => {});
@@ -167,7 +167,7 @@ function reconcile(store: BrowserStore, engine: EngineClient) {
         recheckLater(store, engine);
         break;
       case 'follow':
-        void loadWebKitPage(tab.id, step.url, snapshot.private).catch(() => {});
+        void loadWebKitPage(tab.id, step.url, snapshot.private, snapshot.data ?? '').catch(() => {});
         patch(tab.id, { url: step.url, base: null, leavingSince: now, leaveTries: 0 });
         void leave(store, engine, tab.id);
         break;
@@ -202,7 +202,7 @@ function restore(store: BrowserStore, tabId: string, base: string, url: string, 
     url, title, loading: true, canGoBack: false, canGoForward: false, crashed: false,
     windowId: store.windowId, base, leavingSince: Date.now(), leaveTries: 0,
   } });
-  loadWebKitPage(tabId, url, ephemeral).catch(() => {
+  loadWebKitPage(tabId, url, ephemeral, store.getState().engineSnapshot?.data ?? '').catch(() => {
     unavailable = true;
     remove(tabId);
   });
@@ -241,7 +241,8 @@ function open(store: BrowserStore, engine: EngineClient, tabId: string, url: str
     url, title: '', loading: true, canGoBack: false, canGoForward: false, crashed: false,
     windowId: store.windowId, base: null, leavingSince: Date.now(), leaveTries: 0,
   } });
-  loadWebKitPage(tabId, url, ephemeral).catch(() => {
+  // The space data's own WebKit store: its sign-ins are its own here too.
+  loadWebKitPage(tabId, url, ephemeral, store.getState().engineSnapshot?.data ?? '').catch(() => {
     // An older shell without the module: say so once and leave pages in Chromium.
     unavailable = true;
     remove(tabId);

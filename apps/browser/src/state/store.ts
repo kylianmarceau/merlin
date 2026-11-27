@@ -11,7 +11,7 @@ import { acceptResults, type Omnibox } from './omnibox';
 import { rememberActive, type TabDrag } from './tabDrag';
 import type { GridZone } from './favouriteGrid';
 import { dressSnapshot, type TabLooks } from './tabLooks';
-import { spaceView } from './spaces';
+import { ownSpaces, spaceView } from './spaces';
 import type { WorkspaceTheme } from './workspaceTheme';
 import type { Tab } from '../platform/protocol';
 
@@ -26,8 +26,11 @@ export type HoverCard = { tabId: string; anchor: Rect; side: 'right' | 'below' }
 /** Naming a tab group: a new one for `tabId`, or renaming `groupId`. */
 export type GroupDialog = { kind: 'new'; tabId: string } | { kind: 'rename'; groupId: string } | { kind: 'renameTab'; tabId: string }
   | { kind: 'renameFolder'; folderId: string }
-  /** Naming a new space (with the colour it will take), or renaming one. */
-  | { kind: 'newSpace'; theme: WorkspaceTheme | null } | { kind: 'renameSpace'; spaceId: string };
+  /**
+   * Naming a new space (with the colour it will take, and whether it keeps
+   * data of its own rather than the space showing's), or renaming one.
+   */
+  | { kind: 'newSpace'; theme: WorkspaceTheme | null; ownData?: boolean } | { kind: 'renameSpace'; spaceId: string };
 export type StatusMessage = { text: string; isError: boolean };
 export { currentSuggestions, type Omnibox, type SearchOwner } from './omnibox';
 
@@ -180,7 +183,9 @@ export function refreshOverlay(store: BrowserStore) {
 /** What the window shows of Chromium's snapshot: WebKit's pages and the tabs' own names laid over it, then only the space showing. */
 function present(store: BrowserStore, engineSnapshot: Snapshot) {
   const dressed = dressSnapshot(store.overlay(engineSnapshot), store.getState().tabLooks);
-  return { snapshot: spaceView(dressed, shellPrefs.getState().spaces, store.getState().activeSpace), allTabs: dressed.tabs };
+  // Only the spaces with this window's data have its tabs (spaces.ts ownSpaces).
+  const mine = ownSpaces(shellPrefs.getState().spaces, engineSnapshot.data);
+  return { snapshot: spaceView(dressed, mine, store.getState().activeSpace), allTabs: dressed.tabs };
 }
 
 /**
