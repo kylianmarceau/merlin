@@ -258,7 +258,7 @@ There is no need to disable Gatekeeper globally. If the exception is
 unavailable or the app still fails to launch, report the exact message,
 macOS version and release version.
 
-A fresh profile opens with the Night Watch film and its stereo soundtrack.
+A fresh profile opens with the Lighthouse Point film and its stereo soundtrack.
 **Mute** carries over to replay. **Skip intro** opens setup, and **Replay
 intro** is available on the source browser screen. With Reduce Motion on,
 Merlin goes straight to setup.
