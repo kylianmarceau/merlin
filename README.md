@@ -106,7 +106,8 @@ or drag Merlin from Applications to the Bin. `brew uninstall --zap --cask
 merlin` removes your data as well; otherwise, to remove it, delete:
 
 - `~/Library/Application Support/Merlin` and `~/Library/Caches/Merlin` (the
-  browser profile and its cache)
+  browser profile and its cache, with a folder for each space that keeps
+  its own data)
 - `~/.config/modal_browser` (configuration) and `~/.local/share/modal_browser`
   (saved spaces)
 - `~/Library/Preferences/io.github.kylianmarceau.merlin.plist` (interface
@@ -157,6 +158,22 @@ can be saved to a file with `:space save research` and opened later with
 up to date as you go, and your last session comes back on launch, even
 after a crash. A saved space can be tied to a project folder and opened from
 that folder's terminal with `merlin space here`.
+
+**A space's own data.** A space can keep its own data, as Arc's spaces can:
+its own logins and cookies, history, passwords, bookmarks, extensions and
+favourites, so you can be signed in to your work accounts in Work and your
+own in Personal, side by side in one window. Choose **New Space with Its Own
+Data** from a space's menu or the space menu in the top bar, or turn on
+**Keep its own data** (Tab) when you name a new space. A new space otherwise
+shares the data of the space showing, and any number of spaces can share
+data; a space's menu says which others share its data. Settings are the
+same in every space. Going to a space with other data shows that space's
+own window in the same place, so its pages don't slide in with a swipe, and
+in full screen the window enters full screen again. Moving a tab to a space
+with other data opens its page again there, signed in as that space is.
+Deleting the last space that uses some data deletes that data too; Home's
+data is never deleted. Saved spaces open with the data of the window you
+open them in.
 
 **Edit in your editor.** Press `ge` to pick a field, or `Ctrl+Shift+E` while
 typing, and the text opens in Neovim or any editor you configure. Saving
@@ -337,7 +354,8 @@ such as extension updates from the Chrome Web Store, work as in Chromium.
 [docs/PRIVACY.md](docs/PRIVACY.md) lists every file, socket and piece of
 page data Merlin touches. Everything else stays on your Mac: the Chromium
 profile in
-`~/Library/Application Support/Merlin`, `config.toml`, workspaces (`0600`
+`~/Library/Application Support/Merlin` (and beside it, the data of each
+space that keeps its own), `config.toml`, workspaces (`0600`
 JSON files), interface settings in macOS's defaults and WebKit's separate
 site data for streaming services. Text you send to your editor goes through
 a private temporary file, deleted when the edit ends (it is kept, and its
@@ -365,7 +383,8 @@ them all in one table, with how each is tested:
   browsing data clears both engines. A site's sign-in pop-ups open in their
   own window. Right-click a tab to move a site between engines (every tab on
   it moves), or turn this off in **Settings › General › Protected video**.
-- **One profile.** Use spaces and private windows to keep browsing apart.
+- **No profiles.** Spaces with their own data and private windows keep
+  browsing apart; there's no profile picker, guest mode or Chrome sign-in.
 - **No Reading mode or side panels.** Extensions that use a side panel or
   `chrome.action.openPopup()` don't get them.
 - **Chrome Web Store installs may need extra steps.** Unpacked and `.crx`

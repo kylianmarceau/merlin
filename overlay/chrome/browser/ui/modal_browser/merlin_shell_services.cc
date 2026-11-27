@@ -43,6 +43,8 @@
 #include "chrome/browser/ui/modal_browser/merlin_react_window.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
 #include "chrome/browser/ui/modal_browser/merlin_shell_vocabulary.h"
+#include "chrome/browser/ui/modal_browser/merlin_space_data.h"
+#include "chrome/browser/ui/modal_browser/merlin_space_windows.h"
 #include "chrome/browser/ui/modal_browser/merlin_urls.h"
 #include "url/origin.h"
 #include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
@@ -202,6 +204,14 @@ bool RunSettings(BrowserWindowInterface* browser,
     if (!error.empty()) {
       Fail(std::move(reply), error);
     } else {
+      // Settings are the same for every space's data; plain preferences
+      // follow by themselves (merlin_space_data.cc), these don't.
+      if (*key == shell::preference_key::kEngine ||
+          *key == shell::preference_key::kZoom) {
+        SpreadSpaceSetting(profile, *key == shell::preference_key::kEngine
+                                        ? "engine"
+                                        : "zoom");
+      }
       Reply(std::move(reply), base::Value(Preferences(browser)));
     }
   } else if (method == shell::method::kSettingsChooseDownloadDir) {
@@ -840,6 +850,10 @@ void ClearBothEngines(Profile* profile,
     request.Set("site", domain);
   }
   request.Set("private", profile->IsOffTheRecord());
+  // The space data's own WebKit store (merlin_space_data.h).
+  if (!profile->IsOffTheRecord()) {
+    request.Set("data", SpaceDataId(profile));
+  }
   ClearWebKitData(
       base::WriteJson(request).value_or("{}"),
       base::BindOnce(
@@ -918,6 +932,77 @@ bool RunBrowsingData(BrowserWindowInterface* browser,
   return true;
 }
 
+// -- Spaces' data ---------------------------------------------------------------
+
+// The shell's spaces can keep data of their own (merlin_space_data.h); each
+// Merlin window shows the right data's window for the space showing
+// (merlin_space_windows.h).
+bool RunSpaces(BrowserWindowInterface* browser,
+               const std::string& method,
+               const Dict& args,
+               ShellServiceReply& reply) {
+  auto answer = [](ShellServiceReply reply, std::string error) {
+    if (error.empty()) {
+      Reply(std::move(reply), base::Value());
+    } else {
+      Fail(std::move(reply), std::move(error));
+    }
+  };
+  const bool private_window = browser->GetProfile()->IsOffTheRecord();
+  const std::string* data = args.FindString("data");
+  const std::string* space = args.FindString("spaceId");
+  if (method == shell::method::kSpacesNewData) {
+    const std::string* name = args.FindString("name");
+    if (private_window || !name || name->size() > 256) {
+      Fail(std::move(reply), "Invalid space");
+      return true;
+    }
+    CreateSpaceData(*name, base::BindOnce(
+                               [](ShellServiceReply reply, Profile* profile) {
+                                 if (!profile) {
+                                   Fail(std::move(reply),
+                                        "The new space’s data couldn’t be made");
+                                   return;
+                                 }
+                                 Reply(std::move(reply),
+                                       base::Value(SpaceDataId(profile)));
+                               },
+                               std::move(reply)));
+  } else if (method == shell::method::kSpacesShowData) {
+    if (private_window || !data || !space) {
+      Fail(std::move(reply), "Invalid space");
+      return true;
+    }
+    ShowSpaceData(browser, *data, *space,
+                  base::BindOnce(answer, std::move(reply)));
+  } else if (method == shell::method::kSpacesMoveTabToData) {
+    const std::string* tab_id = args.FindString("tabId");
+    content::WebContents* tab = nullptr;
+    TabStripModel* strip = browser->GetTabStripModel();
+    for (int i = 0; tab_id && i < strip->count(); ++i) {
+      if (base::NumberToString(
+              strip->GetTabAtIndex(i)->GetHandle().raw_value()) == *tab_id) {
+        tab = strip->GetWebContentsAt(i);
+      }
+    }
+    if (private_window || !data || !space || !tab) {
+      Fail(std::move(reply), tab ? "Invalid space" : "That tab has closed");
+      return true;
+    }
+    MoveTabToSpaceData(browser, tab, *data, *space,
+                       base::BindOnce(answer, std::move(reply)));
+  } else if (method == shell::method::kSpacesDeleteData) {
+    if (private_window || !data) {
+      Fail(std::move(reply), "Invalid space");
+      return true;
+    }
+    answer(std::move(reply), DeleteSpaceDataAndWindows(*data));
+  } else {
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 bool RunShellService(BrowserWindowInterface* browser,
@@ -934,7 +1019,8 @@ bool RunShellService(BrowserWindowInterface* browser,
          RunBookmarks(browser, method, args, reply) ||
          RunExtensions(browser, method, args, reply) ||
          RunDownloads(browser, method, args, reply) ||
-         RunBrowsingData(browser, method, args, reply);
+         RunBrowsingData(browser, method, args, reply) ||
+         RunSpaces(browser, method, args, reply);
 }
 
 namespace {

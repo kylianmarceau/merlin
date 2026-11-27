@@ -257,8 +257,13 @@ Source and syntax checks cannot establish that these work at runtime. Compare
 benchmarks only after a fresh build, using the same engine build type and test
 conditions as the previous baseline.
 
-### One profile
+### Spaces' data, no profile UI
 
-Merlin keeps one Chromium profile and has no profile UI. The
-shell has no profiles popover or `profiles.*` requests, and Chromium's avatar
-bubble does nothing in a React window.
+Merlin has no profile UI: the shell has no profiles popover or `profiles.*`
+requests, and Chromium's avatar bubble does nothing in a React window. A
+space can keep its own data instead (`Space.data`, `Snapshot.data`): the
+snapshot says which data the window holds, the window places tabs only in
+its own data's spaces (`ownSpaces`), and `spaces.showData`,
+`spaces.newData`, `spaces.moveTabToData` and `spaces.deleteData` ask
+Chromium to show, make, move a tab to or delete another data's window. The
+interface calls it a space's data, never a profile.

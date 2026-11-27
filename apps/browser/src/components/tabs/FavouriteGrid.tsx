@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, View } from 'react-native';
-import { gridItems, homeKey, type GridItem } from '../../state/favouriteFolders';
+import { favouriteFolderKey, gridItems, type GridItem } from '../../state/favouriteFolders';
 import { columnsFor, gridHeight, placeAt, slotAt, slotOrigin, tileWidth } from '../../state/favouriteGrid';
 import { useShellPrefs } from '../../state/shellPrefs';
 import type { Tab } from '../../state/types';
@@ -45,7 +45,8 @@ export function FavouriteGrid({ pinned, tabs, activeId, width, list }: {
   const adaptive = useShellPrefs(p => p.adaptiveFavorites);
   const folders = useShellPrefs(p => p.favouriteFolders);
   const homes = useBrowser(s => s.pinnedHomes);
-  const items = useMemo(() => gridItems(pinned, t => homeKey(homes[t.id]?.url ?? t.url), folders), [pinned, homes, folders]);
+  const data = useBrowser(s => s.engineSnapshot?.data);
+  const items = useMemo(() => gridItems(pinned, t => favouriteFolderKey(homes[t.id]?.url ?? t.url, data), folders), [pinned, homes, folders, data]);
   const ids = items.map(i => i.id);
   // The tile a dragged one rests on, to make a folder with it; and the one it is resting on now, timing that.
   const [merge, setMergeState] = useState<string | null>(null);

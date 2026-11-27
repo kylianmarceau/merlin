@@ -91,7 +91,11 @@
       "extensions.run",
       "extensions.manage",
       "downloads.list",
-      "privacy.clearData"
+      "privacy.clearData",
+      "spaces.newData",
+      "spaces.showData",
+      "spaces.moveTabToData",
+      "spaces.deleteData"
     ],
     "nativeOnly": [
       "application.windows",

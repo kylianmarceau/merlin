@@ -86,6 +86,10 @@ export const requestMethods = [
   'extensions.manage',
   'downloads.list',
   'privacy.clearData',
+  'spaces.newData',
+  'spaces.showData',
+  'spaces.moveTabToData',
+  'spaces.deleteData',
 ] as const;
 export type RequestMethod = typeof requestMethods[number];
 export const nativeOnlyMethods = ['application.windows', 'test.shell'] as const;

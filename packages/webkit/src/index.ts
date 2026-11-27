@@ -22,7 +22,8 @@ export type WebKitEvent =
 
 type Subscription = { remove(): void };
 type NativeWebKit = {
-  load(tabId: string, url: string, ephemeral: boolean): Promise<void>;
+  load(tabId: string, url: string, ephemeral: boolean, data: string): Promise<void>;
+  removeData(data: string): Promise<void>;
   command(tabId: string, command: WebKitCommand): Promise<void>;
   focus(tabId: string): Promise<void>;
   close(tabId: string): Promise<void>;
@@ -34,7 +35,10 @@ type NativeWebKit = {
 let native: NativeWebKit | undefined;
 const module = () => (native ??= requireNativeModule<NativeWebKit>('MerlinWebKit'));
 
-export const loadWebKitPage = (tabId: string, url: string, ephemeral: boolean) => module().load(tabId, url, ephemeral);
+/** `data` is the tab's space data (Snapshot.data), whose WebKit store the page uses; "" keeps the page's own. */
+export const loadWebKitPage = (tabId: string, url: string, ephemeral: boolean, data = '') => module().load(tabId, url, ephemeral, data);
+/** A space's data was deleted: its WebKit pages close and its store goes. */
+export const removeWebKitData = (data: string) => module().removeData(data);
 export const webKitCommand = (tabId: string, command: WebKitCommand) => module().command(tabId, command);
 export const focusWebKitPage = (tabId: string) => module().focus(tabId);
 export const closeWebKitPage = (tabId: string) => module().close(tabId);

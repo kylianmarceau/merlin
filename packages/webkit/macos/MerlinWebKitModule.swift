@@ -19,8 +19,16 @@ public final class MerlinWebKitModule: Module {
     }
 
     // Loads `url` in the tab's WebKit page, making the page if it has none.
-    AsyncFunction("load") { (tabId: String, url: String, ephemeral: Bool) in
-      WebKitPages.shared.load(tabId: tabId, url: url, ephemeral: ephemeral)
+    // `data` is the tab's space data (Snapshot.data); "" keeps the page's own.
+    AsyncFunction("load") { (tabId: String, url: String, ephemeral: Bool, data: String) in
+      WebKitPages.shared.load(tabId: tabId, url: url, ephemeral: ephemeral, data: data)
+    }.runOnQueue(.main)
+
+    // A space's data was deleted: its WebKit pages close and its store goes.
+    AsyncFunction("removeData") { (data: String, promise: Promise) in
+      WebKitPages.shared.removeData(data) { error in
+        if let error { promise.reject("ERR_WEBKIT_DATA", error) } else { promise.resolve(nil) }
+      }
     }.runOnQueue(.main)
 
     // back, forward, reload, reloadFromOrigin or stop.

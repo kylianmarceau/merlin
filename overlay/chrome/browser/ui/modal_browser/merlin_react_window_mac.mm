@@ -6,6 +6,7 @@
 #include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_find_bar.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_autofill.h"
+#include "chrome/browser/ui/modal_browser/merlin_space_windows.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_handler.h"
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
@@ -340,8 +341,11 @@ class ReactBrowserWindow final : public BrowserWindow,
     page_host_ = widget_->SetClientContentsView(std::make_unique<views::NativeViewHost>());
     ArmClose();
     ReactWindows()[browser_.get()] = this;
+    // One of the Chromium windows of a Merlin window (merlin_space_windows.h).
+    JoinSpaceWindow(browser_);
   }
   ~ReactBrowserWindow() override {
+    LeaveSpaceWindow(browser_);
     ReactWindows().erase(browser_.get());
     weak_factory_.InvalidateWeakPtrs();
     if (content_observer_) [NSNotificationCenter.defaultCenter removeObserver:content_observer_];
@@ -375,11 +379,25 @@ class ReactBrowserWindow final : public BrowserWindow,
     root_ = nullptr;
     Mount();
   }
-  void Show() override { Mount(); HoldUntilDrawn(); BrowserActiveStateManager::From(browser_)->DidBecomeActive(); widget_->Show(); WatchWindowSight(); }
-  void ShowInactive() override { Mount(); HoldUntilDrawn(); widget_->ShowInactive(); WatchWindowSight(); }
-  void Hide() override { widget_->Hide(); UpdateWindowSight(); }
+  // A window restored as one of its Merlin window's hidden ones gets its
+  // interface ready but stays off screen (merlin_space_windows.h).
+  void Show() override {
+    Mount(); HoldUntilDrawn();
+    if (!SpaceWindowShows(browser_)) return;
+    InWindowsMenu(true);
+    BrowserActiveStateManager::From(browser_)->DidBecomeActive(); widget_->Show(); WatchWindowSight();
+  }
+  void ShowInactive() override {
+    Mount(); HoldUntilDrawn();
+    if (!SpaceWindowShows(browser_)) return;
+    InWindowsMenu(true);
+    widget_->ShowInactive(); WatchWindowSight();
+  }
+  void Hide() override { widget_->Hide(); InWindowsMenu(false); UpdateWindowSight(); }
   void Close() override { widget_->Close(); }
-  void Activate() override { widget_->Activate(); }
+  // Activating a hidden window (a notification, a link Chromium sends to
+  // it) brings it on screen in its Merlin window's place.
+  void Activate() override { if (IsHiddenSpaceWindow(browser_)) { Show(); return; } widget_->Activate(); }
   void Deactivate() override { widget_->Deactivate(); }
   bool IsActive() const override { return widget_->IsActive(); }
   bool IsVisible() const override { return widget_->IsVisible(); }
@@ -539,7 +557,8 @@ class ReactBrowserWindow final : public BrowserWindow,
     return true;
   }
   std::unique_ptr<FindBar> CreateFindBar() override { return CreateReactFindBar(browser_, widget_.get()); }
-  std::string GetWorkspace() const override { return {}; }
+  // The Merlin window it belongs to, for the session (merlin_space_windows.h).
+  std::string GetWorkspace() const override { return SpaceWindowWorkspace(browser_); }
   bool IsVisibleOnAllWorkspaces() const override { return false; }
   void ShowEmojiPanel() override { [NSApp orderFrontCharacterPalette:nil]; }
   // The system color sampler; it needs no Views anchor.
@@ -754,6 +773,7 @@ class ReactBrowserWindow final : public BrowserWindow,
   void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override { modal_observers_.RemoveObserver(observer); }
   void OnWidgetBoundsChanged(views::Widget*, const gfx::Rect&) override {
     NotifyPositionRequiresUpdate();
+    SpaceWindowMoved(browser_);
     if (auto* controller = ModalBrowserController::From(browser_)) controller->OnWindowBoundsChanged();
   }
   void OnWidgetActivationChanged(views::Widget*, bool active) override {
@@ -876,7 +896,24 @@ class ReactBrowserWindow final : public BrowserWindow,
     if (content_observer_) [NSNotificationCenter.defaultCenter removeObserver:content_observer_];
     content_observer_ = nil;
     GetNativeWindow().GetNativeNSWindow().alphaValue = 1;
+    for (auto& callback : on_drawn_)
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE, std::move(callback));
+    on_drawn_.clear();
   }
+  // A hidden window of a Merlin window isn't one to pick from the Window menu.
+  void InWindowsMenu(bool listed) {
+    if (NSWindow* window = GetNativeWindow().GetNativeNSWindow()) window.excludedFromWindowsMenu = !listed;
+  }
+ public:
+  // Runs `callback` once the window has drawn (after it is on screen).
+  void WhenDrawn(base::OnceClosure callback) {
+    if (drawn_) {
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE, std::move(callback));
+      return;
+    }
+    on_drawn_.push_back(std::move(callback));
+  }
+ private:
   void ArmClose() {
     widget_->MakeCloseSynchronous(base::BindOnce(&ReactBrowserWindow::RequestClose, weak_factory_.GetWeakPtr()));
   }
@@ -889,12 +926,15 @@ class ReactBrowserWindow final : public BrowserWindow,
   bool ShouldAskBeforeClosing() const {
     if (close_confirmed_ || browser_shutdown::IsTryingToQuit() || !WarnBeforeClosing()) return false;
     if (browser_->GetType() != BrowserWindowInterface::TYPE_NORMAL) return false;
-    return browser_->GetTabStripModel()->count() > 1;
+    // A hidden window closing with the window on screen, or with its data.
+    if (SpaceWindowClosesQuietly(browser_)) return false;
+    return SpaceWindowTabCount(browser_) > 1;
   }
   void AskBeforeClosing() {
     if (asking_to_close_) return;
     asking_to_close_ = true;
-    const int count = browser_->GetTabStripModel()->count();
+    // Its spaces' tabs with other data close with it too.
+    const int count = SpaceWindowTabCount(browser_);
     ShowShellPrompt(browser_, Dict().Set("kind", "confirm").Set("origin", "Merlin").Set("canSuppress", true)
         .Set("title", "Close this window?").Set("message", "Its " + base::NumberToString(count) + " tabs close with it.")
         .Set("actions", List().Append(Action("cancel", "Keep window")).Append(Action("close", "Close window", "danger"))),
@@ -914,6 +954,9 @@ class ReactBrowserWindow final : public BrowserWindow,
     auto* unload = UnloadController::From(browser_);
     if (!unload->HandleBeforeClose()) { ArmClose(); return; }
     KeepSharedTabsOnWindowClose(browser_);
+    // Closed by the person, not by its last tab going: the windows of its
+    // spaces with other data close too.
+    if (!browser_->GetTabStripModel()->empty()) CloseSpaceWindowGroup(browser_);
     unload->OnWindowClosing();
     if (!browser_->GetTabStripModel()->empty()) widget_->Hide();
   }
@@ -928,6 +971,7 @@ class ReactBrowserWindow final : public BrowserWindow,
   // Whether React has drawn the window, and the notification that says so.
   bool drawn_ = false;
   id content_observer_ = nil;
+  std::vector<base::OnceClosure> on_drawn_;
   // The close question is showing, or was answered "Close window".
   bool asking_to_close_ = false;
   bool close_confirmed_ = false;
@@ -966,6 +1010,14 @@ void ClearWebKitData(const std::string& json, base::OnceCallback<void(std::strin
     std::unique_ptr<Done> done(static_cast<Done*>(context));
     std::move(*done).Run(error ? std::string(error) : std::string());
   }, new Done(std::move(done)));
+}
+void WhenReactWindowDrawn(BrowserWindowInterface* browser, base::OnceClosure callback) {
+  const auto it = ReactWindows().find(browser);
+  if (it == ReactWindows().end()) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE, std::move(callback));
+    return;
+  }
+  it->second->WhenDrawn(std::move(callback));
 }
 bool RemountReactShell(BrowserWindowInterface* browser) {
   const auto it = ReactWindows().find(browser);

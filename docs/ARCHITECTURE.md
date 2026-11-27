@@ -19,7 +19,17 @@ root runs the app again with its window ID.
 A Chromium fork with a Rust core for the parts that make this browser
 different. Chromium (C++) keeps everything it already does well: rendering,
 networking, process isolation, extensions, DevTools, security UI. Merlin
-keeps a single Chromium profile and offers no profile UI (patch 0051).
+offers no profile UI (patch 0051): no picker, guest mode or profile menu.
+A space can keep its own data, as Arc's spaces have profiles; underneath,
+that data is a Chromium profile of its own (`merlin_space_data.h`). A
+Chromium window holds one profile's tabs and its session saves them into
+that profile, so a Merlin window is a group of Chromium windows in one
+place, one per space data it has tabs of: the one whose space is showing is
+on screen and the others wait hidden (`merlin_space_windows.h`). Each
+window saves its group, and whether it was the one on screen, as its
+session "workspace" string, so a restored session pairs them up again.
+Merlin's settings are copied between every space's data; Home's
+(`Default`) is the reference for data opened later.
 
 ## Layers
 

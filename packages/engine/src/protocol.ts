@@ -142,6 +142,13 @@ export type TabSwitcher = { tabs: string[]; selected: number; recent: boolean };
 export type FindState = { visible: boolean; text: string; matches: number; ordinal: number; focus: number };
 export type Snapshot = {
   session: string; windowId: string; revision: number; private: boolean;
+  /**
+   * The space data the window holds (overlay/.../merlin_space_data.h):
+   * "Default" for Home's, "Profile 1" and so on for spaces that keep their
+   * own; empty in a private window. The window shows its spaces with this
+   * data, and another window of the same Merlin window shows the others.
+   */
+  data?: string;
   /** A pop-up a page opened shows only its page and address. */
   kind?: 'normal' | 'popup';
   welcome?: '' | 'intro' | 'setup' | 'appearance' | 'workspace' | 'practice' | 'ready';
@@ -331,6 +338,23 @@ export type Requests = {
    * cache, for all time; history can't be cleared per site.
    */
   'privacy.clearData': { args: { since: number; types: ClearDataType[]; site?: string }; result: null };
+  /**
+   * New data for a space that keeps its own (cookies, logins, passwords,
+   * history, bookmarks, extensions, favourites), with Merlin's settings
+   * copied in. The result is the data's ID for Space.data. `name` is the
+   * space's, only kept as Chromium's record.
+   */
+  'spaces.newData': { args: { name: string }; result: string };
+  /**
+   * Shows space `spaceId`, whose data is `data`, in this Merlin window: the
+   * window of its group holding that data takes this one's place (made, with
+   * a new tab in the space, when there is none) and is told to show it.
+   */
+  'spaces.showData': { args: { spaceId: string; data: string }; result: null };
+  /** Opens the tab's page in space `spaceId`, with data `data`, and closes it here; the window goes with it when it was showing. */
+  'spaces.moveTabToData': { args: { tabId: string; spaceId: string; data: string }; result: null };
+  /** Deletes data no space uses any more, closing its windows. Home's ("Default") can't be deleted. */
+  'spaces.deleteData': { args: { data: string }; result: null };
 };
 export type Request = keyof Requests;
 export type PanelName = Panel;
@@ -502,6 +526,11 @@ export class EngineClient {
   }
 }
 
+/** A space data ID: "Default" or "Profile <n>" (merlin_space_data.cc IsSpaceDataId). */
+export function isSpaceData(value: string) {
+  return value === 'Default' || /^Profile [1-9][0-9]{0,8}$/.test(value);
+}
+
 export function validateSnapshot(value: unknown, windowId: string): Snapshot {
   if (!value || typeof value !== 'object') throw new Error('Invalid browser snapshot');
   const s = value as Snapshot;
@@ -513,6 +542,7 @@ export function validateSnapshot(value: unknown, windowId: string): Snapshot {
       !s.modal || ![s.modal.mode, s.modal.pending, s.modal.message].every(x => typeof x === 'string')) {
     throw new Error('Invalid browser snapshot');
   }
+  if (s.data !== undefined && (typeof s.data !== 'string' || (s.data !== '' && !isSpaceData(s.data)))) throw new Error('Invalid space data');
   if (s.welcome !== undefined && !['', 'intro', 'setup', 'appearance', 'workspace', 'practice', 'ready'].includes(s.welcome)) throw new Error('Invalid welcome stage');
   if (s.welcomeProgress !== undefined && (!s.welcomeProgress || typeof s.welcomeProgress !== 'object' ||
       (s.welcomeProgress.favorites !== undefined && (!Array.isArray(s.welcomeProgress.favorites) ||
@@ -657,6 +687,7 @@ export function validateResult<R extends Request>(method: R, value: unknown): Re
     case 'extensions.list': check(listOf(extension)(value), 'extensions'); break;
     case 'downloads.list': check(listOf(isDownload)(value), 'downloads'); break;
     case 'favicons.page': check(value === null || (isString(value) && value.startsWith('data:image/png;base64,')), 'icon'); break;
+    case 'spaces.newData': check(isString(value) && isSpaceData(value), 'space data'); break;
     default: check(value === null || value === undefined, 'acknowledgement'); return null as Requests[R]['result'];
   }
   return value as Requests[R]['result'];

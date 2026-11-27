@@ -8,6 +8,7 @@
 #include <string_view>
 #include <deque>
 #include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
+#include "chrome/browser/ui/modal_browser/merlin_space_data.h"
 #include "chrome/browser/ui/modal_browser/merlin_react_window.h"
 #include "chrome/browser/ui/modal_browser/merlin_page_identity.h"
 #include "chrome/browser/ui/modal_browser/merlin_tab_space.h"
@@ -927,6 +928,9 @@ Dict WindowState::Snapshot() {
   auto* controller = modal_browser::ModalBrowserController::From(browser_);
   return Dict().Set("session", GetRegistry().session).Set("windowId", WindowId(browser_))
     .Set("revision", revision_).Set("private", browser_->GetProfile()->IsOffTheRecord())
+    // Which space data the window holds: its spaces with that data show here
+    // (merlin_space_windows.h).
+    .Set("data", browser_->GetProfile()->IsOffTheRecord() ? std::string() : modal_browser::SpaceDataId(browser_->GetProfile()))
     .Set("kind", browser_->GetType() == BrowserWindowInterface::TYPE_POPUP ? "popup" : "normal")
     .Set("welcome", welcome).Set("welcomeTabId", lesson_tab)
     .Set("toolbarHidden", toolbar_hidden)
@@ -1963,8 +1967,17 @@ void RunShellTest(BrowserWindowInterface* browser, const Dict& args, modal_brows
   } else if (*action == test::kState) {
     // This window's, and every window's by ID.
     Dict windows;
-    for (const auto& [id, window] : GetRegistry().windows)
-      windows.Set(id, Dict().Set("ready", window->shell_ready).Set("failures", window->shell_failures));
+    for (const auto& [id, window] : GetRegistry().windows) {
+      // With the window's space data, whether it's on screen (one of each
+      // Merlin window's is: merlin_space_windows.h) and its tabs' addresses.
+      auto* b = window->browser();
+      List urls;
+      for (int i = 0; i < b->GetTabStripModel()->count(); ++i)
+        urls.Append(b->GetTabStripModel()->GetWebContentsAt(i)->GetVisibleURL().spec());
+      windows.Set(id, Dict().Set("ready", window->shell_ready).Set("failures", window->shell_failures)
+          .Set("data", b->GetProfile()->IsOffTheRecord() ? std::string() : modal_browser::SpaceDataId(b->GetProfile()))
+          .Set("visible", b->GetWindow()->IsVisible()).Set("urls", std::move(urls)));
+    }
     Dict value = Dict().Set("ready", state->shell_ready).Set("failures", state->shell_failures)
         .Set("lastError", state->shell_last_error).Set("windows", std::move(windows));
     std::move(done).Run(true, base::WriteJson(value).value_or("null"));

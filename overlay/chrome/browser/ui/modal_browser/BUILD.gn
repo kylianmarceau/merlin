@@ -185,6 +185,10 @@ source_set("modal_browser") {
       "merlin_peek_mac.mm",
       "merlin_auto_pip.cc",
       "merlin_auto_pip.h",
+      "merlin_space_data.cc",
+      "merlin_space_data.h",
+      "merlin_space_windows.cc",
+      "merlin_space_windows.h",
     ]
     frameworks = [ "AppKit.framework" ]
   }
@@ -221,6 +225,8 @@ source_set("modal_browser") {
     "//chrome/browser/prefs:util",
     "//chrome/browser/first_run",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/profiles:profile_manager",
+    "//chrome/browser/profiles:profile_util",
     "//chrome/browser/search_engines",
     "//chrome/browser/sessions",
     "//chrome/browser/ui:browser_commands",
@@ -229,6 +235,7 @@ source_set("modal_browser") {
     "//chrome/browser/ui:browser_tabstrip",
     "//chrome/browser/ui:bubble_anchor_util",
     "//chrome/browser/ui:tab_ui_helper",
+    "//chrome/browser/ui:browser_init_state",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/color:color_headers",

@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import WebKit
 
 /// Every tab's WebKit page, by the tab's ID, and how they are configured.
@@ -35,6 +36,46 @@ final class WebKitPages {
     return WKWebsiteDataStore(forIdentifier: Self.storeIdentifier(in: folder))
   }()
 
+  /// Home's data ("Default"), whose WebKit pages use the normal store.
+  static let homeData = "Default"
+  /// The stores of spaces that keep their own data (Chromium's profile
+  /// folder name, as Snapshot.data gives it), so a space's WebKit sign-ins
+  /// are its own as its Chromium ones are.
+  private var dataStores: [String: WKWebsiteDataStore] = [:]
+
+  func store(for data: String) -> WKWebsiteDataStore {
+    if data.isEmpty || data == Self.homeData { return normalStore }
+    if let store = dataStores[data] { return store }
+    let store = WKWebsiteDataStore(forIdentifier: Self.storeIdentifier(forData: data))
+    dataStores[data] = store
+    return store
+  }
+
+  /// A space's data was deleted: its WebKit pages close and its store goes.
+  func removeData(_ data: String, completion: @escaping (String?) -> Void) {
+    guard !data.isEmpty, data != Self.homeData else { return completion("Home's data can't be removed") }
+    for (tabId, page) in pages where page.data == data { close(tabId: tabId) }
+    dataStores[data] = nil
+    WKWebsiteDataStore.remove(forIdentifier: Self.storeIdentifier(forData: data)) { error in
+      completion(error.map { $0.localizedDescription })
+    }
+  }
+
+  /// The same identifier for the same data on every launch: a name-based
+  /// UUID (RFC 9562 version 5) of the data's name, and of the test folder's
+  /// own store when tests run, so tests never touch the person's.
+  private static func storeIdentifier(forData data: String) -> UUID {
+    var name = Array("merlin.space-data:\(data)".utf8)
+    if let folder = testFolder { name += Array(":\(storeIdentifier(in: folder).uuidString)".utf8) }
+    // The URL namespace, 6ba7b811-9dad-11d1-80b4-00c04fd430c8.
+    let namespace: [UInt8] = [0x6b, 0xa7, 0xb8, 0x11, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8]
+    var bytes = Array(Insecure.SHA1.hash(data: namespace + name).prefix(16))
+    bytes[6] = (bytes[6] & 0x0f) | 0x50
+    bytes[8] = (bytes[8] & 0x3f) | 0x80
+    return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                       bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
+  }
+
   /// Normal pages' icons, cached in a folder of their own.
   lazy var normalIcons = IconFetcher(cache: Self.testFolder?.appendingPathComponent("icons") ??
     FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
@@ -47,7 +88,7 @@ final class WebKitPages {
   /// data) and "cache" since `since` (seconds since the epoch), or all of a
   /// site's (a registrable domain, as WebKit's records name them). Private
   /// windows clear their own session. Icons' cache goes with either.
-  func clear(since: Double, types: Set<String>, site: String?, privateSession isPrivate: Bool,
+  func clear(since: Double, types: Set<String>, site: String?, privateSession isPrivate: Bool, data: String = "",
              completion: @escaping () -> Void) {
     var kinds = Set<String>()
     if types.contains("cookies") { kinds.formUnion(WKWebsiteDataStore.allWebsiteDataTypes().subtracting(Self.cacheTypes)) }
@@ -55,7 +96,7 @@ final class WebKitPages {
     // History: WebKit pages keep none of their own, beyond their tabs' Back lists.
     let session = isPrivate ? privateSession : nil
     guard !kinds.isEmpty, !isPrivate || session != nil else { return completion() }
-    let store = session?.store ?? normalStore
+    let store = session?.store ?? self.store(for: data)
     (session?.icons ?? normalIcons).clearCache(since: site == nil ? since : 0)
     if let site {
       // Cookies by their own domain, exactly; other data by WebKit's records,
@@ -273,14 +314,17 @@ final class WebKitPages {
     scheduleSightUpdate(for: page)
   }
 
-  func load(tabId: String, url: String, ephemeral: Bool) {
+  /// `data` is the tab's space data ("" keeps the page's own, for a page it already has).
+  func load(tabId: String, url: String, ephemeral: Bool, data: String = "") {
     guard let target = URL(string: url), let scheme = target.scheme?.lowercased(), scheme == "https" || scheme == "http" else { return }
-    if let page = pages[tabId], page.ephemeral == ephemeral {
+    if let page = pages[tabId], page.ephemeral == ephemeral, data.isEmpty || page.data == data {
       page.load(target)
       return
     }
     close(tabId: tabId)
-    let page = WebKitPage(tabId: tabId, ephemeral: ephemeral, configuration: configuration(ephemeral: ephemeral))
+    let pageData = data.isEmpty ? Self.homeData : data
+    let page = WebKitPage(tabId: tabId, ephemeral: ephemeral, data: pageData,
+                          configuration: configuration(ephemeral: ephemeral, data: pageData))
     pages[tabId] = page
     if ephemeral { openPrivateSession().pages.insert(tabId) }
     page.load(target)
@@ -348,10 +392,11 @@ final class WebKitPages {
     return "18.6"
   }()
 
-  private func configuration(ephemeral: Bool) -> WKWebViewConfiguration {
+  private func configuration(ephemeral: Bool, data: String) -> WKWebViewConfiguration {
     let configuration = WKWebViewConfiguration()
-    // WebKit keeps its own cookies and sign-ins, apart from Chromium's.
-    configuration.websiteDataStore = ephemeral ? openPrivateSession().store : normalStore
+    // WebKit keeps its own cookies and sign-ins, apart from Chromium's, and
+    // each space's data its own.
+    configuration.websiteDataStore = ephemeral ? openPrivateSession().store : store(for: data)
     configuration.applicationNameForUserAgent = "Version/\(Self.safariVersion) Safari/605.1.15"
     configuration.mediaTypesRequiringUserActionForPlayback = []
     configuration.allowsAirPlayForMediaPlayback = true
@@ -384,7 +429,8 @@ final class WebKitPages {
       let types = request["types"] as? [String] else { return completion("Invalid request") }
     let site = (request["site"] as? String).flatMap { $0.isEmpty ? nil : $0.lowercased() }
     WebKitPages.shared.clear(since: (request["since"] as? NSNumber)?.doubleValue ?? 0, types: Set(types), site: site,
-                             privateSession: request["private"] as? Bool == true) { completion(nil) }
+                             privateSession: request["private"] as? Bool == true,
+                             data: request["data"] as? String ?? "") { completion(nil) }
   }
 }
 
@@ -422,6 +468,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMe
 
   let tabId: String
   let ephemeral: Bool
+  /// The space data whose store it uses.
+  let data: String
   let webView: MerlinWKWebView
   private var observations: [NSKeyValueObservation] = []
   private var queued = false
@@ -433,9 +481,10 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMe
   /// Same-site windows the page opened (sign-in pop-ups), which keep `window.opener`.
   private var popups: [WebKitPopup] = []
 
-  init(tabId: String, ephemeral: Bool, configuration: WKWebViewConfiguration) {
+  init(tabId: String, ephemeral: Bool, data: String, configuration: WKWebViewConfiguration) {
     self.tabId = tabId
     self.ephemeral = ephemeral
+    self.data = data
     webView = MerlinWKWebView(frame: .zero, configuration: configuration)
     super.init()
     webView.navigationDelegate = self

@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Tab } from './types';
 import {
-  arrivalTab, cleanName, findSpace, maxSpaces, neighbour, nextName, parseSpaces, savedNameFor, savedSpaces, spaceView, startingSpace,
-  strays, swipeOffset, swipeOutcome, tabsOf, type Space,
+  arrivalTab, cleanName, dataLeftUnused, dataOf, findSpace, listNames, maxSpaces, neighbour, nextName, ownSpaces, parseSpaces, savedNameFor,
+  savedSpaces, sharingWith, spaceView, startingSpace, strays, swipeOffset, swipeOutcome, tabsOf, type Space,
 } from './spaces';
 
 const tab = (id: string, extra: Partial<Tab> = {}): Tab => ({ id, title: id, url: `https://${id}.test/`, loading: false, pinned: false,
@@ -111,4 +111,44 @@ test('a swipe follows the fingers, resisting past the ends', () => {
   const pulled = swipeOffset(100, 0, 3, 200);
   assert.ok(pulled > 0 && pulled < 200 * 0.12);
   assert.ok(Math.abs(swipeOffset(-100, 2, 3, 200)) < 200 * 0.35);
+});
+
+test('a window places tabs only in the spaces with its data', () => {
+  const all = [sp('home'), sp('work', { data: 'Profile 1' }), sp('study'), sp('side', { data: 'Profile 1' })];
+  assert.deepEqual(ownSpaces(all, 'Default').map(s => s.id), ['home', 'study']);
+  assert.deepEqual(ownSpaces(all, 'Profile 1').map(s => s.id), ['work', 'side']);
+  // An engine that doesn't say which data it holds sees every space, as before.
+  assert.equal(ownSpaces(all, undefined).length, 4);
+  assert.equal(dataOf(all[0]), 'Default');
+  // A tab in a space whose data another window holds is a stray here.
+  const tabs = [tab('w1', { space: 'work' }), tab('h1', { space: 'home' })];
+  assert.deepEqual(strays(tabs, ownSpaces(all, 'Default')).map(t => t.id), ['w1']);
+});
+
+test('deleting the last space with some data deletes the data, never Home\'s', () => {
+  const all = [sp('home'), sp('study'), sp('work', { data: 'Profile 1' }), sp('side', { data: 'Profile 1' }), sp('solo', { data: 'Profile 2' })];
+  assert.equal(dataLeftUnused(all, 'solo'), true);
+  assert.equal(dataLeftUnused(all, 'work'), false);
+  assert.equal(dataLeftUnused(all.filter(s => s.id !== 'side'), 'work'), true);
+  assert.equal(dataLeftUnused([sp('home'), sp('x', { data: 'Profile 1' })], 'home'), false);
+  assert.deepEqual(sharingWith(all, 'work'), ['SIDE']);
+  assert.deepEqual(sharingWith(all, 'home'), ['STUDY']);
+  assert.deepEqual(sharingWith(all, 'solo'), []);
+});
+
+test('names read as a sentence', () => {
+  assert.equal(listNames([]), '');
+  assert.equal(listNames(['Home']), 'Home');
+  assert.equal(listNames(['Home', 'Work']), 'Home and Work');
+  assert.equal(listNames(['Home', 'Work', 'Study']), 'Home, Work and Study');
+});
+
+test('a space keeps its data across a restart, and only well-formed data', () => {
+  const raw = JSON.stringify([
+    { id: 'a', name: 'A', icon: 'house', theme: null, data: 'Profile 3' },
+    { id: 'b', name: 'B', icon: 'house', theme: null, data: 'Default' },
+    { id: 'c', name: 'C', icon: 'house', theme: null, data: '../Default' },
+    { id: 'd', name: 'D', icon: 'house', theme: null, data: 'Profile 01' },
+  ]);
+  assert.deepEqual(parseSpaces(raw).map(s => s.data), ['Profile 3', undefined, undefined, undefined]);
 });

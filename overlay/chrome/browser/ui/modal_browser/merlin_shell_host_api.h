@@ -21,7 +21,8 @@ typedef struct MerlinShellAPI {
   // `json` is {"since": seconds since the epoch (0: all time), "types": any of
   // "cookies" (cookies and site data) and "cache", "site": a registrable
   // domain (optional; all time), "private": the private session's data, not
-  // the normal store's}. `done` runs once on the UI thread, possibly before
+  // the normal store's, "data": the space data whose store it is (optional;
+  // Home's, "Default", when absent)}. `done` runs once on the UI thread, possibly before
   // this returns, with NULL or an error that is valid only during the call.
   void (*clear_webkit_data)(const char* json, void (*done)(const char* error, void* context), void* context);
   // Added within ABI 1. Reloads the shared React bridge: the bundle runs
