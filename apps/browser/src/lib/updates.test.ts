@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { compareVersions, effectiveChannel, newestUpdate, type Release } from './updates';
 
 const release = (tag: string, prerelease = tag.includes('-'), draft = false): Release =>
-  ({ tag_name: tag, html_url: `https://github.com/x/merlin/releases/tag/${tag}`, prerelease, draft });
+  ({ tag_name: tag, prerelease, draft });
 
 test('versions order as semantic versions, betas before their release', () => {
   assert.ok(compareVersions('0.2.0-beta.13', '0.2.0-beta.9') > 0);
@@ -24,4 +24,20 @@ test('the automatic channel follows the running build', () => {
   assert.equal(effectiveChannel('auto', '0.2.0-beta.13'), 'beta');
   assert.equal(effectiveChannel('auto', '0.2.0'), 'stable');
   assert.equal(effectiveChannel('stable', '0.2.0-beta.13'), 'stable');
+});
+
+test('in-app updates require the arm64 DMG and checksum from the selected release', () => {
+  const tag = 'v0.2.0';
+  const url = `https://github.com/kylianmarceau/merlin/releases/download/${tag}`;
+  const image = 'Merlin-0.2.0-arm64.dmg';
+  const assets = [image, `${image}.sha256`].map(name => ({
+    name, browser_download_url: `${url}/${name}`, state: 'uploaded',
+  }));
+  const find = (assets: Release['assets']) =>
+    newestUpdate([{ ...release(tag), assets }], '0.1.0', 'stable');
+  assert.equal(find(assets)?.installable, true);
+  assert.equal(find(assets.slice(0, 1))?.installable, false);
+  assert.equal(find([{ ...assets[0], state: 'new' }, assets[1]])?.installable, false);
+  assert.equal(find([{ ...assets[0], browser_download_url: 'https://example.org/update.dmg' }, assets[1]])?.installable, false);
+  assert.equal(find(undefined)?.url, 'https://github.com/kylianmarceau/merlin/releases/tag/v0.2.0');
 });

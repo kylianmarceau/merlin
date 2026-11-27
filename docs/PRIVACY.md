@@ -12,8 +12,11 @@ are opt-in: Settings › General › Updates asks GitHub Releases
 (`api.github.com/repos/kylianmarceau/merlin/releases`) for a newer version
 only when "Check Now" is pressed, or every eight hours once "Check for
 updates automatically" is turned on (off by default). The request names
-no person or machine (its User-Agent is "Merlin") and nothing is downloaded
-or installed. Settings shows available updates with a link to the release page.
+no person or machine (its User-Agent is "Merlin"). Choosing **Update and
+Restart** downloads the selected release's checksum and disk image from
+GitHub. Merlin verifies the download and the app's release signature
+before replacing the app bundle. The updater uses a temporary folder
+next to the installed app and leaves browser profile data in place.
 Searches typed in the command line go to the user's default search engine through
 Chromium's own omnibox classifier, as if typed in the address bar.
 The address field asks Chromium's address-bar engine as Chromium's own

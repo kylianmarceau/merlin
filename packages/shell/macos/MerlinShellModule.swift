@@ -61,6 +61,17 @@ public final class MerlinShellModule: Module {
     Function("trace") { (line: String) in ShellTrace.write(line) }
     // Merlin's release version, stamped by scripts/package_mac.sh; nil for a local build.
     Function("releaseVersion") { Bundle.main.object(forInfoDictionaryKey: "MerlinVersion") as? String }
+    Function("canInstallUpdate") { ShellUpdate.canInstall() }
+    AsyncFunction("installUpdate") { (tag: String, current: String, promise: Promise) in
+      Task {
+        do {
+          try await ShellUpdate.install(tag: tag, current: current)
+          promise.resolve(nil)
+        } catch {
+          promise.reject("MERLIN_UPDATE_FAILED", error.localizedDescription)
+        }
+      }
+    }
     // A save panel for a file Chromium then writes, such as exported bookmarks.
     AsyncFunction("chooseSaveFile") { (name: String, promise: Promise) in
       let panel = NSSavePanel()

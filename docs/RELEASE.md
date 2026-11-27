@@ -180,9 +180,14 @@ Check `codesign --verify --deep --strict --verbose=2 /Applications/Merlin.app`.
 
 ### Security updates
 
-Updates are manual until an updater exists. Testers hear about releases by
-watching the repository. The targets (SECURITY.md): three days for a Chromium
-Stable security release, 24 hours when Google reports a fix for a bug
+The updater uses the published GitHub DMG and its matching `.sha256` file.
+Keep both asset names produced by `scripts/package_mac.sh` and sign each
+release with the existing release identity. The updater verifies the
+checksum, bundle ID, exact version and release signature before restarting.
+Changing the release signing certificate requires a manual update once.
+
+The targets in [SECURITY.md](../SECURITY.md) are three days for a Chromium
+Stable security release and 24 hours when Google reports a fix for a bug
 exploited in the wild.
 
 `scripts/package_mac.sh` is the gate: it runs `scripts/check_upstream.py`
@@ -228,7 +233,8 @@ brew install --cask kylianmarceau/tap/merlin
 
 Attempt to open Merlin, then approve it in **System Settings > Privacy &
 Security > Open Anyway**, as described below. Homebrew preserves macOS
-quarantine protections. To upgrade:
+quarantine protections. Updates can be installed [from Settings](#updating-from-settings).
+To upgrade with Homebrew:
 
 ```bash
 brew update
@@ -289,9 +295,21 @@ changes are confirmed on each Mac.
 From a checkout, run `scripts/preview_onboarding.sh /path/to/Merlin.app`
 to replay first launch using a temporary profile, configuration and workspace.
 
-To update, quit Merlin, download the newer GitHub release and replace the
-app in Applications. Keep the existing profile and configuration folders.
-macOS may require approval again for a new download.
+### Updating from Settings
+
+Open **Settings › General**, click **Check Now**, then **Update and
+Restart**. The optional **Check for updates automatically** switch checks
+GitHub every eight hours while Merlin is open. The **Update channel** menu
+controls whether the check includes beta releases.
+
+If **View Release** is the only install option, or macOS blocks the
+replacement, quit Merlin and replace it in Applications using the release
+disk image. Older versions need a manual upgrade once to gain the button.
+Keep the existing profile and configuration folders. macOS may require
+approval again for a new download.
+
+Merlin updates the app bundle in place. Homebrew records the version from
+its last cask install or upgrade.
 
 ### Install the CLI
 

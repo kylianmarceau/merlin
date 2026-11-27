@@ -14,9 +14,10 @@ Merlin picks up the fix with its next Chromium update.
 
 ## Supported versions
 
-Only the newest GitHub release gets fixes. Merlin doesn't update itself:
-`brew upgrade --cask kylianmarceau/tap/merlin` installs new releases, and
-**Watch > Custom > Releases** on this repository announces them.
+Only the newest GitHub release gets fixes. Use **Settings › General ›
+Check Now**, then **Update and Restart**, or follow the
+[manual upgrade steps](README.md#updating). **Watch › Custom › Releases**
+on this repository announces new versions.
 
 ## Chromium security updates
 

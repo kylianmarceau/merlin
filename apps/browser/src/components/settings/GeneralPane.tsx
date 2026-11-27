@@ -6,7 +6,7 @@ import { setProtectedVideoInWebKit, forgetSiteEngines, setShellPref } from '../.
 import { exportStatus } from '../../state/bookmarkExport';
 import { exportBookmarks, useDefaultBrowser, useLoginItem, type ExportOutcome } from '../../state/system';
 import type { Preferences, PreferenceKey } from '../../state/types';
-import { checkForUpdates, useUpdates } from '../../state/updates';
+import { checkForUpdates, installAvailableUpdate, useUpdates } from '../../state/updates';
 import { useAction, useActions, useSnapshot } from '../../state/window';
 import { Button, FormGroup, FormRow, Icon, ListRow, Notice, PopUp, Segmented, Spinner, Text, Toggle, geometry, space } from '../ui';
 
@@ -137,9 +137,13 @@ function Updates({ icon }: { icon?: string }) {
   const prefs = useShellPrefs(s => s);
   const state = useUpdates(s => s);
   const ready = !!state.version;
+  const { update } = state;
+  const installing = state.status === 'installing';
+  const available = state.status === 'available' && update;
   const channel = effectiveChannel(prefs.updateChannel, state.version);
-  const status = state.status === 'checking' ? 'Checking…'
-    : state.status === 'available' && state.update ? `${state.update.name} is available.`
+  const status = installing ? 'Preparing the update. Merlin will restart when it’s ready.'
+    : state.status === 'checking' ? 'Checking…'
+    : available ? `${update.name} is available.`
     : state.status === 'current' ? 'Merlin is up to date.'
     : state.status === 'failed' ? `Couldn’t check: ${state.error}`
     : state.lastCheck ? `Last checked ${new Date(state.lastCheck).toLocaleString()}.` : 'Not checked yet.';
@@ -149,18 +153,22 @@ function Updates({ icon }: { icon?: string }) {
       detail={!ready ? 'Development build' : state.status === 'current' && state.lastCheck
         ? `Checked ${new Date(state.lastCheck).toLocaleString()}.` : status}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-        {state.status === 'checking' && <Spinner />}
-        {state.status === 'available' && state.update
-          ? <Button label="View Release" variant="primary" onPress={() => { void actions.newTab(state.update!.url); actions.closePanel(); }} />
-          : <Button label="Check Now" disabled={!ready || state.status === 'checking'} onPress={() => void checkForUpdates()} />}
+        {(installing || state.status === 'checking') && <Spinner />}
+        {available && state.canInstall && update.installable
+          ? <Button label="Update and Restart" variant="primary" onPress={() => void installAvailableUpdate()} />
+          : <Button label="Check Now" disabled={!ready || installing || state.status === 'checking'} onPress={() => void checkForUpdates()} />}
       </View>
     </FormRow>
+    {state.installError && <Notice tone="error">{state.installError}</Notice>}
+    {available && <FormRow title="Release notes and disk image">
+      <Button label="View Release" onPress={() => { void actions.newTab(update.url); actions.closePanel(); }} />
+    </FormRow>}
     <FormRow title="Check for updates automatically" detail="Checks GitHub Releases every eight hours while Merlin is open.">
       <Toggle capsule label="Check for updates automatically" value={ready && prefs.updateChecks} disabled={!ready}
         onChange={on => void setShellPref('updateChecks', on)} />
     </FormRow>
     <FormRow title="Update channel" detail="Beta gets every pre-release first. Switching back to Stable never offers an older version.">
-      <PopUp label="Update channel" value={channel} disabled={!ready}
+      <PopUp label="Update channel" value={channel} disabled={!ready || installing}
         options={[{ value: 'stable', title: 'Stable' }, { value: 'beta', title: 'Beta' }]}
         onChange={v => void setShellPref('updateChannel', v)} />
     </FormRow>

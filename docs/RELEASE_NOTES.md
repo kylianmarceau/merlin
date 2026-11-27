@@ -1,7 +1,17 @@
-Merlin 0.5.25, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.26, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.26
+
+* **Update Merlin from Settings.** Open **Settings › General**, choose
+  **Check Now**, then **Update and Restart**. Merlin verifies the GitHub
+  download and reopens after installing it. You can turn on **Check for
+  updates automatically** to check every eight hours while Merlin is open.
+  Install 0.5.26 once with Homebrew or the disk image to get the button.
+
+The separate Chromium `browser_tests` binary was unavailable for this release.
 
 ## What's new in 0.5.25
 

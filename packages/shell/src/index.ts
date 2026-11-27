@@ -162,6 +162,8 @@ type NativeShell = {
   setAppIcon(id: string): Promise<void>;
   copyText(text: string): Promise<void>;
   releaseVersion(): string | null;
+  canInstallUpdate(): boolean;
+  installUpdate(tag: string, current: string): Promise<void>;
   traceEnabled(): boolean;
   trace(line: string): void;
   chooseSaveFile(name: string): Promise<string | null>;
@@ -205,6 +207,10 @@ export const chooseSaveFile = (name: string) => native().chooseSaveFile(name);
 export function releaseVersion(): string | null {
   try { return native().releaseVersion() ?? null; } catch { return null; }
 }
+export function canInstallUpdate(): boolean {
+  try { return native().canInstallUpdate(); } catch { return false; }
+}
+export const installUpdate = (tag: string, current: string) => native().installUpdate(tag, current);
 /** Whether MERLIN_STARTUP_TRACE is set, so timing lines are wanted. */
 export function traceEnabled(): boolean {
   try { return native().traceEnabled(); } catch { return false; }

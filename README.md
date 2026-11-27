@@ -81,18 +81,26 @@ and favorite sites to another installation. You can replay the guide from
 
 ### Updating
 
-Merlin doesn't update itself. Quit it, then:
+Open **Settings › General**, click **Check Now**, then choose **Update and
+Restart**. Merlin downloads the release from GitHub, verifies it and
+reopens when installation finishes. Turn on **Check for updates
+automatically** to check every eight hours while Merlin is running.
+Installation starts when you choose **Update and Restart**.
+
+Older releases need one update through Homebrew or the GitHub disk image
+before they show the install button. **View Release** opens the disk image
+and release notes if you need to install manually. Your bookmarks,
+passwords, history, saved spaces and `config.toml` are kept.
+
+To upgrade with Homebrew:
 
 ```bash
 brew update
 brew upgrade --cask kylianmarceau/tap/merlin
 ```
 
-Or download the new release and replace the app in Applications. Your
-bookmarks, passwords, history, saved spaces and `config.toml` are kept.
-**Settings › General › Updates** can check GitHub for new versions (off by
-default), and **Watch › Custom › Releases** on this repository announces
-them. Releases follow Chromium's security updates: the aim is a release
+**Watch › Custom › Releases** on this repository announces new versions.
+Releases follow Chromium's security updates. The aim is a release
 within three days of a Chromium Stable security fix, and within a day for
 bugs exploited in the wild.
 
@@ -373,8 +381,6 @@ them all in one table, with how each is tested:
   certificates, still work.
 - **No Google Sync, Translate or spell-check downloads**, for the same
   reason. Bookmarks and passwords stay on your Mac.
-- **No automatic updates.** Use Homebrew or replace the app; see
-  [Updating](#updating).
 - **Streaming sites run in WebKit.** Merlin's Chromium has no Widevine.
   WebKit tabs keep their own sign-ins and have no modal keys, link hints,
   find in page, downloads, ad blocking or Chromium history; commands that

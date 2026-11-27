@@ -292,8 +292,9 @@ Merlin $VERSION for Macs with Apple Silicon, macOS $min_macos or later.
 3. Open System Settings > Privacy & Security, scroll to the message about
    Merlin and click Open Anyway. Confirm Open.
 
-To update later, quit Merlin and replace the app in Applications. Your
-bookmarks, passwords, workspaces and config are kept.
+To update later, open Settings > General and choose Check Now, then Update
+and Restart. You can also quit Merlin and replace it in Applications.
+Your bookmarks, passwords, workspaces and config are kept.
 
 Full steps, known limitations and how to report problems:
 https://github.com/kylianmarceau/merlin/blob/main/docs/RELEASE.md

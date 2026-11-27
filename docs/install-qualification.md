@@ -49,6 +49,10 @@ change, camera access granted to a site.
   "Chromium Safe Storage". (Expected once when moving from an ad-hoc release
   to the signing identity, then never again; note which happened.)
 - [ ] The site still has camera access without macOS asking again.
+- [ ] On a test install with the updater and a newer published release on
+  its channel, choose **Settings › General › Check Now › Update and
+  Restart**. Merlin reopens on the newer version, with the same bookmarks,
+  history and workspaces. Record the versions used.
 - [ ] In an existing Outlook web session, reload normally and follow a link
   that loads a new document. For an account-free test of the same browser
   path, set `MERLIN_APP` to the downloaded app and run

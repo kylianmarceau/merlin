@@ -2,14 +2,16 @@
 // helpers compare versions and pick the newest release a channel offers.
 // Pure: no network, no browser state.
 
-export type Release = { tag_name: string; html_url: string; name?: string | null; prerelease: boolean; draft: boolean };
+const RELEASES = 'https://github.com/kylianmarceau/merlin/releases';
+type Asset = { name: string; state: string; browser_download_url: string };
+export type Release = { tag_name: string; name?: string | null; prerelease: boolean; draft: boolean; assets?: Asset[] };
 export type Channel = 'stable' | 'beta';
-export type Update = { version: string; url: string; name: string };
+export type Update = { tag: string; version: string; url: string; name: string; installable: boolean };
 
 type Parsed = { core: number[]; pre: (string | number)[] };
 
 export function parseVersion(text: string): Parsed | null {
-  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/.exec(text.trim());
+  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(text);
   if (!m) return null;
   return { core: [Number(m[1]), Number(m[2]), Number(m[3])],
     pre: m[4] ? m[4].split('.').map(part => (/^\d+$/.test(part) ? Number(part) : part)) : [] };
@@ -51,9 +53,18 @@ export function effectiveChannel(choice: Channel | 'auto', current: string | nul
 export function newestUpdate(releases: readonly Release[], current: string, channel: Channel): Update | null {
   let best: Release | null = null;
   for (const r of releases) {
-    if (r.draft || !parseVersion(r.tag_name) || (channel === 'stable' && r.prerelease)) continue;
+    if (r.draft || typeof r.tag_name !== 'string' || !parseVersion(r.tag_name)) continue;
+    if (channel === 'stable' && (r.prerelease || isPrerelease(r.tag_name))) continue;
     if (compareVersions(r.tag_name, current) <= 0) continue;
     if (!best || compareVersions(r.tag_name, best.tag_name) > 0) best = r;
   }
-  return best ? { version: best.tag_name.replace(/^v/, ''), url: best.html_url, name: best.name || `Merlin ${best.tag_name.replace(/^v/, '')}` } : null;
+  if (!best) return null;
+  const tag = best.tag_name;
+  const version = tag.replace(/^v/, '');
+  const image = `Merlin-${version}-arm64.dmg`;
+  const assets = best.assets ?? [];
+  const installable = [image, `${image}.sha256`].every(name =>
+    assets.some(asset => asset.name === name && asset.state === 'uploaded' &&
+      asset.browser_download_url === `${RELEASES}/download/${tag}/${name}`));
+  return { tag, version, url: `${RELEASES}/tag/${tag}`, name: best.name || `Merlin ${version}`, installable };
 }

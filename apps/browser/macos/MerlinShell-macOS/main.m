@@ -6,11 +6,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern int MerlinRunUpdateInstaller(int pid, const char* stage, const char* current, const char* version);
+
 // ChromeMain creates BrowserCrApplication, installs Chromium's app delegate,
 // and runs its UI message loop. Starting NSApplicationMain here would give
 // React Native a competing application lifecycle and break Chromium helpers.
 int main(int argc, const char* argv[]) {
   @autoreleasepool {
+    if (argc == 6 && !strcmp(argv[1], "--merlin-install-update"))
+      return MerlinRunUpdateInstaller(atoi(argv[2]), argv[3], argv[4], argv[5]);
+
     NSString* path = [NSBundle.mainBundle.privateFrameworksPath
         stringByAppendingPathComponent:@"Merlin Framework.framework/Merlin Framework"];
     void* framework = dlopen(path.fileSystemRepresentation, RTLD_NOW | RTLD_GLOBAL);
