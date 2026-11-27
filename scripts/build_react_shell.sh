@@ -50,6 +50,8 @@ for icon in "$APP/Contents/Resources"/MerlinAppIcon-*.png; do
     rm -- "$icon"
   fi
 done
+# The same for the retired Night Watch film, replaced by Lighthouse Point.
+rm -f -- "$APP/Contents/Resources/MerlinNightWatch.mp4"
 # Packaging needs the host's symbols for crash reports (scripts/match_dsyms.py).
 [[ -d "$APP.dSYM" ]] || { echo "xcodebuild wrote no $APP.dSYM" >&2; exit 1; }
 # The Dock tile plug-in that keeps the chosen app icon after Merlin quits.

@@ -68,11 +68,11 @@ Security**, click **Open Anyway** next to the message about Merlin, then
 **Open**. You only do this once per download, and there is no need to turn
 off Gatekeeper.
 
-Night Watch opens the first time you launch Merlin. After the film, choose
-a familiar browser or **Starting fresh**. A live preview shows where tabs,
-the address field and favorites will appear. You can import data from a
-source browser on this first screen. **Customize more** opens the full set
-of questions when you choose a preset.
+Lighthouse Point, a short painted film, opens the first time you launch
+Merlin. After the film, choose a familiar browser or **Starting fresh**. A
+live preview shows where tabs, the address field and favorites will appear.
+You can import data from a source browser on this first screen. **Customize
+more** opens the full set of questions when you choose a preset.
 
 Choose **Start browsing** to use your workspace or **Take the Tour** to
 try the offline keyboard guide. **Copy setup code** brings your preferences

@@ -6,7 +6,7 @@ import { PageArea } from '../window/PageArea';
 import { Button, DragRegion, Panel, Text, WelcomeFilm, geometry, radius, setupGeometry, space, useGuideTurn, useTheme } from '../ui';
 import { SetupWizard } from './SetupWizard';
 
-const poster = require('./night-watch-poster.jpg');
+const poster = require('./lighthouse-poster.jpg');
 const fill = StyleSheet.absoluteFillObject;
 const phases = ['intro', 'setup', 'practice', 'ready'] as const;
 type Stage = Exclude<Snapshot['welcome'], '' | undefined>;
@@ -73,7 +73,7 @@ export function Welcome({ stage }: { stage: Stage }) {
       pointerEvents={current === 'intro' ? 'auto' : 'none'}
       style={[fill, { opacity: current === 'intro' ? 1 : progress.interpolate({ inputRange: [0, .9, 1], outputRange: [1, 0, 0] }) }]}>
       <Image accessible={false} source={poster} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
-      <WelcomeFilm key={take} accessible accessibilityRole="image" accessibilityLabel="Night Watch, an aurora above a Norwegian fjord"
+      <WelcomeFilm key={take} accessible accessibilityRole="image" accessibilityLabel="Lighthouse Point, a lighthouse sweeping its beam over the sea at dusk as a falcon flies in"
         style={fill} soundEnabled={current === 'intro' && !muted} onFinished={finishFilm} />
       <DragRegion style={fill} />
       <View style={{ position: 'absolute', left: space.xl, right: space.xl, bottom: space.xl,
