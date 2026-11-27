@@ -51,8 +51,8 @@ change, camera access granted to a site.
 - [ ] The site still has camera access without macOS asking again.
 - [ ] In an existing Outlook web session, reload normally and follow a link
   that loads a new document. For an account-free test of the same browser
-  path, run `scripts/run_e2e_tests.sh test_service_worker_reload` against
-  the downloaded app.
+  path, set `MERLIN_APP` to the downloaded app and run
+  `scripts/run_e2e_tests.sh test_service_worker_reload` from the release checkout.
 
 ## 3. Permission prompts
 

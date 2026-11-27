@@ -5,7 +5,7 @@ or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux a
 
 ## What's new in 0.5.25
 
-* **Fixed a tab crash on reload or link navigation in Outlook on the web.** The fix applies to Chromium pages and workers that make synchronous requests through a service worker. Normal reload works with Merlin's ad blocker enabled.
+* **Fixed a tab crash on reload or link navigation in Outlook on the web.** The fix applies to sites whose web workers make synchronous requests through a service worker. Normal reload works with Merlin's ad blocker enabled.
 
 ## What's new in 0.5.24
 

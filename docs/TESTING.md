@@ -145,19 +145,19 @@ The handler now supports the move, and the browser policy channel can
 deliver decisions while the calling worker is blocked.
 
 Affected Chromium pages share a condition: a service worker controls the
-client, and the client makes a synchronous HTTP(S) subresource request that
-receives Merlin's ad-block handler. The same handler serves documents
-(including subframes) and dedicated, shared and nested classic workers.
+client, and a dedicated, shared or nested classic worker makes a synchronous
+HTTP(S) subresource request that receives Merlin's ad-block handler.
 The failure can happen after any navigation that meets those conditions,
 including a repeat visit, session restore or a full-document link.
 First visits before a service worker takes control and hard reloads that
-bypass it take a different path. Ordinary asynchronous requests do not
-move the handler. A service worker's own requests and WebKit pages use
-separate loading paths.
+bypass it take a different path. Blink also bypasses the service worker
+for synchronous loads on the renderer's main thread, such as a page's
+synchronous XHR. Asynchronous requests do not move the handler. A service
+worker's own requests and WebKit pages use separate loading paths.
 
 Run `scripts/run_e2e_tests.sh test_service_worker_reload` for a local
 reproduction with no account required. The fixture opens a fresh document,
 registers a service worker, then uses normal reload and a link to reach
 controlled documents. It exercises `importScripts()` in three worker types,
-synchronous XHR in the page, blocking a script supplied by the service
-worker, and recovery of the network path on hard reload.
+synchronous XHR in the page and in a worker, blocking a script supplied by
+the service worker, and the network path on hard reload.
