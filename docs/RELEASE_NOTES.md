@@ -1,7 +1,11 @@
-Merlin 0.5.24, a keyboard-driven browser for macOS built on Chromium.
+Merlin 0.5.25, a keyboard-driven browser for macOS built on Chromium.
 
 **Requirements:** a Mac with Apple Silicon (M1 or later), macOS 14 Sonoma
 or later (raised from macOS 13 in 0.1.0-beta.1). Intel Macs, Windows and Linux are not supported.
+
+## What's new in 0.5.25
+
+* **Fixed a tab crash on reload or link navigation in Outlook on the web.** The fix applies to Chromium pages and workers that make synchronous requests through a service worker. Normal reload works with Merlin's ad blocker enabled.
 
 ## What's new in 0.5.24
 
