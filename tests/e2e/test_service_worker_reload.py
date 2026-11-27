@@ -34,7 +34,9 @@ class WorkerServer(PageServer):
                 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
                 self.addEventListener('fetch', event => {
                   const path = new URL(event.request.url).pathname;
-                  if (path === '/sync/import.js' || path === '/sync/ads/custom_ads.js') {
+                  if (path === '/sync/data') {
+                    event.respondWith(new Response('service worker'));
+                  } else if (path === '/sync/import.js' || path === '/sync/ads/custom_ads.js') {
                     event.respondWith(new Response("self.source = 'service worker';", {
                       headers: {'Content-Type': 'text/javascript'}
                     }));
@@ -77,9 +79,9 @@ class ServiceWorkerReloadTest(MerlinTestCase):
             cls.server.close()
             raise
 
-    def crashed(self):
+    def tab(self):
         snapshot = self.browser.snapshot()
-        return next(tab['crashed'] for tab in snapshot['tabs'] if tab['id'] == snapshot['activeTabId'])
+        return next(tab for tab in snapshot['tabs'] if tab['id'] == snapshot['activeTabId'])
 
     def test_controlled_reload_and_link_navigation(self):
         self.browser.open('/sync/page')
@@ -94,17 +96,23 @@ class ServiceWorkerReloadTest(MerlinTestCase):
         })()"""))
 
         def reload(command, source):
-            before = self.browser.eval('performance.timeOrigin')
+            self.server.clear()
             self.assertTrue(command().get('ok'))
-            self.wait(lambda: self.crashed() or self.browser.eval('performance.timeOrigin') != before,
-                      'a new document or a renderer crash')
-            self.assertFalse(self.crashed())
+            self.wait(lambda: self.server.requested('/sync/page') and not self.tab()['loading'],
+                      'the new document to finish loading')
+            self.assertFalse(self.tab()['crashed'])
             self.assertEqual(self.browser.eval('initial'), source)
 
-        reload(lambda: self.browser.command('reload!'), 'network')
-        tab = self.browser.snapshot()['activeTabId']
+        tab = self.tab()['id']
         reload(lambda: self.browser.shell_call('navigation.reload', {'tabId': tab}), 'service worker')
         self.assertTrue(self.browser.eval('!!navigator.serviceWorker.controller'))
+
+        self.assertEqual(self.browser.eval("""(() => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', '/sync/data', false);
+          xhr.send();
+          return xhr.responseText;
+        })()"""), 'service worker')
 
         # An ad response produced by the service worker must still be blocked.
         for kind in ('dedicated', 'shared', 'nested'):
@@ -117,4 +125,5 @@ class ServiceWorkerReloadTest(MerlinTestCase):
         self.wait(lambda: self.browser.active_tab()['url'].endswith('?link'), 'the link destination')
         self.wait(lambda: self.browser.eval('location.search') == '?link', 'the linked document')
         self.assertEqual(self.browser.eval('initial'), 'service worker')
-        self.assertFalse(self.crashed())
+        self.assertFalse(self.tab()['crashed'])
+        reload(lambda: self.browser.command('reload!'), 'network')
