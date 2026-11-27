@@ -133,3 +133,31 @@ the real path. Each run names the app build it tested (the host and
 framework UUIDs) and refuses an app older than its sources.
 [tests/e2e/README.md](../tests/e2e/README.md)
 describes the harness, the disposable profile and how to add a test.
+
+### Service-worker reload regression
+
+Merlin 0.5.24 could open Outlook on the web and then crash the tab on a
+normal reload or a link that loaded a new document. The renderer crash
+report led from `importScripts()` to Blink's synchronous URL loader. Blink
+moves the request handlers to a loader sequence while the caller waits.
+Merlin's ad-block handler inherited Chromium's fatal default for that move.
+The handler now supports the move, and the browser policy channel can
+deliver decisions while the calling worker is blocked.
+
+Affected Chromium pages share a condition: a service worker controls the
+client, and a dedicated, shared or nested classic worker makes a synchronous
+HTTP(S) subresource request that receives Merlin's ad-block handler.
+The failure can happen after any navigation that meets those conditions,
+including a repeat visit, session restore or a full-document link.
+First visits before a service worker takes control and hard reloads that
+bypass it take a different path. Blink also bypasses the service worker
+for synchronous loads on the renderer's main thread, such as a page's
+synchronous XHR. Asynchronous requests do not move the handler. A service
+worker's own requests and WebKit pages use separate loading paths.
+
+Run `scripts/run_e2e_tests.sh test_service_worker_reload` for a local
+reproduction with no account required. The fixture opens a fresh document,
+registers a service worker, then uses normal reload and a link to reach
+controlled documents. It exercises `importScripts()` in three worker types,
+synchronous XHR in the page and in a worker, blocking a script supplied by
+the service worker, and the network path on hard reload.

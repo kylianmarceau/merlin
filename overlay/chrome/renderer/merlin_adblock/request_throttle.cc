@@ -46,6 +46,13 @@ Registry& GetRegistry() {
   static base::NoDestructor<Registry> registry;
   return *registry;
 }
+const scoped_refptr<base::SequencedTaskRunner>& PolicyTaskRunner() {
+  // A frame or worker can be blocked waiting for its synchronous load.
+  static base::NoDestructor<scoped_refptr<base::SequencedTaskRunner>> runner(
+      base::ThreadPool::CreateSequencedTaskRunner(
+          {base::TaskPriority::USER_BLOCKING}));
+  return *runner;
+}
 scoped_refptr<FramePolicy> FindPolicy(const blink::LocalFrameToken& frame) {
   auto& registry = GetRegistry();
   base::AutoLock hold(registry.lock);
@@ -80,6 +87,11 @@ class RequestThrottle : public blink::URLLoaderThrottle {
   explicit RequestThrottle(mojo::SharedRemote<mojom::AdblockHost> document)
       : document_(std::move(document)) {}
   ~RequestThrottle() override { EndTrace(); }
+  // Blink transfers synchronous loads to a loader sequence before starting
+  // the request. The remotes are thread-safe, and the timer and weak pointers
+  // are first used on the loader sequence.
+  void DetachFromCurrentSequence() override {}
+
   void WillStartRequest(network::ResourceRequest* request,
                         bool* defer) override {
     if (!request->url.SchemeIsHTTPOrHTTPS() || request->skip_service_worker ||
@@ -196,14 +208,8 @@ void SetFrameRequestPolicy(const blink::LocalFrameToken& frame,
                            bool controlled,
                            mojo::PendingRemote<mojom::AdblockHost> host) {
   mojo::SharedRemote<mojom::AdblockHost> shared;
-  if (host.is_valid()) {
-    // The remote lives on its own sequence so neither the main thread nor the
-    // background fetch thread is needed to route replies.
-    static base::NoDestructor<scoped_refptr<base::SequencedTaskRunner>> runner(
-        base::ThreadPool::CreateSequencedTaskRunner(
-            {base::TaskPriority::USER_BLOCKING}));
-    shared.Bind(std::move(host), *runner);
-  }
+  if (host.is_valid())
+    shared.Bind(std::move(host), PolicyTaskRunner());
   auto policy =
       base::MakeRefCounted<FramePolicy>(controlled, std::move(shared));
   auto& registry = GetRegistry();
@@ -224,7 +230,7 @@ WorkerRequestPolicy::WorkerRequestPolicy(
     const blink::BrowserInterfaceBrokerProxy& broker) {
   mojo::PendingRemote<mojom::AdblockWorkerHost> remote;
   broker.GetInterface(remote.InitWithNewPipeAndPassReceiver());
-  host_.Bind(std::move(remote), base::SequencedTaskRunner::GetCurrentDefault());
+  host_.Bind(std::move(remote), PolicyTaskRunner());
 }
 WorkerRequestPolicy::~WorkerRequestPolicy() = default;
 std::unique_ptr<blink::URLLoaderThrottle> WorkerRequestPolicy::CreateThrottle(
