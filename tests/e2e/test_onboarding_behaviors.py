@@ -98,3 +98,7 @@ class OnboardingBehaviorTests(unittest.TestCase):
                 source, linked = related_tabs()
                 self.assertTrue(source.get("group"))
                 self.assertEqual(linked.get("group"), source["group"])
+                # One Merlin at a time: two instances of the same bundle ID
+                # running at once (only the test runner starts them so) miss
+                # the Option-click download hook under Chromium 159.
+                browser.close()

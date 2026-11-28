@@ -95,7 +95,10 @@ class LeanDefaultsTest(DefaultsCase):
     def test_no_field_trials(self) -> None:
         # disable_fieldtrial_testing_config: none of Chromium's test
         # experiments, and an unbranded build fetches no variations seed. The
-        # only trial is UKM's client-side sampling rate, which needs no seed.
+        # only trials are client-side ones that need no seed: UKM's sampling
+        # rate and, since Chromium 159, the client ID backup fix, which an
+        # unbranded (unknown channel) build always puts in its Default group,
+        # overriding no feature.
         self.read_page("chrome://version/?show-variations-cmd",
                        "document.getElementById('variations-cmd')?.textContent.includes('--')")
         self.assertTrue(self.browser.eval("document.getElementById('variations-seed-section').hidden"),
@@ -104,7 +107,8 @@ class LeanDefaultsTest(DefaultsCase):
         self.assertIn("--disable-field-trial-config", line.split())
         forced = next((p for p in line.split() if p.startswith("--force-fieldtrials=")), "")
         trials = [t for t in forced.split("=", 1)[-1].strip('"').split("/")[::2] if t]
-        self.assertEqual(trials, ["UkmSamplingRate"], line)
+        self.assertEqual(sorted(trials), ["ClientIdBackupCorrectnessFix", "UkmSamplingRate"], line)
+        self.assertIn("ClientIdBackupCorrectnessFix/Default/", forced, line)
 
     def test_no_hidden_search_or_tab_search_pages(self) -> None:
         # Switching tabs is what makes Chromium prewarm a search page.
