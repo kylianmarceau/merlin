@@ -1,6 +1,23 @@
+diff --git a/chrome/browser/ui/views/BUILD.gn b/chrome/browser/ui/views/BUILD.gn
+index 981e0a8107..5b122f2616 100644
+--- a/chrome/browser/ui/views/BUILD.gn
++++ b/chrome/browser/ui/views/BUILD.gn
+@@ -1622,6 +1622,10 @@ source_set("session_crashed_bubble_view") {
+     "//ui/base",
+     "//ui/views",
+   ]
++  if (is_mac) {
++    # Merlin: the shell's restore prompt for React windows.
++    deps += [ "//chrome/browser/ui/modal_browser:shell_headers" ]
++  }
+ }
+ 
+ source_set("intent_picker_bubble_view") {
+diff --git a/chrome/browser/ui/views/session_crashed_bubble_view.cc b/chrome/browser/ui/views/session_crashed_bubble_view.cc
+index fa9552d6ac..93418ee88d 100644
 --- a/chrome/browser/ui/views/session_crashed_bubble_view.cc
 +++ b/chrome/browser/ui/views/session_crashed_bubble_view.cc
-@@ -59,6 +59,10 @@
+@@ -61,6 +61,10 @@
  #include "ui/views/layout/box_layout.h"
  #include "ui/views/widget/widget.h"
  
@@ -11,7 +28,7 @@
  namespace {
  
  views::BubbleDialogDelegate* g_instance_for_test = nullptr;
-@@ -282,6 +286,12 @@
+@@ -223,6 +227,12 @@ views::BubbleDialogDelegate* ShowBubbleImpl(BrowserWindowInterface* browser,
    // TODO(webium): WebUI browser does not use BrowserView. Make an WebUI anchor
    // for the bubble.
    if (!browser_view) {
@@ -24,16 +41,3 @@
      return nullptr;
    }
  
---- a/chrome/browser/ui/views/BUILD.gn
-+++ b/chrome/browser/ui/views/BUILD.gn
-@@ -1613,6 +1613,10 @@
-     "//ui/base",
-     "//ui/views",
-   ]
-+  if (is_mac) {
-+    # Merlin: the shell's restore prompt for React windows.
-+    deps += [ "//chrome/browser/ui/modal_browser:shell_headers" ]
-+  }
- }
- 
- source_set("intent_picker_bubble_view") {

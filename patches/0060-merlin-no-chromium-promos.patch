@@ -1,7 +1,8 @@
 diff --git a/chrome/browser/feature_engagement/BUILD.gn b/chrome/browser/feature_engagement/BUILD.gn
+index 330e51fe9d..2fbcefcd77 100644
 --- a/chrome/browser/feature_engagement/BUILD.gn
 +++ b/chrome/browser/feature_engagement/BUILD.gn
-@@ -61,6 +61,11 @@ source_set("impl") {
+@@ -67,6 +67,11 @@ source_set("impl") {
      deps += [ "//chrome/browser/user_education" ]
    }
  
@@ -14,6 +15,7 @@ diff --git a/chrome/browser/feature_engagement/BUILD.gn b/chrome/browser/feature
      deps += [ "//chromeos/ash/components/growth:config_provider" ]
    }
 diff --git a/chrome/browser/feature_engagement/non_iph_promo.cc b/chrome/browser/feature_engagement/non_iph_promo.cc
+index 4fa36d8f9c..10ae4f86da 100644
 --- a/chrome/browser/feature_engagement/non_iph_promo.cc
 +++ b/chrome/browser/feature_engagement/non_iph_promo.cc
 @@ -5,15 +5,26 @@
@@ -57,9 +59,10 @@ diff --git a/chrome/browser/feature_engagement/non_iph_promo.cc b/chrome/browser
    if (!tracker->ShouldTriggerHelpUI(feature, base::PassKey<NonIphPromo>())) {
      return false;
 diff --git a/chrome/browser/user_education/BUILD.gn b/chrome/browser/user_education/BUILD.gn
+index ed728192fd..ad9a519f51 100644
 --- a/chrome/browser/user_education/BUILD.gn
 +++ b/chrome/browser/user_education/BUILD.gn
-@@ -112,6 +112,11 @@ if (is_android) {
+@@ -113,6 +113,11 @@ if (is_android) {
      if (is_chrome_for_testing) {
        deps += [ "//chrome/browser/chrome_for_testing:browser" ]
      }
@@ -72,6 +75,7 @@ diff --git a/chrome/browser/user_education/BUILD.gn b/chrome/browser/user_educat
  
    source_set("unit_tests") {
 diff --git a/chrome/browser/user_education/user_education_service_factory.cc b/chrome/browser/user_education/user_education_service_factory.cc
+index 41d1ff9404..e88b812b48 100644
 --- a/chrome/browser/user_education/user_education_service_factory.cc
 +++ b/chrome/browser/user_education/user_education_service_factory.cc
 @@ -33,6 +33,10 @@

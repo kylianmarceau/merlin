@@ -1,58 +1,27 @@
-diff --git a/third_party/blink/public/common/loader/url_loader_throttle.h b/third_party/blink/public/common/loader/url_loader_throttle.h
---- a/third_party/blink/public/common/loader/url_loader_throttle.h
-+++ b/third_party/blink/public/common/loader/url_loader_throttle.h
-@@ -68,6 +68,13 @@
-     // not deferred or has already been canceled.
-     virtual void Resume() = 0;
- 
-+    // Updates an asynchronously deferred start/redirect without retaining a
-+    // ResourceRequest pointer. URL changes must stay within the existing
-+    // target origin. skip_service_worker may only be enabled, never cleared;
-+    // CORS and other network security checks are unaffected. Returns false
-+    // outside a supported stage or if another throttle owns a conflicting URL.
-+    virtual bool UpdateDeferredRequest(const GURL& url, bool skip_service_worker);
-+
-     // Updates the response head which is deferred to be sent. This method needs
-     // to be called when the response is deferred on
-     // URLLoaderThrottle::WillProcessResponse() and before calling
-diff --git a/third_party/blink/common/loader/url_loader_throttle.cc b/third_party/blink/common/loader/url_loader_throttle.cc
---- a/third_party/blink/common/loader/url_loader_throttle.cc
-+++ b/third_party/blink/common/loader/url_loader_throttle.cc
-@@ -10,6 +10,11 @@
- #include "services/network/public/mojom/url_response_head.mojom.h"
- 
- namespace blink {
-+
-+bool URLLoaderThrottle::Delegate::UpdateDeferredRequest(const GURL& url,
-+                                                       bool skip_service_worker) {
-+  return false;
-+}
- 
- void URLLoaderThrottle::Delegate::UpdateDeferredResponseHead(
-     network::mojom::URLResponseHeadPtr new_response_head,
-diff --git a/third_party/blink/public/common/loader/throttling_url_loader.h b/third_party/blink/public/common/loader/throttling_url_loader.h
---- a/third_party/blink/public/common/loader/throttling_url_loader.h
-+++ b/third_party/blink/public/common/loader/throttling_url_loader.h
-@@ -224,6 +224,7 @@
-   void MergeRequestHeaders(
-       network::HttpRequestHeadersUpdateParams headers_update_params);
-   void UpdateRequestHeaders(network::ResourceRequest& resource_request);
-+  bool UpdateDeferredRequest(const GURL& url, bool skip_service_worker);
-   void UpdateDeferredResponseHead(
-       network::mojom::URLResponseHeadPtr new_response_head,
-       mojo::ScopedDataPipeConsumerHandle body);
-@@ -253,6 +254,7 @@
-   const char* GetStageNameForHistogram(DeferredStage stage);
- 
-   DeferredStage deferred_stage_ = DEFERRED_NONE;
-+  bool restart_after_policy_redirect_ = false;
-   bool loader_completed_ = false;
-   bool did_receive_response_ = false;
- 
+diff --git a/content/renderer/service_worker/service_worker_subresource_loader.cc b/content/renderer/service_worker/service_worker_subresource_loader.cc
+index 27b21126dd..c16eb77bef 100644
+--- a/content/renderer/service_worker/service_worker_subresource_loader.cc
++++ b/content/renderer/service_worker/service_worker_subresource_loader.cc
+@@ -1525,6 +1525,14 @@ void ServiceWorkerSubresourceLoaderFactory::CreateLoaderAndStart(
+     const network::ResourceRequest& resource_request,
+     mojo::PendingRemote<network::mojom::URLLoaderClient> client,
+     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation) {
++  // A throttle may enable bypass after this factory was selected. Respect
++  // that request-level choice while retaining the normal network factory's
++  // CORS, ORB, CSP and embedder policy chain.
++  if (resource_request.skip_service_worker) {
++    fallback_factory_->CreateLoaderAndStart(std::move(receiver), request_id, options,
++        resource_request, std::move(client), traffic_annotation);
++    return;
++  }
+   // This loader destructs itself, as we want to transparently switch to the
+   // network loader when fallback happens. When that happens the loader unbinds
+   // the request, passes the request to the fallback factory, and
 diff --git a/third_party/blink/common/loader/throttling_url_loader.cc b/third_party/blink/common/loader/throttling_url_loader.cc
+index ef4cdd0f53..898eda9fcd 100644
 --- a/third_party/blink/common/loader/throttling_url_loader.cc
 +++ b/third_party/blink/common/loader/throttling_url_loader.cc
-@@ -144,6 +144,12 @@
+@@ -144,6 +144,12 @@ class ThrottlingURLLoader::ForwardingThrottleDelegate
      loader_->StopDeferringForThrottle(throttle_);
    }
  
@@ -65,7 +34,7 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader.cc b/third_pa
    void UpdateDeferredResponseHead(
        network::mojom::URLResponseHeadPtr new_response_head,
        mojo::ScopedDataPipeConsumerHandle body) override {
-@@ -323,6 +329,17 @@
+@@ -323,6 +329,17 @@ void ThrottlingURLLoader::FollowRedirect(
      network::HttpRequestHeadersUpdateParams headers_update_params) {
    MergeRequestHeaders(std::move(headers_update_params));
  
@@ -83,7 +52,7 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader.cc b/third_pa
    if (!throttle_will_start_redirect_url_.is_empty()) {
      throttle_will_start_redirect_url_ = GURL();
      // This is a synthesized redirect, so no need to tell the URLLoader.
-@@ -909,6 +926,31 @@
+@@ -909,6 +926,31 @@ void ThrottlingURLLoader::UpdateRequestHeaders(
                                 resource_request.cors_exempt_headers);
  }
  
@@ -115,21 +84,57 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader.cc b/third_pa
  void ThrottlingURLLoader::UpdateDeferredResponseHead(
      network::mojom::URLResponseHeadPtr new_response_head,
      mojo::ScopedDataPipeConsumerHandle body) {
-diff --git a/content/renderer/service_worker/service_worker_subresource_loader.cc b/content/renderer/service_worker/service_worker_subresource_loader.cc
---- a/content/renderer/service_worker/service_worker_subresource_loader.cc
-+++ b/content/renderer/service_worker/service_worker_subresource_loader.cc
-@@ -1452,6 +1452,14 @@
-     const network::ResourceRequest& resource_request,
-     mojo::PendingRemote<network::mojom::URLLoaderClient> client,
-     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation) {
-+  // A throttle may enable bypass after this factory was selected. Respect
-+  // that request-level choice while retaining the normal network factory's
-+  // CORS, ORB, CSP and embedder policy chain.
-+  if (resource_request.skip_service_worker) {
-+    fallback_factory_->CreateLoaderAndStart(std::move(receiver), request_id, options,
-+        resource_request, std::move(client), traffic_annotation);
-+    return;
-+  }
-   // This loader destructs itself, as we want to transparently switch to the
-   // network loader when fallback happens. When that happens the loader unbinds
-   // the request, passes the request to the fallback factory, and
+diff --git a/third_party/blink/common/loader/url_loader_throttle.cc b/third_party/blink/common/loader/url_loader_throttle.cc
+index 7d4e08238d..da28793669 100644
+--- a/third_party/blink/common/loader/url_loader_throttle.cc
++++ b/third_party/blink/common/loader/url_loader_throttle.cc
+@@ -11,6 +11,11 @@
+ 
+ namespace blink {
+ 
++bool URLLoaderThrottle::Delegate::UpdateDeferredRequest(const GURL& url,
++                                                       bool skip_service_worker) {
++  return false;
++}
++
+ void URLLoaderThrottle::Delegate::UpdateDeferredResponseHead(
+     network::mojom::URLResponseHeadPtr new_response_head,
+     mojo::ScopedDataPipeConsumerHandle body) {}
+diff --git a/third_party/blink/public/common/loader/throttling_url_loader.h b/third_party/blink/public/common/loader/throttling_url_loader.h
+index c992d6f5b0..a227b4fd81 100644
+--- a/third_party/blink/public/common/loader/throttling_url_loader.h
++++ b/third_party/blink/public/common/loader/throttling_url_loader.h
+@@ -224,6 +224,7 @@ class BLINK_COMMON_EXPORT ThrottlingURLLoader
+   void MergeRequestHeaders(
+       network::HttpRequestHeadersUpdateParams headers_update_params);
+   void UpdateRequestHeaders(network::ResourceRequest& resource_request);
++  bool UpdateDeferredRequest(const GURL& url, bool skip_service_worker);
+   void UpdateDeferredResponseHead(
+       network::mojom::URLResponseHeadPtr new_response_head,
+       mojo::ScopedDataPipeConsumerHandle body);
+@@ -253,6 +254,7 @@ class BLINK_COMMON_EXPORT ThrottlingURLLoader
+   const char* GetStageNameForHistogram(DeferredStage stage);
+ 
+   DeferredStage deferred_stage_ = DEFERRED_NONE;
++  bool restart_after_policy_redirect_ = false;
+   bool loader_completed_ = false;
+   bool did_receive_response_ = false;
+ 
+diff --git a/third_party/blink/public/common/loader/url_loader_throttle.h b/third_party/blink/public/common/loader/url_loader_throttle.h
+index 4dae1e07a0..0e5af12dde 100644
+--- a/third_party/blink/public/common/loader/url_loader_throttle.h
++++ b/third_party/blink/public/common/loader/url_loader_throttle.h
+@@ -68,6 +68,13 @@ class BLINK_COMMON_EXPORT URLLoaderThrottle {
+     // not deferred or has already been canceled.
+     virtual void Resume() = 0;
+ 
++    // Updates an asynchronously deferred start/redirect without retaining a
++    // ResourceRequest pointer. URL changes must stay within the existing
++    // target origin. skip_service_worker may only be enabled, never cleared;
++    // CORS and other network security checks are unaffected. Returns false
++    // outside a supported stage or if another throttle owns a conflicting URL.
++    virtual bool UpdateDeferredRequest(const GURL& url, bool skip_service_worker);
++
+     // Updates the response head which is deferred to be sent. This method needs
+     // to be called when the response is deferred on
+     // URLLoaderThrottle::WillProcessResponse() and before calling

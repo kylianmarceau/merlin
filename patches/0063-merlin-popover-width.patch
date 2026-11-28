@@ -1,17 +1,5 @@
-diff --git a/ui/views/merlin_style.h b/ui/views/merlin_style.h
---- a/ui/views/merlin_style.h
-+++ b/ui/views/merlin_style.h
-@@ -51,6 +51,9 @@ inline constexpr int kCheckboxRadius = 4;
- inline constexpr int kCloseButtonSize = 24;
- inline constexpr int kCloseIconSize = 14;
- inline constexpr int kTitleFontSize = 14;
-+// Width of every pop-up that hangs from the toolbar or address field, after
-+// Dia's popovers. Chromium's bubble width and Merlin's own pop-ups use it.
-+inline constexpr int kPopoverWidth = 260;
- 
- // A rounded-square checkbox: filled with `fill` and a `check` mark when
- // checked, a 1.5 DIP `stroke` outline when not.
 diff --git a/chrome/browser/ui/views/page_info/page_info_bubble_view.cc b/chrome/browser/ui/views/page_info/page_info_bubble_view.cc
+index d17d6bfd09..9b255e4237 100644
 --- a/chrome/browser/ui/views/page_info/page_info_bubble_view.cc
 +++ b/chrome/browser/ui/views/page_info/page_info_bubble_view.cc
 @@ -35,6 +35,7 @@
@@ -22,7 +10,7 @@ diff --git a/chrome/browser/ui/views/page_info/page_info_bubble_view.cc b/chrome
  #include "url/gurl.h"
  
  #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-@@ -366,12 +367,15 @@ gfx::Size PageInfoBubbleView::CalculatePreferredSize(
+@@ -369,12 +370,15 @@ gfx::Size PageInfoBubbleView::CalculatePreferredSize(
      return views::View::CalculatePreferredSize(available_size);
    }
  
@@ -42,6 +30,7 @@ diff --git a/chrome/browser/ui/views/page_info/page_info_bubble_view.cc b/chrome
    }
    return gfx::Size(width,
 diff --git a/ui/views/layout/layout_provider.cc b/ui/views/layout/layout_provider.cc
+index d7de554905..5576d9668f 100644
 --- a/ui/views/layout/layout_provider.cc
 +++ b/ui/views/layout/layout_provider.cc
 @@ -13,6 +13,7 @@
@@ -63,3 +52,17 @@ diff --git a/ui/views/layout/layout_provider.cc b/ui/views/layout/layout_provide
      case DISTANCE_BUTTON_HORIZONTAL_PADDING:
        return 16;
      case DISTANCE_BUTTON_MAX_LINKABLE_WIDTH:
+diff --git a/ui/views/merlin_style.h b/ui/views/merlin_style.h
+index c6e5a69ebe..8045b06dc5 100644
+--- a/ui/views/merlin_style.h
++++ b/ui/views/merlin_style.h
+@@ -51,6 +51,9 @@ inline constexpr int kCheckboxRadius = 4;
+ inline constexpr int kCloseButtonSize = 24;
+ inline constexpr int kCloseIconSize = 14;
+ inline constexpr int kTitleFontSize = 14;
++// Width of every pop-up that hangs from the toolbar or address field, after
++// Dia's popovers. Chromium's bubble width and Merlin's own pop-ups use it.
++inline constexpr int kPopoverWidth = 260;
+ 
+ // A rounded-square checkbox: filled with `fill` and a `check` mark when
+ // checked, a 1.5 DIP `stroke` outline when not.

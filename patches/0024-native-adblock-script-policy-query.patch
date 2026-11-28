@@ -1,5 +1,18 @@
+diff --git a/third_party/blink/public/BUILD.gn b/third_party/blink/public/BUILD.gn
+index f0870ad97c..4864645f6b 100644
+--- a/third_party/blink/public/BUILD.gn
++++ b/third_party/blink/public/BUILD.gn
+@@ -372,6 +372,7 @@ source_set("blink_headers") {
+     "web/web_savable_resources_test_support.h",
+     "web/web_scoped_window_focus_allowed_indicator.h",
+     "web/web_script_execution_callback.h",
++    "web/web_script_execution_policy.h",
+     "web/web_script_forbidden_scope.h",
+     "web/web_script_source.h",
+     "web/web_script_tool_types.h",
 diff --git a/third_party/blink/public/web/web_script_execution_policy.h b/third_party/blink/public/web/web_script_execution_policy.h
 new file mode 100644
+index 0000000000..8529c21544
 --- /dev/null
 +++ b/third_party/blink/public/web/web_script_execution_policy.h
 @@ -0,0 +1,13 @@
@@ -16,8 +29,21 @@ new file mode 100644
 +BLINK_EXPORT bool IsScriptExecutionAllowed(const WebLocalFrame& frame);
 +}
 +#endif
+diff --git a/third_party/blink/renderer/core/frame/build.gni b/third_party/blink/renderer/core/frame/build.gni
+index d288038be9..f8b1507c33 100644
+--- a/third_party/blink/renderer/core/frame/build.gni
++++ b/third_party/blink/renderer/core/frame/build.gni
+@@ -234,6 +234,7 @@ blink_core_sources_frame = [
+   "web_frame_widget_impl.cc",
+   "web_frame_widget_impl.h",
+   "web_local_frame_client.cc",
++  "web_script_execution_policy.cc",
+   "web_local_frame_impl.cc",
+   "web_local_frame_impl.h",
+   "web_local_frame_observer.cc",
 diff --git a/third_party/blink/renderer/core/frame/web_script_execution_policy.cc b/third_party/blink/renderer/core/frame/web_script_execution_policy.cc
 new file mode 100644
+index 0000000000..ef97633bc9
 --- /dev/null
 +++ b/third_party/blink/renderer/core/frame/web_script_execution_policy.cc
 @@ -0,0 +1,15 @@
@@ -36,25 +62,3 @@ new file mode 100644
 +      !local->DomWindow()->IsSandboxed(network::mojom::blink::WebSandboxFlags::kScripts);
 +}
 +}
-diff --git a/third_party/blink/renderer/core/frame/build.gni b/third_party/blink/renderer/core/frame/build.gni
---- a/third_party/blink/renderer/core/frame/build.gni
-+++ b/third_party/blink/renderer/core/frame/build.gni
-@@ -233,6 +233,7 @@
-   "web_frame_widget_impl.cc",
-   "web_frame_widget_impl.h",
-   "web_local_frame_client.cc",
-+  "web_script_execution_policy.cc",
-   "web_local_frame_impl.cc",
-   "web_local_frame_impl.h",
-   "web_local_frame_observer.cc",
-diff --git a/third_party/blink/public/BUILD.gn b/third_party/blink/public/BUILD.gn
---- a/third_party/blink/public/BUILD.gn
-+++ b/third_party/blink/public/BUILD.gn
-@@ -365,6 +365,7 @@
-     "web/web_savable_resources_test_support.h",
-     "web/web_scoped_window_focus_allowed_indicator.h",
-     "web/web_script_execution_callback.h",
-+    "web/web_script_execution_policy.h",
-     "web/web_script_forbidden_scope.h",
-     "web/web_script_source.h",
-     "web/web_script_tool_types.h",

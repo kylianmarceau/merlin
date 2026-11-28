@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
-index cbb7936..d5bfda6 100644
+index 4213b85f11..1042444d55 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -5,6 +5,8 @@
@@ -11,7 +11,7 @@ index cbb7936..d5bfda6 100644
  #include "chrome/browser/merlin_adblock/network.h"
  #include "chrome/browser/merlin_adblock/handshake.h"
  #include "chrome/browser/merlin_adblock/popups.h"
-@@ -1590,6 +1592,11 @@ ChromeContentBrowserClient::GetPopupNavigationDelegateFactoryForTesting() {
+@@ -1570,6 +1572,11 @@ ChromeContentBrowserClient::GetPopupNavigationDelegateFactoryForTesting() {
  }
  
  ChromeContentBrowserClient::ChromeContentBrowserClient() {
@@ -24,7 +24,7 @@ index cbb7936..d5bfda6 100644
    extra_parts_.push_back(
        std::make_unique<ChromeContentBrowserClientPluginsPart>());
 diff --git a/content/browser/browser_interface_binders.cc b/content/browser/browser_interface_binders.cc
-index ca98f58..b80ef3c 100644
+index 6f52a293d2..5446956407 100644
 --- a/content/browser/browser_interface_binders.cc
 +++ b/content/browser/browser_interface_binders.cc
 @@ -3,6 +3,7 @@
@@ -35,7 +35,7 @@ index ca98f58..b80ef3c 100644
  
  #include <concepts>
  
-@@ -1675,6 +1676,10 @@ void PopulateBinderMapWithContext(
+@@ -1761,6 +1762,10 @@ void PopulateBinderMapWithContext(
  
  void PopulateBinderMap(DedicatedWorkerHost* host, mojo::BinderMap* map) {
    PopulateDedicatedWorkerBinders(host, map);
@@ -46,7 +46,7 @@ index ca98f58..b80ef3c 100644
  }
  
  // Shared workers
-@@ -1817,6 +1822,9 @@ void PopulateBinderMapWithContext(
+@@ -1894,6 +1899,9 @@ void PopulateBinderMapWithContext(
  
  void PopulateBinderMap(SharedWorkerHost* host, mojo::BinderMap* map) {
    PopulateSharedWorkerBinders(host, map);
@@ -57,10 +57,10 @@ index ca98f58..b80ef3c 100644
  
  
 diff --git a/content/public/browser/BUILD.gn b/content/public/browser/BUILD.gn
-index 5725a11..48bded0 100644
+index 3a629711d2..5576017de0 100644
 --- a/content/public/browser/BUILD.gn
 +++ b/content/public/browser/BUILD.gn
-@@ -551,6 +551,8 @@ source_set("browser_sources") {
+@@ -550,6 +550,8 @@ source_set("browser_sources") {
      "webrtc_log.h",
      "websocket_connection_policy.cc",
      "websocket_connection_policy.h",
@@ -71,7 +71,7 @@ index 5725a11..48bded0 100644
      "webui_config.h",
 diff --git a/content/public/browser/worker_interface_binders.cc b/content/public/browser/worker_interface_binders.cc
 new file mode 100644
-index 0000000..f0c0e73
+index 0000000000..f0c0e736b9
 --- /dev/null
 +++ b/content/public/browser/worker_interface_binders.cc
 @@ -0,0 +1,26 @@
@@ -103,7 +103,7 @@ index 0000000..f0c0e73
 +}  // namespace content
 diff --git a/content/public/browser/worker_interface_binders.h b/content/public/browser/worker_interface_binders.h
 new file mode 100644
-index 0000000..2a20496
+index 0000000000..2a20496cee
 --- /dev/null
 +++ b/content/public/browser/worker_interface_binders.h
 @@ -0,0 +1,24 @@

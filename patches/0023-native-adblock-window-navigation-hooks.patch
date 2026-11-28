@@ -1,4 +1,5 @@
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index 373a029b52..088a66e331 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -7,6 +7,7 @@
@@ -9,7 +10,7 @@ diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/ch
  
  #include <algorithm>
  #include <iterator>
-@@ -5735,6 +5736,7 @@
+@@ -5798,6 +5799,7 @@ void ChromeContentBrowserClient::RemovePresentationObserver(
  
  void ChromeContentBrowserClient::CreateThrottlesForNavigation(
      content::NavigationThrottleRegistry& registry) {
@@ -18,6 +19,7 @@ diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/ch
  }
  
 diff --git a/chrome/browser/universal_web_contents_observers.cc b/chrome/browser/universal_web_contents_observers.cc
+index 9e06524cd4..dbb2c627f7 100644
 --- a/chrome/browser/universal_web_contents_observers.cc
 +++ b/chrome/browser/universal_web_contents_observers.cc
 @@ -3,6 +3,7 @@
@@ -34,5 +36,5 @@ diff --git a/chrome/browser/universal_web_contents_observers.cc b/chrome/browser
  void AttachUniversalWebContentsObservers(content::WebContents* web_contents) {
 +  merlin_adblock::ObserveWindows(web_contents);
    // This function is for attaching *universal* WebContentsObservers - ones that
-   // should be attached to *every* WebContents.  Such universal observers and/or
+   // should be attached to *every* WebContents. Such universal observers and/or
    // helpers are relatively rare and therefore only a limited set of observers

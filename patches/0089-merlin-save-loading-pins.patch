@@ -1,6 +1,8 @@
+diff --git a/chrome/browser/ui/tabs/pinned_tab_codec.cc b/chrome/browser/ui/tabs/pinned_tab_codec.cc
+index cc444160cb..fe3cd96409 100644
 --- a/chrome/browser/ui/tabs/pinned_tab_codec.cc
 +++ b/chrome/browser/ui/tabs/pinned_tab_codec.cc
-@@ -47,7 +47,12 @@
+@@ -47,7 +47,12 @@ void EncodePinnedTabs(BrowserWindowInterface* browser,
      content::WebContents* web_contents = tab->GetContents();
      NavigationEntry* entry =
          web_contents->GetController().GetLastCommittedEntry();

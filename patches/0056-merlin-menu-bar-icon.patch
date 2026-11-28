@@ -1,8 +1,8 @@
 diff --git a/chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc b/chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc
-index b01a62eae2..3cd7945849 100644
+index b15517cc28..a20093ed7f 100644
 --- a/chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc
 +++ b/chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.cc
-@@ -178,6 +178,8 @@ void OmniboxEverywhereBackgroundModeManager::ShowStatusIcon() {
+@@ -209,6 +209,8 @@ void OmniboxEverywhereBackgroundModeManager::ShowStatusIcon() {
      status_icon_->AddObserver(this);
  #if BUILDFLAG(IS_MAC)
      status_icon_->SetOpenMenuWithSecondaryClick(true);
@@ -12,10 +12,10 @@ index b01a62eae2..3cd7945849 100644
      UpdateStatusIconContextMenu();
    }
 diff --git a/chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc b/chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc
-index e9f0242490..4876cd4b24 100644
+index 78d9a2d6f5..e186e8c5b0 100644
 --- a/chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc
 +++ b/chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_icon.cc
-@@ -28,9 +28,11 @@ gfx::ImageSkia GetBaseIcon() {
+@@ -42,9 +42,11 @@ gfx::ImageSkia GetOmniboxEverywhereIcon(
  #if BUILDFLAG(IS_WIN)
    constexpr int kIconDipSize = 32;
  #else
@@ -27,5 +27,5 @@ index e9f0242490..4876cd4b24 100644
 -  return gfx::CreateVectorIcon(vector_icons::kSearchIcon, kIconDipSize,
 +  return gfx::CreateVectorIcon(vector_icons::kProductIcon, kIconDipSize,
                                 SK_ColorBLACK);
- #endif
  }
+ 

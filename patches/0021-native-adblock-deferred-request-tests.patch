@@ -1,7 +1,8 @@
 diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b/third_party/blink/common/loader/throttling_url_loader_unittest.cc
+index b61b731534..af1a360de2 100644
 --- a/third_party/blink/common/loader/throttling_url_loader_unittest.cc
 +++ b/third_party/blink/common/loader/throttling_url_loader_unittest.cc
-@@ -470,6 +470,72 @@
+@@ -470,6 +470,72 @@ TEST_F(ThrottlingURLLoaderTest, DeleteBeforeStart) {
    EXPECT_EQ(0u, client_.on_complete_called());
  }
  

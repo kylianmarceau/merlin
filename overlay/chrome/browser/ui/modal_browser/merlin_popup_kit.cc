@@ -14,6 +14,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
+#include "ui/color/color_variant.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/font_list.h"
@@ -139,7 +140,7 @@ void StyleDecisionButtons(views::View* container,
     owned_other->SetMinSize(gfx::Size(0, kButtonHeight - 4));
     owned_other->SetLabelStyle(views::style::STYLE_BODY_4);
     owned_other->SetEnabledTextColors(ui::kColorSysOnSurfaceSubtle);
-    owned_other->SetBgColorOverrideDeprecated(SK_ColorTRANSPARENT);
+    owned_other->SetBgColorOverride(ui::ColorVariant(SK_ColorTRANSPARENT));
     container->AddChildView(std::move(owned_other));
   }
 }

@@ -1,3 +1,17 @@
+diff --git a/chrome/browser/ui/cocoa/BUILD.gn b/chrome/browser/ui/cocoa/BUILD.gn
+index 67df703c02..9ec70aa12c 100644
+--- a/chrome/browser/ui/cocoa/BUILD.gn
++++ b/chrome/browser/ui/cocoa/BUILD.gn
+@@ -118,6 +118,7 @@ source_set("cocoa") {
+   public_deps = [ "//chrome/browser/ui:browser_live_tab_context" ]
+ 
+   deps = [
++    "//chrome/browser/ui/modal_browser:shell_headers",
+     "//chrome/app:command_ids",
+     "//chrome/app/theme:chrome_unscaled_resources_grit",
+     "//chrome/browser:app_controller_mac",
+diff --git a/chrome/browser/ui/cocoa/history_overlay_controller.mm b/chrome/browser/ui/cocoa/history_overlay_controller.mm
+index 278340d773..aa86fc8411 100644
 --- a/chrome/browser/ui/cocoa/history_overlay_controller.mm
 +++ b/chrome/browser/ui/cocoa/history_overlay_controller.mm
 @@ -14,6 +14,7 @@
@@ -8,7 +22,7 @@
  
  // Constants ///////////////////////////////////////////////////////////////////
  
-@@ -98,6 +99,10 @@
+@@ -98,6 +99,10 @@ - (void)setShieldAlpha:(CGFloat)shieldAlpha {
  @implementation HistoryOverlayController {
    HistoryOverlayMode _mode;
    HistoryOverlayView* __strong _contentView;
@@ -19,7 +33,7 @@
  }
  
  - (instancetype)initForMode:(HistoryOverlayMode)mode {
-@@ -127,6 +132,13 @@
+@@ -127,6 +132,13 @@ - (void)loadView {
  }
  
  - (void)setProgress:(CGFloat)gestureAmount finished:(BOOL)finished {
@@ -33,7 +47,7 @@
    DCHECK(self.view.superview);
    NSRect parentFrame = self.view.superview.frame;
    // When tracking the gesture, the height is constant and the alpha value
-@@ -160,6 +172,12 @@
+@@ -160,6 +172,12 @@ - (void)setProgress:(CGFloat)gestureAmount finished:(BOOL)finished {
  }
  
  - (void)showPanelForView:(NSView*)view {
@@ -46,7 +60,7 @@
    // The self.view should be added to the hierarchy before its initial position
    // can be set, because setProgress:finished: depends on the superview's frame.
    [view addSubview:self.view];
-@@ -167,6 +185,12 @@
+@@ -167,6 +185,12 @@ - (void)showPanelForView:(NSView*)view {
  }
  
  - (void)dismiss {
@@ -59,13 +73,3 @@
    const CGFloat kFadeOutDurationSeconds = 0.4;
  
    [NSAnimationContext beginGrouping];
---- a/chrome/browser/ui/cocoa/BUILD.gn
-+++ b/chrome/browser/ui/cocoa/BUILD.gn
-@@ -120,6 +120,7 @@
-   public_deps = [ "//chrome/browser/ui:browser_live_tab_context" ]
- 
-   deps = [
-+    "//chrome/browser/ui/modal_browser:shell_headers",
-     "//chrome/app:command_ids",
-     "//chrome/app/theme:chrome_unscaled_resources_grit",
-     "//chrome/browser:app_controller_mac",

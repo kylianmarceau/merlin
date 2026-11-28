@@ -1,17 +1,31 @@
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index 59ea11aeb7..2339fad164 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -1623,6 +1623,7 @@ source_set("core") {
+       "//chrome/browser/ui/webui/util",
+       # Merlin's colours for Chromium's own surfaces (patches/0038).
+       "//chrome/browser/ui/modal_browser:theme",
++      "//chrome/browser/ui/modal_browser:shell_headers",
+       "//chrome/browser/ui/webui/webnn_internals",
+       "//chrome/browser/ui/webui/webnn_internals:mojo_bindings",
+       "//chrome/browser/ui/webui/whats_new",
+diff --git a/chrome/browser/chrome_browser_main.cc b/chrome/browser/chrome_browser_main.cc
+index 21051d11a5..61f2b8fc58 100644
 --- a/chrome/browser/chrome_browser_main.cc
 +++ b/chrome/browser/chrome_browser_main.cc
-@@ -313,6 +313,10 @@
- #if defined(TOOLKIT_VIEWS)
- #include "chrome/browser/ui/views/chrome_browser_main_extra_parts_views.h"
+@@ -320,6 +320,10 @@
  #include "chrome/browser/ui/modal_browser/merlin_theme.h"
-+#endif
-+
-+#if BUILDFLAG(IS_MAC)
-+#include "chrome/browser/ui/modal_browser/merlin_react_window.h"
  #endif
  
++#if BUILDFLAG(IS_MAC)
++#include "chrome/browser/ui/modal_browser/merlin_react_window.h"
++#endif
++
  #if defined(USE_AURA)
-@@ -1457,6 +1461,11 @@
+ #include "ui/aura/env.h"
+ #endif
+@@ -1489,6 +1493,11 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
  
  int ChromeBrowserMainParts::PostCreateThreads() {
    TRACE_EVENT("startup", "ChromeBrowserMainParts::PostCreateThreads");
@@ -23,13 +37,3 @@
    // This task should be posted after the IO thread starts, and prior to the
    // base version of the function being invoked. It is functionally okay to post
    // this task in method ChromeBrowserMainParts::BrowserThreadsStarted() which
---- a/chrome/browser/BUILD.gn
-+++ b/chrome/browser/BUILD.gn
-@@ -1563,6 +1563,7 @@
- 
-       # Merlin's colours for Chromium's own surfaces (patches/0038).
-       "//chrome/browser/ui/modal_browser:theme",
-+      "//chrome/browser/ui/modal_browser:shell_headers",
-     ]
-   }
- 

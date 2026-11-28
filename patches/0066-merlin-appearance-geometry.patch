@@ -1,3 +1,5 @@
+diff --git a/chrome/browser/ui/layout_constants.cc b/chrome/browser/ui/layout_constants.cc
+index 01c89d9f34..c548001aac 100644
 --- a/chrome/browser/ui/layout_constants.cc
 +++ b/chrome/browser/ui/layout_constants.cc
 @@ -12,6 +12,7 @@
@@ -21,9 +23,11 @@
    switch (constant) {
      case LayoutConstant::kAppMenuProfileRowAvatarIconSize:
        return 24;
+diff --git a/ui/views/bubble/bubble_border.cc b/ui/views/bubble/bubble_border.cc
+index e2f44ce76e..8d5911af09 100644
 --- a/ui/views/bubble/bubble_border.cc
 +++ b/ui/views/bubble/bubble_border.cc
-@@ -508,6 +508,10 @@
+@@ -509,6 +509,10 @@ gfx::Vector2d BubbleBorder::GetContentsBoundsOffsetToPlaceVisibleArrow(
        visible_arrow_insets.top() - visible_arrow_insets.bottom());
  }
  
@@ -34,7 +38,7 @@
  void BubbleBorder::Paint(const views::View& view, gfx::Canvas* canvas) {
    if (shadow_ == NO_SHADOW) {
      PaintNoShadow(view, canvas);
-@@ -767,7 +771,7 @@
+@@ -770,7 +774,7 @@ void BubbleBorder::CalculateVisibleArrowRect(
  SkRRect BubbleBorder::GetClientRect(const View& view) const {
    gfx::RectF bounds(view.GetLocalBounds());
    bounds.Inset(gfx::InsetsF(GetInsets()));
@@ -43,9 +47,11 @@
  }
  
  bool BubbleBorder::ShouldDrawStroke() const {
+diff --git a/ui/views/bubble/bubble_border.h b/ui/views/bubble/bubble_border.h
+index 77bb3f2590..8aac57346a 100644
 --- a/ui/views/bubble/bubble_border.h
 +++ b/ui/views/bubble/bubble_border.h
-@@ -173,9 +173,7 @@
+@@ -173,9 +173,7 @@ class VIEWS_EXPORT BubbleBorder : public Border {
    void set_rounded_corners(const gfx::RoundedCornersF& radii) {
      rounded_corners_ = radii;
    }
@@ -56,9 +62,11 @@
  
    // Get or set the arrow type.
    void set_arrow(Arrow arrow) { arrow_ = arrow; }
+diff --git a/ui/views/bubble/bubble_frame_view.cc b/ui/views/bubble/bubble_frame_view.cc
+index 2060ffe009..57e8d43862 100644
 --- a/ui/views/bubble/bubble_frame_view.cc
 +++ b/ui/views/bubble/bubble_frame_view.cc
-@@ -753,6 +753,7 @@
+@@ -759,6 +759,7 @@ void BubbleFrameView::OnThemeChanged() {
    UpdateWindowIcon();
    UpdateMainImage();
    UpdateClientViewBackground();
@@ -66,9 +74,11 @@
    SchedulePaint();
  }
  
+diff --git a/ui/views/controls/menu/menu_scroll_view_container.cc b/ui/views/controls/menu/menu_scroll_view_container.cc
+index 617e18da2b..39d6cb54e4 100644
 --- a/ui/views/controls/menu/menu_scroll_view_container.cc
 +++ b/ui/views/controls/menu/menu_scroll_view_container.cc
-@@ -313,6 +313,7 @@
+@@ -571,6 +571,7 @@ MenuItemView* MenuScrollViewContainer::GetFootnote() const {
  }
  
  int MenuScrollViewContainer::GetCornerRadius() const {
@@ -76,13 +86,14 @@
    return MenuConfig::instance().CornerRadiusForMenu(
        content_view_->GetMenuItem()->GetMenuController());
  }
+diff --git a/ui/views/merlin_style.cc b/ui/views/merlin_style.cc
+index 5bfb62d091..c0a4220bfb 100644
 --- a/ui/views/merlin_style.cc
 +++ b/ui/views/merlin_style.cc
-@@ -73,6 +73,17 @@
- };
+@@ -74,6 +74,17 @@ class CheckboxSource : public gfx::CanvasImageSource {
  
  }  // namespace
-+
+ 
 +namespace {
 +bool sharp_corners = false;
 +bool comfortable_density = false;
@@ -93,12 +104,15 @@
 +  sharp_corners = sharp;
 +  comfortable_density = comfortable;
 +}
- 
++
  bool IsEnabled() {
    return g_enabled;
+ }
+diff --git a/ui/views/merlin_style.h b/ui/views/merlin_style.h
+index 8045b06dc5..655a706cc9 100644
 --- a/ui/views/merlin_style.h
 +++ b/ui/views/merlin_style.h
-@@ -35,6 +35,9 @@
+@@ -35,6 +35,9 @@ class Widget;
  // skips.
  namespace views::merlin_style {
  

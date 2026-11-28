@@ -157,7 +157,7 @@ class Peek final : public content::WebContentsDelegate,
       content::WebContents* source,
       const content::OpenURLParams& params,
       base::OnceCallback<void(content::NavigationHandle&)> callback) override {
-    if (params.disposition == WindowOpenDisposition::CURRENT_TAB) {
+    if (params.disposition == WindowOpenDisposition::kCurrentTab) {
       content::NavigationController::LoadURLParams load(params);
       auto handle = source->GetController().LoadURLWithParams(load);
       if (callback && handle) {
@@ -187,7 +187,7 @@ class Peek final : public content::WebContentsDelegate,
     content::WebContents* added = new_contents.get();
     browser_->GetTabStripModel()->AppendWebContents(
         std::move(new_contents),
-        disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB);
+        disposition != WindowOpenDisposition::kNewBackgroundTab);
     return added;
   }
   void CloseContents(content::WebContents*) override { Dismiss(); }

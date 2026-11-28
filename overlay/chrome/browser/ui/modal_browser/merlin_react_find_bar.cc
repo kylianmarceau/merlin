@@ -42,6 +42,9 @@ class ReactFindBar final : public FindBar {
   bool HasFocus() const override { return visible_ && ShellFindHasFocus(browser_); }
   void CloseOverlappingBubbles() override {}
   views::Widget* GetHostWidget() override { return widget_; }
+  // The shell's find field has no case toggle; the state is kept for callers.
+  bool IsMatchCase() const override { return match_case_; }
+  void SetMatchCase(bool match_case) override { match_case_ = match_case; }
  private:
   void Publish() {
     SetShellFindState(browser_, base::DictValue().Set("visible", visible_).Set("text", base::UTF16ToUTF8(text_))
@@ -56,6 +59,7 @@ class ReactFindBar final : public FindBar {
   int matches_ = 0;
   int ordinal_ = 0;
   int focus_ = 0;
+  bool match_case_ = false;
 };
 }
 std::unique_ptr<FindBar> CreateReactFindBar(BrowserWindowInterface* browser, views::Widget* widget) {

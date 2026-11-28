@@ -1,8 +1,8 @@
 diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
-index ead883ef95..63fcd21ffc 100644
+index 0513dec6f9..47ea829ca6 100644
 --- a/chrome/browser/app_controller_mac.mm
 +++ b/chrome/browser/app_controller_mac.mm
-@@ -1961,16 +1961,8 @@ - (void)initProfileMenu {
+@@ -1964,16 +1964,8 @@ - (void)initProfileMenu {
    NSMenu* mainMenu = [NSApp mainMenu];
    NSMenuItem* profileMenu = [mainMenu itemWithTag:IDC_PROFILE_MAIN_MENU];
  
@@ -22,10 +22,10 @@ index ead883ef95..63fcd21ffc 100644
  
  - (void)initShareMenu {
 diff --git a/chrome/browser/profiles/profiles_state.cc b/chrome/browser/profiles/profiles_state.cc
-index d1fcd93ded..792a087943 100644
+index 480939cf9e..ccd12c9fba 100644
 --- a/chrome/browser/profiles/profiles_state.cc
 +++ b/chrome/browser/profiles/profiles_state.cc
-@@ -78,10 +78,11 @@ void RegisterPrefs(PrefRegistrySimple* registry) {
+@@ -112,10 +112,11 @@ void RegisterPrefs(PrefRegistrySimple* registry) {
    registry->RegisterListPref(prefs::kProfilesLastActive);
    registry->RegisterListPref(prefs::kProfilesDeleted);
  
@@ -40,7 +40,7 @@ index d1fcd93ded..792a087943 100644
    registry->RegisterBooleanPref(prefs::kForceBrowserSignin, false);
    registry->RegisterBooleanPref(prefs::kBrowserShowProfilePickerOnStartup,
                                  true);
-@@ -200,11 +201,9 @@ bool IsGuestModeRequested(const base::CommandLine& command_line,
+@@ -234,11 +235,9 @@ bool IsGuestModeRequested(const base::CommandLine& command_line,
    // Check if guest mode enforcement commandline switch or policy are provided.
    if (command_line.HasSwitch(switches::kGuest) ||
        local_state->GetBoolean(prefs::kBrowserGuestModeEnforced)) {
@@ -54,7 +54,7 @@ index d1fcd93ded..792a087943 100644
                     << "browser session.";
      }
    }
-@@ -212,17 +211,15 @@ bool IsGuestModeRequested(const base::CommandLine& command_line,
+@@ -246,17 +245,15 @@ bool IsGuestModeRequested(const base::CommandLine& command_line,
    return false;
  }
  
@@ -62,7 +62,7 @@ index d1fcd93ded..792a087943 100644
 +// if a policy asks for them.
  bool IsProfileCreationAllowed() {
 -  const PrefService* const pref_service = g_browser_process->local_state();
--  DCHECK(pref_service);
+-  CHECK(pref_service, base::NotFatalUntil::M162);
 -  return pref_service->GetBoolean(prefs::kBrowserAddPersonEnabled);
 +  return false;
  }
@@ -70,17 +70,17 @@ index d1fcd93ded..792a087943 100644
  // Whether guest mode is globally disabled (for all entry points and users).
  bool IsGuestModeGloballyDisabledInternal() {
 -  const PrefService* const pref_service = g_browser_process->local_state();
--  DCHECK(pref_service);
+-  CHECK(pref_service, base::NotFatalUntil::M162);
 -  return !pref_service->GetBoolean(prefs::kBrowserGuestModeEnabled);
 +  return true;
  }
  
  bool IsGuestModeEnabled() {
 diff --git a/chrome/browser/ui/browser_command_controller.cc b/chrome/browser/ui/browser_command_controller.cc
-index 8db5695096..9bf3782d75 100644
+index 9c46985bfe..92f7b072fe 100644
 --- a/chrome/browser/ui/browser_command_controller.cc
 +++ b/chrome/browser/ui/browser_command_controller.cc
-@@ -1975,11 +1975,13 @@ void BrowserCommandController::InitCommandState() {
+@@ -1994,11 +1994,13 @@ void BrowserCommandController::InitCommandState() {
         !profile()->IsPrimaryOTRProfileWithRegularParent()));
  #if !BUILDFLAG(IS_CHROMEOS)
    command_updater_->UpdateCommandEnabled(IDC_CUSTOMIZE_CHROME, true);
@@ -98,7 +98,7 @@ index 8db5695096..9bf3782d75 100644
  #endif  // BUILDFLAG(IS_CHROMEOS)
  
    if (profile()->IsIncognitoProfile()) {
-@@ -1997,8 +1999,9 @@ void BrowserCommandController::InitCommandState() {
+@@ -2016,8 +2018,9 @@ void BrowserCommandController::InitCommandState() {
    command_updater_->UpdateCommandEnabled(
        IDC_SHOW_AVATAR_MENU, /*state=*/profile()->IsIncognitoProfile());
  #else
@@ -110,10 +110,10 @@ index 8db5695096..9bf3782d75 100644
    command_updater_->UpdateCommandEnabled(IDC_CARET_BROWSING_TOGGLE, true);
    // Navigation commands
 diff --git a/chrome/browser/ui/profiles/profile_picker.cc b/chrome/browser/ui/profiles/profile_picker.cc
-index cc2ae52597..b13d0b23c8 100644
+index 9a073cd1c1..f22c33e382 100644
 --- a/chrome/browser/ui/profiles/profile_picker.cc
 +++ b/chrome/browser/ui/profiles/profile_picker.cc
-@@ -33,21 +33,6 @@ namespace {
+@@ -32,21 +32,6 @@ namespace {
  
  bool g_open_command_line_urls_in_next_profile_opened = false;
  
@@ -135,7 +135,7 @@ index cc2ae52597..b13d0b23c8 100644
  bool IsFirstRunDisabledByPolicy(Profile& profile) {
    const PrefService* const local_state = g_browser_process->local_state();
    if (!local_state->GetBoolean(prefs::kPromotionsEnabled)) {
-@@ -189,51 +174,7 @@ bool ProfilePicker::Shown() {
+@@ -188,50 +173,7 @@ bool ProfilePicker::Shown() {
  
  // static
  StartupProfileMode ProfilePicker::GetStartupMode() {
@@ -180,7 +180,6 @@ index cc2ae52597..b13d0b23c8 100644
 -
 -  bool pref_enabled = g_browser_process->local_state()->GetBoolean(
 -      prefs::kBrowserShowProfilePickerOnStartup);
--  base::UmaHistogramBoolean("ProfilePicker.AskOnStartup", pref_enabled);
 -  if (pref_enabled) {
 -    return StartupProfileMode::kProfilePicker;
 -  }
@@ -189,7 +188,7 @@ index cc2ae52597..b13d0b23c8 100644
  }
  
 diff --git a/chrome/browser/ui/views/profiles/profile_picker_view.cc b/chrome/browser/ui/views/profiles/profile_picker_view.cc
-index bce0ed42f9..0cccdf28f2 100644
+index 114e8ddad0..1256c6e6de 100644
 --- a/chrome/browser/ui/views/profiles/profile_picker_view.cc
 +++ b/chrome/browser/ui/views/profiles/profile_picker_view.cc
 @@ -161,6 +161,19 @@ void ClearLockedProfilesFirstBrowserKeepAlive() {

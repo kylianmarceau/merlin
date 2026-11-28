@@ -1,6 +1,8 @@
+diff --git a/components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h b/components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h
+index aab9c770f3..da2518f367 100644
 --- a/components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h
 +++ b/components/remote_cocoa/app_shim/native_widget_ns_window_bridge.h
-@@ -125,6 +125,13 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
+@@ -126,6 +126,13 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
        NSObject<CommandDispatcherDelegate>* delegate,
        id<UserInterfaceItemCommandHandler> command_handler);
  

@@ -1,20 +1,8 @@
-diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
---- a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
-+++ b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
-@@ -130,6 +130,9 @@
-   // Returns true if the tab is in PiP mode, and PiP was started by auto-pip.
-   bool IsInAutoPictureInPicture() const;
- 
-+  // Merlin supplies the visibility of the page in its macOS shell.
-+  void UpdateMerlinPageVisibility(bool seen, bool enabled);
-+
-   void set_is_in_auto_picture_in_picture_for_testing(bool auto_pip) {
-     is_in_auto_picture_in_picture_ = auto_pip;
-   }
 diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.cc b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.cc
+index 3e5428108c..00f5eedbcc 100644
 --- a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.cc
 +++ b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.cc
-@@ -52,6 +52,21 @@
+@@ -52,6 +52,21 @@ using OcclusionState =
  
  DEFINE_USER_DATA(AutoPictureInPictureTabHelper);
  
@@ -36,7 +24,7 @@ diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helpe
  // static
  AutoPictureInPictureTabHelper* AutoPictureInPictureTabHelper::From(
      tabs::TabInterface* tab) {
-@@ -166,6 +181,9 @@
+@@ -166,6 +181,9 @@ bool AutoPictureInPictureTabHelper::PrimaryMainFrameHasOpaqueOrigin() const {
  }
  
  void AutoPictureInPictureTabHelper::PrimaryPageChanged(content::Page& page) {
@@ -46,7 +34,7 @@ diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helpe
    has_ever_registered_for_auto_picture_in_picture_ = false;
    // On navigation, forget any 'allow once' state.
  #if !BUILDFLAG(IS_ANDROID)
-@@ -409,6 +427,9 @@
+@@ -409,6 +427,9 @@ void AutoPictureInPictureTabHelper::MediaPictureInPictureChanged(
  #endif  // !BUILDFLAG(IS_ANDROID)
  
      is_in_auto_picture_in_picture_ = false;
@@ -56,7 +44,7 @@ diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helpe
      MaybeRecordPictureInPictureChanged(false);
      MaybeStartOrStopObservers();
      auto_pip_trigger_reason_ =
-@@ -459,6 +480,9 @@
+@@ -459,6 +480,9 @@ void AutoPictureInPictureTabHelper::MediaSessionCreated(
  
  void AutoPictureInPictureTabHelper::OnTabActivatedChanged(
      bool is_tab_activated) {
@@ -66,7 +54,7 @@ diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helpe
    // Don't enter or exit autopip if we're somehow still occluded. Note that this
    // is an unlikely case since tab switching generally occurs on the
    // active/topmost window but could happen if e.g. a script has closed the
-@@ -492,6 +516,9 @@
+@@ -492,6 +516,9 @@ void AutoPictureInPictureTabHelper::OnTabActivatedChanged(
  
  void AutoPictureInPictureTabHelper::OnOcclusionStateChanged(
      OcclusionState occlusion_state) {
@@ -76,7 +64,7 @@ diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helpe
    // If the tab is not the active tab in its window, then the window becoming
    // occluded or unoccluded shouldn't trigger anything.
    if (!tab_observer_helper_->IsTabActivated()) {
-@@ -690,6 +717,9 @@
+@@ -690,6 +717,9 @@ void AutoPictureInPictureTabHelper::
  }
  
  bool AutoPictureInPictureTabHelper::IsTabActiveAndVisible() const {
@@ -86,7 +74,7 @@ diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helpe
    return tab_observer_helper_->IsTabActivated() &&
           (!window_occlusion_helper_ ||
            window_occlusion_helper_->GetOcclusionState() ==
-@@ -1056,6 +1086,9 @@
+@@ -1061,6 +1091,9 @@ AutoPictureInPictureTabHelper::CreateOverlayPermissionViewIfNeeded(
  
    // If we don't have a setting helper associated with this session (site) yet,
    // then create one.
@@ -96,7 +84,7 @@ diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helpe
    EnsureAutoPipSettingHelper();
  
    return auto_pip_setting_helper_->CreateOverlayViewIfNeeded(
-@@ -1116,7 +1149,62 @@
+@@ -1121,7 +1154,62 @@ void AutoPictureInPictureTabHelper::OnUserClosedWindow() {
  #endif  // !BUILDFLAG(IS_ANDROID)
  }
  
@@ -159,3 +147,17 @@ diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helpe
  #if BUILDFLAG(IS_ANDROID)
    if (hide_button_clicked_time_) {
      base::TimeDelta back_to_tab_post_hide_time =
+diff --git a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
+index cc3e5c3e26..62d93b08c7 100644
+--- a/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
++++ b/chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h
+@@ -130,6 +130,9 @@ class AutoPictureInPictureTabHelper
+   // Returns true if the tab is in PiP mode, and PiP was started by auto-pip.
+   bool IsInAutoPictureInPicture() const;
+ 
++  // Merlin supplies the visibility of the page in its macOS shell.
++  void UpdateMerlinPageVisibility(bool seen, bool enabled);
++
+   void set_is_in_auto_picture_in_picture_for_testing(bool auto_pip) {
+     is_in_auto_picture_in_picture_ = auto_pip;
+   }

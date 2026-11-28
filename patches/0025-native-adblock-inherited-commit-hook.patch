@@ -1,7 +1,8 @@
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index 088a66e331..4213b85f11 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
-@@ -5742,6 +5742,7 @@
+@@ -5805,6 +5805,7 @@ void ChromeContentBrowserClient::CreateThrottlesForNavigation(
  
  void ChromeContentBrowserClient::CreateThrottlesForCommitWithoutUrlLoader(
      content::NavigationThrottleRegistry& registry) {

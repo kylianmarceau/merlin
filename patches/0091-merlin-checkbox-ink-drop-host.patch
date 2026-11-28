@@ -1,4 +1,5 @@
 diff --git a/ui/views/controls/button/checkbox.cc b/ui/views/controls/button/checkbox.cc
+index 772da8ec78..7c22774711 100644
 --- a/ui/views/controls/button/checkbox.cc
 +++ b/ui/views/controls/button/checkbox.cc
 @@ -113,7 +113,11 @@ Checkbox::Checkbox(const std::u16string& label,
@@ -29,6 +30,7 @@ diff --git a/ui/views/controls/button/checkbox.cc b/ui/views/controls/button/che
    SetAndUpdateAccessibleDefaultActionVerb();
    UpdateAccessibleCheckedState();
 diff --git a/ui/views/controls/button/checkbox_unittest.cc b/ui/views/controls/button/checkbox_unittest.cc
+index b9552c7ee1..a4af99ed00 100644
 --- a/ui/views/controls/button/checkbox_unittest.cc
 +++ b/ui/views/controls/button/checkbox_unittest.cc
 @@ -7,6 +7,8 @@
@@ -51,7 +53,7 @@ diff --git a/ui/views/controls/button/checkbox_unittest.cc b/ui/views/controls/b
  #include "ui/views/test/button_test_api.h"
  #include "ui/views/test/views_test_base.h"
  #include "ui/views/widget/widget.h"
-@@ -67,6 +72,19 @@ class CheckboxTest : public ViewsTestBase {
+@@ -74,6 +79,19 @@ class CheckboxTest : public ViewsTestBase {
    std::unique_ptr<Widget> widget_;
  };
  

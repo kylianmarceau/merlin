@@ -30,7 +30,7 @@ index f18618340f..7440bd8884 100644
  
  BEGIN_METADATA(PlaybackImageButton)
 diff --git a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
-index 0afdeb691c..da9441dd55 100644
+index a20b96209b..f11edc15ae 100644
 --- a/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
 +++ b/chrome/browser/ui/views/overlay/video_overlay_window_views.cc
 @@ -72,6 +72,7 @@
@@ -261,7 +261,7 @@ index 0afdeb691c..da9441dd55 100644
  
    // The play/pause button and replay/forward 10 seconds buttons should not be
    // visible while dragging the progress bar or for live media.
-@@ -2403,7 +2403,10 @@ void VideoOverlayWindowViews::UpdateTimestampLabel(base::TimeDelta current_time,
+@@ -2405,7 +2405,10 @@ void VideoOverlayWindowViews::UpdateTimestampLabel(base::TimeDelta current_time,
          {global_media_controls::GetFormattedDuration(current_time), u" / ",
           global_media_controls::GetFormattedDuration(duration)}));
    }

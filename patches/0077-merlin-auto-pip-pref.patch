@@ -1,6 +1,8 @@
+diff --git a/chrome/browser/prefs/browser_prefs.cc b/chrome/browser/prefs/browser_prefs.cc
+index 1b072ced25..bd28c6503e 100644
 --- a/chrome/browser/prefs/browser_prefs.cc
 +++ b/chrome/browser/prefs/browser_prefs.cc
-@@ -1995,6 +1995,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
+@@ -2113,6 +2113,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
    TRACE_EVENT0("browser", "chrome::RegisterProfilePrefs");
  #if BUILDFLAG(IS_MAC)
    registry->RegisterDictionaryPref("merlin.shell.appearance");

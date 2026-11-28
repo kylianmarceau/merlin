@@ -1,6 +1,22 @@
+diff --git a/chrome/browser/BUILD.gn b/chrome/browser/BUILD.gn
+index 2339fad164..b23f9cfb57 100644
+--- a/chrome/browser/BUILD.gn
++++ b/chrome/browser/BUILD.gn
+@@ -5349,7 +5349,9 @@ if (!is_android) {
+         "//chrome/browser/bookmarks:test_support",
+         "//chrome/browser/prefs",
+         "//chrome/browser/shortcuts",
++        "//chrome/browser/ui/browser_window:create_browser_window",
+         "//chrome/browser/ui/startup",
++        "//chrome/test/base:test_browser_window",
+         "//ui/events:test_support",
+       ]
+     }
+diff --git a/chrome/browser/app_controller_mac.mm b/chrome/browser/app_controller_mac.mm
+index ba483d5672..de8b85df91 100644
 --- a/chrome/browser/app_controller_mac.mm
 +++ b/chrome/browser/app_controller_mac.mm
-@@ -349,9 +349,14 @@
+@@ -349,9 +349,14 @@ void ConfigureNSAppForKioskMode() {
              BrowserWindowInterface::TYPE_APP) {
            return true;
          }
@@ -18,6 +34,8 @@
          return true;
        });
    return result;
+diff --git a/chrome/browser/app_controller_mac_browsertest.mm b/chrome/browser/app_controller_mac_browsertest.mm
+index e3921242b3..85c43fd08a 100644
 --- a/chrome/browser/app_controller_mac_browsertest.mm
 +++ b/chrome/browser/app_controller_mac_browsertest.mm
 @@ -58,6 +58,7 @@
@@ -36,12 +54,10 @@
  #include "chrome/test/base/ui_test_utils.h"
  #include "components/account_id/account_id.h"
  #include "components/bookmarks/browser/bookmark_model.h"
-@@ -298,6 +300,21 @@
- // windows.
- size_t ExpectedWindowCountForBrowserCount(size_t browsers) {
+@@ -300,6 +302,21 @@ size_t ExpectedWindowCountForBrowserCount(size_t browsers) {
    return browsers;
-+}
-+
+ }
+ 
 +IN_PROC_BROWSER_TEST_F(AppControllerBrowserTest,
 +                       ReopenSkipsBrowserWithoutNativeWindow) {
 +  auto windowless_browser = CreateBrowserWithTestWindowForParams(
@@ -55,18 +71,8 @@
 +      [AppController.sharedController applicationShouldHandleReopen:NSApp
 +                                                 hasVisibleWindows:YES]);
 +  EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
- }
- 
++}
++
  // Test browser shutdown with a command in the message queue.
---- a/chrome/browser/BUILD.gn
-+++ b/chrome/browser/BUILD.gn
-@@ -6321,7 +6321,9 @@
-         "//chrome/browser/bookmarks:test_support",
-         "//chrome/browser/prefs",
-         "//chrome/browser/shortcuts",
-+        "//chrome/browser/ui/browser_window:create_browser_window",
-         "//chrome/browser/ui/startup",
-+        "//chrome/test/base:test_browser_window",
-         "//ui/events:test_support",
-       ]
-     }
+ IN_PROC_BROWSER_TEST_F(AppControllerBrowserTest, CommandDuringShutdown) {
+   EXPECT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());

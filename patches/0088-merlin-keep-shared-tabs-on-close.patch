@@ -1,17 +1,19 @@
+diff --git a/chrome/browser/ui/views/frame/browser_view.cc b/chrome/browser/ui/views/frame/browser_view.cc
+index 0dabb77645..84ea4a4ae2 100644
 --- a/chrome/browser/ui/views/frame/browser_view.cc
 +++ b/chrome/browser/ui/views/frame/browser_view.cc
-@@ -3,6 +3,10 @@
- // found in the LICENSE file.
+@@ -4,6 +4,10 @@
  
  #include "chrome/browser/ui/views/frame/browser_view.h"
-+
+ 
 +#if defined(__APPLE__)
 +#include "chrome/browser/ui/modal_browser/merlin_shell_bridge.h"
 +#endif
- 
++
  #include <stdint.h>
  
-@@ -4598,6 +4602,9 @@
+ #include <algorithm>
+@@ -4676,6 +4680,9 @@ views::CloseRequestResult BrowserView::OnWindowCloseRequested() {
      return views::CloseRequestResult::kCannotClose;
    }
  

@@ -1,8 +1,9 @@
 diff --git a/chrome/browser/metrics/BUILD.gn b/chrome/browser/metrics/BUILD.gn
+index ccb65df971..f5f0bcc7e3 100644
 --- a/chrome/browser/metrics/BUILD.gn
 +++ b/chrome/browser/metrics/BUILD.gn
-@@ -507,6 +507,11 @@ source_set("impl") {
-     deps += [ "//chrome/browser/updates:update_metrics" ]
+@@ -523,6 +523,11 @@ source_set("impl") {
+     deps += [ "//chrome/browser/default_browser:startup_metrics" ]
    }
  
 +  # Merlin: features off by default (merlin_process_policy.h).
@@ -14,6 +15,7 @@ diff --git a/chrome/browser/metrics/BUILD.gn b/chrome/browser/metrics/BUILD.gn
      sources += [ "chrome_metrics_service_crash_reporter.cc" ]
    }
 diff --git a/chrome/browser/metrics/chrome_feature_list_creator.cc b/chrome/browser/metrics/chrome_feature_list_creator.cc
+index dbf10a26ea..d2c6d0e94b 100644
 --- a/chrome/browser/metrics/chrome_feature_list_creator.cc
 +++ b/chrome/browser/metrics/chrome_feature_list_creator.cc
 @@ -43,6 +43,10 @@

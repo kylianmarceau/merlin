@@ -1,3 +1,800 @@
+diff --git a/chrome/app/access_code_cast_strings.grdp b/chrome/app/access_code_cast_strings.grdp
+index 79489d0e1a..e259545eee 100644
+--- a/chrome/app/access_code_cast_strings.grdp
++++ b/chrome/app/access_code_cast_strings.grdp
+@@ -38,7 +38,7 @@
+     Something went wrong. Try again later
+   </message>
+   <message name="IDS_ACCESS_CODE_CAST_ERROR_PROFILE_SYNC" desc="Error message for profile sync error">
+-    To cast with a code, turn on Chrome browser sync settings
++    To cast with a code, turn on Merlin browser sync settings
+   </message>
+   <message name="IDS_ACCESS_CODE_CAST_INPUT_ARIA_LABEL" is_accessibility_with_no_ui="true" desc="Label for the text box where users type the access code to start casting to a Chromecast device">
+     Type the access code to start casting
+diff --git a/chrome/app/actor_strings.grdp b/chrome/app/actor_strings.grdp
+index c07877fa5c..6337890c1e 100644
+--- a/chrome/app/actor_strings.grdp
++++ b/chrome/app/actor_strings.grdp
+@@ -127,16 +127,16 @@
+    Task complete
+   </message>
+   <message name="IDS_ACTOR_NOTIFICATION_BUTTON_GO_TO_CHROME" desc="Label for the notification button for the user to go to chrome." formatter_data="android_java">
+-    Go to Chrome
++    Go to Merlin
+   </message>
+   <message name="IDS_ACTOR_NOTIFICATION_BODY_WORKING" desc="Notification body text when the actor is working on a task." formatter_data="android_java">
+     <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini is working on your task and will let you know if more action is needed
+   </message>
+   <message name="IDS_ACTOR_EXPERIMENTAL_TRIGGERING_NOTIFICATION_BODY" desc="Notification body text when the actor is working on an experimental triggering task.">
+-    <ph name="TASK_TITLE">$1<ex>My Task</ex></ph>: Working on your Gemini App task in Chrome. Check Chrome for more updates
++    <ph name="TASK_TITLE">$1<ex>My Task</ex></ph>: Working on your Gemini App task in Merlin. Check Merlin for more updates
+   </message>
+   <message name="IDS_ACTOR_EXPERIMENTAL_TRIGGERING_NOTIFICATION_BODY_FALLBACK" desc="Fallback notification body text when the actor is working on an experimental triggering task without a task title.">
+-    Working on your Gemini App task in Chrome. Check Chrome for more updates
++    Working on your Gemini App task in Merlin. Check Merlin for more updates
+   </message>
+   <message name="IDS_ACTOR_EXPERIMENTAL_TRIGGERING_NOTIFICATION_TITLE_V2" desc="Title of the system notification shown when Gemini task starts.">
+     Gemini task running
+@@ -157,7 +157,7 @@
+     <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini stopped working on this task
+   </message>
+   <message name="IDS_ACTOR_NOTIFICATION_BODY_COMPLETE" desc="Notification body text when the actor has completed a task." formatter_data="android_java">
+-    <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini completed your task, you can view it in Chrome
++    <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini completed your task, you can view it in Merlin
+   </message>
+   <message name="IDS_ACTOR_NOTIFICATION_BODY_STOPPED" desc="Notification body text when a task is stopped." formatter_data="android_java">
+     <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini stopped working on this task
+@@ -211,7 +211,7 @@
+     View
+   </message>
+   <message name="IDS_PEEK_STATE_CLOSE_BUTTON_DESCRIPTION" desc="The accessibility content description for the button that closes peek view." formatter_data="android_java">
+-    Close Gemini in Chrome
++    Close Gemini in Merlin
+   </message>
+   <message name="IDS_PEEK_STATE_PLAY_BUTTON_A11Y_LABEL" desc="Accessibility label for the button to resume/play the actor task." formatter_data="android_java" is_accessibility_with_no_ui="true">
+     Resume
+@@ -220,7 +220,7 @@
+     Pause
+   </message>
+   <message name="IDS_PEEK_STATE_ACCESSIBLE_LABEL" desc="Accessibility label for the Gemini in Chrome peek view which represents a minimized chat. The placeholder is the displayed text (e.g. title or description) of the peek view." formatter_data="android_java">
+-    <ph name="DISPLAYED_TEXT">%1$s<ex>Ask Gemini</ex></ph>, Gemini in Chrome
++    <ph name="DISPLAYED_TEXT">%1$s<ex>Ask Gemini</ex></ph>, Gemini in Merlin
+   </message>
+   <message name="IDS_ACTOR_LEAVE_SITE_DIALOG_TITLE" desc="Title of a dialog asking if the user really wants to stop the actor task." formatter_data="android_java">
+     Leave site and end task?
+diff --git a/chrome/app/app_management_strings.grdp b/chrome/app/app_management_strings.grdp
+index b225df5959..29e5192653 100644
+--- a/chrome/app/app_management_strings.grdp
++++ b/chrome/app/app_management_strings.grdp
+@@ -46,7 +46,7 @@
+     Open in <ph name="APP_NAME">$1<ex>Chrome browser</ex></ph>
+   </message>
+   <message name="IDS_APP_MANAGEMENT_INTENT_SHARING_BROWSER_OPEN" desc="Label for the intent sharing option to open in the browser.">
+-    Open in Chrome browser
++    Open in Merlin browser
+   </message>
+   <message name="IDS_APP_MANAGEMENT_INTENT_SHARING_APP_OPEN_EXISTING_TAB" desc="This is an option presented to the user which makes user clicks on links that open this website to open in an existing browser tab of that website, instead of opening in a new browser tab.">
+     Open in an existing <ph name="APP_NAME">$1<ex>Gmail</ex></ph> tab
+diff --git a/chrome/app/extensions_strings.grdp b/chrome/app/extensions_strings.grdp
+index f5623ca5a1..94a644f505 100644
+--- a/chrome/app/extensions_strings.grdp
++++ b/chrome/app/extensions_strings.grdp
+@@ -563,7 +563,7 @@
+     Using AI coding agents to build extensions? Install the <ph name="BEGIN_LINK">&lt;a target="_blank" href="$1"&gt;</ph><ph name="CHROME_EXTENSIONS">Chrome Extensions<ex>Chrome Extensions</ex></ph> and <ph name="WEB_STORE_SKILL">Chrome Web Store skill<ex>Chrome Web Store skill</ex></ph><ph name="END_LINK">&lt;/a&gt;</ph> to teach your coding agent the latest API updates and best practices.
+   </message>
+   <message name="IDS_EXTENSIONS_WHATS_NEW_PROMO" desc="The promotional text displayed in the sidebar of the chrome://extensions page when Developer Mode is enabled. It encourages developers to read about recent changes in the Chrome Extensions developer documentation.">
+-    Developing extensions? Stay up to date on <ph name="BEGIN_LINK">&lt;a target="_blank" href="$1"&gt;</ph>What's New<ph name="END_LINK">&lt;/a&gt;</ph> with Chrome Extension developer documentation.
++    Developing extensions? Stay up to date on <ph name="BEGIN_LINK">&lt;a target="_blank" href="$1"&gt;</ph>What's New<ph name="END_LINK">&lt;/a&gt;</ph> with Merlin Extension developer documentation.
+   </message>
+   <message name="IDS_EXTENSIONS_SIDEBAR_KEYBOARD_SHORTCUTS" desc="The text for the link to manage keyboard shortcuts for extensions.">
+     Keyboard shortcuts
+@@ -752,16 +752,16 @@
+     Supercharge your browser with extensions and themes
+   </message>
+   <message name="IDS_EXTENSIONS_ZERO_STATE_CHIPS_IPH_DESCRIPTION" desc="An one line description for the extensions zero state in-product-help promo.">
+-    Extensions are add-ons for Chrome that can help you do more
++    Extensions are add-ons for Merlin that can help you do more
+   </message>
+   <message name="IDS_EXTENSIONS_ZERO_STATE_CHIPS_WITH_LINK_IPH_LINK_LABEL" desc="A label of extensions links to chrome web store home page.">
+     Extensions
+   </message>
+   <message name="IDS_EXTENSIONS_ZERO_STATE_CHIPS_WITH_LINK_IPH_DESCRIPTION" desc="An one line description for the extensions zero state in-product-help promo with links to chrome web store home page.">
+-    are add-ons for Chrome that can help you do more
++    are add-ons for Merlin that can help you do more
+   </message>
+   <message name="IDS_EXTENSIONS_ZERO_STATE_PLAIN_LINK_IPH_DESCRIPTION" desc="An one line description for the extensions zero state in-product-help promo.">
+-    Extensions are add-ons to Chrome that can help you
++    Extensions are add-ons to Merlin that can help you
+   </message>
+   <message name="IDS_EXTENSIONS_ZERO_STATE_IPH_SHOPPING_CATEGORY_LABEL" desc="Label for the button that opens the Chrome Web Store shopping category page.">
+     Find coupons
+diff --git a/chrome/app/generated_resources.grd b/chrome/app/generated_resources.grd
+index a269b3326a..2625d76139 100644
+--- a/chrome/app/generated_resources.grd
++++ b/chrome/app/generated_resources.grd
+@@ -1732,7 +1732,7 @@ are declared in tools/grit/grit_args.gni.
+           Reopen Closed Split View
+         </message>
+         <message name="IDS_CHROMELABS" desc="In Title Case: The text label of the Chrome Labs menu item">
+-          Chrome &amp;Labs...
++          Merlin &amp;Labs...
+         </message>
+       </if>
+ 
+@@ -2907,7 +2907,7 @@ are declared in tools/grit/grit_args.gni.
+       </message>
+       <message name="IDS_DOWNLOAD_BUBBLE_ESB_PROMO"
+                desc="Text for the in-product-help bubble shown for the esb promo download bubble.">
+-        Chrome just blocked a dangerous file from downloading. Get even stronger security with enhanced protection.
++        Merlin just blocked a dangerous file from downloading. Get even stronger security with enhanced protection.
+       </message>
+       <message name="IDS_DOWNLOAD_BUBBLE_ESB_PROMO_CUSTOM_ACTION"
+                desc="Text for the custom action within the in-product-help bubble shown for the esb promo download bubble.">
+@@ -3425,7 +3425,7 @@ are declared in tools/grit/grit_args.gni.
+       </message>
+       <message name="IDS_DOWNLOAD_LOCAL_DECRYPTION_PROMPT_ALERT"
+                desc="Accessible alert announced when a local decryption prompt appears on a suspicious archive">
+-        <ph name="FILENAME">$1<ex>bla.exe</ex></ph> may be dangerous. Add a password if you want Chrome to verify it or you can download it directly.
++        <ph name="FILENAME">$1<ex>bla.exe</ex></ph> may be dangerous. Add a password if you want Merlin to verify it or you can download it directly.
+       </message>
+ 
+       <!-- Web App Window Title string -->
+@@ -4082,13 +4082,13 @@ are declared in tools/grit/grit_args.gni.
+         Notifications from this site may be disruptive
+       </message>
+       <message name="IDS_NOTIFICATIONS_QUIET_PERMISSION_BUBBLE_PREDICTION_SERVICE_DESCRIPTION" desc="Text used as notification message when requesting permission for Web Notifications via a notification. Used when the prediction service has decided that the user will be very unlikely to grant this permission.">
+-        Chrome thinks you don't want notifications from this site. So, requests are hidden to reduce interruptions.
++        Merlin thinks you don't want notifications from this site. So, requests are hidden to reduce interruptions.
+       </message>
+       <message name="IDS_GEOLOCATION_QUIET_PERMISSION_BUBBLE_TITLE" desc="Title for the geolocatoin permission prompt, which is triggered when a user clicks on the blocked geolocation permission chip in the omnibox.">
+         Location blocked
+       </message>
+       <message name="IDS_GEOLOCATION_QUIET_PERMISSION_BUBBLE_PREDICTION_SERVICE_DESCRIPTION" desc="Text used as notification message when requesting permission for Geolocation. Used when the prediction service has decided that the user will be very unlikely to grant this permission.">
+-        Chrome thinks you don't want to use your location on this site. So, requests are hidden to reduce interruptions.
++        Merlin thinks you don't want to use your location on this site. So, requests are hidden to reduce interruptions.
+       </message>
+       <message name="IDS_GEOLOCATION_QUIET_PERMISSION_BUBBLE_ALLOW_BUTTON" desc="Text displayed on the button that enables geolocation for a site. This button is part of the geolocation status bubble, which is triggered when a user clicks on the blocked geolocation icon in the omnibox.">
+         Allow for this site
+@@ -4593,7 +4593,7 @@ are declared in tools/grit/grit_args.gni.
+         Allow remote debugging?
+       </message>
+       <message name="IDS_DEV_TOOLS_CONNECTION_DIALOG_MESSAGE_PART_1" desc="Message displayed in the dialog asking user to confirm allowing a debugging connection to this browser instance.">
+-        An external app wants full control over this Chrome session to debug it. This includes access to your saved data, cookies and site data, and the ability to navigate to any URL.
++        An external app wants full control over this Merlin session to debug it. This includes access to your saved data, cookies and site data, and the ability to navigate to any URL.
+       </message>
+       <message name="IDS_DEV_TOOLS_CONNECTION_DIALOG_MESSAGE_PART_2" desc="Message displayed in the dialog asking user to confirm allowing a debugging connection to this browser instance.">
+         Only web developers should turn on this feature, and only use it with trusted apps.
+@@ -4986,7 +4986,7 @@ are declared in tools/grit/grit_args.gni.
+         Toolbar
+       </message>
+       <message name="IDS_UTILITY_PROCESS_FILE_UTILITY_NAME" desc="The name of the utility process used for various Chrome specific file operations.">
+-          Chrome File Utilities
++          Merlin File Utilities
+       </message>
+       <if expr="not is_android">
+         <message name="IDS_UTILITY_PROCESS_PROFILE_IMPORTER_NAME" desc="The name of the utility process used for importing profiles.">
+@@ -5008,7 +5008,7 @@ are declared in tools/grit/grit_args.gni.
+         </if>
+       </if>
+       <message name="IDS_SERVICE_PROCESS_DOCUMENT_ANALYSIS_NAME" desc="The name of the service process used for document analysis operations as part of Safe Browsing.">
+-        Chrome Document Analysis
++        Merlin Document Analysis
+       </message>
+       <!-- Theme preview infobar -->
+       <message name="IDS_THEME_INSTALL_INFOBAR_LABEL" desc="Text displayed on an infobar when a theme has been installed.">
+@@ -6018,13 +6018,13 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         "<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>" added
+       </message>
+       <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_BUBBLE_HEADING_APP" desc="The heading text (below the title) for the bubble that alerts the user that a new external app was installed.">
+-        Another program on your computer added an app that may change the way Chrome works.
++        Another program on your computer added an app that may change the way Merlin works.
+       </message>
+       <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_BUBBLE_HEADING_EXTENSION" desc="The heading text (below the title) for the bubble that alerts the user that a new external extension was installed.">
+-        Another program on your computer added an extension that may change the way Chrome works.
++        Another program on your computer added an extension that may change the way Merlin works.
+       </message>
+       <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_BUBBLE_HEADING_THEME" desc="The heading text (below the title) for the bubble that alerts the user that a new external theme was installed.">
+-        Another program on your computer added a theme that may change the way Chrome works.
++        Another program on your computer added a theme that may change the way Merlin works.
+       </message>
+ 
+       <message name="IDS_EXTENSIONS_ADDED_WITHOUT_KNOWLEDGE" desc="Text shown in the extensions settings for items that might have been forcefully added to Chrome without the user's knowledge">
+@@ -6915,7 +6915,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+       </message>
+ 
+       <message name="IDS_BAD_FLAGS_FROM_FILE_WARNING_MESSAGE" desc="Message shown when command-line flags are loaded from a file. [Keep it short so it fits in the infobar.]">
+-        Chrome is loading flags from a command-line file. Stability and security may be affected.
++        Merlin is loading flags from a command-line file. Stability and security may be affected.
+       </message>
+ 
+       <!-- Blocked Displaying/Running Insecure Content bubble -->
+@@ -7503,7 +7503,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         Cards
+       </message>
+       <message name="IDS_NTP_CUSTOMIZE_NO_BACKGROUND_LABEL" desc="The label for the 'Default Chrome' tile in the customization menu on the New Tab Page">
+-        Default Chrome
++        Default Merlin
+       </message>
+       <message name="IDS_NTP_CUSTOMIZE_CHROME_CHANGE_THEME_LABEL" desc="The label for the action button for changing Chrome theme in the New Tab Page customize chrome side panel.">
+         Change theme
+@@ -7524,7 +7524,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         <ph name="THIRD_PARTY_NTP_MANAGER">$1<ex>ZomboCom</ex></ph> is managing your new tab page, opens in a new tab
+       </message>
+       <message name="IDS_NTP_CUSTOMIZE_CHROME_RESET_TO_CLASSIC_CHROME_COMPLETE" desc="Text for a screenreader to read aloud when the user's theme has finished changing to classic chrome in the Customize Chrome side panel.">
+-        Theme updated to Default Chrome
++        Theme updated to Default Merlin
+       </message>
+       <message name="IDS_NTP_CUSTOMIZE_CHROME_RESET_TO_UPLOADED_IMAGE_COMPLETE" desc="Text for a screenreader to read aloud when the user's theme has finished changing to an uploaded image in the Customize Chrome side panel.">
+         Theme updated to uploaded image
+@@ -8449,10 +8449,10 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         <ph name="MODULE_NAME">$1<ex>Make Chrome Yours</ex></ph> hidden
+       </message>
+       <message name="IDS_NTP_MODULES_SETUP_LIST_INFO" desc="Text shown in the body of the info dialog of the Make Chrome Yours card.">
+-        You're seeing suggestions on how to personalize Chrome and make it more powerful for your daily needs.
++        You're seeing suggestions on how to personalize Merlin and make it more powerful for your daily needs.
+         <ph name="BREAK">&lt;br&gt;</ph>
+         <ph name="BREAK">&lt;br&gt;</ph>
+-        You can manage settings from the card menu or see more options in Customize Chrome.
++        You can manage settings from the card menu or see more options in Customize Merlin.
+       </message>
+       <message name="IDS_NTP_MODULES_INFO_BUTTON_TITLE" desc="Text shown in tooltip of info button of an NTP module.">
+         About this card
+@@ -8515,7 +8515,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         You’re seeing suggested files to help you easily get back to your most recent activity in Google Drive.
+         <ph name="BREAK">&lt;br&gt;</ph>
+         <ph name="BREAK">&lt;br&gt;</ph>
+-        You can manage settings from the card menu or see more options in Customize Chrome.
++        You can manage settings from the card menu or see more options in Customize Merlin.
+       </message>
+       <message name="IDS_NTP_MODULES_DRIVE_SEE_MORE" desc="A label for the see more button in the Drive module.">
+         See more
+@@ -8530,7 +8530,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         You’re seeing suggested files to help you easily get back to your most recent activity in Microsoft SharePoint and OneDrive.
+         <ph name="BREAK">&lt;br&gt;</ph>
+         <ph name="BREAK">&lt;br&gt;</ph>
+-        You can manage settings from the card menu or see more options in Customize Chrome.
++        You can manage settings from the card menu or see more options in Customize Merlin.
+       </message>
+       <message name="IDS_NTP_MODULES_MICROSOFT_FILES_DISABLE_BUTTON_TEXT" desc="Text shown on the disable button of a NTP Microsoft files card.">
+         Don't show SharePoint and OneDrive files
+@@ -8566,7 +8566,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         You’re seeing your calendar to help you easily navigate to your next event in Google Calendar.
+         <ph name="BREAK">&lt;br&gt;</ph>
+         <ph name="BREAK">&lt;br&gt;</ph>
+-        You can manage settings from the card menu or see more options in Customize Chrome.
++        You can manage settings from the card menu or see more options in Customize Merlin.
+       </message>
+       <message name="IDS_NTP_MODULES_GOOGLE_CALENDAR_MORE_ACTIONS" desc="Text shown on the tooltip for the 3 dot menu on the Google Calendar card on the NTP.">
+         More actions for Google Calendar
+@@ -8593,7 +8593,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+        You’re seeing your calendar to help you easily navigate to your next event in Outlook Calendar.
+        <ph name="BREAK">&lt;br&gt;</ph>
+        <ph name="BREAK">&lt;br&gt;</ph>
+-       You can manage settings from the card menu or see more options in Customize Chrome.
++       You can manage settings from the card menu or see more options in Customize Merlin.
+      </message>
+       <message name="IDS_NTP_MODULES_CALENDAR_JOIN_MEETING_BUTTON_TEXT" desc="Text shown on button on the NTP Calendar cards for joining a video conference." meaning="Click here to join your video conference meetings.">
+         Join Meeting
+@@ -8653,13 +8653,13 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         You’re seeing pages you've visited and suggested searches to help you easily get back to your most recent activity.
+         <ph name="BREAK">&lt;br&gt;</ph>
+         <ph name="BREAK">&lt;br&gt;</ph>
+-        You can manage settings from the card menu or see more options in Customize Chrome.
++        You can manage settings from the card menu or see more options in Customize Merlin.
+       </message>
+       <message name="IDS_NTP_MODULES_HISTORY_CLUSTERS_WITH_DISCOUNT_INFO" desc="Text shown in the body of the info dialog of the history clusters module when the cluster has available discount.">
+         You’re seeing suggested searches and shopping discounts that might interest you based on your recent activity.
+         <ph name="BREAK">&lt;br&gt;</ph>
+         <ph name="BREAK">&lt;br&gt;</ph>
+-        You can manage settings from this card anytime or see more options in Customize Chrome.
++        You can manage settings from this card anytime or see more options in Customize Merlin.
+       </message>
+       <message name="IDS_NTP_MODULES_HISTORY_CLUSTERS_SENTENCE2" desc="Variant of the name of the History Clusters module in sentence case shown in various UIs.">
+         Journeys
+@@ -8695,7 +8695,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         You’re seeing tabs from other devices to help you easily get back to your most recent activity.
+         <ph name="BREAK">&lt;br&gt;</ph>
+         <ph name="BREAK">&lt;br&gt;</ph>
+-        You can manage settings from the card menu or see more options in Customize Chrome.
++        You can manage settings from the card menu or see more options in Customize Merlin.
+       </message>
+       <message name="IDS_NTP_MODULES_TAB_RESUMPTION_MULTI_DISMISS" desc="String text for module dismissal in the Tab Resumption module.">
+         Tabs hidden
+@@ -8731,7 +8731,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         You’re seeing your recently used tab groups to help you easily pick up where you left off.
+         <ph name="BREAK">&lt;br&gt;</ph>
+         <ph name="BREAK">&lt;br&gt;</ph>
+-        You can manage settings from the card menu or see more options in Customize Chrome.
++        You can manage settings from the card menu or see more options in Customize Merlin.
+       </message>
+       <message name="IDS_NTP_MODULES_TAB_GROUPS_TITLE" desc="Title for Tab Groups NTP module on the new tab page.">
+         Your tab groups
+@@ -8912,7 +8912,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         Please try again later
+       </message>
+       <message name="IDS_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL" desc="The title of the menu item for showing the Customize Chrome side panel.">
+-        Customize Chrome
++        Customize Merlin
+       </message>
+       <if expr="use_titlecase">
+         <message name="IDS_SHOW_CUSTOMIZE_CHROME_TOOLBAR" desc="The title of the menu item for showing the toolbar section of the Customize Chrome side panel.">
+@@ -10563,7 +10563,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         To go back more than 1 page, click and hold the Back button.
+       </message>
+       <message name="IDS_CHROME_TIP" desc="Accessible name used by a screen reader for the in-product-help or tutorial bubble icon." is_accessibility_with_no_ui="true">
+-        Chrome tip
++        Merlin tip
+       </message>
+       <message name="IDS_EXTENSIONS_MENU_IPH_ENTRY_POINT_TITLE" desc="">
+         See what extensions can read or change a site
+@@ -10769,10 +10769,10 @@ Keep your key file in a safe place. You will need it to create new versions of y
+ 
+       <!-- Customize Chrome Tutorial Strings -->
+       <message name="IDS_TUTORIAL_CUSTOMIZE_CHROME_START_TUTORIAL_IPH" desc="The description of the IPH to start the customize chrome tutorial">
+-        Customize Chrome to give your browser a new look
++        Customize Merlin to give your browser a new look
+       </message>
+       <message name="IDS_TUTORIAL_CUSTOMIZE_CHROME_OPEN_SIDE_PANEL" desc="The description of the 'open side panel' step in customize chrome tutorial">
+-        Click "Customize Chrome"
++        Click "Customize Merlin"
+       </message>
+       <message name="IDS_TUTORIAL_CUSTOMIZE_CHROME_CHANGE_THEME" desc="The description of the 'change theme' step in customize chrome tutorial">
+         Click “Change theme” to explore themes inspired by artists, nature and more
+@@ -10787,7 +10787,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
+         Click the back arrow to explore other options
+       </message>
+       <message name="IDS_TUTORIAL_CUSTOMIZE_CHROME_SUCCESS_BODY" desc="The description of the body text in the 'success' step in customize chrome tutorial">
+-        You can now give your browser a new look at any time from the Customize Chrome menu
++        You can now give your browser a new look at any time from the Customize Merlin menu
+       </message>
+ 
+       <!-- Password Manager Tutorial Strings -->
+@@ -10875,12 +10875,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
+          Show original content?
+       </message>
+       <message name="IDS_NEAR_OOM_REDUCTION_MESSAGE_DESCRIPTION" desc="The description of the message stating that the browser removed some content on the page using too much memory.">
+-         To save memory, Chrome removed some content
++         To save memory, Merlin removed some content
+       </message>
+ 
+       <!-- Tailored Security Prompt for Unconsented users -->
+       <message name="IDS_TAILORED_SECURITY_UNCONSENTED_MESSAGE_TITLE" desc="The title of the message asking if the user wants to enable Enhanced Safe Browsing">
+-         Also turn on Enhanced Safe Browsing for this Chrome profile?
++         Also turn on Enhanced Safe Browsing for this Merlin profile?
+       </message>
+       <message name="IDS_TAILORED_SECURITY_UNCONSENTED_MESSAGE_ACCEPT" desc="The text on the 'accept' button when asking if the user wants to enable Enhanced Safe Browsing">
+         Turn on
+@@ -11292,7 +11292,7 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google
+         The selected data has been removed from Merlin and synced devices. Your Google Account may have other forms of browsing history like searches and activity from other Google services at <ph name="BEGIN_LINK">&lt;a target="_blank" href="$1"&gt;</ph>myactivity.google.com<ph name="END_LINK">&lt;/a&gt;</ph>.
+       </message>
+       <message name="IDS_CLEAR_BROWSING_DATA_HISTORY_NOTICE_TITLE" desc="Title of a dialog that informs the user that the deletion of Chrome's browsing data has been completed.">
+-        Deleted Chrome data
++        Deleted Merlin data
+       </message>
+       <message name="IDS_CLEAR_BROWSING_DATA_HISTORY_NOTICE_OK" desc="Button in a dialog that informs the user that the deletion of Chrome's browsing data has been completed.">
+         Ok, got it
+@@ -11314,7 +11314,7 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google
+       </message>
+ 
+       <message name="IDS_ZOOMLEVELS_CHROME_ERROR_PAGES_LABEL" desc="Label for zoom level list entry for Chrome error pages.">
+-        (Chrome error pages)
++        (Merlin error pages)
+       </message>
+ 
+       <message name="IDS_STORAGE_ACCESS_MANAGE_TEXT" desc="The text on the button to manage the StorageAcccess settings.">
+@@ -12065,7 +12065,7 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google
+ 
+       <!-- Tab Group Deletion Dialog -->
+       <message name="IDS_TAB_GROUP_DELETION_DIALOG_MISSING_EMAIL" desc="The email address used in the deletion dialog body when an email is missing.">
+-        Chrome with this Google Account
++        Merlin with this Google Account
+       </message>
+       <message name="IDS_TAB_GROUP_DELETION_DIALOG_BODY_SYNCED_DELETE" desc="The body text for deleting a synced group or groups. Displayed in the Tab Group Deletion Dialog.">
+         {GROUP_COUNT, plural,
+@@ -12655,7 +12655,7 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google
+           Make sure you trust the person that sent this invitation
+         </message>
+         <message name="IDS_DATA_SHARING_SIGNED_OUT_BODY" desc="The body text of the dialog that prompts users to allow Chrome sign in.">
+-          To share, join, and collaborate in tab groups, open settings and turn on Allow Chrome sign-in
++          To share, join, and collaborate in tab groups, open settings and turn on Allow Merlin sign-in
+         </message>
+         <message name="IDS_DATA_SHARING_SETTINGS" desc="The generic text on buttons that take users to Chrome settings page.">
+           Settings
+@@ -12831,7 +12831,7 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google
+           Relaunch to update
+         </message>
+         <message name="IDS_APP_MENU_BUTTON_UPDATE_ALT3" desc="Alternate short label next to app-menu button when an update is available.">
+-          New Chrome available
++          New Merlin available
+         </message>
+       </if>
+       <message name="IDS_APP_MENU_BUTTON_ERROR" desc="Short label next to app-menu button when the user needs to resolve something.">
+@@ -12873,10 +12873,10 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google
+         <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a window and audio.
+       </message>
+       <message name="IDS_MEDIA_TAB_CAPTURE_NOTIFICATION_TEXT" desc="label used in screen capture notification UI to show the screen sharing status when the stream is consumed by the same app initiating the window picker">
+-        <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a Chrome tab.
++        <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a Merlin tab.
+       </message>
+       <message name="IDS_MEDIA_TAB_CAPTURE_WITH_AUDIO_NOTIFICATION_TEXT" desc="label used in screen capture notification UI to show the screen sharing status when the stream is consumed by the same app initiating the window picker">
+-        <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a Chrome tab and audio.
++        <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a Merlin tab and audio.
+       </message>
+       <message name="IDS_MEDIA_SCREEN_CAPTURE_NOTIFICATION_HIDE" desc="Text shown on a link that hides the notification that the screen is being captured.">
+         Hide
+@@ -13100,7 +13100,7 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google
+           This extension violates the Web Store policy.
+         </message>
+         <message name="IDS_EXTENSIONS_BLOCKLISTED_POTENTIALLY_UNWANTED" desc="The text explaining the reason for disabling extension or app. The extension in question might have been installed without user consent.">
+-          Disabled by Chrome. This extension may be unsafe.
++          Disabled by Merlin. This extension may be unsafe.
+         </message>
+ 
+         <!-- Enhanced Safe Browsing CRX allowlist warning -->
+@@ -13136,7 +13136,7 @@ Check your passwords anytime in <ph name="GOOGLE_PASSWORD_MANAGER">$1<ex>Google
+           <ph name="THIRD_PARTY_TOOL_NAME">$1<ex>SuperDuper PC Cleaner Pro</ex></ph> wants to reset your settings.
+         </message>
+         <message name="IDS_TRIGGERED_RESET_PROFILE_SETTINGS_EXPLANATION" desc="Dialog title for reset dialog triggered by a third party tool">
+-          <ph name="THIRD_PARTY_TOOL_NAME">$1<ex>SuperDuper PC Cleaner Pro</ex></ph> wants to restore your Chrome settings to their original defaults. This will reset your homepage, new tab page and search engine, disable your extensions, and unpin all tabs. It will also clear other temporary and cached data, such as cookies, content and site data.
++          <ph name="THIRD_PARTY_TOOL_NAME">$1<ex>SuperDuper PC Cleaner Pro</ex></ph> wants to restore your Merlin settings to their original defaults. This will reset your homepage, new tab page and search engine, disable your extensions, and unpin all tabs. It will also clear other temporary and cached data, such as cookies, content and site data.
+         </message>
+         <message name="IDS_TRIGGERED_RESET_PROFILE_SETTINGS_DEFAULT_TOOL_NAME" desc="Default tool name when a reset was triggered but a name could not be found.">
+           A cleanup tool
+@@ -16495,7 +16495,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+ 
+     <!-- Automation infobar -->
+     <message name="IDS_CONTROLLED_BY_AUTOMATION" desc="Message shown when the browser session is being controlled by an automated test.">
+-      Chrome is being controlled by automated test software
++      Merlin is being controlled by automated test software
+     </message>
+ 
+     <!-- Chrome for Testing infobar main text -->
+@@ -16796,7 +16796,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+       </message>
+       <if expr="is_macosx">
+         <message name="IDS_WEBAUTHN_YOUR_CHROME_PROFILE" desc="Menu item text. The user selects this to use a hardware-based authentication mechanism that is built in to the computer, such as a fingerprint reader. The credential itself is stored in the Chrome profile, however, and this text emphasizes that.">
+-          Your Chrome profile
++          Your Merlin profile
+         </message>
+       </if>
+       <message name="IDS_WEBAUTHN_TRANSPORT_INTERNAL" desc="Menu item text. The user selects this to use a hardware-based authentication mechanism that is built in to the computer, such as a fingerprint reader.">
+@@ -16886,7 +16886,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+ 
+       <if expr="is_macosx">
+         <message name="IDS_WEBAUTHN_BLUETOOTH_PERMISSION" desc="Body text in a dialog that appears when the user has requested some function that depends on Bluetooth, but Chrome doesn't have permission to use Bluetooth. The action on this dialog is a button that will open the macOS System Settings so that the user can grant permission.">
+-          Chrome needs permission to use Bluetooth to connect to your device
++          Merlin needs permission to use Bluetooth to connect to your device
+         </message>
+       </if>
+ 
+@@ -17062,7 +17062,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+         On other devices
+       </message>
+       <message name="IDS_WEBAUTHN_SOURCE_CHROME_PROFILE" desc="The subtitle shown in a button that lets the user select a passkey to sign in, indicating that the passkey resides in the user's Chrome Profile.">
+-        Your Chrome profile
++        Your Merlin profile
+       </message>
+       <message name="IDS_WEBAUTHN_SOURCE_ICLOUD_KEYCHAIN" desc="The subtitle shown in a button that lets the user select a passkey to sign in, indicating that the passkey resides in Apple Passwords. Apple Passwords is an Apple brand and should be translated the same as it is in Apple devices. If you edit the language code in https://support.apple.com/es-es/104955 you can see how Apple translates it in several languages. ('Passwords' is usually localized.)">
+         Apple Passwords
+@@ -17547,15 +17547,15 @@ Please help our engineers fix this problem. Tell us what happened right before y
+       Got it
+     </message>
+     <message name="IDS_TAILORED_SECURITY_DIALOG_SETTINGS_BUTTON" desc="The text on the cancel button in the tab dialog when the account tailored security setting changes for a consented primary account">
+-      Chrome settings
++      Merlin settings
+     </message>
+ 
+     <!-- Tailored security dialog for unconsented primary accounts -->
+     <message name="IDS_TAILORED_SECURITY_UNCONSENTED_MODAL_TITLE" desc="Title shown in the tab modal dialog when the account tailored security setting changes for an unconsented primary account">
+-      Also turn on Enhanced Safe Browsing for this Chrome profile?
++      Also turn on Enhanced Safe Browsing for this Merlin profile?
+     </message>
+     <message name="IDS_TAILORED_SECURITY_UNCONSENTED_MODAL_BODY" desc="Body shown in the tab modal dialog when the account tailored security setting changes for an unconsented primary account">
+-      Chrome&#x2019;s strongest security does more to protect you against dangerous websites, downloads, and extensions
++      Merlin&#x2019;s strongest security does more to protect you against dangerous websites, downloads, and extensions
+     </message>
+     <message name="IDS_TAILORED_SECURITY_UNCONSENTED_ACCEPT_BUTTON" desc="The text on the accept button in the tab modal dialog when the account tailored security setting changes for an unconsented primary account">
+       Turn on
+@@ -17569,7 +17569,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+       Enhanced Safe Browsing is on
+     </message>
+     <message name="IDS_TAILORED_SECURITY_CONSENTED_ENABLE_MESSAGE_DESCRIPTION" desc="Description shown in the Android message when the account tailored security setting changes for a consented primary account">
+-      You have Chrome&#x2019;s strongest security against harmful websites
++      You have Merlin&#x2019;s strongest security against harmful websites
+     </message>
+     <message name="IDS_TAILORED_SECURITY_CONSENTED_DISABLE_MESSAGE_TITLE" desc="Title shown in the Android message when the account tailored security setting changes for a consented primary account">
+       Enhanced Safe Browsing is off
+@@ -18203,10 +18203,10 @@ Please help our engineers fix this problem. Tell us what happened right before y
+         From your recent search
+       </message>
+       <message name="IDS_MULTISTEP_FILTER_IPH_BODY" desc="Text shown in the IPH bubble for educating users about Multistep Filter." translateable="false">
+-        Chrome can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
++        Merlin can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
+       </message>
+       <message name="IDS_MULTISTEP_FILTER_IPH_BODY_SCREENREADER" is_accessibility_with_no_ui="true" desc="Screenreader text shown in the IPH bubble for educating users about Multistep Filter." translateable="false">
+-        Chrome can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
++        Merlin can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
+       </message>
+       <message name="IDS_LINK_COPIED_TOAST_BODY" desc="Text on a toast notification that is shown when a link is successfully copied.">
+         Link copied
+@@ -18266,7 +18266,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+         Close
+       </message>
+       <message name="IDS_NON_MILESTONE_UPDATE_TOAST_BODY" desc="Text on a toast notification that is shown when a non milestone update is complete.">
+-        Chrome was updated
++        Merlin was updated
+       </message>
+       <message name="IDS_GLIC_SHARE_IMAGE_FAILED_TOAST_BODY" desc="Text on a toast notification that is shown when sharing an image with Gemini fails (when using the 'Create image with Gemini' context menu item)">
+         Could not share image with Gemini. Try again or try another image.
+@@ -18478,7 +18478,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+       Launch application
+     </message>
+     <message name="IDS_IWA_INSTALLER_VERIFICATION_TITLE" desc="Title of the verification step of the IWA installation">
+-      Chrome is verifying the installation bundle
++      Merlin is verifying the installation bundle
+     </message>
+     <message name="IDS_IWA_INSTALLER_VERIFICATION_SUBTITLE" desc="Subtitle of the verification step of the IWA installation">
+       Please wait while verification is in progress
+@@ -18490,7 +18490,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+         other {Checking public key and integrity block... # minutes remaining}}
+     </message>
+     <message name="IDS_IWA_INSTALLER_VERIFICATION_ERROR_TITLE" desc="Title of an error popup during the verification step of the Isolated Web App installer">
+-      Chrome failed to verify this installation bundle
++      Merlin failed to verify this installation bundle
+     </message>
+     <message name="IDS_IWA_INSTALLER_VERIFICATION_ERROR_SUBTITLE" desc="Subtitle of an error popup during the verification step of the Isolated Web App installer">
+       This bundle might be broken or compromised. Please close this window and download it again
+@@ -18587,7 +18587,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+ 
+     <!-- PDF Searchify elements. -->
+     <message name="IDS_PDF_SEARCHIFY_IPH_TITLE" desc="Title of in product help to introduce PDF Searchify feature.">
+-    Chrome makes PDFs better
++    Merlin makes PDFs better
+     </message>
+     <message name="IDS_PDF_SEARCHIFY_IPH_BODY" desc="Content of in product help to introduce PDF Searchify feature.">
+     PDFs automatically get converted so you can search and select text
+@@ -18676,7 +18676,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+     Always allow
+   </message>
+   <message name="IDS_CHROME_NO_LONGER_SHOW_WARNINGS_NOTIFICATION_BODY" desc="The body for the notification sent by Chrome informing the user that their decision to never show warnings for the url has been applied.">
+-    Chrome will stop flagging notifications from this site as spam
++    Merlin will stop flagging notifications from this site as spam
+   </message>
+   <message name="IDS_CHROME_NO_LONGER_SHOW_WARNINGS_NOTIFICATION_TITLE_NEW" desc="The title for the notification sent by Chrome informing the user that their decision to never show warnings for the url has been applied.">
+     Notifications allowed from <ph name="DOMAIN">$1<ex>example.com</ex></ph>
+@@ -18792,7 +18792,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+ 
+     <!-- Tips Notifications-->
+     <message name="IDS_TIPS_NOTIFICATIONS_HELPFUL_BUTTON_TEXT" desc="Text for the helpful button found on tips notifications.">
+-      Open Chrome
++      Open Merlin
+     </message>
+     <message name="IDS_TIPS_NOTIFICATIONS_ENHANCED_SAFE_BROWSING_TITLE" desc="Title for the enhanced safe browsing tip notification. [CHAR_LIMIT=32]">
+       Get Merlin's strongest security
+@@ -18825,7 +18825,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+       Create, save, and manage your passwords so you can easily sign in
+     </message>
+     <message name="IDS_TIPS_NOTIFICATIONS_SIGNIN_TITLE" desc="Title for the sign-in tip notification. [CHAR_LIMIT=32]">
+-      Make Chrome your own
++      Make Merlin your own
+     </message>
+     <message name="IDS_TIPS_NOTIFICATIONS_SIGNIN_SUBTITLE" desc="Subtitle for the sign-in tip notification.">
+       Sign in to easily continue on all your devices
+@@ -18846,7 +18846,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+       Pick up where you left off
+     </message>
+     <message name="IDS_TIPS_NOTIFICATIONS_RECENT_TABS_SUBTITLE" desc="Subtitle for the recent tabs tip notification.">
+-      You can reopen tabs that you've recently closed from wherever you use Chrome
++      You can reopen tabs that you've recently closed from wherever you use Merlin
+     </message>
+ 
+     <!-- chrome://updater -->
+@@ -19182,7 +19182,7 @@ Please help our engineers fix this problem. Tell us what happened right before y
+         Update Error
+       </message>
+       <message name="IDS_UPDATER_VIEW_ALL_CHROME_POLICIES" desc="Label for a button that opens the chrome://policy page.">
+-        View all Chrome Policies
++        View all Merlin Policies
+       </message>
+       <message name="IDS_UPDATER_VIEW_RAW_DETAILS" desc="Title of the button to display the contents of a Chrome Updater log in JSON format">
+         Source
+diff --git a/chrome/app/glic_strings.grdp b/chrome/app/glic_strings.grdp
+index 1a063aea8b..f955ee5316 100644
+--- a/chrome/app/glic_strings.grdp
++++ b/chrome/app/glic_strings.grdp
+@@ -121,7 +121,7 @@
+     Your organization has turned off this feature
+   </message>
+   <message name="IDS_GLIC_INELIGIBLE_ACCOUNT_NOTICE_HEADER" desc="This is the headline on the Gemini ineligible account notice.">
+-    Your account doesn't have access to Gemini in Chrome
++    Your account doesn't have access to Gemini in Merlin
+   </message>
+   <message name="IDS_GLIC_INELIGIBLE_ACCOUNT_NOTICE" desc="This is the text of the Gemini ineligible account notice.">
+     Check that you're eligible and meet the requirements
+@@ -133,25 +133,25 @@
+     Ask Gemini about anything as you browse, and get answers grounded in files and services across your organization
+   </message>
+   <message name="IDS_GLIC_RELAUNCH_REQUIRED_ACTION_BUTTON" desc="Button label on the notice shown in the Gemini side panel that relaunches Chrome to apply a provider change.">
+-    Relaunch Chrome
++    Relaunch Merlin
+   </message>
+   <message name="IDS_GLIC_RELAUNCH_REQUIRED_GEIC_TO_GEMINI_HEADER" desc="Headline on the notice shown in the Gemini Enterprise side panel when an administrator has turned off Gemini Enterprise and Chrome must be relaunched to apply the change.">
+-    Gemini Enterprise not available for Gemini in Chrome
++    Gemini Enterprise not available for Gemini in Merlin
+   </message>
+   <message name="IDS_GLIC_RELAUNCH_REQUIRED_GEIC_TO_GEMINI_BODY_1" desc="First paragraph of the body text on the notice shown in the Gemini Enterprise side panel when an administrator has turned off Gemini Enterprise but still allows Gemini in Chrome, and Chrome must be relaunched to switch to Gemini in Chrome. Explains why Gemini Enterprise is unavailable.">
+-    Gemini Enterprise in Chrome isn't available due to your organization's policies.
++    Gemini Enterprise in Merlin isn't available due to your organization's policies.
+   </message>
+   <message name="IDS_GLIC_RELAUNCH_REQUIRED_GEIC_TO_GEMINI_BODY_2" desc="Second paragraph of the body text on the notice shown in the Gemini Enterprise side panel when an administrator has turned off Gemini Enterprise but still allows Gemini in Chrome. Explains what changes after switching to Gemini in Chrome.">
+-    You can continue using Gemini in Chrome, but it will no longer find or reference information managed by your organization. Your chat history may not carry over.
++    You can continue using Gemini in Merlin, but it will no longer find or reference information managed by your organization. Your chat history may not carry over.
+   </message>
+   <message name="IDS_GLIC_RELAUNCH_REQUIRED_GEIC_TO_GEMINI_BODY_3" desc="Third paragraph of the body text on the notice shown in the Gemini Enterprise side panel when an administrator has turned off Gemini Enterprise but still allows Gemini in Chrome. Shown above a 'Relaunch Chrome' button.">
+-    Switching requires relaunching Chrome.
++    Switching requires relaunching Merlin.
+   </message>
+   <message name="IDS_GLIC_RELAUNCH_REQUIRED_GEIC_TO_OTHER_GEIC_HEADER" desc="Headline on the notice shown in the Gemini Enterprise side panel when an administrator has changed the Gemini Enterprise configuration and Chrome must be relaunched to apply the change.">
+     Relaunch required to continue browsing with Gemini
+   </message>
+   <message name="IDS_GLIC_RELAUNCH_REQUIRED_GEIC_TO_OTHER_GEIC_BODY" desc="Body text on the notice shown in the Gemini Enterprise side panel when an administrator has changed the Gemini Enterprise configuration and Chrome must be relaunched to apply the change.">
+-    Your organization has updated policies and requires you to relaunch Chrome to continue using Gemini Enterprise in Chrome
++    Your organization has updated policies and requires you to relaunch Merlin to continue using Gemini Enterprise in Merlin
+   </message>
+ 
+   <message name="IDS_GLIC_MANAGED_BY_ORGANIZATION" desc="Text shown when the feature is managed by the organization but not disabled." formatter_data="android_java">
+@@ -181,7 +181,7 @@
+     Preview
+   </message>
+   <message name="IDS_SETTINGS_GLIC_INLINE_CUE_MENU_PREVIEW_TEXT" desc="Text displayed in the preview box with highlighted words.">
+-    Chrome is made possible by the Chromium open source project and other <ph name="BEGIN_HIGHLIGHT">&lt;span class="preview-highlight-box"&gt;&lt;span class="preview-highlight-text"&gt;</ph>open source<ph name="END_HIGHLIGHT">&lt;/span&gt;&lt;/span&gt;</ph> software.
++    Merlin is made possible by the Chromium open source project and other <ph name="BEGIN_HIGHLIGHT">&lt;span class="preview-highlight-box"&gt;&lt;span class="preview-highlight-text"&gt;</ph>open source<ph name="END_HIGHLIGHT">&lt;/span&gt;&lt;/span&gt;</ph> software.
+   </message>
+   <message name="IDS_SETTINGS_GLIC_INLINE_CUE_MENU_BLOCKED_EXCEPTIONS" desc="Header for the list of sites blocked from showing the inline cue menu.">
+     Not allowed to show text actions
+@@ -214,7 +214,7 @@
+     Keyboard shortcut
+   </message>
+   <message name="IDS_SETTINGS_GLIC_HOTKEY_GLOBAL_SCOPE_DESCRIPTION" desc="Description for the hotkey scope setting to allow it to work globally.">
+-    Use this shortcut outside of Chrome
++    Use this shortcut outside of Merlin
+   </message>
+   <message name="IDS_SETTINGS_GLIC_KEYBOARD_SHORTCUT_EDIT_LABEL" desc="Label of the edit keyboard shortcut setting button.">
+     Edit keyboard shortcut
+@@ -364,22 +364,22 @@
+        and will be finalized and replaced next week. This also includes finalizing the links for
+        "Learn more about Gemini tasks" and "unexpected actions". -->
+   <message name="IDS_GLIC_EXPERIMENTAL_OPT_IN_TITLE" desc="Title for the experimental opt-in dialog" is_accessibility_with_no_ui="true">
+-    First, turn on Chrome auto browse for this device
++    First, turn on Merlin auto browse for this device
+   </message>
+   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_TOGGLE" desc="Label for the Gemini experimental triggering setting" formatter_data="android_java">
+     Let other Gemini apps browse remotely from any device
+   </message>
+   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_SUB_LABEL" desc="Sublabel explaining the setting that lets other Gemini apps use Chrome auto browse on this device." formatter_data="android_java">
+-    When you start a task from other Gemini apps, including gemini.google.com and Gemini mobile apps, Gemini can use Chrome auto browse on this device to interact with sites and complete tasks on your behalf. <ph name="LINK_BEGIN">&lt;a href="#"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
++    When you start a task from other Gemini apps, including gemini.google.com and Gemini mobile apps, Gemini can use Merlin auto browse on this device to interact with sites and complete tasks on your behalf. <ph name="LINK_BEGIN">&lt;a href="#"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
+   </message>
+   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_SUB_LABEL_V2" desc="Sublabel explaining the setting that lets other Gemini apps use Chrome auto browse on this device, with accessible link attributes.">
+-    When you start a task from other Gemini apps, including gemini.google.com and Gemini mobile apps, Gemini can use Chrome auto browse on this device to interact with sites and complete tasks on your behalf. <ph name="LINK_BEGIN">&lt;a href="$1" target="_blank" aria-label="$2" aria-description="$3"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
++    When you start a task from other Gemini apps, including gemini.google.com and Gemini mobile apps, Gemini can use Merlin auto browse on this device to interact with sites and complete tasks on your behalf. <ph name="LINK_BEGIN">&lt;a href="$1" target="_blank" aria-label="$2" aria-description="$3"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
+   </message>
+   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_SUB_LABEL_LEARN_MORE_LINK_LABEL" desc="Accessible name for the 'Learn more' link in the experimental triggering toggle sublabel." is_accessibility_with_no_ui="true">
+     Learn more about Gemini tasks
+   </message>
+   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_WHEN_ON_1" desc="Bullet point explaining what happens when this setting is enabled." formatter_data="android_java">
+-    Gemini can only use auto browse on this device if the device is awake and Chrome is running.
++    Gemini can only use auto browse on this device if the device is awake and Merlin is running.
+   </message>
+   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_WHEN_ON_2" desc="Bullet point explaining notifications when this setting is enabled." formatter_data="android_java">
+     Gemini will decide which actions to take based on the tasks you start or update.
+@@ -388,7 +388,7 @@
+     Gemini will have access to the same sites as you, including the sites you’re signed in to. It will share necessary info with third parties, which could include personal info you might find sensitive.
+   </message>
+   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_CONSIDER_2" desc="Bullet point explaining access risk when enabling this setting." formatter_data="android_java">
+-    Anybody with access to your Gemini apps could control your Chrome browser.
++    Anybody with access to your Gemini apps could control your Merlin browser.
+   </message>
+   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_CONSIDER_3" desc="Bullet point explaining user responsibility and risks for this setting." formatter_data="android_java">
+     Gemini may make mistakes, like sharing your info or making purchases without asking. <ph name="LINK_BEGIN">&lt;a href="$1" target="_blank"&gt;</ph>Review the risks<ph name="LINK_END">&lt;/a&gt;</ph>.
+@@ -400,16 +400,16 @@
+     Review the risks of using Gemini
+   </message>
+   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_CHROME_WEB_ACTUATION_TOGGLE" desc="Title for the Gemini feature introduction screen" formatter_data="android_java">
+-    Let Chrome browse for you
++    Let Merlin browse for you
+   </message>
+   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_CHROME_WEB_ACTUATION_TOGGLE_SUBLABEL" desc="Subheader explaining what the Gemini feature does" formatter_data="android_java">
+-    Gemini in Chrome uses auto browse to work in your tabs and complete tasks you give it. <ph name="LINK_BEGIN">&lt;a href="#"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
++    Gemini in Merlin uses auto browse to work in your tabs and complete tasks you give it. <ph name="LINK_BEGIN">&lt;a href="#"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
+   </message>
+   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_CHROME_WEB_ACTUATION_TOGGLE_SUBLABEL_V2" desc="Subheader explaining what the Gemini feature does (WebUI version)">
+-    Gemini in Chrome uses auto browse to work in your tabs and complete tasks you give it. <ph name="LINK_BEGIN">&lt;a href="#" target="_blank" aria-label="$1" aria-description="$2"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
++    Gemini in Merlin uses auto browse to work in your tabs and complete tasks you give it. <ph name="LINK_BEGIN">&lt;a href="#" target="_blank" aria-label="$1" aria-description="$2"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
+   </message>
+   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_CHROME_WEB_ACTUATION_TOGGLE_LEARN_MORE_ARIA_LABEL" desc="Accessible label for the 'Learn more' link in the Gemini auto browse sublabel." is_accessibility_with_no_ui="true">
+-    Learn more about Chrome auto browse
++    Learn more about Merlin auto browse
+   </message>
+   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_WEB_ACTUATION_TOGGLE_WHEN_ON_1" desc="First point in 'when on' column of the 'let Gemini browse for you' expands" formatter_data="android_java">
+     Gemini can help you book appointments, create shopping carts, or do other tasks you give it.
+@@ -547,7 +547,7 @@
+ 
+   <!-- Gemini tab strip button label -->
+   <message name="IDS_GLIC_SETTING_LABEL" desc="Label in setting list used to open Gemini in Chrome settings." formatter_data="android_java">
+-    Gemini in Chrome
++    Gemini in Merlin
+   </message>
+   <message name="IDS_GLIC_BUTTON_ENTRYPOINT_LABEL" desc="Label on the button used to open Gemini in Chrome." formatter_data="android_java">
+     Gemini
+@@ -610,7 +610,7 @@
+     Get help with your tasks
+   </message>
+   <message name="IDS_GLIC_TRYIT_BODY" desc="Text for a promo pointing to the Gemini icon in Chrome, that opens Gemini in Chrome if selected.">
+-    Chat with Gemini in Chrome to get answers, key takeaways, and more as you browse
++    Chat with Gemini in Merlin to get answers, key takeaways, and more as you browse
+   </message>
+ 
+   <!-- Shortcut IPH -->
+@@ -618,7 +618,7 @@
+     <ph name="message">$1<ex>Use Ctrl+⌘+G to open Gemini in Chrome</ex></ph>
+   </message>
+   <message name="IDS_GLIC_SHORTCUT_IPH_TEXT" desc="Title for a promo pointing to the Gemini icon in Chrome. It informs the user about a keyboard shortcut for quicly opening Gemini in Chrome.">
+-    Use <ph name="FOCUS_TOGGLE_HOTKEY">$1<ex>Ctrl+⌘+G</ex></ph> to open Gemini in Chrome
++    Use <ph name="FOCUS_TOGGLE_HOTKEY">$1<ex>Ctrl+⌘+G</ex></ph> to open Gemini in Merlin
+   </message>
+ 
+   <!-- Selection Nudge -->
+@@ -643,10 +643,10 @@
+ 
+   <!-- Educational Tip -->
+   <message name="IDS_EDUCATIONAL_TIP_GLIC_TITLE" desc="Title for the Glic educational tip card." formatter_data="android_java">
+-    Meet Gemini on Chrome
++    Meet Gemini on Merlin
+   </message>
+   <message name="IDS_EDUCATIONAL_TIP_GLIC_DESCRIPTION" desc="Description for the Glic educational tip card." formatter_data="android_java">
+-    Get the best of Google AI. Pin Gemini to your toolbar for easy access, or open it anytime from the Chrome menu.
++    Get the best of Google AI. Pin Gemini to your toolbar for easy access, or open it anytime from the Merlin menu.
+   </message>
+   <message name="IDS_EDUCATIONAL_TIP_GLIC_BUTTON" desc="Button text for the Glic educational tip card." formatter_data="android_java">
+     Pin on toolbar
+@@ -674,10 +674,10 @@
+     Gemini
+   </message>
+   <message name="IDS_GLIC_LOCATION_MISMATCH_NOTICE_HEADER" desc="Headline on the notice when Gemini is unavailable in the current dynamic location.">
+-    Gemini in Chrome isn't available
++    Gemini in Merlin isn't available
+   </message>
+   <message name="IDS_GLIC_LOCATION_MISMATCH_NOTICE" desc="Text of the notice explaining location mismatch for travelers or VPN users.">
+-    Gemini in Chrome is expanding to different locations but isn't available everywhere
++    Gemini in Merlin is expanding to different locations but isn't available everywhere
+   </message>
+   <message name="IDS_GLIC_GET_HELP" desc="Link or button label text to open help documentation.">
+     Get help
+diff --git a/chrome/app/media_router_strings.grdp b/chrome/app/media_router_strings.grdp
+index 44ce18a889..cfe0c3dbac 100644
+--- a/chrome/app/media_router_strings.grdp
++++ b/chrome/app/media_router_strings.grdp
+@@ -93,7 +93,7 @@
+     Permission to cast is rejected. Open a help center article in a new tab to learn more.
+   </message>
+   <message name="IDS_MEDIA_ROUTER_LOCAL_DISCOVERY_PERMISSION_REJECTED_LABEL" desc="The error message including the link to the OS settings page, shown when the browser does not have the permission to connect to devices on the local network.">
+-    To cast, give Chrome access in: <ph name="IDS_MEDIA_ROUTER_LOCAL_DISCOVERY_PERMISSION_REJECTED_LINK">$1<ex>System Settings</ex></ph> > Local Network > Chrome
++    To cast, give Merlin access in: <ph name="IDS_MEDIA_ROUTER_LOCAL_DISCOVERY_PERMISSION_REJECTED_LINK">$1<ex>System Settings</ex></ph> > Local Network > Merlin
+   </message>
+   <message name="IDS_MEDIA_ROUTER_LOCAL_DISCOVERY_PERMISSION_REJECTED_LINK" desc="Text for the link to the OS settings page allowing useres to turn on the permission. This string will be embedded in a longer sentence that makes up the whole label.">
+     System Settings
+@@ -329,7 +329,7 @@
+     Send debug logs (recommended)
+   </message>
+   <message name="IDS_MEDIA_ROUTER_FEEDBACK_PRIVACY_DATA_USAGE" desc="Text with details about data usage of details submitted in the feedback page.">
+-    Your Chrome version, operating system version, Cast settings,
++    Your Merlin version, operating system version, Cast settings,
+     mirroring performance stats, and communication channel diagnostic
+     logs will be submitted in addition to any information you choose
+     to include above. This feedback is used to diagnose problems and
+diff --git a/chrome/app/password_manager_ui_strings.grdp b/chrome/app/password_manager_ui_strings.grdp
+index a89430a2e7..a548412e61 100644
 --- a/chrome/app/password_manager_ui_strings.grdp
 +++ b/chrome/app/password_manager_ui_strings.grdp
 @@ -645,7 +645,7 @@
@@ -18,9 +815,42 @@
      </message>
    </if>
    <if expr="is_win">
+diff --git a/chrome/app/profiles_strings.grdp b/chrome/app/profiles_strings.grdp
+index bb0f1d0b5e..887261ee01 100644
+--- a/chrome/app/profiles_strings.grdp
++++ b/chrome/app/profiles_strings.grdp
+@@ -104,7 +104,7 @@
+     Verify it’s you to save and use your passkeys on this device
+   </message>
+   <message name="IDS_PROFILE_MENU_PASSKEYS_ERROR_DESCRIPTION_GET" desc="Subtitle in the profile menu, shown when the user needs to verify their identity to unlock usage of their Google Password Manager passkeys on this device, e.g. by presenting a PIN. The word 'passkey' is distinct from 'password', consult the glossary for a translation.">
+-    Get your passkeys on this device with Google Password Manager
++    Get your passkeys on this device with Merlin Password Manager
+   </message>
+   <message name="IDS_PROFILE_MENU_PASSKEYS_ERROR_DESCRIPTION_VERIFY" desc="Subtitle in the profile menu, shown when the user needs to verify their identity to unlock usage of their Google Password Manager passkeys on this device, e.g. by presenting a PIN. The word 'passkey' is distinct from 'password', consult the glossary for a translation.">
+     Verify it’s you to get your passkeys on this device
+@@ -171,7 +171,7 @@
+     Sync disabled
+   </message>
+   <message name="IDS_PROFILES_DASHER_FEATURE_DISABLED_TITLE" desc="Description of the profile user menu when certain features are disabled for Dasherless profile.">
+-    This isn't a Google Account. Items you save to Chrome won't be available on other devices.
++    This isn't a Google Account. Items you save to Merlin won't be available on other devices.
+   </message>
+   <message name="IDS_PROFILES_DICE_SYNC_PAUSED_TITLE" desc="Title of the profile user menu when sync is paused.">
+     Sync is paused
+@@ -187,7 +187,7 @@
+ 
+   <!-- Signin Composebox Drive context menu option promo. -->
+   <message name="IDS_COMPOSEBOX_DRIVE_CONTEXT_MENU_OPTION_SIGNIN_PROMO_TITLE" desc="The title in the sign-in promo bubble shown to users when interacting with the Google Drive context menu option in the composebox while not signed in.">
+-    Sign in to Chrome
++    Sign in to Merlin
+   </message>
+   <message name="IDS_COMPOSEBOX_DRIVE_CONTEXT_MENU_OPTION_VERIFY_PROMO_TITLE" desc="The title in the sign-in promo bubble shown to users when interacting with the Google Drive context menu option in the composebox while sign-in credentials have expired.">
+     Verify it's you
+diff --git a/chrome/app/settings_strings.grdp b/chrome/app/settings_strings.grdp
+index a01d0993ef..5dfb1ac4a4 100644
 --- a/chrome/app/settings_strings.grdp
 +++ b/chrome/app/settings_strings.grdp
-@@ -68,7 +68,7 @@
+@@ -78,7 +78,7 @@
      </if>
      <if expr="is_macosx">
        <message name="IDS_ABOUT_CHROME_AUTOUPDATE_ALL" desc="The 'Automatically update Chrome for all users.' button in the About window.  Mac-only.">
@@ -29,7 +859,7 @@
        </message>
        <message name="IDS_ABOUT_CHROME_AUTOUPDATE_ALL_IS_ON" desc="The text in About Page to indicate automatic update is turned on.  Mac-only.">
          Automatic updates are turned on.
-@@ -95,7 +95,7 @@
+@@ -105,7 +105,7 @@
        Get image descriptions from Google
      </message>
      <message name="IDS_SETTINGS_ACCESSIBLE_IMAGE_LABELS_SUBTITLE" desc="Subtitle for screen reader image labels feature.">
@@ -38,7 +868,7 @@
      </message>
      <message name="IDS_SETTINGS_MAIN_NODE_ANNOTATIONS_DOWNLOAD_COMPLETE" desc="Success message when it has downloaded main node annotation files.">
        Main node annotation files downloaded
-@@ -248,7 +248,7 @@
+@@ -304,7 +304,7 @@
        Reset toolbar to default settings
      </message>
      <message name="IDS_SETTINGS_CHROME_COLORS" desc="Text of the label describing 'Chrome Colors' theme.">
@@ -47,8 +877,8 @@
      </message>
      <message name="IDS_SETTINGS_COLOR_SCHEME_MODE" desc="Text of the label for selecting a color scheme mode for the browser.">
        Mode
-@@ -332,7 +332,7 @@
-       Google Search AI Mode
+@@ -382,7 +382,7 @@
+       Google Search
      </message>
      <message name="IDS_SETTINGS_SIDE_PANEL_ALIGNMENT_CHROME_PANELS" desc="Label for the default Chrome Panels alignment setting.">
 -      Chrome Panels
@@ -56,7 +886,7 @@
      </message>
      <message name="IDS_SETTINGS_SIDE_PANEL_ALIGNMENT_A11Y_LABEL" is_accessibility_with_no_ui="true" desc="Accessible label for side panel alignment dropdown menus, combining the side panel item name and the side panel position category name for screen readers.">
        <ph name="ITEM_NAME">$1<ex>Google Search AI Mode</ex></ph> <ph name="CATEGORY_NAME">$2<ex>Side panel position</ex></ph>
-@@ -1450,10 +1450,10 @@
+@@ -1517,10 +1517,10 @@
        Sites you visit can verify that you're a real person and not a bot
      </message>
      <message name="IDS_SETTINGS_ANTI_ABUSE_WHEN_ON_SECTION_ONE" desc="A description that informs users that Chrome saves a small amount of data when the anti-abuse features are enabled.">
@@ -69,7 +899,7 @@
      </message>
      <message name="IDS_SETTINGS_ANTI_ABUSE_WHEN_ON_SECTION_THREE" desc="A description that informs users how their browsing could be helped by the anti-abuse features.">
        Browsing is faster because a site is less likely to ask you to verify you're a real person
-@@ -1513,7 +1513,7 @@
+@@ -1580,7 +1580,7 @@
        Web &#38; App Activity
      </message>
      <message name="IDS_SETTINGS_PRIVACY_GUIDE_COMPLETION_CARD_AI_SETTINGS_LABEL" desc="Text of the AI Innovations sublabel in the completion card of the 'Privacy Guide'.">
@@ -78,7 +908,7 @@
      </message>
      <message name="IDS_SETTINGS_PRIVACY_GUIDE_MSBB_CARD_HEADER" desc="Header of the 'make searches and browsing better' card in the 'Privacy Guide'.">
        Choose your search and browsing quality
-@@ -2117,10 +2117,10 @@
+@@ -2005,10 +2005,10 @@
        Learn more about resetting settings
      </message>
      <message name="IDS_SETTINGS_RESET_AUTOMATED_DIALOG_V2_TITLE" desc="The title of the dialog informing the user that automated resetting of some settings occurred.">
@@ -91,7 +921,7 @@
      </message>
      <message name="IDS_SETTINGS_RESET_PINNED_TABS" desc="A string that is used to describe the pinned tabs setting.">
        Pinned tabs
-@@ -2256,7 +2256,7 @@
+@@ -2144,7 +2144,7 @@
        Site search
      </message>
      <message name="IDS_SETTINGS_SEARCH_ENGINES_SITE_SEARCH_EXPLANATION" desc="Explanation for 'Site Search' section. Used interchangeably with IDS_SETTINGS_SEARCH_ENGINES_SITE_SEARCH_EXPLANATION_STARTER_PACK">
@@ -100,7 +930,7 @@
      </message>
      <message name="IDS_SETTINGS_SEARCH_ENGINES_NO_SITES_ADDED" desc="Text shown when the 'Site Search' section is empty">
        No sites added
-@@ -3443,7 +3443,7 @@
+@@ -3357,7 +3357,7 @@
        No sites added
      </message>
      <message name="IDS_SETTINGS_SITE_SETTINGS_BLOCK_AUTOPLAY" desc="A label for a toggle in site settings to block autoplay. If the toggle is on then Chrome will block autoplay by default and use an algorithm to determine which sites should still be able to autoplay. If the toggle is off then autoplay will be enabled for all sites.">
@@ -109,16 +939,16 @@
      </message>
      <message name="IDS_SETTINGS_SITE_SETTINGS_EMPTY_ALL_SITES_PAGE" desc="Explanation shown when there are no sites that have appeared yet on the All Sites page.">
        Sites you visit will appear here
-@@ -3960,7 +3960,7 @@
-         </message>
-       </if>
+@@ -3820,7 +3820,7 @@
+         Use graphics acceleration when available
+       </message>
        <message name="IDS_SETTINGS_SYSTEM_FEATURE_NOTIFICATIONS_LABEL" desc="Label for the toggle that enables Chrome system notifications about features.">
 -        Show system notifications about Chrome features and tips
 +        Show system notifications about Merlin features and tips
        </message>
        <message name="IDS_SETTINGS_SYSTEM_PROXY_SETTINGS_LABEL" desc="Label for the control that opens the system network proxy settings. These settings apply to the entire computer.">
          Open your computer's proxy settings
-@@ -4389,7 +4389,7 @@
+@@ -4222,7 +4222,7 @@
          AI in Merlin
        </message>
        <message name="IDS_SETTINGS_AI_PAGE_MAIN_SUBLABEL_3" desc="This is a bullet point on a card that sets the context for the ‘AI innovations’ section of Chrome’s settings. Here, the user can see settings related to AI (artificial intelligence) in this section; these settings include Help me write and more. This bullet point is after the ‘Reimagine Chrome, supercharged with AI’ title and ‘Things to consider’ subheading. We want users to read this card and understand the considerations that apply to all Chrome’s AI features. This bullet point specifically notes that AI features are actively developing and results may include errors. The tone should be informative.">
@@ -127,7 +957,7 @@
        </message>
        <message name="IDS_SETTINGS_AI_PAGE_MAIN_MANAGED_LEARN_MORE_ACCESSIBILITY_LABEL" desc="This string is found in a link that takes the user to the AI features and policies help center article when the user taps it. The tone should be informative">
          Learn more about using generative AI at work
-@@ -4412,7 +4412,7 @@
+@@ -4245,7 +4245,7 @@
          Automated Password Change
        </message>
        <message name="IDS_SETTINGS_PASSWORD_CHANGE_SUBLABEL" desc="Sublabel for password change entry in settings. The description of the feature beneath the “Automated password change” feature title. This and the bullets beneath this paragraph represent the full description of the feature. * “public” does two things: 1) it provides distance between “Chrome” and “data breach”, because we don’t want users to associate the breach with Chrome (Chrome didn’t have a data leak, 2) and related, it might reassure the user to know that Chrome is using public information to establish these lists of compromised passwords. * “Google Password Manager can offer…”: The user has to agree to have this feature update their password for them each time. So Google Password Manager is ‘offering’ to do something for the user.">
@@ -136,7 +966,7 @@
        </message>
        <message name="IDS_SETTINGS_PASSWORD_CHANGE_DATA_BREACH" desc="Bullet 1 of 2 that appears beneath the “When used” subtitle. This string is repetitive of the feature description, but we want to have a complete description of what happens when the feature is used. * “Google Password Manager asks…”: This part is similar to the general feature description above, but it’s written as if the feature is being used by the user, so we use “asks” and not “can offer”. * “Strong password”: As an existing autofill feature, Google Password Manager can offer to generate and save passwords for the user. These passwords are typically stronger than passwords the user might create on their own">
          If one of your passwords is found in a data breach, Merlin Password Manager asks if you want it changed to a strong password
-@@ -4448,7 +4448,7 @@
+@@ -4281,7 +4281,7 @@
  
    <!-- Experimental settings strings -->
    <message name="IDS_SETTINGS_AI_PAGE_MAIN_TITLE" desc="This string is the title of a card that sets the context for the ‘AI innovations’ section of Chrome’s settings. Here, the user can see settings related to AI (artificial intelligence) in this section; these settings include Help me write and more. This title is before the ‘Things to consider’ subheading and bullet points. We want users to read this card and understand the considerations that apply to all Chrome’s AI features. The tone should be motivating." formatter_data="android_java">
@@ -145,505 +975,117 @@
    </message>
    <message name="IDS_SETTINGS_AI_PAGE_MAIN_SUBLABEL_1" desc="This is a bullet point on a card that sets the context for the ‘AI innovations’ section of Chrome’s settings. Here, the user can see settings related to AI (artificial intelligence) in this section; these settings include Help me write and more. This bullet point is after the ‘Reimagine Chrome, supercharged with AI’ title and ‘Things to consider’ subheading. We want users to read this card and understand the considerations that apply to all Chrome’s AI features. This bullet point specifically notes that AI features are actively developing and results may include errors. The tone should be informative." formatter_data="android_java">
      These features use AI, are in early development, and won’t always get it right
---- a/chrome/app/generated_resources.grd
-+++ b/chrome/app/generated_resources.grd
-@@ -1830,7 +1830,7 @@
-           Reopen Closed Split View
-         </message>
-         <message name="IDS_CHROMELABS" desc="In Title Case: The text label of the Chrome Labs menu item">
--          Chrome &amp;Labs...
-+          Merlin &amp;Labs...
-         </message>
-       </if>
- 
-@@ -3046,7 +3046,7 @@
-       </message>
-       <message name="IDS_DOWNLOAD_BUBBLE_ESB_PROMO"
-                desc="Text for the in-product-help bubble shown for the esb promo download bubble.">
--        Chrome just blocked a dangerous file from downloading. Get even stronger security with enhanced protection.
-+        Merlin just blocked a dangerous file from downloading. Get even stronger security with enhanced protection.
-       </message>
-       <message name="IDS_DOWNLOAD_BUBBLE_ESB_PROMO_CUSTOM_ACTION"
-                desc="Text for the custom action within the in-product-help bubble shown for the esb promo download bubble.">
-@@ -3564,7 +3564,7 @@
-       </message>
-       <message name="IDS_DOWNLOAD_LOCAL_DECRYPTION_PROMPT_ALERT"
-                desc="Accessible alert announced when a local decryption prompt appears on a suspicious archive">
--        <ph name="FILENAME">$1<ex>bla.exe</ex></ph> may be dangerous. Add a password if you want Chrome to verify it or you can download it directly.
-+        <ph name="FILENAME">$1<ex>bla.exe</ex></ph> may be dangerous. Add a password if you want Merlin to verify it or you can download it directly.
-       </message>
- 
-       <!-- Web App Window Title string -->
-@@ -4250,7 +4250,7 @@
-         Notifications from this site may be disruptive
-       </message>
-       <message name="IDS_NOTIFICATIONS_QUIET_PERMISSION_BUBBLE_PREDICTION_SERVICE_DESCRIPTION" desc="Text used as notification message when requesting permission for Web Notifications via a notification. Used when the prediction service has decided that the user will be very unlikely to grant this permission.">
--        Chrome thinks you don't want notifications from this site. So, requests are hidden to reduce interruptions.
-+        Merlin thinks you don't want notifications from this site. So, requests are hidden to reduce interruptions.
-       </message>
-       <message name="IDS_GEOLOCATION_OFF_EXPLANATORY_TEXT" desc="Explanatory animated text that appears (and then disappears) in the address bar as part of the less-prominent UX, when a website requests the geolocation permission.">
-         Location blocked
-@@ -4259,7 +4259,7 @@
-         Location blocked
-       </message>
-       <message name="IDS_GEOLOCATION_QUIET_PERMISSION_BUBBLE_PREDICTION_SERVICE_DESCRIPTION" desc="Text used as notification message when requesting permission for Geolocation. Used when the prediction service has decided that the user will be very unlikely to grant this permission.">
--        Chrome thinks you don't want to use your location on this site. So, requests are hidden to reduce interruptions.
-+        Merlin thinks you don't want to use your location on this site. So, requests are hidden to reduce interruptions.
-       </message>
-       <message name="IDS_GEOLOCATION_QUIET_PERMISSION_BUBBLE_ALLOW_BUTTON" desc="Text displayed on the button that enables geolocation for a site. This button is part of the geolocation status bubble, which is triggered when a user clicks on the blocked geolocation icon in the omnibox.">
-         Allow for this site
-@@ -4776,7 +4776,7 @@
-         Allow remote debugging?
-       </message>
-       <message name="IDS_DEV_TOOLS_CONNECTION_DIALOG_MESSAGE_PART_1" desc="Message displayed in the dialog asking user to confirm allowing a debugging connection to this browser instance.">
--        An external app wants full control over this Chrome session to debug it. This includes access to your saved data, cookies and site data, and the ability to navigate to any URL.
-+        An external app wants full control over this Merlin session to debug it. This includes access to your saved data, cookies and site data, and the ability to navigate to any URL.
-       </message>
-       <message name="IDS_DEV_TOOLS_CONNECTION_DIALOG_MESSAGE_PART_2" desc="Message displayed in the dialog asking user to confirm allowing a debugging connection to this browser instance.">
-         Only web developers should turn on this feature, and only use it with trusted apps.
-@@ -5181,7 +5181,7 @@
-         Toolbar
-       </message>
-       <message name="IDS_UTILITY_PROCESS_FILE_UTILITY_NAME" desc="The name of the utility process used for various Chrome specific file operations.">
--          Chrome File Utilities
-+          Merlin File Utilities
-       </message>
-       <if expr="not is_android">
-         <message name="IDS_UTILITY_PROCESS_PROFILE_IMPORTER_NAME" desc="The name of the utility process used for importing profiles.">
-@@ -5212,7 +5212,7 @@
-         No-op Service
-       </message>
-       <message name="IDS_SERVICE_PROCESS_DOCUMENT_ANALYSIS_NAME" desc="The name of the service process used for document analysis operations as part of Safe Browsing.">
--        Chrome Document Analysis
-+        Merlin Document Analysis
-       </message>
-       <!-- Theme preview infobar -->
-       <message name="IDS_THEME_INSTALL_INFOBAR_LABEL" desc="Text displayed on an infobar when a theme has been installed.">
-@@ -6256,13 +6256,13 @@
-         "<ph name="EXTENSION_NAME">$1<ex>Babylon Toolbar</ex></ph>" added
-       </message>
-       <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_BUBBLE_HEADING_APP" desc="The heading text (below the title) for the bubble that alerts the user that a new external app was installed.">
--        Another program on your computer added an app that may change the way Chrome works.
-+        Another program on your computer added an app that may change the way Merlin works.
-       </message>
-       <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_BUBBLE_HEADING_EXTENSION" desc="The heading text (below the title) for the bubble that alerts the user that a new external extension was installed.">
--        Another program on your computer added an extension that may change the way Chrome works.
-+        Another program on your computer added an extension that may change the way Merlin works.
-       </message>
-       <message name="IDS_EXTENSION_EXTERNAL_INSTALL_ALERT_BUBBLE_HEADING_THEME" desc="The heading text (below the title) for the bubble that alerts the user that a new external theme was installed.">
--        Another program on your computer added a theme that may change the way Chrome works.
-+        Another program on your computer added a theme that may change the way Merlin works.
-       </message>
- 
-       <message name="IDS_EXTENSIONS_ADDED_WITHOUT_KNOWLEDGE" desc="Text shown in the extensions settings for items that might have been forcefully added to Chrome without the user's knowledge">
-@@ -7207,7 +7207,7 @@
-       </message>
- 
-       <message name="IDS_BAD_FLAGS_FROM_FILE_WARNING_MESSAGE" desc="Message shown when command-line flags are loaded from a file. [Keep it short so it fits in the infobar.]">
--        Chrome is loading flags from a command-line file. Stability and security may be affected.
-+        Merlin is loading flags from a command-line file. Stability and security may be affected.
-       </message>
- 
-       <!-- Bad Environment Variables Infobar-->
-@@ -7944,7 +7944,7 @@
-         Cards
-       </message>
-       <message name="IDS_NTP_CUSTOMIZE_NO_BACKGROUND_LABEL" desc="The label for the 'Default Chrome' tile in the customization menu on the New Tab Page">
--        Default Chrome
-+        Default Merlin
-       </message>
-       <message name="IDS_NTP_CUSTOMIZE_CHROME_CHANGE_THEME_LABEL" desc="The label for the action button for changing Chrome theme in the New Tab Page customize chrome side panel.">
-         Change theme
-@@ -7965,7 +7965,7 @@
-         <ph name="THIRD_PARTY_NTP_MANAGER">$1<ex>ZomboCom</ex></ph> is managing your new tab page, opens in a new tab
-       </message>
-       <message name="IDS_NTP_CUSTOMIZE_CHROME_RESET_TO_CLASSIC_CHROME_COMPLETE" desc="Text for a screenreader to read aloud when the user's theme has finished changing to classic chrome in the Customize Chrome side panel.">
--        Theme updated to Default Chrome
-+        Theme updated to Default Merlin
-       </message>
-       <message name="IDS_NTP_CUSTOMIZE_CHROME_RESET_TO_UPLOADED_IMAGE_COMPLETE" desc="Text for a screenreader to read aloud when the user's theme has finished changing to an uploaded image in the Customize Chrome side panel.">
-         Theme updated to uploaded image
-@@ -8959,10 +8959,10 @@
-         <ph name="MODULE_NAME">$1<ex>Make Chrome Yours</ex></ph> hidden
-       </message>
-       <message name="IDS_NTP_MODULES_SETUP_LIST_INFO" desc="Text shown in the body of the info dialog of the Make Chrome Yours card.">
--        You're seeing suggestions on how to personalize Chrome and make it more powerful for your daily needs.
-+        You're seeing suggestions on how to personalize Merlin and make it more powerful for your daily needs.
-         <ph name="BREAK">&lt;br&gt;</ph>
-         <ph name="BREAK">&lt;br&gt;</ph>
--        You can manage settings from the card menu or see more options in Customize Chrome.
-+        You can manage settings from the card menu or see more options in Customize Merlin.
-       </message>
-       <message name="IDS_NTP_MODULES_INFO_BUTTON_TITLE" desc="Text shown in tooltip of info button of an NTP module.">
-         About this card
-@@ -9046,7 +9046,7 @@
-         You’re seeing suggested files to help you easily get back to your most recent activity in Google Drive.
-         <ph name="BREAK">&lt;br&gt;</ph>
-         <ph name="BREAK">&lt;br&gt;</ph>
--        You can manage settings from the card menu or see more options in Customize Chrome.
-+        You can manage settings from the card menu or see more options in Customize Merlin.
-       </message>
-       <message name="IDS_NTP_MODULES_DRIVE_SEE_MORE" desc="A label for the see more button in the Drive module.">
-         See more
-@@ -9061,7 +9061,7 @@
-         You’re seeing suggested files to help you easily get back to your most recent activity in Microsoft SharePoint and OneDrive.
-         <ph name="BREAK">&lt;br&gt;</ph>
-         <ph name="BREAK">&lt;br&gt;</ph>
--        You can manage settings from the card menu or see more options in Customize Chrome.
-+        You can manage settings from the card menu or see more options in Customize Merlin.
-       </message>
-       <message name="IDS_NTP_MODULES_MICROSOFT_FILES_DISABLE_BUTTON_TEXT" desc="Text shown on the disable button of a NTP Microsoft files card.">
-         Don't show SharePoint and OneDrive files
-@@ -9097,7 +9097,7 @@
-         You’re seeing your calendar to help you easily navigate to your next event in Google Calendar.
-         <ph name="BREAK">&lt;br&gt;</ph>
-         <ph name="BREAK">&lt;br&gt;</ph>
--        You can manage settings from the card menu or see more options in Customize Chrome.
-+        You can manage settings from the card menu or see more options in Customize Merlin.
-       </message>
-       <message name="IDS_NTP_MODULES_GOOGLE_CALENDAR_MORE_ACTIONS" desc="Text shown on the tooltip for the 3 dot menu on the Google Calendar card on the NTP.">
-         More actions for Google Calendar
-@@ -9124,7 +9124,7 @@
-        You’re seeing your calendar to help you easily navigate to your next event in Outlook Calendar.
-        <ph name="BREAK">&lt;br&gt;</ph>
-        <ph name="BREAK">&lt;br&gt;</ph>
--       You can manage settings from the card menu or see more options in Customize Chrome.
-+       You can manage settings from the card menu or see more options in Customize Merlin.
-      </message>
-       <message name="IDS_NTP_MODULES_CALENDAR_DOUBLE_BOOKED" desc="Text displaying that the calendar event is booked at the same time as another." meaning="The meeting takes place at the same time as another.">
-         Double-Booked
-@@ -9193,13 +9193,13 @@
-         You’re seeing pages you've visited and suggested searches to help you easily get back to your most recent activity.
-         <ph name="BREAK">&lt;br&gt;</ph>
-         <ph name="BREAK">&lt;br&gt;</ph>
--        You can manage settings from the card menu or see more options in Customize Chrome.
-+        You can manage settings from the card menu or see more options in Customize Merlin.
-       </message>
-       <message name="IDS_NTP_MODULES_HISTORY_CLUSTERS_WITH_DISCOUNT_INFO" desc="Text shown in the body of the info dialog of the history clusters module when the cluster has available discount.">
-         You’re seeing suggested searches and shopping discounts that might interest you based on your recent activity.
-         <ph name="BREAK">&lt;br&gt;</ph>
-         <ph name="BREAK">&lt;br&gt;</ph>
--        You can manage settings from this card anytime or see more options in Customize Chrome.
-+        You can manage settings from this card anytime or see more options in Customize Merlin.
-       </message>
-       <message name="IDS_NTP_MODULES_HISTORY_CLUSTERS_SENTENCE2" desc="Variant of the name of the History Clusters module in sentence case shown in various UIs.">
-         Journeys
-@@ -9235,7 +9235,7 @@
-         You’re seeing tabs from other devices to help you easily get back to your most recent activity.
-         <ph name="BREAK">&lt;br&gt;</ph>
-         <ph name="BREAK">&lt;br&gt;</ph>
--        You can manage settings from the card menu or see more options in Customize Chrome.
-+        You can manage settings from the card menu or see more options in Customize Merlin.
-       </message>
-       <message name="IDS_NTP_MODULES_TAB_RESUMPTION_MULTI_DISMISS" desc="String text for module dismissal in the Tab Resumption module.">
-         Tabs hidden
-@@ -9274,7 +9274,7 @@
-         You’re seeing your recently used tab groups to help you easily pick up where you left off.
-         <ph name="BREAK">&lt;br&gt;</ph>
-         <ph name="BREAK">&lt;br&gt;</ph>
--        You can manage settings from the card menu or see more options in Customize Chrome.
-+        You can manage settings from the card menu or see more options in Customize Merlin.
-       </message>
-       <message name="IDS_NTP_MODULES_TAB_GROUPS_TITLE" desc="Title for Tab Groups NTP module on the new tab page.">
-         Your tab groups
-@@ -9521,7 +9521,7 @@
-         Please try again later
-       </message>
-       <message name="IDS_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL" desc="The title of the menu item for showing the Customize Chrome side panel.">
--        Customize Chrome
-+        Customize Merlin
-       </message>
-       <if expr="use_titlecase">
-         <message name="IDS_SHOW_CUSTOMIZE_CHROME_TOOLBAR" desc="The title of the menu item for showing the toolbar section of the Customize Chrome side panel.">
-@@ -11239,7 +11239,7 @@
-         Get back here fast by bookmarking this tab
-       </message>
-       <message name="IDS_CHROME_TIP" desc="Accessible name used by a screen reader for the in-product-help or tutorial bubble icon." is_accessibility_with_no_ui="true">
--        Chrome tip
-+        Merlin tip
-       </message>
-       <message name="IDS_EXTENSIONS_MENU_IPH_ENTRY_POINT_TITLE" desc="">
-         See what extensions can read or change a site
-@@ -11323,7 +11323,7 @@
-         Open App settings
-       </message>
-       <message name="IDS_UPDATED_CONNECTION_SECURITY_INDICATORS_PROMO" desc="Text shown on promotional UI appearing next to the new omnibox connection security icon">
--        Your connection is always secure unless Chrome tells you otherwise
-+        Your connection is always secure unless Merlin tells you otherwise
-       </message>
-       <message name="IDS_READING_LIST_IN_SIDE_PANEL_PROMO" desc="Text shown on promotional UI appearing next to the side panel button">
-         Your reading list has moved to the new side panel. Try it here.
-@@ -11467,10 +11467,10 @@
- 
-       <!-- Customize Chrome Tutorial Strings -->
-       <message name="IDS_TUTORIAL_CUSTOMIZE_CHROME_START_TUTORIAL_IPH" desc="The description of the IPH to start the customize chrome tutorial">
--        Customize Chrome to give your browser a new look
-+        Customize Merlin to give your browser a new look
-       </message>
-       <message name="IDS_TUTORIAL_CUSTOMIZE_CHROME_OPEN_SIDE_PANEL" desc="The description of the 'open side panel' step in customize chrome tutorial">
--        Click "Customize Chrome"
-+        Click "Customize Merlin"
-       </message>
-       <message name="IDS_TUTORIAL_CUSTOMIZE_CHROME_CHANGE_THEME" desc="The description of the 'change theme' step in customize chrome tutorial">
-         Click “Change theme” to explore themes inspired by artists, nature and more
-@@ -11485,7 +11485,7 @@
-         Click the back arrow to explore other options
-       </message>
-       <message name="IDS_TUTORIAL_CUSTOMIZE_CHROME_SUCCESS_BODY" desc="The description of the body text in the 'success' step in customize chrome tutorial">
--        You can now give your browser a new look at any time from the Customize Chrome menu
-+        You can now give your browser a new look at any time from the Customize Merlin menu
-       </message>
- 
-       <!-- Password Manager Tutorial Strings -->
-@@ -11592,12 +11592,12 @@
-          Show original content?
-       </message>
-       <message name="IDS_NEAR_OOM_REDUCTION_MESSAGE_DESCRIPTION" desc="The description of the message stating that the browser removed some content on the page using too much memory.">
--         To save memory, Chrome removed some content
-+         To save memory, Merlin removed some content
-       </message>
- 
-       <!-- Tailored Security Prompt for Unconsented users -->
-       <message name="IDS_TAILORED_SECURITY_UNCONSENTED_MESSAGE_TITLE" desc="The title of the message asking if the user wants to enable Enhanced Safe Browsing">
--         Also turn on Enhanced Safe Browsing for this Chrome profile?
-+         Also turn on Enhanced Safe Browsing for this Merlin profile?
-       </message>
-       <message name="IDS_TAILORED_SECURITY_UNCONSENTED_MESSAGE_ACCEPT" desc="The text on the 'accept' button when asking if the user wants to enable Enhanced Safe Browsing">
-         Turn on
-@@ -12021,7 +12021,7 @@
-         The selected data has been removed from Merlin and synced devices. Your Google Account may have other forms of browsing history like searches and activity from other Google services at <ph name="BEGIN_LINK">&lt;a target="_blank" href="$1"&gt;</ph>myactivity.google.com<ph name="END_LINK">&lt;/a&gt;</ph>.
-       </message>
-       <message name="IDS_CLEAR_BROWSING_DATA_HISTORY_NOTICE_TITLE" desc="Title of a dialog that informs the user that the deletion of Chrome's browsing data has been completed.">
--        Deleted Chrome data
-+        Deleted Merlin data
-       </message>
-       <message name="IDS_CLEAR_BROWSING_DATA_HISTORY_NOTICE_OK" desc="Button in a dialog that informs the user that the deletion of Chrome's browsing data has been completed.">
-         Ok, got it
-@@ -12054,7 +12054,7 @@
-       </message>
- 
-       <message name="IDS_ZOOMLEVELS_CHROME_ERROR_PAGES_LABEL" desc="Label for zoom level list entry for Chrome error pages.">
--        (Chrome error pages)
-+        (Merlin error pages)
-       </message>
- 
-       <message name="IDS_STORAGE_ACCESS_MANAGE_TEXT" desc="The text on the button to manage the StorageAcccess settings.">
-@@ -12905,7 +12905,7 @@
- 
-       <!-- Tab Group Deletion Dialog -->
-       <message name="IDS_TAB_GROUP_DELETION_DIALOG_MISSING_EMAIL" desc="The email address used in the deletion dialog body when an email is missing.">
--        Chrome with this Google Account
-+        Merlin with this Google Account
-       </message>
-       <message name="IDS_TAB_GROUP_DELETION_DIALOG_BODY_SYNCED_DELETE" desc="The body text for deleting a synced group or groups. Displayed in the Tab Group Deletion Dialog.">
-         {GROUP_COUNT, plural,
-@@ -13551,7 +13551,7 @@
-           When your organization limits saving to your Google Account, you can’t share or join tab groups
-         </message>
-         <message name="IDS_DATA_SHARING_SIGNED_OUT_BODY" desc="The body text of the dialog that prompts users to allow Chrome sign in.">
--          To share, join, and collaborate in tab groups, open settings and turn on Allow Chrome sign-in
-+          To share, join, and collaborate in tab groups, open settings and turn on Allow Merlin sign-in
-         </message>
-         <message name="IDS_DATA_SHARING_SETTINGS" desc="The generic text on buttons that take users to Chrome settings page.">
-           Settings
-@@ -13727,7 +13727,7 @@
-           Relaunch to update
-         </message>
-         <message name="IDS_APP_MENU_BUTTON_UPDATE_ALT3" desc="Alternate short label next to app-menu button when an update is available.">
--          New Chrome available
-+          New Merlin available
-         </message>
-       </if>
-       <message name="IDS_APP_MENU_BUTTON_ERROR" desc="Short label next to app-menu button when the user needs to resolve something.">
-@@ -13769,10 +13769,10 @@
-         <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a window and audio.
-       </message>
-       <message name="IDS_MEDIA_TAB_CAPTURE_NOTIFICATION_TEXT" desc="label used in screen capture notification UI to show the screen sharing status when the stream is consumed by the same app initiating the window picker">
--        <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a Chrome tab.
-+        <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a Merlin tab.
-       </message>
-       <message name="IDS_MEDIA_TAB_CAPTURE_WITH_AUDIO_NOTIFICATION_TEXT" desc="label used in screen capture notification UI to show the screen sharing status when the stream is consumed by the same app initiating the window picker">
--        <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a Chrome tab and audio.
-+        <ph name="APP_NAME">$1<ex>html5rocks.com</ex></ph> is sharing a Merlin tab and audio.
-       </message>
-       <message name="IDS_MEDIA_SCREEN_CAPTURE_NOTIFICATION_HIDE" desc="Text shown on a link that hides the notification that the screen is being captured.">
-         Hide
-@@ -14012,7 +14012,7 @@
-           This extension violates the Web Store policy.
-         </message>
-         <message name="IDS_EXTENSIONS_BLOCKLISTED_POTENTIALLY_UNWANTED" desc="The text explaining the reason for disabling extension or app. The extension in question might have been installed without user consent.">
--          Disabled by Chrome. This extension may be unsafe.
-+          Disabled by Merlin. This extension may be unsafe.
-         </message>
- 
-         <!-- Enhanced Safe Browsing CRX allowlist warning -->
-@@ -14048,7 +14048,7 @@
-           <ph name="THIRD_PARTY_TOOL_NAME">$1<ex>SuperDuper PC Cleaner Pro</ex></ph> wants to reset your settings.
-         </message>
-         <message name="IDS_TRIGGERED_RESET_PROFILE_SETTINGS_EXPLANATION" desc="Dialog title for reset dialog triggered by a third party tool">
--          <ph name="THIRD_PARTY_TOOL_NAME">$1<ex>SuperDuper PC Cleaner Pro</ex></ph> wants to restore your Chrome settings to their original defaults. This will reset your homepage, new tab page and search engine, disable your extensions, and unpin all tabs. It will also clear other temporary and cached data, such as cookies, content and site data.
-+          <ph name="THIRD_PARTY_TOOL_NAME">$1<ex>SuperDuper PC Cleaner Pro</ex></ph> wants to restore your Merlin settings to their original defaults. This will reset your homepage, new tab page and search engine, disable your extensions, and unpin all tabs. It will also clear other temporary and cached data, such as cookies, content and site data.
-         </message>
-         <message name="IDS_TRIGGERED_RESET_PROFILE_SETTINGS_DEFAULT_TOOL_NAME" desc="Default tool name when a reset was triggered but a name could not be found.">
-           A cleanup tool
-@@ -17953,7 +17953,7 @@
- 
-     <!-- Automation infobar -->
-     <message name="IDS_CONTROLLED_BY_AUTOMATION" desc="Message shown when the browser session is being controlled by an automated test.">
--      Chrome is being controlled by automated test software
-+      Merlin is being controlled by automated test software
-     </message>
- 
-     <!-- Chrome for Testing infobar main text -->
-@@ -18257,7 +18257,7 @@
-       </message>
-       <if expr="is_macosx">
-         <message name="IDS_WEBAUTHN_YOUR_CHROME_PROFILE" desc="Menu item text. The user selects this to use a hardware-based authentication mechanism that is built in to the computer, such as a fingerprint reader. The credential itself is stored in the Chrome profile, however, and this text emphasizes that.">
--          Your Chrome profile
-+          Your Merlin profile
-         </message>
-       </if>
-       <message name="IDS_WEBAUTHN_TRANSPORT_INTERNAL" desc="Menu item text. The user selects this to use a hardware-based authentication mechanism that is built in to the computer, such as a fingerprint reader.">
-@@ -18347,7 +18347,7 @@
- 
-       <if expr="is_macosx">
-         <message name="IDS_WEBAUTHN_BLUETOOTH_PERMISSION" desc="Body text in a dialog that appears when the user has requested some function that depends on Bluetooth, but Chrome doesn't have permission to use Bluetooth. The action on this dialog is a button that will open the macOS System Settings so that the user can grant permission.">
--          Chrome needs permission to use Bluetooth to connect to your device
-+          Merlin needs permission to use Bluetooth to connect to your device
-         </message>
-       </if>
- 
-@@ -18523,7 +18523,7 @@
-         On other devices
-       </message>
-       <message name="IDS_WEBAUTHN_SOURCE_CHROME_PROFILE" desc="The subtitle shown in a button that lets the user select a passkey to sign in, indicating that the passkey resides in the user's Chrome Profile.">
--        Your Chrome profile
-+        Your Merlin profile
-       </message>
-       <message name="IDS_WEBAUTHN_SOURCE_ICLOUD_KEYCHAIN" desc="The subtitle shown in a button that lets the user select a passkey to sign in, indicating that the passkey resides in Apple Passwords. Apple Passwords is an Apple brand and should be translated the same as it is in Apple devices. If you edit the language code in https://support.apple.com/es-es/104955 you can see how Apple translates it in several languages. ('Passwords' is usually localized.)">
-         Apple Passwords
-@@ -19017,15 +19017,15 @@
-       Got it
-     </message>
-     <message name="IDS_TAILORED_SECURITY_DIALOG_SETTINGS_BUTTON" desc="The text on the cancel button in the tab dialog when the account tailored security setting changes for a consented primary account">
--      Chrome settings
-+      Merlin settings
-     </message>
- 
-     <!-- Tailored security dialog for unconsented primary accounts -->
-     <message name="IDS_TAILORED_SECURITY_UNCONSENTED_MODAL_TITLE" desc="Title shown in the tab modal dialog when the account tailored security setting changes for an unconsented primary account">
--      Also turn on Enhanced Safe Browsing for this Chrome profile?
-+      Also turn on Enhanced Safe Browsing for this Merlin profile?
-     </message>
-     <message name="IDS_TAILORED_SECURITY_UNCONSENTED_MODAL_BODY" desc="Body shown in the tab modal dialog when the account tailored security setting changes for an unconsented primary account">
--      Chrome&#x2019;s strongest security does more to protect you against dangerous websites, downloads, and extensions
-+      Merlin&#x2019;s strongest security does more to protect you against dangerous websites, downloads, and extensions
-     </message>
-     <message name="IDS_TAILORED_SECURITY_UNCONSENTED_ACCEPT_BUTTON" desc="The text on the accept button in the tab modal dialog when the account tailored security setting changes for an unconsented primary account">
-       Turn on
-@@ -19039,7 +19039,7 @@
-       Enhanced Safe Browsing is on
-     </message>
-     <message name="IDS_TAILORED_SECURITY_CONSENTED_ENABLE_MESSAGE_DESCRIPTION" desc="Description shown in the Android message when the account tailored security setting changes for a consented primary account">
--      You have Chrome&#x2019;s strongest security against harmful websites
-+      You have Merlin&#x2019;s strongest security against harmful websites
-     </message>
-     <message name="IDS_TAILORED_SECURITY_CONSENTED_DISABLE_MESSAGE_TITLE" desc="Title shown in the Android message when the account tailored security setting changes for a consented primary account">
-       Enhanced Safe Browsing is off
-@@ -19665,10 +19665,10 @@
-         From your recent search
-       </message>
-       <message name="IDS_MULTISTEP_FILTER_IPH_BODY" desc="Text shown in the IPH bubble for educating users about Multistep Filter." translateable="false">
--        Chrome can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
-+        Merlin can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
-       </message>
-       <message name="IDS_MULTISTEP_FILTER_IPH_BODY_SCREENREADER" is_accessibility_with_no_ui="true" desc="Screenreader text shown in the IPH bubble for educating users about Multistep Filter." translateable="false">
--        Chrome can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
-+        Merlin can now suggest your recent filters and search details, helping you pick up where you left off or compare options across sites
-       </message>
-       <message name="IDS_LINK_COPIED_TOAST_BODY" desc="Text on a toast notification that is shown when a link is successfully copied.">
-         Link copied
-@@ -19728,7 +19728,7 @@
-         Close
-       </message>
-       <message name="IDS_NON_MILESTONE_UPDATE_TOAST_BODY" desc="Text on a toast notification that is shown when a non milestone update is complete.">
--        Chrome was updated
-+        Merlin was updated
-       </message>
-       <message name="IDS_GLIC_SHARE_IMAGE_FAILED_TOAST_BODY" desc="Text on a toast notification that is shown when sharing an image with Gemini fails (when using the 'Create image with Gemini' context menu item)">
-         Could not share image with Gemini. Try again or try another image.
-@@ -19967,7 +19967,7 @@
-       Launch application
-     </message>
-     <message name="IDS_IWA_INSTALLER_VERIFICATION_TITLE" desc="Title of the verification step of the IWA installation">
--      Chrome is verifying the installation bundle
-+      Merlin is verifying the installation bundle
-     </message>
-     <message name="IDS_IWA_INSTALLER_VERIFICATION_SUBTITLE" desc="Subtitle of the verification step of the IWA installation">
-       Please wait while verification is in progress
-@@ -19979,7 +19979,7 @@
-         other {Checking public key and integrity block... # minutes remaining}}
-     </message>
-     <message name="IDS_IWA_INSTALLER_VERIFICATION_ERROR_TITLE" desc="Title of an error popup during the verification step of the Isolated Web App installer">
--      Chrome failed to verify this installation bundle
-+      Merlin failed to verify this installation bundle
-     </message>
-     <message name="IDS_IWA_INSTALLER_VERIFICATION_ERROR_SUBTITLE" desc="Subtitle of an error popup during the verification step of the Isolated Web App installer">
-       This bundle might be broken or compromised. Please close this window and download it again
-@@ -20092,7 +20092,7 @@
- 
-     <!-- PDF Searchify elements. -->
-     <message name="IDS_PDF_SEARCHIFY_IPH_TITLE" desc="Title of in product help to introduce PDF Searchify feature.">
--    Chrome makes PDFs better
-+    Merlin makes PDFs better
-     </message>
-     <message name="IDS_PDF_SEARCHIFY_IPH_BODY" desc="Content of in product help to introduce PDF Searchify feature.">
-     PDFs automatically get converted so you can search and select text
-@@ -20181,7 +20181,7 @@
-     Always allow
+diff --git a/chrome/app/shared_settings_strings.grdp b/chrome/app/shared_settings_strings.grdp
+index 4c70247005..82705a1156 100644
+--- a/chrome/app/shared_settings_strings.grdp
++++ b/chrome/app/shared_settings_strings.grdp
+@@ -101,10 +101,10 @@
+     Supported Live Caption languages
    </message>
-   <message name="IDS_CHROME_NO_LONGER_SHOW_WARNINGS_NOTIFICATION_BODY" desc="The body for the notification sent by Chrome informing the user that their decision to never show warnings for the url has been applied.">
--    Chrome will stop flagging notifications from this site as spam
-+    Merlin will stop flagging notifications from this site as spam
+   <message name="IDS_SETTINGS_CAPTIONS_MANAGE_LANGUAGES_SUBTITLE" desc="Subtitle for the caption settings section for managing language packs.">
+-    Chrome can create and translate captions for the languages shown here
++    Merlin can create and translate captions for the languages shown here
    </message>
-   <message name="IDS_CHROME_NO_LONGER_SHOW_WARNINGS_NOTIFICATION_TITLE_NEW" desc="The title for the notification sent by Chrome informing the user that their decision to never show warnings for the url has been applied.">
-     Notifications allowed from <ph name="DOMAIN">$1<ex>example.com</ex></ph>
-@@ -20300,7 +20300,7 @@
+   <message name="IDS_SETTINGS_CAPTIONS_MANAGE_LANGUAGES_SUBTITLE_LIVE_CAPTION_ONLY" desc="Subtitle for the caption settings section for managing language packs without live translate.">
+-    Chrome can create captions for the languages shown here
++    Merlin can create captions for the languages shown here
+   </message>
+   <message name="IDS_SETTINGS_CAPTIONS_LIVE_TRANSLATE_TARGET_LANGUAGE" desc="Description of the target language setting for the Live Translate feature.">
+     Translate captions to
+@@ -187,7 +187,7 @@
+     May incur mobile data charges
+   </message>
+   <message name="IDS_SETTINGS_NEARBY_SHARE_DATA_USAGE_MOBILE_DATA_TOOLTIP" desc="Explanation of when the mobile data usage setting applies. When selected, Mobile data means that Wi-Fi or cell data may be used for transfers for the Nearby Share feature.">
+-    This option applies to Chromebooks with a data plan or mobile network dongle, or when tethering to a portable hotspot
++    This option applies to Merlinbooks with a data plan or mobile network dongle, or when tethering to a portable hotspot
+   </message>
+   <message name="IDS_SETTINGS_NEARBY_SHARE_DATA_USAGE_OFFLINE_LABEL" desc="Label for the data usage setting where transfers will only take place offline for the Nearby Share feature.">
+     Without internet
+@@ -240,7 +240,7 @@
+     Enhanced spell check
+   </message>
+   <message name="IDS_SETTINGS_ENABLE_LOGGING_PREF" desc="The label of the checkbox to enable/disable crash and user metrics logging. This string does not need a Chromium counter-part because it will only be visible if Google-branded.">
+-    Help improve Chrome's features and performance
++    Help improve Merlin's features and performance
+   </message>
+   <message name="IDS_SETTINGS_ENABLE_LOGGING_PREF_DESC" desc="The description of the checkbox to enable/disable crash and user metrics logging">
+     Automatically sends usage statistics and crash reports to Google
+@@ -259,7 +259,7 @@
+     Sync is paused
+   </message>
+   <message name="IDS_SETTINGS_PEOPLE_SIGN_IN_PROMPT" desc="The text displayed to prompt users to sign in to chrome.">
+-    Get Google smarts in Chrome
++    Get Google smarts in Merlin
+   </message>
+   <message name="IDS_SETTINGS_PEOPLE_SYNC_TURN_OFF" desc="The label for the button that lets the user turn off profile syncing with their gaia account.">
+     Turn off
+@@ -417,7 +417,7 @@
+     You can turn on sync anytime in settings
+   </message>
+   <message name="IDS_SYNC_UNAVAILABLE_FOR_NON_GOOGLE_ACCOUNT" desc="Text explaining that Sync service is unavailable for Dasherless profile.">
+-    This account isn't associated with Google so features such as Chrome sync are unavailable
++    This account isn't associated with Google so features such as Merlin sync are unavailable
+   </message>
  
-     <!-- Tips Notifications-->
-     <message name="IDS_TIPS_NOTIFICATIONS_HELPFUL_BUTTON_TEXT" desc="Text for the helpful button found on tips notifications.">
--      Open Chrome
-+      Open Merlin
-     </message>
-     <message name="IDS_TIPS_NOTIFICATIONS_ENHANCED_SAFE_BROWSING_TITLE" desc="Title for the enhanced safe browsing tip notification. [CHAR_LIMIT=32]">
-       Get Merlin's strongest security
-@@ -20333,7 +20333,7 @@
-       Create, save, and manage your passwords so you can easily sign in
-     </message>
-     <message name="IDS_TIPS_NOTIFICATIONS_SIGNIN_TITLE" desc="Title for the sign-in tip notification. [CHAR_LIMIT=32]">
--      Make Chrome your own
-+      Make Merlin your own
-     </message>
-     <message name="IDS_TIPS_NOTIFICATIONS_SIGNIN_SUBTITLE" desc="Subtitle for the sign-in tip notification.">
-       Sign in to easily continue on all your devices
-@@ -20354,7 +20354,7 @@
-       Pick up where you left off
-     </message>
-     <message name="IDS_TIPS_NOTIFICATIONS_RECENT_TABS_SUBTITLE" desc="Subtitle for the recent tabs tip notification.">
--      You can reopen tabs that you've recently closed from wherever you use Chrome
-+      You can reopen tabs that you've recently closed from wherever you use Merlin
-     </message>
+   <if expr="is_chromeos">
+diff --git a/chrome/app/skills_strings.grdp b/chrome/app/skills_strings.grdp
+index 0b388f3a4f..57c6d5d51f 100644
+--- a/chrome/app/skills_strings.grdp
++++ b/chrome/app/skills_strings.grdp
+@@ -44,7 +44,7 @@
+     Manage your custom workflows powered by
+   </message>
+   <message name="IDS_SKILLS_SIDEBAR_FOOTER_BRANDING" desc="The branding text 'Gemini in Chrome' displayed in the sidebar footer">
+-    Gemini in Chrome
++    Gemini in Merlin
+   </message>
  
-     <!-- chrome://updater -->
-@@ -20690,7 +20690,7 @@
-         Update Error
-       </message>
-       <message name="IDS_UPDATER_VIEW_ALL_CHROME_POLICIES" desc="Label for a button that opens the chrome://policy page.">
--        View all Chrome Policies
-+        View all Merlin Policies
-       </message>
-       <message name="IDS_UPDATER_VIEW_RAW_DETAILS" desc="Title of the button to display the contents of a Chrome Updater log in JSON format">
-         Source
+   <!-- chrome://skills error page -->
+@@ -55,16 +55,16 @@
+     Manage skills in the Gemini Enterprise app
+   </message>
+   <message name="IDS_SKILLS_ERROR_PAGE_DESCRIPTION" desc="Description of the error page that occurs when chrome://skills is not accessible because Glic is not enabled">
+-    To use Skills, sign in to Chrome with a Google account that has Gemini in Chrome enabled
++    To use Skills, sign in to Merlin with a Google account that has Gemini in Merlin enabled
+   </message>
+   <message name="IDS_SKILLS_DISABLED_ERROR_PAGE_DESCRIPTION" desc="Description of the error page that occurs when chrome://skills is disabled by the settings toggle">
+-    The Skills feature is currently disabled. Update your Chrome Settings to get started.
++    The Skills feature is currently disabled. Update your Merlin Settings to get started.
+   </message>
+   <message name="IDS_SKILLS_UNSUPPORTED_ERROR_PAGE_DESCRIPTION" desc="Description of the error page that occurs when chrome://skills is not supported for the current profile (e.g. Gemini Enterprise)">
+-    The Chrome skills gallery isn't currently supported for Gemini Enterprise. You can still create skills and explore those managed by your organization in the <ph name="BEGIN_LINK">&lt;a href="$1" target="_blank"&gt;</ph>Gemini Enterprise app<ph name="END_LINK">&lt;/a&gt;</ph>.
++    The Merlin skills gallery isn't currently supported for Gemini Enterprise. You can still create skills and explore those managed by your organization in the <ph name="BEGIN_LINK">&lt;a href="$1" target="_blank"&gt;</ph>Gemini Enterprise app<ph name="END_LINK">&lt;/a&gt;</ph>.
+   </message>
+   <message name="IDS_SKILLS_UNSUPPORTED_ERROR_PAGE_DESCRIPTION_NO_LINK" desc="Description of the error page that occurs when chrome://skills is not supported for the current profile and no external Skills URL is available">
+-    The Chrome skills gallery isn't currently supported for Gemini Enterprise. You can still create skills and explore those managed by your organization in the Gemini Enterprise app.
++    The Merlin skills gallery isn't currently supported for Gemini Enterprise. You can still create skills and explore those managed by your organization in the Gemini Enterprise app.
+   </message>
+   <message name="IDS_SKILLS_REMOTE_AUTHORITY_UNREACHABLE_DESCRIPTION" desc="Description of the error page that occurs when the remote guest skills webview cannot load or be reached.">
+     We're having trouble connecting to the server. Please try again later.
+@@ -73,7 +73,7 @@
+     Go to Settings
+   </message>
+   <message name="IDS_SKILLS_SIGN_IN_TO_CHROME" desc="Label of the button that prompts the user to sign in to Chrome on the Skills error page.">
+-    Sign in to Chrome
++    Sign in to Merlin
+   </message>
+   <message name="IDS_SKILLS_NO_SEARCH_RESULT_TITLE" desc="Title of the page that occurs when chrome://skills has no search results">
+     No search results
+diff --git a/chrome/app/support_tool_strings.grdp b/chrome/app/support_tool_strings.grdp
+index 00aa5c6ceb..43e522254d 100644
+--- a/chrome/app/support_tool_strings.grdp
++++ b/chrome/app/support_tool_strings.grdp
+@@ -103,7 +103,7 @@
+         </message>
+         <!-- DataCollector strings -->
+         <message name="IDS_SUPPORT_TOOL_CHROME_SYSTEM_INFO" desc="This is a data source name for internal Chrome logs.">
+-            Chrome System Information
++            Merlin System Information
+         </message>
+         <message name="IDS_SUPPORT_TOOL_CRASH_IDS" desc="An identification number is given every time Chrome crashes on the device. This data source collects those IDs.">
+             Crash IDs
+diff --git a/components/autofill_payments_strings.grdp b/components/autofill_payments_strings.grdp
+index 4c50e91fb7..484a4b8a45 100644
 --- a/components/autofill_payments_strings.grdp
 +++ b/components/autofill_payments_strings.grdp
 @@ -62,7 +62,7 @@
@@ -677,7 +1119,7 @@
    </message>
    <message name="IDS_AUTOFILL_MANDATORY_REAUTH_CONFIRMATION_SETTINGS_LINK" desc="A link to the settings page for the mandatory reauth confirmation prompt that is displayed to the user after opting into mandatory reauth. Mandatory reauth requires the user to unlock their device or pass a biometric auth when autofilling payment method information.">
      settings
-@@ -1772,10 +1772,10 @@
+@@ -1754,10 +1754,10 @@
      This IBAN is saved in Google Wallet so you can use it across Google products.
    </message>
    <message name="IDS_AUTOFILL_SAVE_IBAN_CONFIRMATION_FAILURE_DESCRIPTION_TEXT" desc="Description text for confirmation shown after upload save IBAN attempt was failed and and it was not uploaded to the server.">
@@ -690,18 +1132,11 @@
    </message>
    <message name="IDS_AUTOFILL_SAVE_IBAN_CONFIRMATION_FAILURE_HIT_MAX_STRIKE_DESCRIPTION_TEXT" desc="Description text for confirmation shown after upload save IBAN attempt was failed and and it was not uploaded to the server. Other than that, the number of offer-to-upload has hit the max strike.">
      This IBAN couldn't be saved in your Google Account. It's saved to Merlin on this device instead.
+diff --git a/components/autofill_strings.grdp b/components/autofill_strings.grdp
+index 700a709159..14dc587448 100644
 --- a/components/autofill_strings.grdp
 +++ b/components/autofill_strings.grdp
-@@ -93,7 +93,7 @@
-     Remove verified email?
-   </message>
-   <message name="IDS_AUTOFILL_REMOVE_VERIFIED_EMAIL_BODY" desc="Text in a dialog to confirm that the user wants to delete a verified email address." formatter_data="android_java">
--    Chrome will stop automatically confirming this email on supported sites.
-+    Merlin will stop automatically confirming this email on supported sites.
-   </message>
- 
-   <message name="IDS_AUTOFILL_REMOVE_SUGGESTION_BUTTON" desc="Text in a remove button for Autofill suggestion." formatter_data="android_java">
-@@ -435,7 +435,7 @@
+@@ -457,7 +457,7 @@
      Learn more about this feature - Autofill verification codes from Gmail
    </message>
    <message name="IDS_AUTOFILL_GMAIL_OTP_FILLING_TOGGLE_DESCRIPTION" desc="Description for the toggle that enables autofilling verification codes from Gmail.">
@@ -710,7 +1145,7 @@
    </message>
    <message name="IDS_AUTOFILL_GMAIL_OTP_REQUIRED_TITLE" desc="Title of the dialog informing the user that smart features must be turned on in Gmail to use autofill for verification codes from Gmail.">
      To use this feature, first turn on smart features in Gmail
-@@ -1643,7 +1643,7 @@
+@@ -1684,7 +1684,7 @@
        Info saved to device only
      </message>
      <message name="IDS_AUTOFILL_AI_LOCAL_SAVE_NOTIFICATION_DESCRIPTION" desc="The body text of an informational dialog. The user sees this after a failed attempt to save to Google Wallet. 'Couldn't save...' acknowledges the server failure. 'Saved to Chrome...' confirms the safety of the data (local fallback). 'Chrome will offer...' sets expectations that the system will retry the cloud save the next time this data is accessed.">
@@ -719,7 +1154,7 @@
      </message>
      <message name="IDS_AUTOFILL_AI_LOCAL_SAVE_NOTIFICATION_DISMISS_BUTTON_LABEL" desc="A button on an informational dialog. Clicking this button dismisses the dialog. The user accepts that the data is saved locally for now.">
        Got it
-@@ -1680,8 +1680,8 @@
+@@ -1721,8 +1721,8 @@
    </message>
    <message name="IDS_AUTOFILL_AI_ENTITY_SUPPRESSION_CONFIRMATION_BODY" desc="Body text of the dialog that asks the user to confirm that an Autofill AI suggestion should no longer be suggested by Chrome. It explains that only the suggestion disappears, while the data that the suggestion was extracted from (e.g. an email or a photo) is untouched. The plural selector is the number of such sources. [ICU Syntax]">
      {NUM_SOURCES, plural,
@@ -730,7 +1165,7 @@
    </message>
    <message name="IDS_AUTOFILL_AI_ENTITY_SUPPRESSION_CONFIRMATION_ACCEPT_BUTTON" desc="Label of the button that confirms that Chrome should stop suggesting an Autofill AI suggestion.">
      Remove
-@@ -2065,7 +2065,7 @@
+@@ -2092,7 +2092,7 @@ You can remove this suggestion from Merlin. Your original source won't be delete
      When you make a request for enhanced autofill, your usage data, requests, and page details are shared with Google to improve the autofill experience
    </message>
    <message name="IDS_SETTINGS_SUGGESTIONS_FROM_GEMINI_WHEN_USED_1" desc="Bullet point 1 under When used in the quality logging section.">
@@ -739,6 +1174,203 @@
    </message>
    <message name="IDS_SETTINGS_SUGGESTIONS_FROM_GEMINI_WHEN_USED_2" desc="Bullet point 2 under When used in the quality logging section.">
      System data, including form fields and feature performance, is analyzed to improve future suggestions
+diff --git a/components/browsing_data_strings.grdp b/components/browsing_data_strings.grdp
+index 05dfe84c95..adf63fcd44 100644
+--- a/components/browsing_data_strings.grdp
++++ b/components/browsing_data_strings.grdp
+@@ -202,10 +202,10 @@
+     <ph name="TAB_COUNT">$1<ex>5 tabs</ex></ph> from <ph name="WINDOW_COUNT">$2<ex>2 windows</ex></ph> on this device
+   </message>
+   <message name="IDS_DEL_GOOGLE_COOKIES_SIGNOUT_LINK" desc="A message that will be appended to IDS_DEL_COOKIES_COUNTER_ADVANCED if the user is signed in. It informs the user that their Google cookies will only be deleted if they signed out of Chrome. This string includes a link that, when clicked on, will sign the user out of Chrome.">
+-    To delete Google cookies from this device, <ph name="BEGIN_LINK">&lt;a href="#" target="_blank" id="signOutLink"&gt;</ph>sign out of Chrome<ph name="END_LINK">&lt;/a&gt;</ph>.
++    To delete Google cookies from this device, <ph name="BEGIN_LINK">&lt;a href="#" target="_blank" id="signOutLink"&gt;</ph>sign out of Merlin<ph name="END_LINK">&lt;/a&gt;</ph>.
+   </message>
+   <message name="IDS_SETTINGS_MANAGE_IN_GOOGLE_PASSWORD_MANAGER" desc="Description for the 'Passwords and Passkeys' linkout in the 'Other Google Data' subpage inside the 'Delete browsing data' dialog. This lets users know that passwords and passkeys can be managed and deleted in Google password manager.">
+-    Manage in Google Password Manager
++    Manage in Merlin Password Manager
+   </message>
+   <message name="IDS_SETTINGS_MANAGE_IN_YOUR_GOOGLE_ACCOUNT" desc="Description for the MyActivity and Search History linkouts in the 'Other Google Data' subpage inside the 'Delete browsing data' dialog. This lets users know that this data can be managed and deleted in their Google account.">
+     Manage in your Google Account
+diff --git a/components/collaboration_strings.grdp b/components/collaboration_strings.grdp
+index 1a20d03b0f..d8fea84496 100644
+--- a/components/collaboration_strings.grdp
++++ b/components/collaboration_strings.grdp
+@@ -5,10 +5,10 @@
+     Collaborate in tab groups
+   </message>
+   <message name ="IDS_COLLABORATION_SIGNIN_DESCRIPTION" desc="The description of the collaboration signin screen." formatter_data="android_java">
+-    Sign in to Chrome to share and join tab groups, and work together on ideas
++    Sign in to Merlin to share and join tab groups, and work together on ideas
+   </message>
+   <message name ="IDS_COLLABORATION_SIGNIN_BOTTOM_SHEET_TITLE" meaning="Title" desc="The title of the collaboration signin bottom sheet screen." formatter_data="android_java">
+-    Sign in to Chrome
++    Sign in to Merlin
+   </message>
+   <message name ="IDS_COLLABORATION_SIGNIN_BOTTOM_SHEET_DESCRIPTION" desc="The description of the collaboration signin bottom sheet screen." formatter_data="android_java">
+     You’ll get to share, join, and collaborate in tab groups
+@@ -51,28 +51,28 @@
+     Contact the sender to ask for a new link
+   </message>
+   <message name="IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_HEADER" desc="The title for the chrome out of date dialog, shown when user tries to share a tab group." formatter_data="android_java">
+-    Chrome is out of date
++    Merlin is out of date
+   </message>
+   <message name="IDS_COLLABORATION_SHARE_BUTTON_CHROME_OUT_OF_DATE_ERROR_DIALOG_BODY" desc="The body for the chrome out of date dialog, shown when user tries to share a tab group.">
+-    To share tab groups, update Chrome
++    To share tab groups, update Merlin
+   </message>
+   <message name="IDS_COLLABORATION_JOIN_BUTTON_CHROME_OUT_OF_DATE_ERROR_DIALOG_BODY" desc="The body for the chrome out of date dialog, shown when user tries to share a tab group.">
+-    To join this tab group, update Chrome
++    To join this tab group, update Merlin
+   </message>
+   <message name="IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_UPDATE_BUTTON" desc="The text of the button to update the app from the chrome out of date dialog, shown when user tries to share or join a tab group." formatter_data="android_java">
+-    Update Chrome
++    Update Merlin
+   </message>
+   <message name="IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_NOT_NOW_BUTTON" desc="The text of the button to skip updating the app from the chrome out of date dialog, shown when user tries to share or join a tab group." formatter_data="android_java">
+     Not now
+   </message>
+   <message name="IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_CONTINUE_BODY" desc="The body for the chrome out of date dialog, shown when user tries to continue using shared tab groups after a restart." formatter_data="android_java">
+-    To continue using your shared tab groups, update Chrome
++    To continue using your shared tab groups, update Merlin
+   </message>
+   <message name="IDS_COLLABORATION_SIGNED_OUT_HEADER" desc="The title for the signed out dialog." formatter_data="android_java">
+     You're signed out
+   </message>
+   <message name="IDS_COLLABORATION_SIGNED_OUT_BODY" desc="The body for the signed out dialog." formatter_data="android_java">
+-    To share, join, and collaborate in tab groups, open settings and turn on Allow Chrome sign-in
++    To share, join, and collaborate in tab groups, open settings and turn on Allow Merlin sign-in
+   </message>
+   <message name="IDS_COLLABORATION_SIGNED_OUT_POSITIVE_BUTTON" desc="The positive button text for the signed out dialog." formatter_data="android_java">
+     Settings
+@@ -90,10 +90,10 @@
+     Your organization doesn't allow you to sign in
+   </message>
+   <message name ="IDS_COLLABORATION_ENTREPRISE_SIGNIN_DISABLED_BODY" desc="The body of the error dialog when entreprise signin disabled.">
+-    To share or join tab groups, you must be able to sign in to Chrome
++    To share or join tab groups, you must be able to sign in to Merlin
+   </message>
+   <message name ="IDS_COLLABORATION_ENTREPRISE_SIGNIN_DISABLED_SYNC_HISTORY_BODY" desc="The body of the error dialog when entreprise signin disabled.">
+-    To share tabs and collaborate with others, you must be able to sign in to Chrome
++    To share tabs and collaborate with others, you must be able to sign in to Merlin
+   </message>
+   <message name ="IDS_COLLABORATION_ENTREPRISE_SYNC_DISABLED_HEADER" desc="The header of the error dialog when entreprise sync disabled.">
+     Your organization limits what you can save
+@@ -137,7 +137,7 @@
+ 
+   <!-- Versioning -->
+   <message name="IDS_COLLABORATION_SHARED_TAB_GROUPS_PANEL_OUT_OF_DATE_MESSAGE_CELL_TEXT" desc="Text for the out-of-date cell that can appear at the top of the tab groups panel when the app is out-of-date to support shared tab groups." formatter_data="android_java">
+-    Update Chrome to continue using your shared tab groups
++    Update Merlin to continue using your shared tab groups
+   </message>
+   <message name="IDS_COLLABORATION_SHARED_TAB_GROUPS_AVAILABLE_AGAIN_IPH_MESSAGE" desc="The text that appears in the in-product help tooltip anchored on the tab groups panel when the shared tab groups are available again (typically after having updated the app)." formatter_data="android_java">
+     Your shared tab groups are available again
+diff --git a/components/commerce_strings.grdp b/components/commerce_strings.grdp
+index a600ffc3d0..2c63892fdd 100644
+--- a/components/commerce_strings.grdp
++++ b/components/commerce_strings.grdp
+@@ -13,7 +13,7 @@
+       Something went wrong. Try again.
+     </message>
+     <message name="IDS_OMNIBOX_TRACK_PRICE_DIALOG_TITLE_FIRST_RUN" desc="The title text for the dialog that is shown at the first time a user tracks the product displayed on the current web page.">
+-      Track prices with Chrome
++      Track prices with Merlin
+     </message>
+     <message name="IDS_OMNIBOX_TRACK_PRICE_DIALOG_DESCRIPTION_FIRST_RUN" desc="The description text for the dialog that is shown at the first time a user tracks the product displayed on the current web page. It describes what will happen when price tracking is initiated, and tells users which bookmarks folder this page will be saved.">
+       You’ll get email alerts if the price drops on any site. This page will be saved to the bookmark folder <ph name="LAST_BOOKMARKS_FOLDER">$1<ex>Other Bookmarks</ex></ph>.
+diff --git a/components/contextual_cueing_strings.grdp b/components/contextual_cueing_strings.grdp
+index 65eb635e94..252da28c41 100644
+--- a/components/contextual_cueing_strings.grdp
++++ b/components/contextual_cueing_strings.grdp
+@@ -28,16 +28,16 @@
+     Page titles and URLs of your open tabs are used to give you relevant suggestions
+   </message>
+   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_WHEN_ON_2" desc="Second point in the 'when on' column on the suggestions settings subpage.">
+-    If you select or ignore a suggestion, Chrome will adapt to make sure you only see what’s relevant to you
++    If you select or ignore a suggestion, Merlin will adapt to make sure you only see what’s relevant to you
+   </message>
+   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_1_PRIVATE" desc="First point in the 'things to consider' column on the suggestions settings subpage.">
+-    Chrome processes page titles and URLs in a private space in the cloud
++    Merlin processes page titles and URLs in a private space in the cloud
+   </message>
+   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_1_NON_PRIVATE" desc="First point in the 'things to consider' column on the suggestions settings subpage.">
+-    Chrome processes page titles and URLs in the cloud
++    Merlin processes page titles and URLs in the cloud
+   </message>
+   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_2" desc="Second point in the 'consider' column on the suggestions settings subpage.">
+-    If you turn off suggestions the page title and URLs of your tabs may still be processed for other Chrome features. You can manage browser access to this data in your
++    If you turn off suggestions the page title and URLs of your tabs may still be processed for other Merlin features. You can manage browser access to this data in your
+   </message>
+   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_2_LINK" desc="Text for the link to the sync settings page in the 'consider' column on the suggestions settings subpage.">
+     sync settings
+diff --git a/components/enterprise_strings.grdp b/components/enterprise_strings.grdp
+index ef2e438add..1358c9d8b2 100644
+--- a/components/enterprise_strings.grdp
++++ b/components/enterprise_strings.grdp
+@@ -19,7 +19,7 @@
+     Content couldn't be copied due to your organization's policies
+   </message>
+   <message name="IDS_ENTERPRISE_CONTENT_ANALYSIS_COPY_KEPT_IN_MANAGED_CHROME_MESSAGE" desc="Message inserted into the clipboard instead of the intended data, when that data was restricted to managed Chrome by content analysis policies.">
+-    Content couldn't be pasted outside of the managed Chrome context due to your organization's policies
++    Content couldn't be pasted outside of the managed Merlin context due to your organization's policies
+   </message>
+   <message name="IDS_ENTERPRISE_CONTENT_ANALYSIS_COPY_SCANNING_MESSAGE" desc="Message inserted into the clipboard instead of the intended data while content analysis scanning is ongoing.">
+     Based on your organization's policies, the content you copied is being scanned for sensitive information. Pasting may be allowed after the scan is complete.
+@@ -132,7 +132,7 @@
+   </message>
+ 
+   <message name="IDS_ENTERPRISE_PROXY_AUTHN_ERROR_HEADING" desc="Heading in the enterprise proxy error page when sign-in is required by organization policy.">
+-    Your organization requires you to sign in to Chrome
++    Your organization requires you to sign in to Merlin
+   </message>
+ 
+   <message name="IDS_ENTERPRISE_PROXY_AUTHN_ERROR_PRIMARY_PARAGRAPH" desc="Description in the enterprise proxy error page when sign-in is required by organization policy.">
+diff --git a/components/heavy_ad_intervention_strings.grdp b/components/heavy_ad_intervention_strings.grdp
+index 6125f35fa1..7904cfa381 100644
+--- a/components/heavy_ad_intervention_strings.grdp
++++ b/components/heavy_ad_intervention_strings.grdp
+@@ -7,7 +7,7 @@
+     Ad removed.
+   </message>
+   <message name="IDS_HEAVY_AD_INTERVENTION_SUMMARY" desc="Summary in heavy ad intervention page when ad was removed for using too many system resources.">
+-    This ad used too many resources for your device, so Chrome removed it.
++    This ad used too many resources for your device, so Merlin removed it.
+   </message>
+   <message name="IDS_HEAVY_AD_INTERVENTION_BUTTON_RELOAD" desc="Label for the button that reloads the page and disables the intervention">
+     Reload and show anyway
+diff --git a/components/history_strings.grdp b/components/history_strings.grdp
+index 8840660932..5f0b53d7bd 100644
+--- a/components/history_strings.grdp
++++ b/components/history_strings.grdp
+@@ -217,7 +217,7 @@
+     Comparison tables
+   </message>
+   <message name="IDS_COMPARE_HISTORY_INFO" desc="Info disclaimer text for comparison tables tab in history.">
+-    Tabs you delete from your Chrome history will still show up in your comparison tables
++    Tabs you delete from your Merlin history will still show up in your comparison tables
+   </message>
+   <message name="IDS_COMPARE_HISTORY_MENU_ARIA_LABEL" desc="Aria label for menu button for a row in tab compare history">
+     More actions for comparison table <ph name="COMPARE_SET_NAME"><ex>e-bikes</ex>$1</ph>
+@@ -258,7 +258,7 @@
+     Signed in using a Google service like Password Manager
+   </message>
+   <message name="IDS_HISTORY_CRITICAL_ACTION_PASSWORD_TOOLTIP" desc="Tooltip for password filled critical action in history item.">
+-    Go to Google Password Manager
++    Go to Merlin Password Manager
+   </message>
+   <message name="IDS_HISTORY_CRITICAL_ACTION_FORM_FILLED" desc="Label for form filled critical action in history item.">
+     Contact info filled
+@@ -302,7 +302,7 @@
+     See website actions
+   </message>
+   <message name="IDS_HISTORY_CRITICAL_ACTION_APP_MENU_IPH_BODY" desc="Text shown in the IPH bubble attached to the Chrome app menu teaching users where to view Gemini's auto browse actions.">
+-    In Chrome history, you can see the key actions that Gemini completed while browsing for you
++    In Merlin history, you can see the key actions that Gemini completed while browsing for you
+   </message>
+   <message name="IDS_HISTORY_CRITICAL_ACTION_APP_MENU_IPH_ACTION" desc="Button label on the app menu IPH bubble to navigate to Chrome history.">
+     Review key actions
+diff --git a/components/management_strings.grdp b/components/management_strings.grdp
+index 1580aeb611..279c1dd98f 100644
 --- a/components/management_strings.grdp
 +++ b/components/management_strings.grdp
 @@ -331,7 +331,7 @@
@@ -759,6 +1391,8 @@
    </message>
  
    <!-- Management toolbar button dialog view -->
+diff --git a/components/omnibox_pedal_ui_strings.grdp b/components/omnibox_pedal_ui_strings.grdp
+index a668cfea00..bd4c620641 100644
 --- a/components/omnibox_pedal_ui_strings.grdp
 +++ b/components/omnibox_pedal_ui_strings.grdp
 @@ -83,16 +83,16 @@
@@ -977,6 +1611,8 @@
    </message>
    <!-- iOS Omnibox Actions non-title strings -->
    <!-- Same as IDS_OMNIBOX_PEDAL_LAUNCH_INCOGNITO_SUGGESTION_CONTENTS but with "window" changed to "tab" -->
+diff --git a/components/omnibox_strings.grdp b/components/omnibox_strings.grdp
+index 872d304ee4..c3e7e3ece6 100644
 --- a/components/omnibox_strings.grdp
 +++ b/components/omnibox_strings.grdp
 @@ -366,13 +366,13 @@
@@ -996,7 +1632,7 @@
    </message>
  
    <!-- Omnibox Actions in Suggest. -->
-@@ -549,16 +549,16 @@
+@@ -559,16 +559,16 @@
    </message>
    <!-- Accessibility announcements made for the Chrome tip IPH suggestions sometimes shown at the bottom of the Omnibox -->
    <message name="IDS_ACC_CHROME_TIP" desc="Announcement that is read after the last suggestion when the IPH row is present in the Omnibox.">
@@ -1017,7 +1653,7 @@
    </message>
  
    <!-- Site Search/Keyword mode Starter Pack strings. Note: kCurrentDataVersion in template_url_starter_pack_data.cc must also be updated when changing these values. -->
-@@ -632,7 +632,7 @@
+@@ -642,7 +642,7 @@
    </message>
  
    <message name="IDS_ACC_OMNIBOX_IPH_LINK_SELECTED" desc="Announcement when an IPH Chrome Tip link is selected.">
@@ -1026,6 +1662,8 @@
    </message>
  
    <message name="IDS_ACC_OMNIBOX_TOOLBELT_NEXT_SUFFIX" desc="Additional text announcement when a match preceding the toolbelt is selected.">
+diff --git a/components/page_info_strings.grdp b/components/page_info_strings.grdp
+index a200f23985..2d80024c57 100644
 --- a/components/page_info_strings.grdp
 +++ b/components/page_info_strings.grdp
 @@ -23,7 +23,7 @@
@@ -1050,7 +1688,7 @@
    </message>
  
    <!-- Safety Tip summary strings -->
-@@ -437,16 +437,16 @@
+@@ -439,16 +439,16 @@
        </message>
      </if>
      <message name="IDS_PAGE_INFO_CAMERA_SYSTEM_SETTINGS_DESCRIPTION" desc="The description for the camera permission with a link to system settings.">
@@ -1071,6 +1709,8 @@
      </message>
      <message name="IDS_PAGE_INFO_SETTINGS_OF_A_SYSTEM_LINK" desc="This is the text of the link pointing to settings of a system. This appears under a permission in the Page Info bubble if the permission is blocked on the system level.">
          system settings
+diff --git a/components/password_manager_strings.grdp b/components/password_manager_strings.grdp
+index 1ddcc26034..ad10844b11 100644
 --- a/components/password_manager_strings.grdp
 +++ b/components/password_manager_strings.grdp
 @@ -87,7 +87,7 @@
@@ -1109,6 +1749,61 @@
      </message>
      <message name="IDS_PASSWORD_MANAGER_RELAUNCH_CHROME_BUBBLE_ACCEPT_BUTTON_NON_BRANDED" desc="Text that appears in the accept button of the relaunch Chromium bubble.">
        Relaunch Merlin
+diff --git a/components/payments_strings.grdp b/components/payments_strings.grdp
+index e68416f814..7ad0fda993 100644
+--- a/components/payments_strings.grdp
++++ b/components/payments_strings.grdp
+@@ -293,11 +293,11 @@
+   </if>
+   <if expr="not is_android">
+     <message name="IDS_PAYMENTS_CARD_AND_ADDRESS_SETTINGS_SIGNED_IN" desc="Label of the section containing the origin description and the link to go to the settings page for card and address options. This label is used when the user is signed in.">
+-      Cards and addresses are from Chrome and your Google Account (<ph name="ACCOUNT_EMAIL">$1<ex>johndoe@gmail.com</ex></ph>). You can manage them in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Settings<ph name="END_LINK">END_LINK</ph>.
++      Cards and addresses are from Merlin and your Google Account (<ph name="ACCOUNT_EMAIL">$1<ex>johndoe@gmail.com</ex></ph>). You can manage them in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Settings<ph name="END_LINK">END_LINK</ph>.
+     </message>
+   </if>
+   <message name="IDS_PAYMENTS_CARD_AND_ADDRESS_SETTINGS_SIGNED_OUT" desc="Label of the section containing the origin description and the link to go to the settings page for card and address options. This label is used when the user is not signed in." formatter_data="android_java">
+-    Cards and addresses are from Chrome. You can manage them in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Settings<ph name="END_LINK">END_LINK</ph>.
++    Cards and addresses are from Merlin. You can manage them in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Settings<ph name="END_LINK">END_LINK</ph>.
+   </message>
+   <message name="IDS_SETTINGS_CAN_MAKE_PAYMENT_TOGGLE_LABEL" desc="Label of the toggle which disables canMakePayment and hasEnrolledInstrument" formatter_data="android_java">
+     Allow sites to check if you have payment methods saved
+diff --git a/components/policy_strings.grdp b/components/policy_strings.grdp
+index edce526830..f570db2bff 100644
+--- a/components/policy_strings.grdp
++++ b/components/policy_strings.grdp
+@@ -229,7 +229,7 @@
+     Ignored because the policy is not set by a cloud source.
+   </message>
+   <message name="IDS_POLICY_CLOUD_MANAGEMENT_DISABLED_ERROR" desc="The text displayed in the status column when a cloud policy is ignored because Chrome Browser Cloud Management is disabled.">
+-    Ignored because Chrome Browser Cloud Management is disabled.
++    Ignored because Merlin Browser Cloud Management is disabled.
+   </message>
+   <message name="IDS_POLICY_CLOUD_USER_ONLY_ERROR" desc="The text displayed in the status column when a policy should only be set from cloud user is set from another source.">
+     Ignored because the policy can only be set as a cloud user policy.
+@@ -823,10 +823,10 @@ Additional details:
+     This policy cannot be set to "True" and be mandatory, therefore it was changed to recommended.
+   </message>
+   <message name="IDS_POLICY_IGNORED_CHROME_PROFILE" desc="Text explaining that the policy cannot be set at the Chrome profile level and is therefore ignored.">
+-    This policy cannot be set at the Chrome profile level and will be ignored.
++    This policy cannot be set at the Merlin profile level and will be ignored.
+   </message>
+   <message name="IDS_POLICY_IGNORED_UNAFFILIATED" desc="Text describing that the policy value is not applied because the user is unaffiliated.">
+-    This policy is ignored because the user is unaffiliated. For this policy to be applied, the Chrome browser and profile must be managed through the Admin console by the same organization.
++    This policy is ignored because the user is unaffiliated. For this policy to be applied, the Merlin browser and profile must be managed through the Admin console by the same organization.
+   </message>
+   <message name="IDS_POLICY_IGNORED_EXTENSION" desc="Text explaining that extension policies are likely ignored by the extension.">
+     Likely ignored by the extension.
+@@ -912,7 +912,7 @@ Additional details:
+     Try Chrome Enterprise Core
+   </message>
+   <message name="IDS_POLICY_COMMAND_LINE_FLAGS_WARNING" desc="Warning shown on chrome://policy when custom command line flags are explicitly specified by the user upon launching Chrome.">
+-    This instance of Chrome is running with command line flags manually set. Note that command line flags may change at any time and are not supported.
++    This instance of Merlin is running with command line flags manually set. Note that command line flags may change at any time and are not supported.
+   </message>
+   <message name="IDS_DEVTOOLS_BLOCKED_BY_POLICY" desc="Message shown when DevTools is blocked by policy.">
+     Your organization has blocked the use of DevTools on this page
+diff --git a/components/reset_password_strings.grdp b/components/reset_password_strings.grdp
+index 27d72283ac..f377e8661f 100644
 --- a/components/reset_password_strings.grdp
 +++ b/components/reset_password_strings.grdp
 @@ -28,7 +28,7 @@
@@ -1120,6 +1815,8 @@
    </message>
    <if expr="_google_chrome">
      <message name="IDS_RESET_PASSWORD_EXPLANATION_PARAGRAPH" desc="The primary explanatory paragraph for the reset password page when the user manually navigates to this page.">
+diff --git a/components/security_interstitials_strings.grdp b/components/security_interstitials_strings.grdp
+index c388359804..30b7cc2dc3 100644
 --- a/components/security_interstitials_strings.grdp
 +++ b/components/security_interstitials_strings.grdp
 @@ -42,7 +42,7 @@
@@ -1220,603 +1917,8 @@
    </message>
  
  </grit-part>
---- a/chrome/app/access_code_cast_strings.grdp
-+++ b/chrome/app/access_code_cast_strings.grdp
-@@ -38,7 +38,7 @@
-     Something went wrong. Try again later
-   </message>
-   <message name="IDS_ACCESS_CODE_CAST_ERROR_PROFILE_SYNC" desc="Error message for profile sync error">
--    To cast with a code, turn on Chrome browser sync settings
-+    To cast with a code, turn on Merlin browser sync settings
-   </message>
-   <message name="IDS_ACCESS_CODE_CAST_INPUT_ARIA_LABEL" is_accessibility_with_no_ui="true" desc="Label for the text box where users type the access code to start casting to a Chromecast device">
-     Type the access code to start casting
---- a/chrome/app/actor_strings.grdp
-+++ b/chrome/app/actor_strings.grdp
-@@ -127,16 +127,16 @@
-    Task complete
-   </message>
-   <message name="IDS_ACTOR_NOTIFICATION_BUTTON_GO_TO_CHROME" desc="Label for the notification button for the user to go to chrome." formatter_data="android_java">
--    Go to Chrome
-+    Go to Merlin
-   </message>
-   <message name="IDS_ACTOR_NOTIFICATION_BODY_WORKING" desc="Notification body text when the actor is working on a task." formatter_data="android_java">
-     <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini is working on your task and will let you know if more action is needed
-   </message>
-   <message name="IDS_ACTOR_EXPERIMENTAL_TRIGGERING_NOTIFICATION_BODY" desc="Notification body text when the actor is working on an experimental triggering task.">
--    <ph name="TASK_TITLE">$1<ex>My Task</ex></ph>: Working on your Gemini App task in Chrome. Check Chrome for more updates
-+    <ph name="TASK_TITLE">$1<ex>My Task</ex></ph>: Working on your Gemini App task in Merlin. Check Merlin for more updates
-   </message>
-   <message name="IDS_ACTOR_EXPERIMENTAL_TRIGGERING_NOTIFICATION_BODY_FALLBACK" desc="Fallback notification body text when the actor is working on an experimental triggering task without a task title.">
--    Working on your Gemini App task in Chrome. Check Chrome for more updates
-+    Working on your Gemini App task in Merlin. Check Merlin for more updates
-   </message>
-   <message name="IDS_ACTOR_NOTIFICATION_BODY_WORKING_WITH_STEP_INFO" desc="Notification body text when the actor is working on a task with step progress." formatter_data="android_java">
-     <ph name="TASK_TITLE">%1$s<ex>My Task</ex></ph>: <ph name="STEP_PROGRESS">%2$s<ex>Searching flights</ex></ph>
-@@ -148,7 +148,7 @@
-     <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini stopped working on this task
-   </message>
-   <message name="IDS_ACTOR_NOTIFICATION_BODY_COMPLETE" desc="Notification body text when the actor has completed a task." formatter_data="android_java">
--    <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini completed your task, you can view it in Chrome
-+    <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini completed your task, you can view it in Merlin
-   </message>
-   <message name="IDS_ACTOR_NOTIFICATION_BODY_STOPPED" desc="Notification body text when a task is stopped." formatter_data="android_java">
-     <ph name="TASK_TITLE">%s<ex>My Task</ex></ph>: Gemini stopped working on this task
-@@ -202,7 +202,7 @@
-     View
-   </message>
-   <message name="IDS_PEEK_STATE_CLOSE_BUTTON_DESCRIPTION" desc="The accessibility content description for the button that closes peek view." formatter_data="android_java">
--    Close Gemini in Chrome
-+    Close Gemini in Merlin
-   </message>
-   <message name="IDS_PEEK_STATE_PLAY_BUTTON_A11Y_LABEL" desc="Accessibility label for the button to resume/play the actor task." formatter_data="android_java" is_accessibility_with_no_ui="true">
-     Resume
-@@ -211,7 +211,7 @@
-     Pause
-   </message>
-   <message name="IDS_PEEK_STATE_ACCESSIBLE_LABEL" desc="Accessibility label for the Gemini in Chrome peek view which represents a minimized chat. The placeholder is the displayed text (e.g. title or description) of the peek view." formatter_data="android_java">
--    <ph name="DISPLAYED_TEXT">%1$s<ex>Ask Gemini</ex></ph>, Gemini in Chrome
-+    <ph name="DISPLAYED_TEXT">%1$s<ex>Ask Gemini</ex></ph>, Gemini in Merlin
-   </message>
-   <message name="IDS_ACTOR_LEAVE_SITE_DIALOG_TITLE" desc="Title of a dialog asking if the user really wants to stop the actor task." formatter_data="android_java">
-     Leave site and end task?
---- a/chrome/app/app_management_strings.grdp
-+++ b/chrome/app/app_management_strings.grdp
-@@ -46,7 +46,7 @@
-     Open in <ph name="APP_NAME">$1<ex>Chrome browser</ex></ph>
-   </message>
-   <message name="IDS_APP_MANAGEMENT_INTENT_SHARING_BROWSER_OPEN" desc="Label for the intent sharing option to open in the browser.">
--    Open in Chrome browser
-+    Open in Merlin browser
-   </message>
-   <message name="IDS_APP_MANAGEMENT_INTENT_SHARING_APP_OPEN_EXISTING_TAB" desc="This is an option presented to the user which makes user clicks on links that open this website to open in an existing browser tab of that website, instead of opening in a new browser tab.">
-     Open in an existing <ph name="APP_NAME">$1<ex>Gmail</ex></ph> tab
---- a/chrome/app/extensions_strings.grdp
-+++ b/chrome/app/extensions_strings.grdp
-@@ -743,16 +743,16 @@
-     Supercharge your browser with extensions and themes
-   </message>
-   <message name="IDS_EXTENSIONS_ZERO_STATE_CHIPS_IPH_DESCRIPTION" desc="An one line description for the extensions zero state in-product-help promo.">
--    Extensions are add-ons for Chrome that can help you do more
-+    Extensions are add-ons for Merlin that can help you do more
-   </message>
-   <message name="IDS_EXTENSIONS_ZERO_STATE_CHIPS_WITH_LINK_IPH_LINK_LABEL" desc="A label of extensions links to chrome web store home page.">
-     Extensions
-   </message>
-   <message name="IDS_EXTENSIONS_ZERO_STATE_CHIPS_WITH_LINK_IPH_DESCRIPTION" desc="An one line description for the extensions zero state in-product-help promo with links to chrome web store home page.">
--    are add-ons for Chrome that can help you do more
-+    are add-ons for Merlin that can help you do more
-   </message>
-   <message name="IDS_EXTENSIONS_ZERO_STATE_PLAIN_LINK_IPH_DESCRIPTION" desc="An one line description for the extensions zero state in-product-help promo.">
--    Extensions are add-ons to Chrome that can help you
-+    Extensions are add-ons to Merlin that can help you
-   </message>
-   <message name="IDS_EXTENSIONS_ZERO_STATE_IPH_SHOPPING_CATEGORY_LABEL" desc="Label for the button that opens the Chrome Web Store shopping category page.">
-     Find coupons
---- a/chrome/app/glic_strings.grdp
-+++ b/chrome/app/glic_strings.grdp
-@@ -118,7 +118,7 @@
-     Your organization has turned off this feature
-   </message>
-   <message name="IDS_GLIC_INELIGIBLE_ACCOUNT_NOTICE_HEADER" desc="This is the headline on the Gemini ineligible account notice.">
--    Your account doesn't have access to Gemini in Chrome
-+    Your account doesn't have access to Gemini in Merlin
-   </message>
-   <message name="IDS_GLIC_INELIGIBLE_ACCOUNT_NOTICE" desc="This is the text of the Gemini ineligible account notice.">
-     Check that you're eligible and meet the requirements
-@@ -151,7 +151,7 @@
-     Preview
-   </message>
-   <message name="IDS_SETTINGS_GLIC_INLINE_CUE_MENU_PREVIEW_TEXT" desc="Text displayed in the preview box with highlighted words.">
--    Chrome is made possible by the Chromium open source project and other <ph name="BEGIN_HIGHLIGHT">&lt;span class="preview-highlight-box"&gt;&lt;span class="preview-highlight-text"&gt;</ph>open source<ph name="END_HIGHLIGHT">&lt;/span&gt;&lt;/span&gt;</ph> software.
-+    Merlin is made possible by the Chromium open source project and other <ph name="BEGIN_HIGHLIGHT">&lt;span class="preview-highlight-box"&gt;&lt;span class="preview-highlight-text"&gt;</ph>open source<ph name="END_HIGHLIGHT">&lt;/span&gt;&lt;/span&gt;</ph> software.
-   </message>
-   <message name="IDS_SETTINGS_GLIC_INLINE_CUE_MENU_PREVIEW_PILL" desc="Text inside the floating pill in the preview box.">
-     Explain
-@@ -181,7 +181,7 @@
-     Keyboard shortcut
-   </message>
-   <message name="IDS_SETTINGS_GLIC_HOTKEY_GLOBAL_SCOPE_DESCRIPTION" desc="Description for the hotkey scope setting to allow it to work globally.">
--    Use this shortcut outside of Chrome
-+    Use this shortcut outside of Merlin
-   </message>
-   <message name="IDS_SETTINGS_GLIC_KEYBOARD_SHORTCUT_EDIT_LABEL" desc="Label of the edit keyboard shortcut setting button.">
-     Edit keyboard shortcut
-@@ -331,22 +331,22 @@
-        and will be finalized and replaced next week. This also includes finalizing the links for
-        "Learn more about Gemini tasks" and "unexpected actions". -->
-   <message name="IDS_GLIC_EXPERIMENTAL_OPT_IN_TITLE" desc="Title for the experimental opt-in dialog" is_accessibility_with_no_ui="true">
--    First, turn on Chrome auto browse for this device
-+    First, turn on Merlin auto browse for this device
-   </message>
-   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_TOGGLE" desc="Label for the Gemini experimental triggering setting" formatter_data="android_java">
-     Let other Gemini apps browse remotely from any device
-   </message>
-   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_SUB_LABEL" desc="Sublabel explaining the setting that lets other Gemini apps use Chrome auto browse on this device." formatter_data="android_java">
--    When you start a task from other Gemini apps, including gemini.google.com and Gemini mobile apps, Gemini can use Chrome auto browse on this device to interact with sites and complete tasks on your behalf. <ph name="LINK_BEGIN">&lt;a href="#"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
-+    When you start a task from other Gemini apps, including gemini.google.com and Gemini mobile apps, Gemini can use Merlin auto browse on this device to interact with sites and complete tasks on your behalf. <ph name="LINK_BEGIN">&lt;a href="#"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
-   </message>
-   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_SUB_LABEL_V2" desc="Sublabel explaining the setting that lets other Gemini apps use Chrome auto browse on this device, with accessible link attributes.">
--    When you start a task from other Gemini apps, including gemini.google.com and Gemini mobile apps, Gemini can use Chrome auto browse on this device to interact with sites and complete tasks on your behalf. <ph name="LINK_BEGIN">&lt;a href="$1" target="_blank" aria-label="$2" aria-description="$3"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
-+    When you start a task from other Gemini apps, including gemini.google.com and Gemini mobile apps, Gemini can use Merlin auto browse on this device to interact with sites and complete tasks on your behalf. <ph name="LINK_BEGIN">&lt;a href="$1" target="_blank" aria-label="$2" aria-description="$3"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
-   </message>
-   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_SUB_LABEL_LEARN_MORE_LINK_LABEL" desc="Accessible name for the 'Learn more' link in the experimental triggering toggle sublabel." is_accessibility_with_no_ui="true">
-     Learn more about Gemini tasks
-   </message>
-   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_WHEN_ON_1" desc="Bullet point explaining what happens when this setting is enabled." formatter_data="android_java">
--    Gemini can only use auto browse on this device if the device is awake and Chrome is running.
-+    Gemini can only use auto browse on this device if the device is awake and Merlin is running.
-   </message>
-   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_WHEN_ON_2" desc="Bullet point explaining notifications when this setting is enabled." formatter_data="android_java">
-     Gemini will decide which actions to take based on the tasks you start or update.
-@@ -355,7 +355,7 @@
-     Gemini will have access to the same sites as you, including the sites you’re signed in to. It will share necessary info with third parties, which could include personal info you might find sensitive.
-   </message>
-   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_CONSIDER_2" desc="Bullet point explaining access risk when enabling this setting." formatter_data="android_java">
--    Anybody with access to your Gemini apps could control your Chrome browser.
-+    Anybody with access to your Gemini apps could control your Merlin browser.
-   </message>
-   <message name="IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_CONSIDER_3" desc="Bullet point explaining user responsibility and risks for this setting." formatter_data="android_java">
-     Gemini may make mistakes, like sharing your info or making purchases without asking. <ph name="LINK_BEGIN">&lt;a href="$1" target="_blank"&gt;</ph>Review the risks<ph name="LINK_END">&lt;/a&gt;</ph>.
-@@ -367,16 +367,16 @@
-     Review the risks of using Gemini
-   </message>
-   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_CHROME_WEB_ACTUATION_TOGGLE" desc="Title for the Gemini feature introduction screen" formatter_data="android_java">
--    Let Chrome browse for you
-+    Let Merlin browse for you
-   </message>
-   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_CHROME_WEB_ACTUATION_TOGGLE_SUBLABEL" desc="Subheader explaining what the Gemini feature does" formatter_data="android_java">
--    Gemini in Chrome uses auto browse to work in your tabs and complete tasks you give it. <ph name="LINK_BEGIN">&lt;a href="#"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
-+    Gemini in Merlin uses auto browse to work in your tabs and complete tasks you give it. <ph name="LINK_BEGIN">&lt;a href="#"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
-   </message>
-   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_CHROME_WEB_ACTUATION_TOGGLE_SUBLABEL_V2" desc="Subheader explaining what the Gemini feature does (WebUI version)">
--    Gemini in Chrome uses auto browse to work in your tabs and complete tasks you give it. <ph name="LINK_BEGIN">&lt;a href="#" target="_blank" aria-label="$1" aria-description="$2"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
-+    Gemini in Merlin uses auto browse to work in your tabs and complete tasks you give it. <ph name="LINK_BEGIN">&lt;a href="#" target="_blank" aria-label="$1" aria-description="$2"&gt;</ph>Learn more<ph name="LINK_END">&lt;/a&gt;</ph>
-   </message>
-   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_CHROME_WEB_ACTUATION_TOGGLE_LEARN_MORE_ARIA_LABEL" desc="Accessible label for the 'Learn more' link in the Gemini auto browse sublabel." is_accessibility_with_no_ui="true">
--    Learn more about Chrome auto browse
-+    Learn more about Merlin auto browse
-   </message>
-   <message name="IDS_SETTINGS_GLIC_PERMISSIONS_WEB_ACTUATION_TOGGLE_WHEN_ON_1" desc="First point in 'when on' column of the 'let Gemini browse for you' expands" formatter_data="android_java">
-     Gemini can help you book appointments, create shopping carts, or do other tasks you give it.
-@@ -508,7 +508,7 @@
- 
-   <!-- Gemini tab strip button label -->
-   <message name="IDS_GLIC_SETTING_LABEL" desc="Label in setting list used to open Gemini in Chrome settings." formatter_data="android_java">
--    Gemini in Chrome
-+    Gemini in Merlin
-   </message>
-   <message name="IDS_GLIC_BUTTON_ENTRYPOINT_LABEL" desc="Label on the button used to open Gemini in Chrome." formatter_data="android_java">
-     Gemini
-@@ -570,7 +570,7 @@
-     Get help with your tasks
-   </message>
-   <message name="IDS_GLIC_TRYIT_BODY" desc="Text for a promo pointing to the Gemini icon in Chrome, that opens Gemini in Chrome if selected.">
--    Chat with Gemini in Chrome to get answers, key takeaways, and more as you browse
-+    Chat with Gemini in Merlin to get answers, key takeaways, and more as you browse
-   </message>
- 
-   <!-- Shortcut IPH -->
-@@ -578,7 +578,7 @@
-     <ph name="message">$1<ex>Use Ctrl+⌘+G to open Gemini in Chrome</ex></ph>
-   </message>
-   <message name="IDS_GLIC_SHORTCUT_IPH_TEXT" desc="Title for a promo pointing to the Gemini icon in Chrome. It informs the user about a keyboard shortcut for quicly opening Gemini in Chrome.">
--    Use <ph name="FOCUS_TOGGLE_HOTKEY">$1<ex>Ctrl+⌘+G</ex></ph> to open Gemini in Chrome
-+    Use <ph name="FOCUS_TOGGLE_HOTKEY">$1<ex>Ctrl+⌘+G</ex></ph> to open Gemini in Merlin
-   </message>
- 
-   <!-- Selection Nudge -->
-@@ -594,10 +594,10 @@
- 
-   <!-- Educational Tip -->
-   <message name="IDS_EDUCATIONAL_TIP_GLIC_TITLE" desc="Title for the Glic educational tip card." formatter_data="android_java">
--    Meet Gemini on Chrome
-+    Meet Gemini on Merlin
-   </message>
-   <message name="IDS_EDUCATIONAL_TIP_GLIC_DESCRIPTION" desc="Description for the Glic educational tip card." formatter_data="android_java">
--    Get the best of Google AI. Pin Gemini to your toolbar for easy access, or open it anytime from the Chrome menu.
-+    Get the best of Google AI. Pin Gemini to your toolbar for easy access, or open it anytime from the Merlin menu.
-   </message>
-   <message name="IDS_EDUCATIONAL_TIP_GLIC_BUTTON" desc="Button text for the Glic educational tip card." formatter_data="android_java">
-     Pin on toolbar
-@@ -625,10 +625,10 @@
-     Gemini
-   </message>
-   <message name="IDS_GLIC_LOCATION_MISMATCH_NOTICE_HEADER" desc="Headline on the notice when Gemini is unavailable in the current dynamic location.">
--    Gemini in Chrome isn't available
-+    Gemini in Merlin isn't available
-   </message>
-   <message name="IDS_GLIC_LOCATION_MISMATCH_NOTICE" desc="Text of the notice explaining location mismatch for travelers or VPN users.">
--    Gemini in Chrome is expanding to different locations but isn't available everywhere
-+    Gemini in Merlin is expanding to different locations but isn't available everywhere
-   </message>
-   <message name="IDS_GLIC_GET_HELP" desc="Link or button label text to open help documentation.">
-     Get help
---- a/chrome/app/media_router_strings.grdp
-+++ b/chrome/app/media_router_strings.grdp
-@@ -93,7 +93,7 @@
-     Permission to cast is rejected. Open a help center article in a new tab to learn more.
-   </message>
-   <message name="IDS_MEDIA_ROUTER_LOCAL_DISCOVERY_PERMISSION_REJECTED_LABEL" desc="The error message including the link to the OS settings page, shown when the browser does not have the permission to connect to devices on the local network.">
--    To cast, give Chrome access in: <ph name="IDS_MEDIA_ROUTER_LOCAL_DISCOVERY_PERMISSION_REJECTED_LINK">$1<ex>System Settings</ex></ph> > Local Network > Chrome
-+    To cast, give Merlin access in: <ph name="IDS_MEDIA_ROUTER_LOCAL_DISCOVERY_PERMISSION_REJECTED_LINK">$1<ex>System Settings</ex></ph> > Local Network > Merlin
-   </message>
-   <message name="IDS_MEDIA_ROUTER_LOCAL_DISCOVERY_PERMISSION_REJECTED_LINK" desc="Text for the link to the OS settings page allowing useres to turn on the permission. This string will be embedded in a longer sentence that makes up the whole label.">
-     System Settings
-@@ -346,7 +346,7 @@
-     Send debug logs (recommended)
-   </message>
-   <message name="IDS_MEDIA_ROUTER_FEEDBACK_PRIVACY_DATA_USAGE" desc="Text with details about data usage of details submitted in the feedback page.">
--    Your Chrome version, operating system version, Cast settings,
-+    Your Merlin version, operating system version, Cast settings,
-     mirroring performance stats, and communication channel diagnostic
-     logs will be submitted in addition to any information you choose
-     to include above. This feedback is used to diagnose problems and
---- a/chrome/app/profiles_strings.grdp
-+++ b/chrome/app/profiles_strings.grdp
-@@ -104,7 +104,7 @@
-     Verify it’s you to save and use your passkeys on this device
-   </message>
-   <message name="IDS_PROFILE_MENU_PASSKEYS_ERROR_DESCRIPTION_GET" desc="Subtitle in the profile menu, shown when the user needs to verify their identity to unlock usage of their Google Password Manager passkeys on this device, e.g. by presenting a PIN. The word 'passkey' is distinct from 'password', consult the glossary for a translation.">
--    Get your passkeys on this device with Google Password Manager
-+    Get your passkeys on this device with Merlin Password Manager
-   </message>
-   <message name="IDS_PROFILE_MENU_PASSKEYS_ERROR_DESCRIPTION_VERIFY" desc="Subtitle in the profile menu, shown when the user needs to verify their identity to unlock usage of their Google Password Manager passkeys on this device, e.g. by presenting a PIN. The word 'passkey' is distinct from 'password', consult the glossary for a translation.">
-     Verify it’s you to get your passkeys on this device
-@@ -171,7 +171,7 @@
-     Sync disabled
-   </message>
-   <message name="IDS_PROFILES_DASHER_FEATURE_DISABLED_TITLE" desc="Description of the profile user menu when certain features are disabled for Dasherless profile.">
--    This isn't a Google Account. Items you save to Chrome won't be available on other devices.
-+    This isn't a Google Account. Items you save to Merlin won't be available on other devices.
-   </message>
-   <message name="IDS_PROFILES_DICE_SYNC_PAUSED_TITLE" desc="Title of the profile user menu when sync is paused.">
-     Sync is paused
-@@ -187,7 +187,7 @@
- 
-   <!-- Signin Composebox Drive context menu option promo. -->
-   <message name="IDS_COMPOSEBOX_DRIVE_CONTEXT_MENU_OPTION_SIGNIN_PROMO_TITLE" desc="The title in the sign-in promo bubble shown to users when interacting with the Google Drive context menu option in the composebox while not signed in.">
--    Sign in to Chrome
-+    Sign in to Merlin
-   </message>
-   <message name="IDS_COMPOSEBOX_DRIVE_CONTEXT_MENU_OPTION_VERIFY_PROMO_TITLE" desc="The title in the sign-in promo bubble shown to users when interacting with the Google Drive context menu option in the composebox while sign-in credentials have expired.">
-     Verify it's you
---- a/chrome/app/shared_settings_strings.grdp
-+++ b/chrome/app/shared_settings_strings.grdp
-@@ -101,10 +101,10 @@
-     Supported Live Caption languages
-   </message>
-   <message name="IDS_SETTINGS_CAPTIONS_MANAGE_LANGUAGES_SUBTITLE" desc="Subtitle for the caption settings section for managing language packs.">
--    Chrome can create and translate captions for the languages shown here
-+    Merlin can create and translate captions for the languages shown here
-   </message>
-   <message name="IDS_SETTINGS_CAPTIONS_MANAGE_LANGUAGES_SUBTITLE_LIVE_CAPTION_ONLY" desc="Subtitle for the caption settings section for managing language packs without live translate.">
--    Chrome can create captions for the languages shown here
-+    Merlin can create captions for the languages shown here
-   </message>
-   <message name="IDS_SETTINGS_CAPTIONS_LIVE_TRANSLATE_TARGET_LANGUAGE" desc="Description of the target language setting for the Live Translate feature.">
-     Translate captions to
-@@ -187,7 +187,7 @@
-     May incur mobile data charges
-   </message>
-   <message name="IDS_SETTINGS_NEARBY_SHARE_DATA_USAGE_MOBILE_DATA_TOOLTIP" desc="Explanation of when the mobile data usage setting applies. When selected, Mobile data means that Wi-Fi or cell data may be used for transfers for the Nearby Share feature.">
--    This option applies to Chromebooks with a data plan or mobile network dongle, or when tethering to a portable hotspot
-+    This option applies to Merlinbooks with a data plan or mobile network dongle, or when tethering to a portable hotspot
-   </message>
-   <message name="IDS_SETTINGS_NEARBY_SHARE_DATA_USAGE_OFFLINE_LABEL" desc="Label for the data usage setting where transfers will only take place offline for the Nearby Share feature.">
-     Without internet
-@@ -240,7 +240,7 @@
-     Enhanced spell check
-   </message>
-   <message name="IDS_SETTINGS_ENABLE_LOGGING_PREF" desc="The label of the checkbox to enable/disable crash and user metrics logging. This string does not need a Chromium counter-part because it will only be visible if Google-branded.">
--    Help improve Chrome's features and performance
-+    Help improve Merlin's features and performance
-   </message>
-   <message name="IDS_SETTINGS_ENABLE_LOGGING_PREF_DESC" desc="The description of the checkbox to enable/disable crash and user metrics logging">
-     Automatically sends usage statistics and crash reports to Google
-@@ -259,7 +259,7 @@
-     Sync is paused
-   </message>
-   <message name="IDS_SETTINGS_PEOPLE_SIGN_IN_PROMPT" desc="The text displayed to prompt users to sign in to chrome.">
--    Get Google smarts in Chrome
-+    Get Google smarts in Merlin
-   </message>
-   <message name="IDS_SETTINGS_PEOPLE_SYNC_TURN_OFF" desc="The label for the button that lets the user turn off profile syncing with their gaia account.">
-     Turn off
-@@ -423,7 +423,7 @@
-     You can turn on sync anytime in settings
-   </message>
-   <message name="IDS_SYNC_UNAVAILABLE_FOR_NON_GOOGLE_ACCOUNT" desc="Text explaining that Sync service is unavailable for Dasherless profile.">
--    This account isn't associated with Google so features such as Chrome sync are unavailable
-+    This account isn't associated with Google so features such as Merlin sync are unavailable
-   </message>
- 
-   <if expr="is_chromeos">
---- a/chrome/app/skills_strings.grdp
-+++ b/chrome/app/skills_strings.grdp
-@@ -44,7 +44,7 @@
-     Manage your custom workflows powered by
-   </message>
-   <message name="IDS_SKILLS_SIDEBAR_FOOTER_BRANDING" desc="The branding text 'Gemini in Chrome' displayed in the sidebar footer">
--    Gemini in Chrome
-+    Gemini in Merlin
-   </message>
- 
-   <!-- chrome://skills error page -->
-@@ -52,10 +52,10 @@
-     Skills aren't available
-   </message>
-   <message name="IDS_SKILLS_ERROR_PAGE_DESCRIPTION" desc="Description of the error page that occurs when chrome://skills is not accessible because Glic is not enabled">
--    To use Skills, sign in to Chrome with a Google account that has Gemini in Chrome enabled
-+    To use Skills, sign in to Merlin with a Google account that has Gemini in Merlin enabled
-   </message>
-   <message name="IDS_SKILLS_DISABLED_ERROR_PAGE_DESCRIPTION" desc="Description of the error page that occurs when chrome://skills is disabled by the settings toggle">
--    The Skills feature is currently disabled. Update your Chrome Settings to get started.
-+    The Skills feature is currently disabled. Update your Merlin Settings to get started.
-   </message>
-   <message name="IDS_SKILLS_REMOTE_AUTHORITY_UNREACHABLE_DESCRIPTION" desc="Description of the error page that occurs when the remote guest skills webview cannot load or be reached.">
-     We're having trouble connecting to the server. Please try again later.
-@@ -64,7 +64,7 @@
-     Go to Settings
-   </message>
-   <message name="IDS_SKILLS_SIGN_IN_TO_CHROME" desc="Label of the button that prompts the user to sign in to Chrome on the Skills error page.">
--    Sign in to Chrome
-+    Sign in to Merlin
-   </message>
-   <message name="IDS_SKILLS_NO_SEARCH_RESULT_TITLE" desc="Title of the page that occurs when chrome://skills has no search results">
-     No search results
---- a/chrome/app/support_tool_strings.grdp
-+++ b/chrome/app/support_tool_strings.grdp
-@@ -103,7 +103,7 @@
-         </message>
-         <!-- DataCollector strings -->
-         <message name="IDS_SUPPORT_TOOL_CHROME_SYSTEM_INFO" desc="This is a data source name for internal Chrome logs.">
--            Chrome System Information
-+            Merlin System Information
-         </message>
-         <message name="IDS_SUPPORT_TOOL_CRASH_IDS" desc="An identification number is given every time Chrome crashes on the device. This data source collects those IDs.">
-             Crash IDs
---- a/components/browsing_data_strings.grdp
-+++ b/components/browsing_data_strings.grdp
-@@ -228,10 +228,10 @@
-     <ph name="TAB_COUNT">$1<ex>5 tabs</ex></ph> from <ph name="WINDOW_COUNT">$2<ex>2 windows</ex></ph> on this device
-   </message>
-   <message name="IDS_DEL_GOOGLE_COOKIES_SIGNOUT_LINK" desc="A message that will be appended to IDS_DEL_COOKIES_COUNTER_ADVANCED if the user is signed in. It informs the user that their Google cookies will only be deleted if they signed out of Chrome. This string includes a link that, when clicked on, will sign the user out of Chrome.">
--    To delete Google cookies from this device, <ph name="BEGIN_LINK">&lt;a href="#" target="_blank" id="signOutLink"&gt;</ph>sign out of Chrome<ph name="END_LINK">&lt;/a&gt;</ph>.
-+    To delete Google cookies from this device, <ph name="BEGIN_LINK">&lt;a href="#" target="_blank" id="signOutLink"&gt;</ph>sign out of Merlin<ph name="END_LINK">&lt;/a&gt;</ph>.
-   </message>
-   <message name="IDS_SETTINGS_MANAGE_IN_GOOGLE_PASSWORD_MANAGER" desc="Description for the 'Passwords and Passkeys' linkout in the 'Other Google Data' subpage inside the 'Delete browsing data' dialog. This lets users know that passwords and passkeys can be managed and deleted in Google password manager.">
--    Manage in Google Password Manager
-+    Manage in Merlin Password Manager
-   </message>
-   <message name="IDS_SETTINGS_MANAGE_IN_YOUR_GOOGLE_ACCOUNT" desc="Description for the MyActivity and Search History linkouts in the 'Other Google Data' subpage inside the 'Delete browsing data' dialog. This lets users know that this data can be managed and deleted in their Google account.">
-     Manage in your Google Account
---- a/components/collaboration_strings.grdp
-+++ b/components/collaboration_strings.grdp
-@@ -5,10 +5,10 @@
-     Collaborate in tab groups
-   </message>
-   <message name ="IDS_COLLABORATION_SIGNIN_DESCRIPTION" desc="The description of the collaboration signin screen." formatter_data="android_java">
--    Sign in to Chrome to share and join tab groups, and work together on ideas
-+    Sign in to Merlin to share and join tab groups, and work together on ideas
-   </message>
-   <message name ="IDS_COLLABORATION_SIGNIN_BOTTOM_SHEET_TITLE" meaning="Title" desc="The title of the collaboration signin bottom sheet screen." formatter_data="android_java">
--    Sign in to Chrome
-+    Sign in to Merlin
-   </message>
-   <message name ="IDS_COLLABORATION_SIGNIN_BOTTOM_SHEET_DESCRIPTION" desc="The description of the collaboration signin bottom sheet screen." formatter_data="android_java">
-     You’ll get to share, join, and collaborate in tab groups
-@@ -51,28 +51,28 @@
-     Contact the sender to ask for a new link
-   </message>
-   <message name="IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_HEADER" desc="The title for the chrome out of date dialog, shown when user tries to share a tab group." formatter_data="android_java">
--    Chrome is out of date
-+    Merlin is out of date
-   </message>
-   <message name="IDS_COLLABORATION_SHARE_BUTTON_CHROME_OUT_OF_DATE_ERROR_DIALOG_BODY" desc="The body for the chrome out of date dialog, shown when user tries to share a tab group.">
--    To share tab groups, update Chrome
-+    To share tab groups, update Merlin
-   </message>
-   <message name="IDS_COLLABORATION_JOIN_BUTTON_CHROME_OUT_OF_DATE_ERROR_DIALOG_BODY" desc="The body for the chrome out of date dialog, shown when user tries to share a tab group.">
--    To join this tab group, update Chrome
-+    To join this tab group, update Merlin
-   </message>
-   <message name="IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_UPDATE_BUTTON" desc="The text of the button to update the app from the chrome out of date dialog, shown when user tries to share or join a tab group." formatter_data="android_java">
--    Update Chrome
-+    Update Merlin
-   </message>
-   <message name="IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_NOT_NOW_BUTTON" desc="The text of the button to skip updating the app from the chrome out of date dialog, shown when user tries to share or join a tab group." formatter_data="android_java">
-     Not now
-   </message>
-   <message name="IDS_COLLABORATION_CHROME_OUT_OF_DATE_ERROR_DIALOG_CONTINUE_BODY" desc="The body for the chrome out of date dialog, shown when user tries to continue using shared tab groups after a restart." formatter_data="android_java">
--    To continue using your shared tab groups, update Chrome
-+    To continue using your shared tab groups, update Merlin
-   </message>
-   <message name="IDS_COLLABORATION_SIGNED_OUT_HEADER" desc="The title for the signed out dialog." formatter_data="android_java">
-     You're signed out
-   </message>
-   <message name="IDS_COLLABORATION_SIGNED_OUT_BODY" desc="The body for the signed out dialog." formatter_data="android_java">
--    To share, join, and collaborate in tab groups, open settings and turn on Allow Chrome sign-in
-+    To share, join, and collaborate in tab groups, open settings and turn on Allow Merlin sign-in
-   </message>
-   <message name="IDS_COLLABORATION_SIGNED_OUT_POSITIVE_BUTTON" desc="The positive button text for the signed out dialog." formatter_data="android_java">
-     Settings
-@@ -90,10 +90,10 @@
-     Your organization doesn't allow you to sign in
-   </message>
-   <message name ="IDS_COLLABORATION_ENTREPRISE_SIGNIN_DISABLED_BODY" desc="The body of the error dialog when entreprise signin disabled.">
--    To share or join tab groups, you must be able to sign in to Chrome
-+    To share or join tab groups, you must be able to sign in to Merlin
-   </message>
-   <message name ="IDS_COLLABORATION_ENTREPRISE_SIGNIN_DISABLED_SYNC_HISTORY_BODY" desc="The body of the error dialog when entreprise signin disabled.">
--    To share tabs and collaborate with others, you must be able to sign in to Chrome
-+    To share tabs and collaborate with others, you must be able to sign in to Merlin
-   </message>
-   <message name ="IDS_COLLABORATION_ENTREPRISE_SYNC_DISABLED_HEADER" desc="The header of the error dialog when entreprise sync disabled.">
-     Your organization limits what you can save
-@@ -137,7 +137,7 @@
- 
-   <!-- Versioning -->
-   <message name="IDS_COLLABORATION_SHARED_TAB_GROUPS_PANEL_OUT_OF_DATE_MESSAGE_CELL_TEXT" desc="Text for the out-of-date cell that can appear at the top of the tab groups panel when the app is out-of-date to support shared tab groups." formatter_data="android_java">
--    Update Chrome to continue using your shared tab groups
-+    Update Merlin to continue using your shared tab groups
-   </message>
-   <message name="IDS_COLLABORATION_SHARED_TAB_GROUPS_AVAILABLE_AGAIN_IPH_MESSAGE" desc="The text that appears in the in-product help tooltip anchored on the tab groups panel when the shared tab groups are available again (typically after having updated the app)." formatter_data="android_java">
-     Your shared tab groups are available again
---- a/components/commerce_strings.grdp
-+++ b/components/commerce_strings.grdp
-@@ -13,7 +13,7 @@
-       Something went wrong. Try again.
-     </message>
-     <message name="IDS_OMNIBOX_TRACK_PRICE_DIALOG_TITLE_FIRST_RUN" desc="The title text for the dialog that is shown at the first time a user tracks the product displayed on the current web page.">
--      Track prices with Chrome
-+      Track prices with Merlin
-     </message>
-     <message name="IDS_OMNIBOX_TRACK_PRICE_DIALOG_DESCRIPTION_FIRST_RUN" desc="The description text for the dialog that is shown at the first time a user tracks the product displayed on the current web page. It describes what will happen when price tracking is initiated, and tells users which bookmarks folder this page will be saved.">
-       You’ll get email alerts if the price drops on any site. This page will be saved to the bookmark folder <ph name="LAST_BOOKMARKS_FOLDER">$1<ex>Other Bookmarks</ex></ph>.
---- a/components/contextual_cueing_strings.grdp
-+++ b/components/contextual_cueing_strings.grdp
-@@ -28,16 +28,16 @@
-     Page titles and URLs of your open tabs are used to give you relevant suggestions
-   </message>
-   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_WHEN_ON_2" desc="Second point in the 'when on' column on the suggestions settings subpage.">
--    If you select or ignore a suggestion, Chrome will adapt to make sure you only see what’s relevant to you
-+    If you select or ignore a suggestion, Merlin will adapt to make sure you only see what’s relevant to you
-   </message>
-   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_1_PRIVATE" desc="First point in the 'things to consider' column on the suggestions settings subpage.">
--    Chrome processes page titles and URLs in a private space in the cloud
-+    Merlin processes page titles and URLs in a private space in the cloud
-   </message>
-   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_1_NON_PRIVATE" desc="First point in the 'things to consider' column on the suggestions settings subpage.">
--    Chrome processes page titles and URLs in the cloud
-+    Merlin processes page titles and URLs in the cloud
-   </message>
-   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_2" desc="Second point in the 'consider' column on the suggestions settings subpage.">
--    If you turn off suggestions the page title and URLs of your tabs may still be processed for other Chrome features. You can manage browser access to this data in your
-+    If you turn off suggestions the page title and URLs of your tabs may still be processed for other Merlin features. You can manage browser access to this data in your
-   </message>
-   <message name="IDS_CONTEXTUAL_CUEING_SETTINGS_CONSIDER_2_LINK" desc="Text for the link to the sync settings page in the 'consider' column on the suggestions settings subpage.">
-     sync settings
---- a/components/enterprise_strings.grdp
-+++ b/components/enterprise_strings.grdp
-@@ -19,7 +19,7 @@
-     Content couldn't be copied due to your organization's policies
-   </message>
-   <message name="IDS_ENTERPRISE_CONTENT_ANALYSIS_COPY_KEPT_IN_MANAGED_CHROME_MESSAGE" desc="Message inserted into the clipboard instead of the intended data, when that data was restricted to managed Chrome by content analysis policies.">
--    Content couldn't be pasted outside of the managed Chrome context due to your organization's policies
-+    Content couldn't be pasted outside of the managed Merlin context due to your organization's policies
-   </message>
-   <message name="IDS_ENTERPRISE_CONTENT_ANALYSIS_COPY_SCANNING_MESSAGE" desc="Message inserted into the clipboard instead of the intended data while content analysis scanning is ongoing.">
-     Based on your organization's policies, the content you copied is being scanned for sensitive information. Pasting may be allowed after the scan is complete.
-@@ -132,7 +132,7 @@
-   </message>
- 
-   <message name="IDS_ENTERPRISE_PROXY_AUTHN_ERROR_HEADING" desc="Heading in the enterprise proxy error page when sign-in is required by organization policy.">
--    Your organization requires you to sign in to Chrome
-+    Your organization requires you to sign in to Merlin
-   </message>
- 
-   <message name="IDS_ENTERPRISE_PROXY_AUTHN_ERROR_PRIMARY_PARAGRAPH" desc="Description in the enterprise proxy error page when sign-in is required by organization policy.">
---- a/components/heavy_ad_intervention_strings.grdp
-+++ b/components/heavy_ad_intervention_strings.grdp
-@@ -7,7 +7,7 @@
-     Ad removed.
-   </message>
-   <message name="IDS_HEAVY_AD_INTERVENTION_SUMMARY" desc="Summary in heavy ad intervention page when ad was removed for using too many system resources.">
--    This ad used too many resources for your device, so Chrome removed it.
-+    This ad used too many resources for your device, so Merlin removed it.
-   </message>
-   <message name="IDS_HEAVY_AD_INTERVENTION_BUTTON_RELOAD" desc="Label for the button that reloads the page and disables the intervention">
-     Reload and show anyway
---- a/components/history_strings.grdp
-+++ b/components/history_strings.grdp
-@@ -194,7 +194,7 @@
-     Get answers from your history, powered by AI
-   </message>
-   <message name="IDS_HISTORY_EMBEDDINGS_ANSWERS_PROMO_BODY" desc="On the history page, the body text of the promo for history search powered by AI with answerer." translateable="false">
--    You can ask questions like "what ingredients were in that pasta recipe?" Using question words like "what" or "where" helps Chrome give you better answers. Or describe what you're looking for in a few words. As you visit more sites, you'll see more AI-powered results.
-+    You can ask questions like "what ingredients were in that pasta recipe?" Using question words like "what" or "where" helps Merlin give you better answers. Or describe what you're looking for in a few words. As you visit more sites, you'll see more AI-powered results.
-   </message>
-   <message name="IDS_HISTORY_EMBEDDIGNS_PROMO_SETTINGS_LINK_TEXT" desc="On the history page, the text of the link to edit the user's history search setting." translateable="false">
-     Manage your history search setting
-@@ -289,7 +289,7 @@
-     Comparison tables
-   </message>
-   <message name="IDS_COMPARE_HISTORY_INFO" desc="Info disclaimer text for comparison tables tab in history.">
--    Tabs you delete from your Chrome history will still show up in your comparison tables
-+    Tabs you delete from your Merlin history will still show up in your comparison tables
-   </message>
-   <message name="IDS_COMPARE_HISTORY_MENU_ARIA_LABEL" desc="Aria label for menu button for a row in tab compare history">
-     More actions for comparison table <ph name="COMPARE_SET_NAME"><ex>e-bikes</ex>$1</ph>
-@@ -376,7 +376,7 @@
-     Website actions
-   </message>
-   <message name="IDS_HISTORY_CRITICAL_ACTION_APP_MENU_IPH_BODY" desc="Text shown in the IPH bubble attached to the Chrome app menu teaching users where to view Gemini's auto browse actions." translateable="false">
--    In Chrome history, you can see the key actions that Gemini completed while browsing for you
-+    In Merlin history, you can see the key actions that Gemini completed while browsing for you
-   </message>
-   <message name="IDS_HISTORY_CRITICAL_ACTION_APP_MENU_IPH_ACTION" desc="Button label on the app menu IPH bubble to navigate to Chrome history." translateable="false">
-     Review key actions
---- a/components/payments_strings.grdp
-+++ b/components/payments_strings.grdp
-@@ -293,11 +293,11 @@
-   </if>
-   <if expr="not is_android">
-     <message name="IDS_PAYMENTS_CARD_AND_ADDRESS_SETTINGS_SIGNED_IN" desc="Label of the section containing the origin description and the link to go to the settings page for card and address options. This label is used when the user is signed in.">
--      Cards and addresses are from Chrome and your Google Account (<ph name="ACCOUNT_EMAIL">$1<ex>johndoe@gmail.com</ex></ph>). You can manage them in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Settings<ph name="END_LINK">END_LINK</ph>.
-+      Cards and addresses are from Merlin and your Google Account (<ph name="ACCOUNT_EMAIL">$1<ex>johndoe@gmail.com</ex></ph>). You can manage them in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Settings<ph name="END_LINK">END_LINK</ph>.
-     </message>
-   </if>
-   <message name="IDS_PAYMENTS_CARD_AND_ADDRESS_SETTINGS_SIGNED_OUT" desc="Label of the section containing the origin description and the link to go to the settings page for card and address options. This label is used when the user is not signed in." formatter_data="android_java">
--    Cards and addresses are from Chrome. You can manage them in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Settings<ph name="END_LINK">END_LINK</ph>.
-+    Cards and addresses are from Merlin. You can manage them in <ph name="BEGIN_LINK">BEGIN_LINK</ph>Settings<ph name="END_LINK">END_LINK</ph>.
-   </message>
-   <message name="IDS_SETTINGS_CAN_MAKE_PAYMENT_TOGGLE_LABEL" desc="Label of the toggle which disables canMakePayment and hasEnrolledInstrument" formatter_data="android_java">
-     Allow sites to check if you have payment methods saved
---- a/components/policy_strings.grdp
-+++ b/components/policy_strings.grdp
-@@ -802,10 +802,10 @@
-     This policy cannot be set to "True" and be mandatory, therefore it was changed to recommended.
-   </message>
-   <message name="IDS_POLICY_IGNORED_CHROME_PROFILE" desc="Text explaining that the policy cannot be set at the Chrome profile level and is therefore ignored.">
--    This policy cannot be set at the Chrome profile level and will be ignored.
-+    This policy cannot be set at the Merlin profile level and will be ignored.
-   </message>
-   <message name="IDS_POLICY_IGNORED_UNAFFILIATED" desc="Text describing that the policy value is not applied because the user is unaffiliated.">
--    This policy is ignored because the user is unaffiliated. For this policy to be applied, the Chrome browser and profile must be managed through the Admin console by the same organization.
-+    This policy is ignored because the user is unaffiliated. For this policy to be applied, the Merlin browser and profile must be managed through the Admin console by the same organization.
-   </message>
-   <message name="IDS_POLICY_IGNORED_EXTENSION" desc="Text explaining that extension policies are likely ignored by the extension.">
-     Likely ignored by the extension.
-@@ -891,7 +891,7 @@
-     Try Chrome Enterprise Core
-   </message>
-   <message name="IDS_POLICY_COMMAND_LINE_FLAGS_WARNING" desc="Warning shown on chrome://policy when custom command line flags are explicitly specified by the user upon launching Chrome.">
--    This instance of Chrome is running with command line flags manually set. Note that command line flags may change at any time and are not supported.
-+    This instance of Merlin is running with command line flags manually set. Note that command line flags may change at any time and are not supported.
-   </message>
-   <message name="IDS_DEVTOOLS_BLOCKED_BY_POLICY" desc="Message shown when DevTools is blocked by policy.">
-     Your organization has blocked the use of DevTools on this page
+diff --git a/components/smart_tab_sharing.grdp b/components/smart_tab_sharing.grdp
+index 722881f25b..4e0c742a2f 100644
 --- a/components/smart_tab_sharing.grdp
 +++ b/components/smart_tab_sharing.grdp
 @@ -8,7 +8,7 @@
@@ -1855,6 +1957,8 @@
    </message>
    <message name="IDS_STS_IPH_DEFAULT_ON_BODY_V2" desc="Body text before the link for the custom IPH promoting enablement of smart tab sharing by default.">
      You can save time by turning on automatic tab sharing for all threads. Learn more about
+diff --git a/extensions/strings/extensions_strings.grd b/extensions/strings/extensions_strings.grd
+index f9b2679ff7..0a75b2d7ea 100644
 --- a/extensions/strings/extensions_strings.grd
 +++ b/extensions/strings/extensions_strings.grd
 @@ -461,7 +461,7 @@

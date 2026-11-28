@@ -1,7 +1,8 @@
 diff --git a/content/public/renderer/BUILD.gn b/content/public/renderer/BUILD.gn
+index 9c5da3bfd6..8699b978d4 100644
 --- a/content/public/renderer/BUILD.gn
 +++ b/content/public/renderer/BUILD.gn
-@@ -41,6 +41,7 @@
+@@ -41,6 +41,7 @@ target(link_target_type, "renderer_sources") {
      "render_thread.cc",
      "render_thread.h",
      "render_thread_observer.h",
@@ -9,118 +10,9 @@ diff --git a/content/public/renderer/BUILD.gn b/content/public/renderer/BUILD.gn
      "v8_value_converter.h",
      "window_features_converter.cc",
      "window_features_converter.h",
-diff --git a/content/renderer/service_worker/service_worker_provider_context.h b/content/renderer/service_worker/service_worker_provider_context.h
---- a/content/renderer/service_worker/service_worker_provider_context.h
-+++ b/content/renderer/service_worker/service_worker_provider_context.h
-@@ -10,6 +10,7 @@
- #include <string>
- #include <vector>
- 
-+#include "base/functional/callback.h"
- #include "base/gtest_prod_util.h"
- #include "base/memory/scoped_refptr.h"
- #include "base/memory/weak_ptr.h"
-@@ -168,6 +169,12 @@
-   // state.
-   void OnNetworkProviderDestroyed();
- 
-+  // Runs on the main thread after each controller change, including loss of
-+  // control. Not run for the initial controller set during construction.
-+  void SetControllerModeObserver(
-+      base::RepeatingCallback<void(blink::mojom::ControllerServiceWorkerMode)>
-+          observer);
-+
-   // May be false if OnNetworkProviderDestroyed() has already been called.
-   // This should only be used by tests. It should only be called from the
-   // window thread or main thread as the value may not be accurate otherwise.
-@@ -333,6 +340,8 @@
- 
-   blink::mojom::ControllerServiceWorkerMode controller_mode_ =
-       blink::mojom::ControllerServiceWorkerMode::kNoController;
-+  base::RepeatingCallback<void(blink::mojom::ControllerServiceWorkerMode)>
-+      controller_mode_observer_;
- 
-   blink::mojom::ServiceWorkerFetchHandlerType fetch_handler_type_ =
-       blink::mojom::ServiceWorkerFetchHandlerType::kNoHandler;
-diff --git a/content/renderer/service_worker/service_worker_provider_context.cc b/content/renderer/service_worker/service_worker_provider_context.cc
---- a/content/renderer/service_worker/service_worker_provider_context.cc
-+++ b/content/renderer/service_worker/service_worker_provider_context.cc
-@@ -111,6 +111,13 @@
-   }
- }
- 
-+void ServiceWorkerProviderContext::SetControllerModeObserver(
-+    base::RepeatingCallback<void(blink::mojom::ControllerServiceWorkerMode)>
-+        observer) {
-+  CHECK(main_thread_task_runner_->RunsTasksInCurrentSequence());
-+  controller_mode_observer_ = std::move(observer);
-+}
-+
- ServiceWorkerProviderContext::~ServiceWorkerProviderContext() {
-   if (weak_wrapped_subresource_loader_factory_)
-     weak_wrapped_subresource_loader_factory_->Detach();
-@@ -524,6 +531,8 @@
-     CHECK_NE(blink::mojom::kInvalidServiceWorkerVersionId,
-              controller_->version_id);
-   }
-+  if (controller_mode_observer_)
-+    controller_mode_observer_.Run(controller_mode_);
-   // Propagate controller changes, including loss of control, to related
-   // workers.
-   for (const auto& worker : worker_clients_) {
-diff --git a/content/renderer/service_worker/service_worker_network_provider_for_frame.cc b/content/renderer/service_worker/service_worker_network_provider_for_frame.cc
---- a/content/renderer/service_worker/service_worker_network_provider_for_frame.cc
-+++ b/content/renderer/service_worker/service_worker_network_provider_for_frame.cc
-@@ -7,11 +7,13 @@
- #include <utility>
- 
- #include "base/feature_list.h"
-+#include "base/functional/bind.h"
- #include "base/memory/ptr_util.h"
- #include "base/memory/raw_ptr.h"
- #include "content/public/common/content_features.h"
- #include "content/public/common/origin_util.h"
- #include "content/public/renderer/render_frame_observer.h"
-+#include "content/public/renderer/service_worker_controller_observer.h"
- #include "content/renderer/render_frame_impl.h"
- #include "content/renderer/render_thread_impl.h"
- #include "content/renderer/service_worker/service_worker_provider_context.h"
-@@ -66,6 +68,15 @@
-   raw_ptr<ServiceWorkerNetworkProviderForFrame> owner_;
- };
- 
-+namespace {
-+ServiceWorkerControllerObserver g_controller_observer = nullptr;
-+}  // namespace
-+
-+void SetServiceWorkerControllerObserver(
-+    ServiceWorkerControllerObserver observer) {
-+  g_controller_observer = observer;
-+}
-+
- // static
- std::unique_ptr<ServiceWorkerNetworkProviderForFrame>
- ServiceWorkerNetworkProviderForFrame::Create(
-@@ -82,6 +93,17 @@
-       std::move(container_info->client_receiver),
-       std::move(container_info->host_remote), std::move(controller_info),
-       std::move(fallback_loader_factory));
-+  if (g_controller_observer) {
-+    provider->context_->SetControllerModeObserver(base::BindRepeating(
-+        [](blink::LocalFrameToken frame,
-+           blink::mojom::ControllerServiceWorkerMode mode) {
-+          if (g_controller_observer)
-+            g_controller_observer(
-+                frame,
-+                mode == blink::mojom::ControllerServiceWorkerMode::kControlled);
-+        },
-+        frame->GetWebFrame()->GetLocalFrameToken()));
-+  }
- 
-   return provider;
- }
 diff --git a/content/public/renderer/service_worker_controller_observer.h b/content/public/renderer/service_worker_controller_observer.h
 new file mode 100644
+index 0000000000..eb9fa9d175
 --- /dev/null
 +++ b/content/public/renderer/service_worker_controller_observer.h
 @@ -0,0 +1,26 @@
@@ -150,3 +42,116 @@ new file mode 100644
 +}  // namespace content
 +
 +#endif  // CONTENT_PUBLIC_RENDERER_SERVICE_WORKER_CONTROLLER_OBSERVER_H_
+diff --git a/content/renderer/service_worker/service_worker_network_provider_for_frame.cc b/content/renderer/service_worker/service_worker_network_provider_for_frame.cc
+index 70be4e76e2..96e9e571b7 100644
+--- a/content/renderer/service_worker/service_worker_network_provider_for_frame.cc
++++ b/content/renderer/service_worker/service_worker_network_provider_for_frame.cc
+@@ -7,11 +7,13 @@
+ #include <utility>
+ 
+ #include "base/feature_list.h"
++#include "base/functional/bind.h"
+ #include "base/memory/ptr_util.h"
+ #include "base/memory/raw_ptr.h"
+ #include "content/public/common/content_features.h"
+ #include "content/public/common/origin_util.h"
+ #include "content/public/renderer/render_frame_observer.h"
++#include "content/public/renderer/service_worker_controller_observer.h"
+ #include "content/renderer/render_frame_impl.h"
+ #include "content/renderer/render_thread_impl.h"
+ #include "content/renderer/service_worker/service_worker_provider_context.h"
+@@ -66,6 +68,15 @@ class ServiceWorkerNetworkProviderForFrame::NewDocumentObserver
+   raw_ptr<ServiceWorkerNetworkProviderForFrame> owner_;
+ };
+ 
++namespace {
++ServiceWorkerControllerObserver g_controller_observer = nullptr;
++}  // namespace
++
++void SetServiceWorkerControllerObserver(
++    ServiceWorkerControllerObserver observer) {
++  g_controller_observer = observer;
++}
++
+ // static
+ std::unique_ptr<ServiceWorkerNetworkProviderForFrame>
+ ServiceWorkerNetworkProviderForFrame::Create(
+@@ -82,6 +93,17 @@ ServiceWorkerNetworkProviderForFrame::Create(
+       std::move(container_info->client_receiver),
+       std::move(container_info->host_remote), std::move(controller_info),
+       std::move(fallback_loader_factory));
++  if (g_controller_observer) {
++    provider->context_->SetControllerModeObserver(base::BindRepeating(
++        [](blink::LocalFrameToken frame,
++           blink::mojom::ControllerServiceWorkerMode mode) {
++          if (g_controller_observer)
++            g_controller_observer(
++                frame,
++                mode == blink::mojom::ControllerServiceWorkerMode::kControlled);
++        },
++        frame->GetWebFrame()->GetLocalFrameToken()));
++  }
+ 
+   return provider;
+ }
+diff --git a/content/renderer/service_worker/service_worker_provider_context.cc b/content/renderer/service_worker/service_worker_provider_context.cc
+index 3f395c2fe6..7316f94239 100644
+--- a/content/renderer/service_worker/service_worker_provider_context.cc
++++ b/content/renderer/service_worker/service_worker_provider_context.cc
+@@ -111,6 +111,13 @@ ServiceWorkerProviderContext::ServiceWorkerProviderContext(
+   }
+ }
+ 
++void ServiceWorkerProviderContext::SetControllerModeObserver(
++    base::RepeatingCallback<void(blink::mojom::ControllerServiceWorkerMode)>
++        observer) {
++  CHECK(main_thread_task_runner_->RunsTasksInCurrentSequence());
++  controller_mode_observer_ = std::move(observer);
++}
++
+ ServiceWorkerProviderContext::~ServiceWorkerProviderContext() {
+   if (weak_wrapped_subresource_loader_factory_)
+     weak_wrapped_subresource_loader_factory_->Detach();
+@@ -524,6 +531,8 @@ void ServiceWorkerProviderContext::SetController(
+     CHECK_NE(blink::mojom::kInvalidServiceWorkerVersionId,
+              controller_->version_id);
+   }
++  if (controller_mode_observer_)
++    controller_mode_observer_.Run(controller_mode_);
+   // Propagate controller changes, including loss of control, to related
+   // workers.
+   for (const auto& worker : worker_clients_) {
+diff --git a/content/renderer/service_worker/service_worker_provider_context.h b/content/renderer/service_worker/service_worker_provider_context.h
+index 61fb839b58..7ea7d4373b 100644
+--- a/content/renderer/service_worker/service_worker_provider_context.h
++++ b/content/renderer/service_worker/service_worker_provider_context.h
+@@ -10,6 +10,7 @@
+ #include <string>
+ #include <vector>
+ 
++#include "base/functional/callback.h"
+ #include "base/gtest_prod_util.h"
+ #include "base/memory/scoped_refptr.h"
+ #include "base/memory/weak_ptr.h"
+@@ -168,6 +169,12 @@ class CONTENT_EXPORT ServiceWorkerProviderContext
+   // state.
+   void OnNetworkProviderDestroyed();
+ 
++  // Runs on the main thread after each controller change, including loss of
++  // control. Not run for the initial controller set during construction.
++  void SetControllerModeObserver(
++      base::RepeatingCallback<void(blink::mojom::ControllerServiceWorkerMode)>
++          observer);
++
+   // May be false if OnNetworkProviderDestroyed() has already been called.
+   // This should only be used by tests. It should only be called from the
+   // window thread or main thread as the value may not be accurate otherwise.
+@@ -333,6 +340,8 @@ class CONTENT_EXPORT ServiceWorkerProviderContext
+ 
+   blink::mojom::ControllerServiceWorkerMode controller_mode_ =
+       blink::mojom::ControllerServiceWorkerMode::kNoController;
++  base::RepeatingCallback<void(blink::mojom::ControllerServiceWorkerMode)>
++      controller_mode_observer_;
+ 
+   blink::mojom::ServiceWorkerFetchHandlerType fetch_handler_type_ =
+       blink::mojom::ServiceWorkerFetchHandlerType::kNoHandler;

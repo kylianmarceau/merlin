@@ -439,7 +439,7 @@ bool RunHistory(BrowserWindowInterface* browser,
               Reply(std::move(reply),
                     base::Value(Dict()
                                     .Set("items", std::move(items))
-                                    .Set("done", results.reached_beginning())));
+                                    .Set("done", !results.has_more_results())));
             },
             std::move(reply)),
         &HistoryTracker());

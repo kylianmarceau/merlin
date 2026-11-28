@@ -983,8 +983,8 @@ bool WindowState::OpenSuggestion(const std::string& query, size_t index, const s
   suggestions->Stop();
   auto* contents = browser_->GetTabStripModel()->GetActiveWebContents();
   const auto disposition = choice.kind == modal_browser::MerlinSuggestions::Kind::kTab
-      ? WindowOpenDisposition::SWITCH_TO_TAB
-      : new_tab || !contents ? WindowOpenDisposition::NEW_FOREGROUND_TAB : WindowOpenDisposition::CURRENT_TAB;
+      ? WindowOpenDisposition::kSwitchToTab
+      : new_tab || !contents ? WindowOpenDisposition::kNewForegroundTab : WindowOpenDisposition::kCurrentTab;
   content::OpenURLParams params(choice.destination, content::Referrer(), disposition, choice.transition,
                                 /*is_renderer_initiated=*/false);
   // Opening can switch or close tabs; nothing touches `choice` afterwards.
@@ -1154,7 +1154,7 @@ char* Call(const char* window, const char* method, const char* json) {
     NavigateParams params(browser->GetProfile(),
         GURL(*category == "passwords" ? "chrome://password-manager/settings" : "chrome://settings/importData"),
         ui::PAGE_TRANSITION_AUTO_BOOKMARK);
-    params.disposition = WindowOpenDisposition::NEW_POPUP;
+    params.disposition = WindowOpenDisposition::kNewPopup;
     params.window_action = NavigateParams::WindowAction::kShowWindow;
     Navigate(&params);
     return Ok();

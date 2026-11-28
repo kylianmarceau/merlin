@@ -1,8 +1,8 @@
 diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
-index d98c86e..f3f2c1f 100644
+index e7bfa73b4d..c3fa32a6d1 100644
 --- a/chrome/BUILD.gn
 +++ b/chrome/BUILD.gn
-@@ -669,13 +669,15 @@ if (is_win) {
+@@ -688,13 +688,15 @@ if (is_win) {
      }
    }
  
@@ -21,7 +21,7 @@ index d98c86e..f3f2c1f 100644
    }
  
 diff --git a/chrome/app/app-Info.plist b/chrome/app/app-Info.plist
-index 6fada0a..9422e3b 100644
+index 6fada0a2b1..9422e3b563 100644
 --- a/chrome/app/app-Info.plist
 +++ b/chrome/app/app-Info.plist
 @@ -161,6 +161,8 @@
@@ -34,7 +34,7 @@ index 6fada0a..9422e3b 100644
  	<true/>
  	<key>OSAScriptingDefinition</key>
 diff --git a/chrome/app/chromium_strings.grd b/chrome/app/chromium_strings.grd
-index 3de8ca6..a2d8ccb 100644
+index 1cbf3e728d..e9948f5f70 100644
 --- a/chrome/app/chromium_strings.grd
 +++ b/chrome/app/chromium_strings.grd
 @@ -294,10 +294,10 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->

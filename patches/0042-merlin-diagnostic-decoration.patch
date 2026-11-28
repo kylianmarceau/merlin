@@ -1,6 +1,8 @@
+diff --git a/chrome/browser/ai/ai_manager.cc b/chrome/browser/ai/ai_manager.cc
+index 430bcabd67..be6363d5d2 100644
 --- a/chrome/browser/ai/ai_manager.cc
 +++ b/chrome/browser/ai/ai_manager.cc
-@@ -125,7 +125,7 @@
+@@ -132,7 +132,7 @@ const char kSpeedPreferenceMarkdownWarning[] =
      "The 'speed' performance preference utilizes a model with limited support "
      "for 'markdown' format.";
  const char kOnDeviceAiSettingsDisabledWarning[] =
@@ -9,9 +11,11 @@
      "enable \"On-device AI\" in chrome://settings/ai.";
  
  const char kModelVersionParam[] = "model_version";
+diff --git a/chrome/browser/ai/ai_manager_unittest.cc b/chrome/browser/ai/ai_manager_unittest.cc
+index 0dcd04296f..933bac9817 100644
 --- a/chrome/browser/ai/ai_manager_unittest.cc
 +++ b/chrome/browser/ai/ai_manager_unittest.cc
-@@ -676,7 +676,7 @@
+@@ -1169,7 +1169,7 @@ TEST_F(AIManagerTest, CanCreateLocalStateUserSettingsDisabled) {
    const auto& messages = tester->GetConsoleMessages();
    ASSERT_EQ(messages.size(), baseline_count + 1);
    EXPECT_EQ(messages.back(),
@@ -20,17 +24,8 @@
              "APIs, enable \"On-device AI\" in chrome://settings/ai.");
  
    SetOnDeviceAiUserSetting(true);
---- a/third_party/devtools-frontend/src/front_end/panels/settings/AISettingsTab.ts
-+++ b/third_party/devtools-frontend/src/front_end/panels/settings/AISettingsTab.ts
-@@ -556,7 +556,7 @@
- 
-     if (!this.#aiAssistanceSetting.unavailable) {
-       const aiAssistanceData: AiSettingParams = {
--        settingName: i18n.i18n.lockedString(AiAssistanceModel.AiUtils.isGeminiBranding() ? 'Gemini in Chrome DevTools' :
-+        settingName: i18n.i18n.lockedString(AiAssistanceModel.AiUtils.isGeminiBranding() ? 'Gemini in Merlin DevTools' :
-                                                                                            'AI assistance'),
-         setting: this.#aiAssistanceSetting,
-         disabledReasons: this.#mapSettingDisabledReasons(this.#aiAssistanceSetting.disabledReasons),
+diff --git a/third_party/devtools-frontend/src/front_end/Images/src/devtools.svg b/third_party/devtools-frontend/src/front_end/Images/src/devtools.svg
+index 7f9d9b90de..51e6e58b2d 100644
 --- a/third_party/devtools-frontend/src/front_end/Images/src/devtools.svg
 +++ b/third_party/devtools-frontend/src/front_end/Images/src/devtools.svg
 @@ -1,13 +1 @@
@@ -48,9 +43,11 @@
 -</g>
 -</svg>
 +<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Merlin"><rect width="32" height="32" rx="7.4" fill="#D2E9F7"/><path d="M2.72 5.148L3.642 5.892L4.752 6.488L6.034 6.956L7.472 7.312L9.051 7.576L10.756 7.766L12.571 7.899L14.48 7.993L16.229 8.071L17.728 8.246L18.993 8.52L20.041 8.898L20.888 9.38L21.552 9.971L22.047 10.673L22.392 11.489L22.484 11.757L22.565 12.041L22.645 12.319L22.737 12.572L22.852 12.78L23.001 12.921L23.196 12.976L23.448 12.925L23.84 12.782L24.209 12.628L24.566 12.477L24.922 12.342L25.286 12.238L25.67 12.178L26.083 12.176L26.537 12.247L26.919 12.266L27.241 12.336L27.517 12.443L27.76 12.572L27.984 12.712L28.202 12.849L28.429 12.97L28.678 13.06L28.843 13.146L28.99 13.258L29.113 13.392L29.206 13.545L29.264 13.711L29.28 13.887L29.249 14.069L29.166 14.252L29.11 14.114L29.009 13.989L28.866 13.885L28.685 13.812L28.471 13.777L28.228 13.787L27.962 13.853L27.675 13.981L27.302 14.179L26.968 14.395L26.665 14.642L26.385 14.933L26.119 15.281L25.858 15.7L25.594 16.202L25.318 16.799L24.738 18.04L24.069 19.075L23.307 19.931L22.443 20.633L21.47 21.209L20.384 21.684L19.176 22.084L17.84 22.435L16.392 22.818L14.971 23.224L13.602 23.666L12.309 24.156L11.116 24.707L10.047 25.331L9.128 26.042L8.383 26.852L9.171 25.292L10.108 23.72L11.189 22.164L12.407 20.654L13.757 19.217L15.234 17.882L16.832 16.678L18.544 15.634L16.854 15.578L15.121 15.269L13.38 14.742L11.665 14.032L10.013 13.174L8.458 12.201L7.036 11.149L5.782 10.052L5.225 9.478L4.713 8.863L4.249 8.222L3.834 7.57L3.472 6.921L3.164 6.292L2.913 5.696L2.72 5.148Z" fill-rule="evenodd" fill="#1738AB"/></svg>
+diff --git a/third_party/devtools-frontend/src/front_end/panels/layer_viewer/Layers3DView.ts b/third_party/devtools-frontend/src/front_end/panels/layer_viewer/Layers3DView.ts
+index 3679bc617a..74e666c118 100644
 --- a/third_party/devtools-frontend/src/front_end/panels/layer_viewer/Layers3DView.ts
 +++ b/third_party/devtools-frontend/src/front_end/panels/layer_viewer/Layers3DView.ts
-@@ -485,9 +485,9 @@
+@@ -507,9 +507,9 @@ export class Layers3DView extends Layers3DViewBase
              image && LayerTextureManager.createTextureForImage(this.gl || null, image) || undefined;
        });
      }

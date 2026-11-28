@@ -1,7 +1,8 @@
 diff --git a/chrome/browser/ui/webui/top_chrome/BUILD.gn b/chrome/browser/ui/webui/top_chrome/BUILD.gn
+index 0414f58898..58c4265822 100644
 --- a/chrome/browser/ui/webui/top_chrome/BUILD.gn
 +++ b/chrome/browser/ui/webui/top_chrome/BUILD.gn
-@@ -84,6 +84,9 @@
+@@ -96,6 +96,9 @@ source_set("impl") {
        "//chrome/browser/ui:browser_window_header",
        "//chrome/browser/ui:ui_features",
        "//chrome/browser/ui/browser_window",
@@ -10,19 +11,20 @@ diff --git a/chrome/browser/ui/webui/top_chrome/BUILD.gn b/chrome/browser/ui/web
 +      "//chrome/browser/ui/modal_browser:process_policy",
        "//chrome/browser/ui/prefs",
        "//chrome/browser/ui/tabs:tab_strip",
-       "//chrome/browser/ui/views/frame:browser_view_header",
+       "//chrome/browser/ui/tabs/organizer",
 diff --git a/chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc b/chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc
+index 3fbe5d66a5..8cba8c5538 100644
 --- a/chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc
 +++ b/chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.cc
-@@ -24,6 +24,7 @@
+@@ -26,6 +26,7 @@
  #include "chrome/browser/task_manager/web_contents_tags.h"
  #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
  #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 +#include "chrome/browser/ui/modal_browser/merlin_process_policy.h"
  #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
+ #include "chrome/browser/ui/tabs/organizer/organizer_panel_utils.h"
  #include "chrome/browser/ui/tabs/tab_strip_model.h"
- #include "chrome/browser/ui/ui_features.h"
-@@ -92,7 +93,9 @@
+@@ -97,7 +98,9 @@ class FixedCandidateSelector : public webui::PreloadCandidateSelector {
  };
  
  bool IsFeatureEnabled() {

@@ -1,4 +1,5 @@
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index 1042444d55..8c62e0b39d 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -10,6 +10,7 @@
@@ -9,7 +10,7 @@ diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/ch
  
  #include <algorithm>
  #include <iterator>
-@@ -6306,6 +6307,11 @@
+@@ -6399,6 +6400,11 @@ ChromeContentBrowserClient::CreateURLLoaderThrottles(
      result.push_back(std::move(glic_throttle));
    }
  
@@ -22,9 +23,10 @@ diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/ch
  }
  
 diff --git a/third_party/blink/common/loader/throttling_url_loader.cc b/third_party/blink/common/loader/throttling_url_loader.cc
+index 898eda9fcd..e557ba3c88 100644
 --- a/third_party/blink/common/loader/throttling_url_loader.cc
 +++ b/third_party/blink/common/loader/throttling_url_loader.cc
-@@ -955,10 +955,13 @@
+@@ -955,10 +955,13 @@ void ThrottlingURLLoader::UpdateDeferredResponseHead(
      network::mojom::URLResponseHeadPtr new_response_head,
      mojo::ScopedDataPipeConsumerHandle body) {
    DCHECK(response_info_);
@@ -41,6 +43,7 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader.cc b/third_pa
  
  void ThrottlingURLLoader::InterceptResponse(
 diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b/third_party/blink/common/loader/throttling_url_loader_unittest.cc
+index af1a360de2..4c0404ce69 100644
 --- a/third_party/blink/common/loader/throttling_url_loader_unittest.cc
 +++ b/third_party/blink/common/loader/throttling_url_loader_unittest.cc
 @@ -14,6 +14,7 @@
@@ -51,7 +54,7 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b
  #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
  #include "services/network/public/cpp/features.h"
  #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
-@@ -73,10 +74,10 @@
+@@ -73,10 +74,10 @@ class TestURLLoaderFactory : public network::mojom::URLLoaderFactory,
      return headers_update_params_.modified_cors_exempt_headers;
    }
  
@@ -65,7 +68,7 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b
    }
  
    void NotifyClientOnReceiveRedirect() {
-@@ -169,6 +170,11 @@
+@@ -169,6 +170,11 @@ class TestURLLoaderClient : public network::mojom::URLLoaderClient {
      on_received_redirect_callback_ = callback;
    }
  
@@ -77,7 +80,7 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b
    void set_on_received_response_callback(base::OnceClosure callback) {
      on_received_response_callback_ = std::move(callback);
    }
-@@ -188,6 +194,8 @@
+@@ -188,6 +194,8 @@ class TestURLLoaderClient : public network::mojom::URLLoaderClient {
        mojo::ScopedDataPipeConsumerHandle body,
        std::optional<mojo_base::BigBuffer> cached_metadata) override {
      on_received_response_called_++;
@@ -86,7 +89,7 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b
      if (on_received_response_callback_)
        std::move(on_received_response_callback_).Run();
    }
-@@ -208,6 +216,8 @@
+@@ -208,6 +216,8 @@ class TestURLLoaderClient : public network::mojom::URLLoaderClient {
        std::move(on_complete_callback_).Run(status.error_code);
    }
  
@@ -95,7 +98,7 @@ diff --git a/third_party/blink/common/loader/throttling_url_loader_unittest.cc b
    size_t on_received_response_called_ = 0;
    size_t on_received_redirect_called_ = 0;
    size_t on_complete_called_ = 0;
-@@ -940,6 +950,34 @@
+@@ -940,6 +950,34 @@ TEST_F(ThrottlingURLLoaderTest, MultipleThrottlesModifyHeadersBeforeRedirect) {
        factory_.headers_modified_on_redirect().ToString());
  }
  

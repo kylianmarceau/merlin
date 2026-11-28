@@ -1,7 +1,7 @@
 {
-  "chromium_commit": "4c20950d2f187a6976cf5e2a1234ca896dcdfd1c",
-  "baseline_lock_sha256": "f7ee721045551f392256415149d4ae3a0d4a3c97f33c8b5ccdedc7a16a304f4d",
-  "prepared_lock_sha256": "aa3cfec97f2558bf89241e499801a7c6165795801e2931bd905683127c6b1beb",
+  "chromium_commit": "4deb883708d3d25100c5aac2148aafc95dae95ac",
+  "baseline_lock_sha256": "d406ef1995405ecfcebb66b4027a16a935f6ab5dcfaff38354bd2f76995d62c4",
+  "prepared_lock_sha256": "a0939c050b06836ded5cfb00641c5ccaa838e0e9dece8c5d2a39d7dcf56098a1",
   "engine_features": [
     "embedded-domain-resolver",
     "full-regex-handling",

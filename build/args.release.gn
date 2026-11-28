@@ -6,8 +6,8 @@
 #
 #   scripts/build_release.sh        # copies this file to out/Release/args.gn
 #
-# Built end to end against 157.0.8103.26 on 2026-11-05 without PGO; PGO
-# enabled the same day, checked with `gn gen`.
+# Built end to end against 159.0.8154.34 on 2026-11-28 with PGO (first
+# built against 157.0.8103.26 on 2026-11-05).
 target_cpu = "arm64"
 is_debug = false
 is_component_build = false

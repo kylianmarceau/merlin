@@ -71,8 +71,8 @@ def generate(src):
   }''')
     edit('chrome/browser/ui/views/passwords/password_bubble_view_base.cc',password)
     edit('chrome/browser/resources/password_manager/shared_vars.css',lambda s:replace(replace(s,'--side-bar-width: 300px;','--side-bar-width: 240px;'),'--section-min-height: 48px;','--section-min-height: 52px;'))
-    edit('chrome/browser/resources/password_manager/shared_style.css',lambda s:replace(s,'font-weight: 400;','font-weight: 650;\n  letter-spacing: -0.02em;'))
-    edit('chrome/browser/resources/password_manager/checkup_section.html',lambda s:replace(replace(s,'background-color: var(--google-grey-50);','background-color: var(--cr-card-background-color);'),'background-color: #1F1F1F;','background-color: var(--cr-card-background-color);'))
+    edit('chrome/browser/resources/password_manager/shared_style_lit.css',lambda s:replace(s,'font-weight: 400;','font-weight: 650;\n  letter-spacing: -0.02em;'))
+    edit('chrome/browser/resources/password_manager/checkup_section.css',lambda s:replace(replace(s,'background-color: var(--google-grey-50);','background-color: var(--cr-card-background-color);'),'background-color: #1F1F1F;','background-color: var(--cr-card-background-color);'))
     edit('chrome/browser/resources/password_manager/images/password_manager_logo.svg',lambda s:merlin_mark.tile_svg())
     patch=[]
     for path,(before,after) in edits.items():

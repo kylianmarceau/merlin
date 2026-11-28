@@ -1,7 +1,8 @@
 diff --git a/chrome/browser/ui/tabs/tab_features.cc b/chrome/browser/ui/tabs/tab_features.cc
+index aaef65951a..4be13cf3e1 100644
 --- a/chrome/browser/ui/tabs/tab_features.cc
 +++ b/chrome/browser/ui/tabs/tab_features.cc
-@@ -853,11 +853,12 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
+@@ -885,11 +885,12 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
    intent_picker_tab_helper_ =
        std::make_unique<IntentPickerTabHelper>(tab, tab.GetContents());
  

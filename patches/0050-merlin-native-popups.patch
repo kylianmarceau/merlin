@@ -1,8 +1,85 @@
+diff --git a/chrome/browser/ui/views/page_info/BUILD.gn b/chrome/browser/ui/views/page_info/BUILD.gn
+index 978a682c5d..dc4b971193 100644
+--- a/chrome/browser/ui/views/page_info/BUILD.gn
++++ b/chrome/browser/ui/views/page_info/BUILD.gn
+@@ -85,6 +85,7 @@ source_set("impl") {
+     ":page_info",
+     "//base",
+     "//chrome/browser:primitives",
++    "//chrome/browser/ui/modal_browser:presentation",
+     "//chrome/browser/file_system_access",
+     "//chrome/browser/page_info",
+     "//chrome/browser/safe_browsing",
+diff --git a/chrome/browser/ui/views/page_info/page_info_main_view.cc b/chrome/browser/ui/views/page_info/page_info_main_view.cc
+index c479b2de38..ea58c90233 100644
+--- a/chrome/browser/ui/views/page_info/page_info_main_view.cc
++++ b/chrome/browser/ui/views/page_info/page_info_main_view.cc
+@@ -56,6 +56,7 @@
+ #include "ui/views/controls/styled_label.h"
+ #include "ui/views/layout/box_layout.h"
+ #include "ui/views/layout/flex_layout.h"
++#include "ui/views/merlin_style.h"
+ #include "ui/views/metadata/view_factory.h"
+ #include "ui/views/vector_icons.h"
+ #include "ui/views/view_class_properties.h"
+@@ -699,7 +700,8 @@ void PageInfoMainView::ChildPreferredSizeChanged(views::View* child) {
+ 
+ std::unique_ptr<views::View> PageInfoMainView::CreateBubbleHeaderView() {
+   return views::Builder<views::FlexLayoutView>()
+-      .SetInteriorMargin(gfx::Insets::VH(0, 20))
++      .SetInteriorMargin(gfx::Insets::VH(
++          0, views::merlin_style::IsEnabled() ? 12 : 20))
+       .AddChildren(
+           views::Builder<views::Label>(
+               std::make_unique<views::Label>(
+@@ -721,7 +723,8 @@ std::unique_ptr<views::View> PageInfoMainView::CreateBubbleHeaderView() {
+                   base::BindRepeating(&PageInfoNavigationHandler::CloseBubble,
+                                       base::Unretained(navigation_handler_))))
+               .SetID(PageInfoViewFactory::VIEW_ID_PAGE_INFO_CLOSE_BUTTON)
+-              .SetVisible(true)
++              // Merlin's popovers close on a click elsewhere or Esc.
++              .SetVisible(!views::merlin_style::IsEnabled())
+               .SetProperty(views::kCrossAxisAlignmentKey,
+                            views::LayoutAlignment::kStart)
+               .CustomConfigure(base::BindOnce([](views::View* button) {
+diff --git a/chrome/browser/ui/views/page_info/page_info_view_factory.cc b/chrome/browser/ui/views/page_info/page_info_view_factory.cc
+index 6f6ba99aa3..f063460982 100644
+--- a/chrome/browser/ui/views/page_info/page_info_view_factory.cc
++++ b/chrome/browser/ui/views/page_info/page_info_view_factory.cc
+@@ -9,6 +9,7 @@
+ 
+ #include "base/memory/raw_ptr.h"
+ #include "build/build_config.h"
++#include "chrome/browser/ui/modal_browser/merlin_popup_kit.h"
+ #include "chrome/app/vector_icons/vector_icons.h"
+ #include "chrome/browser/ui/color/chrome_color_id.h"
+ #include "chrome/browser/ui/layout_constants.h"
+@@ -41,6 +42,8 @@
+ #include "ui/views/layout/box_layout.h"
+ #include "ui/views/layout/flex_layout.h"
+ #include "ui/views/metadata/view_factory.h"
++#include "ui/views/vector_icons.h"
++#include "ui/views/merlin_style.h"
+ 
+ constexpr int PageInfoViewFactory::kMinBubbleWidth;
+ constexpr int PageInfoViewFactory::kMaxBubbleWidth;
+@@ -90,6 +93,10 @@ int GetIconSize() {
+ // static
+ std::unique_ptr<views::View> PageInfoViewFactory::CreateSeparator(
+     int horizontal_inset) {
++  if (views::merlin_style::IsEnabled()) {
++    // A hairline inset from the edges, as between groups of a popover.
++    return modal_browser::popup::CreateHairline(/*vertical_margin=*/4);
++  }
+   int separator_spacing = ChromeLayoutProvider::Get()->GetDistanceMetric(
+       DISTANCE_CONTENT_LIST_VERTICAL_MULTI);
+   auto separator = std::make_unique<views::Separator>();
 diff --git a/chrome/browser/ui/views/permissions/BUILD.gn b/chrome/browser/ui/views/permissions/BUILD.gn
+index 14bb729785..c543bf153d 100644
 --- a/chrome/browser/ui/views/permissions/BUILD.gn
 +++ b/chrome/browser/ui/views/permissions/BUILD.gn
-@@ -121,6 +121,7 @@
-       ":permissions",
+@@ -122,6 +122,7 @@ if (toolkit_views) {
+       "//chrome/app/resources:platform_locale_settings",
        "//chrome/app/vector_icons",
        "//chrome/browser:primitives",
 +      "//chrome/browser/ui/modal_browser:presentation",
@@ -10,6 +87,7 @@ diff --git a/chrome/browser/ui/views/permissions/BUILD.gn b/chrome/browser/ui/vi
        "//chrome/browser/content_settings:content_settings_util",
        "//chrome/browser/custom_handlers",
 diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.cc b/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.cc
+index eb6dc01caf..203c70753a 100644
 --- a/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.cc
 +++ b/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.cc
 @@ -12,6 +12,7 @@
@@ -20,7 +98,7 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_v
  #include "chrome/browser/ui/views/chrome_widget_sublevel.h"
  #include "chrome/browser/ui/views/frame/browser_view.h"
  #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-@@ -32,6 +33,7 @@
+@@ -33,6 +34,7 @@
  #include "ui/views/controls/button/md_text_button.h"
  #include "ui/views/controls/label.h"
  #include "ui/views/layout/box_layout.h"
@@ -28,7 +106,7 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_v
  #include "ui/views/metadata/view_factory.h"
  #include "ui/views/view_class_properties.h"
  #include "ui/views/widget/widget.h"
-@@ -152,9 +154,22 @@
+@@ -153,9 +155,22 @@ void PermissionPromptBubbleBaseView::CreatePermissionButtons(
      allow_always_button->SetStyle(ui::ButtonStyle::kTonal);
      block_button->SetStyle(ui::ButtonStyle::kTonal);
  
@@ -54,7 +132,7 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_v
  
      views::LayoutProvider* const layout_provider = views::LayoutProvider::Get();
      buttons_container->SetPreferredSize(gfx::Size(
-@@ -254,7 +269,8 @@
+@@ -255,7 +270,8 @@ void PermissionPromptBubbleBaseView::SetPromptStyle(
  }
  
  bool PermissionPromptBubbleBaseView::ShouldShowCloseButton() const {
@@ -65,9 +143,10 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_base_v
  
  void PermissionPromptBubbleBaseView::ClosingPermission() {
 diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_origin_view.cc b/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_origin_view.cc
+index cae11c5eb2..55a8d4b59b 100644
 --- a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_origin_view.cc
 +++ b/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_origin_view.cc
-@@ -16,6 +16,7 @@
+@@ -15,6 +15,7 @@
  #include "chrome/browser/platform_util.h"
  #include "chrome/browser/profiles/profile.h"
  #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -75,7 +154,7 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_or
  #include "chrome/browser/ui/url_identity.h"
  #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
  #include "chrome/browser/ui/views/chrome_layout_provider.h"
-@@ -38,6 +39,7 @@
+@@ -37,6 +38,7 @@
  #include "ui/views/controls/image_view.h"
  #include "ui/views/controls/label.h"
  #include "ui/views/layout/box_layout.h"
@@ -83,7 +162,7 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_or
  #include "ui/views/view_class_properties.h"
  #include "ui/views/widget/widget.h"
  
-@@ -188,21 +190,33 @@
+@@ -170,21 +172,33 @@ void PermissionPromptBubbleOneOriginView::AddRequestLine(
      const permissions::PermissionRequest* request,
      std::size_t index) {
    ChromeLayoutProvider* provider = ChromeLayoutProvider::Get();
@@ -130,7 +209,7 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_or
  
    auto* label = line_container->AddChildView(
        std::make_unique<views::Label>(request->GetMessageTextFragment()));
-@@ -223,6 +237,11 @@
+@@ -205,6 +219,11 @@ void PermissionPromptBubbleOneOriginView::AddRequestLine(
  
    label->SetTextStyle(views::style::STYLE_BODY_3);
    label->SetEnabledColor(kColorPermissionPromptRequestText);
@@ -142,82 +221,11 @@ diff --git a/chrome/browser/ui/views/permissions/permission_prompt_bubble_one_or
  
    if (index == 0u) {
      constexpr int kPermissionBodyTopMargin = 10;
-diff --git a/chrome/browser/ui/views/page_info/BUILD.gn b/chrome/browser/ui/views/page_info/BUILD.gn
---- a/chrome/browser/ui/views/page_info/BUILD.gn
-+++ b/chrome/browser/ui/views/page_info/BUILD.gn
-@@ -83,6 +83,7 @@
-     ":page_info",
-     "//base",
-     "//chrome/browser:primitives",
-+    "//chrome/browser/ui/modal_browser:presentation",
-     "//chrome/browser/file_system_access",
-     "//chrome/browser/page_info",
-     "//chrome/browser/safe_browsing",
-diff --git a/chrome/browser/ui/views/page_info/page_info_main_view.cc b/chrome/browser/ui/views/page_info/page_info_main_view.cc
---- a/chrome/browser/ui/views/page_info/page_info_main_view.cc
-+++ b/chrome/browser/ui/views/page_info/page_info_main_view.cc
-@@ -56,6 +56,7 @@
- #include "ui/views/controls/styled_label.h"
- #include "ui/views/layout/box_layout.h"
- #include "ui/views/layout/flex_layout.h"
-+#include "ui/views/merlin_style.h"
- #include "ui/views/metadata/view_factory.h"
- #include "ui/views/vector_icons.h"
- #include "ui/views/view_class_properties.h"
-@@ -690,7 +691,8 @@
- 
- std::unique_ptr<views::View> PageInfoMainView::CreateBubbleHeaderView() {
-   return views::Builder<views::FlexLayoutView>()
--      .SetInteriorMargin(gfx::Insets::VH(0, 20))
-+      .SetInteriorMargin(gfx::Insets::VH(
-+          0, views::merlin_style::IsEnabled() ? 12 : 20))
-       .AddChildren(
-           views::Builder<views::Label>(
-               std::make_unique<views::Label>(
-@@ -712,7 +714,8 @@
-                   base::BindRepeating(&PageInfoNavigationHandler::CloseBubble,
-                                       base::Unretained(navigation_handler_))))
-               .SetID(PageInfoViewFactory::VIEW_ID_PAGE_INFO_CLOSE_BUTTON)
--              .SetVisible(true)
-+              // Merlin's popovers close on a click elsewhere or Esc.
-+              .SetVisible(!views::merlin_style::IsEnabled())
-               .SetProperty(views::kCrossAxisAlignmentKey,
-                            views::LayoutAlignment::kStart)
-               .CustomConfigure(base::BindOnce([](views::View* button) {
-diff --git a/chrome/browser/ui/views/page_info/page_info_view_factory.cc b/chrome/browser/ui/views/page_info/page_info_view_factory.cc
---- a/chrome/browser/ui/views/page_info/page_info_view_factory.cc
-+++ b/chrome/browser/ui/views/page_info/page_info_view_factory.cc
-@@ -10,6 +10,7 @@
- #include "base/memory/raw_ptr.h"
- #include "build/branding_buildflags.h"
- #include "build/build_config.h"
-+#include "chrome/browser/ui/modal_browser/merlin_popup_kit.h"
- #include "chrome/app/vector_icons/vector_icons.h"
- #include "chrome/browser/ui/color/chrome_color_id.h"
- #include "chrome/browser/ui/layout_constants.h"
-@@ -43,6 +44,7 @@
- #include "ui/views/layout/flex_layout.h"
- #include "ui/views/metadata/view_factory.h"
- #include "ui/views/vector_icons.h"
-+#include "ui/views/merlin_style.h"
- 
- constexpr int PageInfoViewFactory::kMinBubbleWidth;
- constexpr int PageInfoViewFactory::kMaxBubbleWidth;
-@@ -92,6 +94,10 @@
- // static
- std::unique_ptr<views::View> PageInfoViewFactory::CreateSeparator(
-     int horizontal_inset) {
-+  if (views::merlin_style::IsEnabled()) {
-+    // A hairline inset from the edges, as between groups of a popover.
-+    return modal_browser::popup::CreateHairline(/*vertical_margin=*/4);
-+  }
-   int separator_spacing = ChromeLayoutProvider::Get()->GetDistanceMetric(
-       DISTANCE_CONTENT_LIST_VERTICAL_MULTI);
-   auto separator = std::make_unique<views::Separator>();
 diff --git a/chrome/browser/ui/views/profiles/BUILD.gn b/chrome/browser/ui/views/profiles/BUILD.gn
+index e45ad11011..aac6c26f15 100644
 --- a/chrome/browser/ui/views/profiles/BUILD.gn
 +++ b/chrome/browser/ui/views/profiles/BUILD.gn
-@@ -84,6 +84,7 @@
+@@ -84,6 +84,7 @@ if (is_win || is_mac || is_linux || is_chromeos) {
      deps = [
        ":avatar_badge_view",
        "//chrome/app:command_ids",
@@ -226,6 +234,7 @@ diff --git a/chrome/browser/ui/views/profiles/BUILD.gn b/chrome/browser/ui/views
        "//chrome/app/vector_icons",
        "//chrome/browser/profiles:profile",
 diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome/browser/ui/views/profiles/profile_menu_view_base.cc
+index 4a3d974600..d9d4d9b958 100644
 --- a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc
 +++ b/chrome/browser/ui/views/profiles/profile_menu_view_base.cc
 @@ -23,6 +23,7 @@
@@ -246,7 +255,7 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
  #include "ui/views/metadata/view_factory.h"
  #include "ui/views/style/typography.h"
  #include "ui/views/view.h"
-@@ -328,6 +331,12 @@
+@@ -328,6 +331,12 @@ class MenuButtonRowView : public HoverButton {
        flags.setAntiAlias(true);
        flags.setColor(
            GetColorProvider()->GetColor(ui::kColorMenuItemBackgroundSelected));
@@ -259,11 +268,10 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
        canvas->DrawRect(GetLocalBounds(), flags);
      }
    }
-@@ -335,6 +344,30 @@
- 
+@@ -336,6 +345,30 @@ class MenuButtonRowView : public HoverButton {
  BEGIN_METADATA(MenuButtonRowView)
  END_METADATA
-+
+ 
 +// Merlin's menu rows sit close to the popover's edge, so their rounded
 +// hover pills line up with the hairlines between groups.
 +constexpr int kMerlinGroupMargin = 2;
@@ -287,10 +295,11 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
 +  container->AddChildView(
 +      modal_browser::popup::CreateHairline(/*vertical_margin=*/4));
 +}
- 
++
  }  // namespace
  
-@@ -490,6 +523,85 @@
+ std::u16string ProfileMenuViewBase::GetProfileIdentifier(
+@@ -490,6 +523,85 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
    // does not support a button without subtitle.
  
    identity_info_container_->RemoveAllChildViews();
@@ -376,7 +385,7 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
    // Vertical BoxLayout.
    auto box_layout =
        CreateBoxLayout(views::BoxLayout::Orientation::kVertical,
-@@ -667,8 +779,13 @@
+@@ -667,8 +779,13 @@ void ProfileMenuViewBase::AddFeatureButton(
      user_education::DisplayNewBadge display_new_badge) {
    // Initialize layout if this is the first time a button is added.
    if (!features_container_->GetLayoutManager()) {
@@ -392,11 +401,10 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
    }
  
    // `HoverButton` renders the "New" badge and appends its screen reader
-@@ -684,6 +801,23 @@
- void ProfileMenuViewBase::SetProfileManagementHeading(
+@@ -685,6 +802,23 @@ void ProfileMenuViewBase::SetProfileManagementHeading(
      const std::u16string& heading) {
    profile_mgmt_heading_ = heading;
-+
+ 
 +  if (views::merlin_style::IsEnabled()) {
 +    // A hairline, then a small section label above the profiles.
 +    SetMerlinHairline(profile_mgmt_separator_container_);
@@ -413,10 +421,11 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
 +    label->SetHandlesTooltips(false);
 +    return;
 +  }
- 
++
    // Add separator before heading.
    profile_mgmt_separator_container_->RemoveAllChildViews();
-@@ -719,9 +853,13 @@
+   profile_mgmt_separator_container_->SetLayoutManager(
+@@ -719,9 +853,13 @@ void ProfileMenuViewBase::AddAvailableProfile(
      const std::u16string& extra_accessible_text) {
    // Initialize layout if this is the first time a button is added.
    if (!selectable_profiles_container_->GetLayoutManager()) {
@@ -433,7 +442,7 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
      // Give the container an accessible name so accessibility tools can provide
      // context for the buttons inside it. The role change is required by Windows
      // ATs.
-@@ -752,6 +890,10 @@
+@@ -752,6 +890,10 @@ void ProfileMenuViewBase::AddAvailableProfile(
  }
  
  void ProfileMenuViewBase::AddProfileManagementFeaturesSeparator() {
@@ -444,7 +453,7 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
    // Add separator before profile management features.
    profile_mgmt_features_separator_container_->RemoveAllChildViews();
    profile_mgmt_features_separator_container_->SetLayoutManager(
-@@ -777,6 +919,14 @@
+@@ -777,6 +919,14 @@ void ProfileMenuViewBase::AddProfileManagementFeatureButton(
  
  void ProfileMenuViewBase::AddBottomMargin() {
    // Create an empty container with a bottom margin.
@@ -460,6 +469,7 @@ diff --git a/chrome/browser/ui/views/profiles/profile_menu_view_base.cc b/chrome
      profile_mgmt_features_container_->SetLayoutManager(
          std::make_unique<views::BoxLayout>(
 diff --git a/chrome/browser/ui/views/title_origin_label.cc b/chrome/browser/ui/views/title_origin_label.cc
+index a50105991d..00a90fcfc7 100644
 --- a/chrome/browser/ui/views/title_origin_label.cc
 +++ b/chrome/browser/ui/views/title_origin_label.cc
 @@ -5,6 +5,7 @@
@@ -470,7 +480,7 @@ diff --git a/chrome/browser/ui/views/title_origin_label.cc b/chrome/browser/ui/v
  
  std::unique_ptr<views::Label> CreateTitleOriginLabel(
      const std::u16string& text,
-@@ -22,14 +23,19 @@
+@@ -22,14 +23,19 @@ std::unique_ptr<views::Label> CreateTitleOriginLabel(
    label->SetElideBehavior(gfx::NO_ELIDE);
    label->SetMultiLine(true);
    label->SetAllowCharacterBreak(true);

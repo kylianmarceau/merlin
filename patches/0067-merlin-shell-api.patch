@@ -1,10 +1,14 @@
+diff --git a/chrome/app/framework.exports b/chrome/app/framework.exports
+index 37c881f5d2..8a3b68af62 100644
 --- a/chrome/app/framework.exports
 +++ b/chrome/app/framework.exports
-@@ -18,3 +18,4 @@
+@@ -19,3 +19,4 @@
  _ChromeAppModeStart_v8
  _ChromeMain
  _ChromeWebAppShortcutCopierMain
 +_MerlinEngineGetAPI
+diff --git a/chrome/app/framework.order b/chrome/app/framework.order
+index 6dbc3aeff3..541f2311af 100644
 --- a/chrome/app/framework.order
 +++ b/chrome/app/framework.order
 @@ -29,5 +29,8 @@ _ChromeAppModeStart_v8
@@ -16,9 +20,11 @@
 +
  # _ChromeMain must be listed last.  That's the whole point of this file.
  _ChromeMain
+diff --git a/chrome/browser/prefs/browser_prefs.cc b/chrome/browser/prefs/browser_prefs.cc
+index 4d70dcc519..1b072ced25 100644
 --- a/chrome/browser/prefs/browser_prefs.cc
 +++ b/chrome/browser/prefs/browser_prefs.cc
-@@ -1993,6 +1993,9 @@
+@@ -2111,6 +2111,9 @@ void RegisterLocalState(PrefRegistrySimple* registry) {
  void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry,
                            const std::string& locale) {
    TRACE_EVENT0("browser", "chrome::RegisterProfilePrefs");

@@ -1,6 +1,37 @@
+diff --git a/chrome/browser/resources/print_preview/ui/print_preview_vars.css b/chrome/browser/resources/print_preview/ui/print_preview_vars.css
+index fb90bf4bbf..5f4a8a3cf1 100644
+--- a/chrome/browser/resources/print_preview/ui/print_preview_vars.css
++++ b/chrome/browser/resources/print_preview/ui/print_preview_vars.css
+@@ -23,7 +23,7 @@ html {
+   --cr-form-field-label-line-height: .75rem;
+   --destination-item-height: 32px;
+   --preview-area-background-color: var(--sunk, var(--google-grey-300));
+-  --iron-icon-fill-color: var(--sunk, var(--google-grey-700));
++  --iron-icon-fill-color: var(--text2, var(--google-grey-700));
+   --iron-icon-height: var(--cr-icon-size);
+   --iron-icon-width: var(--cr-icon-size);
+   --search-icon-size: 32px;
+diff --git a/ui/webui/resources/cr_elements/cr_button/cr_button.css b/ui/webui/resources/cr_elements/cr_button/cr_button.css
+index badc6efff5..296c93ecf9 100644
+--- a/ui/webui/resources/cr_elements/cr_button/cr_button.css
++++ b/ui/webui/resources/cr_elements/cr_button/cr_button.css
+@@ -188,3 +188,11 @@ cr-ripple { z-index: 1; }
+ 
+ #content,
+ ::slotted(*) { z-index: 2; }
++
++/* Merlin's prominent action pairs the shared accent with its contrast color. */
++@media (forced-colors: none) and (prefers-contrast: no-preference) {
++  :host(.action-button) {
++    --cr-button-background-color: var(--accent, var(--cr-fallback-color-primary));
++    --cr-button-text-color: var(--on-accent, var(--cr-fallback-color-on-primary));
++  }
++}
+diff --git a/ui/webui/resources/cr_elements/cr_shared_vars.css b/ui/webui/resources/cr_elements/cr_shared_vars.css
+index 39e35c408d..1625760d81 100644
 --- a/ui/webui/resources/cr_elements/cr_shared_vars.css
 +++ b/ui/webui/resources/cr_elements/cr_shared_vars.css
-@@ -460,3 +460,33 @@
+@@ -460,3 +460,33 @@ body {
    color: var(--text);
  }
  }
@@ -34,28 +65,3 @@
 +  --cr-fallback-color-base-container: var(--bg);
 +}
 +}
---- a/ui/webui/resources/cr_elements/cr_button/cr_button.css
-+++ b/ui/webui/resources/cr_elements/cr_button/cr_button.css
-@@ -188,3 +188,11 @@
- 
- #content,
- ::slotted(*) { z-index: 2; }
-+
-+/* Merlin's prominent action pairs the shared accent with its contrast color. */
-+@media (forced-colors: none) and (prefers-contrast: no-preference) {
-+  :host(.action-button) {
-+    --cr-button-background-color: var(--accent, var(--cr-fallback-color-primary));
-+    --cr-button-text-color: var(--on-accent, var(--cr-fallback-color-on-primary));
-+  }
-+}
---- a/chrome/browser/resources/print_preview/ui/print_preview_vars.css
-+++ b/chrome/browser/resources/print_preview/ui/print_preview_vars.css
-@@ -23,7 +23,7 @@
-   --cr-form-field-label-line-height: .75rem;
-   --destination-item-height: 32px;
-   --preview-area-background-color: var(--sunk, var(--google-grey-300));
--  --iron-icon-fill-color: var(--sunk, var(--google-grey-700));
-+  --iron-icon-fill-color: var(--text2, var(--google-grey-700));
-   --iron-icon-height: var(--cr-icon-size);
-   --iron-icon-width: var(--cr-icon-size);
-   --search-icon-size: 32px;

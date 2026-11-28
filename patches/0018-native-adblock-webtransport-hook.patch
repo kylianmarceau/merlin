@@ -1,4 +1,5 @@
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
+index 4480a88f0d..373a029b52 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -6,6 +6,7 @@
@@ -9,7 +10,7 @@ diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/ch
  
  #include <algorithm>
  #include <iterator>
-@@ -7119,6 +7120,15 @@
+@@ -7216,6 +7217,15 @@ void ChromeContentBrowserClient::WillCreateWebTransport(
      mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
          handshake_client,
      WillCreateWebTransportCallback callback) {
@@ -23,9 +24,9 @@ diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/ch
 +      return;
 +    }
  #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M163);
    // TODO(crbug.com/40195467): Add a unit test which calls
-@@ -7146,6 +7156,8 @@
+@@ -7243,6 +7253,8 @@ void ChromeContentBrowserClient::WillCreateWebTransport(
  #else
    std::move(callback).Run(std::move(handshake_client), std::nullopt);
  #endif

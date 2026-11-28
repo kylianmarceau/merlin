@@ -4,8 +4,8 @@
 
 | | |
 |---|---|
-| Version | **157.0.8103.26** (Mac Stable, checked 2026-11-01) |
-| Commit | `4c20950d2f187a6976cf5e2a1234ca896dcdfd1c` |
+| Version | **159.0.8154.34** (Mac Stable, checked 2026-11-27) |
+| Commit | `4deb883708d3d25100c5aac2148aafc95dae95ac` |
 | Machine-readable | `UPSTREAM_PIN` (read by the scripts) |
 
 The scripts expect the Chromium checkout at `~/chromium/src`
@@ -14,11 +14,11 @@ whole series applied. [TESTING.md](TESTING.md) lists the test suites.
 
 ## Patch inventory
 
-`patches/` holds **68 patches**, the only edits to upstream files. Merlin's own
+`patches/` holds **84 patches**, the only edits to upstream files. Merlin's own
 code lives in `overlay/` and is symlinked into the checkout. Numbers are never
 reused: gaps are patches that were removed (0002, 0003, 0005, 0006, 0010,
 0011, 0013, 0047 and 0057 with the Views interface on 2026-11-11; 0064 with
-Widevine on 2026-11-13).
+Widevine on 2026-11-13; 0061 with the rebase onto 159 on 2026-11-27).
 
 `scripts/apply_patches.py --src <checkout> --check` validates the series
 without modifying the checkout. The overlay installer uses the same helper to
@@ -62,7 +62,7 @@ checkout changes; it fails on conflicts rather than resetting files.
 | 0056 `merlin-menu-bar-icon` | The menu bar item shows Merlin's falcon |
 
 DevTools is Chromium's pinned nested Git dependency
-(`0311dec3524b324bb252276824dd291e356f289d`). Verify those patches against the
+(`3d48567555b6795967c376050698efe2bf4f0f98`). Verify those patches against the
 revision in the pinned tree's DEPS, never an unrelated DevTools HEAD.
 
 ### Chromium's own surfaces (Views and WebUI)
@@ -87,13 +87,14 @@ upstream browser tests, which run without the React shell.
 | 0055 `merlin-picture-in-picture` | Merlin's picture-in-picture controls |
 | 0058 `merlin-menus` | Rounded panels and roomier rows for menus Chromium draws |
 | 0059 `merlin-glass-popovers` | Frosted glass behind bubbles and menus on macOS |
-| 0061 `merlin-find-bar` | Slim find bar with key hints (`BrowserView` windows only; React windows have their own) |
 | 0062 `merlin-popup-placement` | Bubbles hang from Merlin's address field (`BrowserView` windows only) |
 | 0063 `merlin-popover-width` | One 260 DIP bubble width |
 | 0066 `merlin-appearance-geometry` | Runtime corner and density metrics for bubbles, menus and controls |
 
-**Audit before the next rebase.** 0061 and 0062 target controls only a
-`BrowserView` window has, and normal windows no longer have one. Several
+**Audit before the next rebase.** 0062 targets controls only a
+`BrowserView` window has, and normal windows no longer have one (0061, the
+find bar restyle, was dropped for the same reason when upstream rewrote that
+bar in 159). Several
 others may only matter for app and DevTools windows. Each kept patch is a
 conflict to resolve on every Chromium update, so drop the ones no surface
 needs.

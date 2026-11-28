@@ -1,7 +1,8 @@
 diff --git a/third_party/blink/renderer/platform/loader/fetch/memory_cache.cc b/third_party/blink/renderer/platform/loader/fetch/memory_cache.cc
+index dfc35c1719..080b44593b 100644
 --- a/third_party/blink/renderer/platform/loader/fetch/memory_cache.cc
 +++ b/third_party/blink/renderer/platform/loader/fetch/memory_cache.cc
-@@ -235,6 +235,17 @@
+@@ -235,6 +235,17 @@ String MemoryCache::DefaultCacheIdentifier() {
  MemoryCache::ResourceMap* MemoryCache::EnsureResourceMap(
      const String& cache_identifier) {
    if (!resource_maps_.Contains(cache_identifier)) {

@@ -80,7 +80,7 @@
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/optimization_guide/core/model_execution/on_device_prefs.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
@@ -151,18 +151,18 @@ constexpr size_t kMaxClipboardBytes = 8 * 1024;
 WindowOpenDisposition ToWindowOpenDisposition(ffi::OpenDisposition d) {
   switch (d) {
     case ffi::OpenDisposition::CurrentTab:
-      return WindowOpenDisposition::CURRENT_TAB;
+      return WindowOpenDisposition::kCurrentTab;
     case ffi::OpenDisposition::NewForegroundTab:
-      return WindowOpenDisposition::NEW_FOREGROUND_TAB;
+      return WindowOpenDisposition::kNewForegroundTab;
     case ffi::OpenDisposition::NewBackgroundTab:
-      return WindowOpenDisposition::NEW_BACKGROUND_TAB;
+      return WindowOpenDisposition::kNewBackgroundTab;
     case ffi::OpenDisposition::NewWindow:
-      return WindowOpenDisposition::NEW_WINDOW;
+      return WindowOpenDisposition::kNewWindow;
     case ffi::OpenDisposition::Peek:
       // Where Peek isn't available, the link opens as a new tab.
-      return WindowOpenDisposition::NEW_FOREGROUND_TAB;
+      return WindowOpenDisposition::kNewForegroundTab;
   }
-  return WindowOpenDisposition::CURRENT_TAB;
+  return WindowOpenDisposition::kCurrentTab;
 }
 
 // Defence in depth: Rust already refuses these, but the browser side never
@@ -640,9 +640,9 @@ void ModalBrowserController::GoForward(int count) {
 
 void ModalBrowserController::Reload(bool bypass_cache) {
   if (bypass_cache) {
-    chrome::ReloadBypassingCache(browser_, WindowOpenDisposition::CURRENT_TAB);
+    chrome::ReloadBypassingCache(browser_, WindowOpenDisposition::kCurrentTab);
   } else {
-    chrome::Reload(browser_, WindowOpenDisposition::CURRENT_TAB);
+    chrome::Reload(browser_, WindowOpenDisposition::kCurrentTab);
   }
 }
 

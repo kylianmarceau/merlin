@@ -1,3 +1,5 @@
+diff --git a/third_party/devtools-frontend/src/front_end/application_tokens.css b/third_party/devtools-frontend/src/front_end/application_tokens.css
+index ad5d582256..3716d0a935 100644
 --- a/third_party/devtools-frontend/src/front_end/application_tokens.css
 +++ b/third_party/devtools-frontend/src/front_end/application_tokens.css
 @@ -416,3 +416,15 @@
@@ -16,9 +18,11 @@
 +    --app-color-navigation-drawer-background-selected: var(--sys-color-tonal-container);
 +  }
 +}
+diff --git a/third_party/devtools-frontend/src/front_end/ui/components/buttons/button.css b/third_party/devtools-frontend/src/front_end/ui/components/buttons/button.css
+index 09a8cdec49..ead8e69d11 100644
 --- a/third_party/devtools-frontend/src/front_end/ui/components/buttons/button.css
 +++ b/third_party/devtools-frontend/src/front_end/ui/components/buttons/button.css
-@@ -40,7 +40,7 @@
+@@ -44,7 +44,7 @@ button {
  
    align-items: center;
    background: transparent;

@@ -1,7 +1,8 @@
 diff --git a/content/browser/renderer_host/navigation_request.cc b/content/browser/renderer_host/navigation_request.cc
+index bf4d8dff13..c3111aa2e9 100644
 --- a/content/browser/renderer_host/navigation_request.cc
 +++ b/content/browser/renderer_host/navigation_request.cc
-@@ -5753,13 +5753,21 @@
+@@ -5970,13 +5970,21 @@ NavigationRequest::CreateNavigationEarlyHintsManagerParams(
  
    net::IsolationInfo isolation_info = url_loader_factory_params->isolation_info;
  

@@ -1,6 +1,173 @@
+diff --git a/chrome/browser/resources/password_manager/checkup_section.css b/chrome/browser/resources/password_manager/checkup_section.css
+index 55c3b431dd..6e1fc191e9 100644
+--- a/chrome/browser/resources/password_manager/checkup_section.css
++++ b/chrome/browser/resources/password_manager/checkup_section.css
+@@ -27,7 +27,7 @@ a[href] {
+ 
+ #illustartion {
+   align-items: center;
+-  background-color: var(--google-grey-50);
++  background-color: var(--cr-card-background-color);
+   border-top-left-radius: inherit;
+   border-top-right-radius: inherit;
+   display: flex;
+@@ -37,7 +37,7 @@ a[href] {
+ 
+ @media (prefers-color-scheme: dark) {
+   #illustartion {
+-    background-color: #1F1F1F;
++    background-color: var(--cr-card-background-color);
+   }
+ }
+ 
+diff --git a/chrome/browser/resources/password_manager/images/password_manager_logo.svg b/chrome/browser/resources/password_manager/images/password_manager_logo.svg
+index d1593d7875..51e6e58b2d 100644
+--- a/chrome/browser/resources/password_manager/images/password_manager_logo.svg
++++ b/chrome/browser/resources/password_manager/images/password_manager_logo.svg
+@@ -1 +1 @@
+-<svg width="151" height="151" viewBox="0 0 151 83" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M79.961 27.667C74.333 11.55 59.096 0 41.181 0 18.464 0 0 18.606 0 41.5S18.463 83 41.182 83c17.914 0 33.151-11.55 38.78-27.667h29.856V83h27.455V55.333H151V27.667H79.961Zm-38.78 27.666c-7.55 0-13.726-6.225-13.726-13.833 0-7.608 6.177-13.833 13.727-13.833 7.55 0 13.727 6.225 13.727 13.833 0 7.608-6.177 13.833-13.727 13.833Z" fill="#1A73E8"/></svg>
+\ No newline at end of file
++<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Merlin"><rect width="32" height="32" rx="7.4" fill="#D2E9F7"/><path d="M2.72 5.148L3.642 5.892L4.752 6.488L6.034 6.956L7.472 7.312L9.051 7.576L10.756 7.766L12.571 7.899L14.48 7.993L16.229 8.071L17.728 8.246L18.993 8.52L20.041 8.898L20.888 9.38L21.552 9.971L22.047 10.673L22.392 11.489L22.484 11.757L22.565 12.041L22.645 12.319L22.737 12.572L22.852 12.78L23.001 12.921L23.196 12.976L23.448 12.925L23.84 12.782L24.209 12.628L24.566 12.477L24.922 12.342L25.286 12.238L25.67 12.178L26.083 12.176L26.537 12.247L26.919 12.266L27.241 12.336L27.517 12.443L27.76 12.572L27.984 12.712L28.202 12.849L28.429 12.97L28.678 13.06L28.843 13.146L28.99 13.258L29.113 13.392L29.206 13.545L29.264 13.711L29.28 13.887L29.249 14.069L29.166 14.252L29.11 14.114L29.009 13.989L28.866 13.885L28.685 13.812L28.471 13.777L28.228 13.787L27.962 13.853L27.675 13.981L27.302 14.179L26.968 14.395L26.665 14.642L26.385 14.933L26.119 15.281L25.858 15.7L25.594 16.202L25.318 16.799L24.738 18.04L24.069 19.075L23.307 19.931L22.443 20.633L21.47 21.209L20.384 21.684L19.176 22.084L17.84 22.435L16.392 22.818L14.971 23.224L13.602 23.666L12.309 24.156L11.116 24.707L10.047 25.331L9.128 26.042L8.383 26.852L9.171 25.292L10.108 23.72L11.189 22.164L12.407 20.654L13.757 19.217L15.234 17.882L16.832 16.678L18.544 15.634L16.854 15.578L15.121 15.269L13.38 14.742L11.665 14.032L10.013 13.174L8.458 12.201L7.036 11.149L5.782 10.052L5.225 9.478L4.713 8.863L4.249 8.222L3.834 7.57L3.472 6.921L3.164 6.292L2.913 5.696L2.72 5.148Z" fill-rule="evenodd" fill="#1738AB"/></svg>
+diff --git a/chrome/browser/resources/password_manager/shared_style_lit.css b/chrome/browser/resources/password_manager/shared_style_lit.css
+index 5d0bdc9691..edc82fd18c 100644
+--- a/chrome/browser/resources/password_manager/shared_style_lit.css
++++ b/chrome/browser/resources/password_manager/shared_style_lit.css
+@@ -23,7 +23,8 @@ cr-link-row[non-clickable] {
+ }
+ 
+ .page-title {
+-  font-weight: 400;
++  font-weight: 650;
++  letter-spacing: -0.02em;
+ }
+ 
+ .label {
+diff --git a/chrome/browser/resources/password_manager/shared_vars.css b/chrome/browser/resources/password_manager/shared_vars.css
+index cde9edf902..3fdd325a44 100644
+--- a/chrome/browser/resources/password_manager/shared_vars.css
++++ b/chrome/browser/resources/password_manager/shared_vars.css
+@@ -9,7 +9,7 @@
+ 
+ html {
+   --card-max-width: 960px;
+-  --side-bar-width: 300px;
++  --side-bar-width: 240px;
+   --toolbar-height: 56px;
+   /* Centered cards has a max-width of var(--cr-centered-card-max-width)
+    * and a width of a certain percentage. Therefore, to make room for the
+@@ -18,7 +18,7 @@ html {
+   --password-manager-main-basis: calc(var(--cr-centered-card-max-width) /
+       var(--cr-centered-card-width-percentage));
+   --control-label-spacing: 20px;
+-  --section-min-height: 48px;
++  --section-min-height: 52px;
+   /* Spacing between a control (e.g. checkbox) and its label. */
+   --two-line-section-min-height: 64px;
+ 
+diff --git a/chrome/browser/ui/views/BUILD.gn b/chrome/browser/ui/views/BUILD.gn
+index 9310ab90af..140c5ae655 100644
+--- a/chrome/browser/ui/views/BUILD.gn
++++ b/chrome/browser/ui/views/BUILD.gn
+@@ -194,6 +194,7 @@ source_set("layout_provider") {
+ # //c/b/ui/views:layout_provider
+ #
+ source_set("layout_provider_impl") {
++  public_deps = [ "//chrome/browser/ui/modal_browser:design_tokens" ]
+   sources = [
+     "chrome_layout_provider.cc",
+     "chrome_typography.cc",
+diff --git a/chrome/browser/ui/views/chrome_layout_provider.cc b/chrome/browser/ui/views/chrome_layout_provider.cc
+index a87175f6a1..778c7c3f1b 100644
+--- a/chrome/browser/ui/views/chrome_layout_provider.cc
++++ b/chrome/browser/ui/views/chrome_layout_provider.cc
+@@ -7,6 +7,8 @@
+ #include <algorithm>
+ 
+ #include "base/containers/fixed_flat_map.h"
++#include "base/command_line.h"
++#include "chrome/browser/ui/modal_browser/merlin_design_tokens.h"
+ #include "base/feature_list.h"
+ #include "chrome/browser/ui/ui_features.h"
+ #include "chrome/browser/ui/views/chrome_typography.h"
+@@ -354,6 +356,23 @@ int ChromeLayoutProvider::GetCornerRadiusMetric(views::ShapeContextToken token,
+   CHECK_GE(token, views::kShapeContextTokenStart, base::NotFatalUntil::M162);
+   CHECK_LT(token, kChromeShapeContextTokenEnd, base::NotFatalUntil::M162);
+ 
++  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
++          "modal-browser-upstream-defaults")) {
++    using namespace modal_browser::design;
++    switch (token) {
++      case views::kButtonRadius:
++      case views::kComboboxRadius:
++      case views::kTextfieldRadius:
++        return kControlRadius;
++      case views::kDialogRadius:
++      case views::kMenuRadius:
++      case views::kMenuAuxRadius:
++      case views::kMenuTouchRadius:
++        return kDialogRadius;
++      default:
++        break;
++    }
++  }
+   if (token < views::ShapeContextTokens::kShapeContextTokenEnd) {
+     return LayoutProvider::GetCornerRadiusMetric(token, size);
+   }
+diff --git a/chrome/browser/ui/views/passwords/password_bubble_view_base.cc b/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
+index eaa797c6a1..6130e4fd50 100644
+--- a/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
++++ b/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
+@@ -5,6 +5,13 @@
+ #include "chrome/browser/ui/views/passwords/password_bubble_view_base.h"
+ 
+ #include "base/functional/bind.h"
++#include "base/command_line.h"
++#include "chrome/grit/browser_resources.h"
++#include "components/vector_icons/vector_icons.h"
++#include "ui/base/models/image_model.h"
++#include "ui/color/color_id.h"
++#include "ui/views/controls/image_view.h"
++#include "ui/views/border.h"
+ #include "base/notreached.h"
+ #include "chrome/browser/profiles/profile.h"
+ #include "chrome/browser/ui/actions/chrome_action_id.h"
+@@ -281,6 +288,18 @@ void PasswordBubbleViewBase::SetBubbleHeader(int light_image_id,
+ }
+ 
+ void PasswordBubbleViewBase::SetBubbleHeaderLottie(int lottie_image_id) {
++  if (lottie_image_id == IDR_AUTOFILL_SAVE_PASSWORD_LOTTIE &&
++      !base::CommandLine::ForCurrentProcess()->HasSwitch(
++          "modal-browser-upstream-defaults")) {
++    // A compact Merlin mark replaces promotional art, not status/warning art.
++    auto image = std::make_unique<views::ImageView>(
++        ui::ImageModel::FromVectorIcon(vector_icons::kProductIcon,
++                                      ui::kColorIcon, 32));
++    image->SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(16, 20)));
++    image->GetViewAccessibility().SetIsInvisible(true);
++    GetBubbleFrameView()->SetHeaderView(std::move(image));
++    return;
++  }
+   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
+   auto image_view = std::make_unique<views::ImageView>(
+       bundle.GetThemedLottieImageNamed(lottie_image_id));
+diff --git a/ui/webui/resources/cr_elements/cr_button/cr_button.css b/ui/webui/resources/cr_elements/cr_button/cr_button.css
+index fac023087a..badc6efff5 100644
+--- a/ui/webui/resources/cr_elements/cr_button/cr_button.css
++++ b/ui/webui/resources/cr_elements/cr_button/cr_button.css
+@@ -40,7 +40,7 @@
+   user-select: none;
+   -webkit-tap-highlight-color: transparent;
+   border: var(--cr-button-border, 1px solid var(--cr-button-border-color));
+-  border-radius: 100px;
++  border-radius: var(--cr-button-border-radius, 8px);
+   background: var(--cr-button-background-color);
+   color: var(--cr-button-text-color);
+   font-weight: 500;
+diff --git a/ui/webui/resources/cr_elements/cr_shared_vars.css b/ui/webui/resources/cr_elements/cr_shared_vars.css
+index f478ceca5c..39e35c408d 100644
 --- a/ui/webui/resources/cr_elements/cr_shared_vars.css
 +++ b/ui/webui/resources/cr_elements/cr_shared_vars.css
-@@ -377,3 +377,86 @@
+@@ -377,3 +377,86 @@ html[webui-refresh-2026] {
      --cr-animations-disabled: 1;
    }
  }
@@ -87,17 +254,8 @@
 +  color: var(--text);
 +}
 +}
---- a/ui/webui/resources/cr_elements/cr_button/cr_button.css
-+++ b/ui/webui/resources/cr_elements/cr_button/cr_button.css
-@@ -40,7 +40,7 @@
-   user-select: none;
-   -webkit-tap-highlight-color: transparent;
-   border: var(--cr-button-border, 1px solid var(--cr-button-border-color));
--  border-radius: 100px;
-+  border-radius: var(--cr-button-border-radius, 8px);
-   background: var(--cr-button-background-color);
-   color: var(--cr-button-text-color);
-   font-weight: 500;
+diff --git a/ui/webui/resources/css/text_defaults_md.css b/ui/webui/resources/css/text_defaults_md.css
+index 0228e24c83..92f8bf604b 100644
 --- a/ui/webui/resources/css/text_defaults_md.css
 +++ b/ui/webui/resources/css/text_defaults_md.css
 @@ -37,10 +37,10 @@
@@ -113,141 +271,3 @@
 -  font-family: $i18nRaw{fontfamilyMd};
 +  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
  }
---- a/chrome/browser/ui/views/chrome_layout_provider.cc
-+++ b/chrome/browser/ui/views/chrome_layout_provider.cc
-@@ -7,6 +7,8 @@
- #include <algorithm>
- 
- #include "base/containers/fixed_flat_map.h"
-+#include "base/command_line.h"
-+#include "chrome/browser/ui/modal_browser/merlin_design_tokens.h"
- #include "base/feature_list.h"
- #include "chrome/browser/ui/ui_features.h"
- #include "chrome/browser/ui/views/chrome_typography.h"
-@@ -350,6 +352,23 @@
-   DCHECK_GE(token, views::kShapeContextTokenStart);
-   DCHECK_LT(token, kChromeShapeContextTokenEnd);
- 
-+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-+          "modal-browser-upstream-defaults")) {
-+    using namespace modal_browser::design;
-+    switch (token) {
-+      case views::kButtonRadius:
-+      case views::kComboboxRadius:
-+      case views::kTextfieldRadius:
-+        return kControlRadius;
-+      case views::kDialogRadius:
-+      case views::kMenuRadius:
-+      case views::kMenuAuxRadius:
-+      case views::kMenuTouchRadius:
-+        return kDialogRadius;
-+      default:
-+        break;
-+    }
-+  }
-   if (token < views::ShapeContextTokens::kShapeContextTokenEnd) {
-     return LayoutProvider::GetCornerRadiusMetric(token, size);
-   }
---- a/chrome/browser/ui/views/BUILD.gn
-+++ b/chrome/browser/ui/views/BUILD.gn
-@@ -205,6 +205,7 @@
- # //c/b/ui/views:layout_provider
- #
- source_set("layout_provider_impl") {
-+  public_deps = [ "//chrome/browser/ui/modal_browser:design_tokens" ]
-   sources = [
-     "chrome_layout_provider.cc",
-     "chrome_typography.cc",
---- a/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
-+++ b/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
-@@ -5,6 +5,13 @@
- #include "chrome/browser/ui/views/passwords/password_bubble_view_base.h"
- 
- #include "base/functional/bind.h"
-+#include "base/command_line.h"
-+#include "chrome/grit/browser_resources.h"
-+#include "components/vector_icons/vector_icons.h"
-+#include "ui/base/models/image_model.h"
-+#include "ui/color/color_id.h"
-+#include "ui/views/controls/image_view.h"
-+#include "ui/views/border.h"
- #include "base/notreached.h"
- #include "chrome/browser/profiles/profile.h"
- #include "chrome/browser/ui/actions/chrome_action_id.h"
-@@ -280,6 +287,18 @@
- }
- 
- void PasswordBubbleViewBase::SetBubbleHeaderLottie(int lottie_image_id) {
-+  if (lottie_image_id == IDR_AUTOFILL_SAVE_PASSWORD_LOTTIE &&
-+      !base::CommandLine::ForCurrentProcess()->HasSwitch(
-+          "modal-browser-upstream-defaults")) {
-+    // A compact Merlin mark replaces promotional art, not status/warning art.
-+    auto image = std::make_unique<views::ImageView>(
-+        ui::ImageModel::FromVectorIcon(vector_icons::kProductIcon,
-+                                      ui::kColorIcon, 32));
-+    image->SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(16, 20)));
-+    image->GetViewAccessibility().SetIsInvisible(true);
-+    GetBubbleFrameView()->SetHeaderView(std::move(image));
-+    return;
-+  }
-   ui::ResourceBundle& bundle = ui::ResourceBundle::GetSharedInstance();
-   auto image_view = std::make_unique<views::ImageView>(
-       bundle.GetThemedLottieImageNamed(lottie_image_id));
---- a/chrome/browser/resources/password_manager/shared_vars.css
-+++ b/chrome/browser/resources/password_manager/shared_vars.css
-@@ -9,7 +9,7 @@
- 
- html {
-   --card-max-width: 960px;
--  --side-bar-width: 300px;
-+  --side-bar-width: 240px;
-   --toolbar-height: 56px;
-   /* Centered cards has a max-width of var(--cr-centered-card-max-width)
-    * and a width of a certain percentage. Therefore, to make room for the
-@@ -18,7 +18,7 @@
-   --password-manager-main-basis: calc(var(--cr-centered-card-max-width) /
-       var(--cr-centered-card-width-percentage));
-   --control-label-spacing: 20px;
--  --section-min-height: 48px;
-+  --section-min-height: 52px;
-   /* Spacing between a control (e.g. checkbox) and its label. */
-   --two-line-section-min-height: 64px;
- 
---- a/chrome/browser/resources/password_manager/shared_style.css
-+++ b/chrome/browser/resources/password_manager/shared_style.css
-@@ -23,7 +23,8 @@
- }
- 
- .page-title {
--  font-weight: 400;
-+  font-weight: 650;
-+  letter-spacing: -0.02em;
- }
- 
- .label {
---- a/chrome/browser/resources/password_manager/checkup_section.html
-+++ b/chrome/browser/resources/password_manager/checkup_section.html
-@@ -15,7 +15,7 @@
- 
-   #illustartion {
-     align-items: center;
--    background-color: var(--google-grey-50);
-+    background-color: var(--cr-card-background-color);
-     border-top-left-radius: inherit;
-     border-top-right-radius: inherit;
-     display: flex;
-@@ -25,7 +25,7 @@
- 
-   @media (prefers-color-scheme: dark) {
-     #illustartion {
--      background-color: #1F1F1F;
-+      background-color: var(--cr-card-background-color);
-     }
-   }
- 
---- a/chrome/browser/resources/password_manager/images/password_manager_logo.svg
-+++ b/chrome/browser/resources/password_manager/images/password_manager_logo.svg
-@@ -1 +1 @@
--<svg width="151" height="151" viewBox="0 0 151 83" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M79.961 27.667C74.333 11.55 59.096 0 41.181 0 18.464 0 0 18.606 0 41.5S18.463 83 41.182 83c17.914 0 33.151-11.55 38.78-27.667h29.856V83h27.455V55.333H151V27.667H79.961Zm-38.78 27.666c-7.55 0-13.726-6.225-13.726-13.833 0-7.608 6.177-13.833 13.727-13.833 7.55 0 13.727 6.225 13.727 13.833 0 7.608-6.177 13.833-13.727 13.833Z" fill="#1A73E8"/></svg>
-\ No newline at end of file
-+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Merlin"><rect width="32" height="32" rx="7.4" fill="#D2E9F7"/><path d="M2.72 5.148L3.642 5.892L4.752 6.488L6.034 6.956L7.472 7.312L9.051 7.576L10.756 7.766L12.571 7.899L14.48 7.993L16.229 8.071L17.728 8.246L18.993 8.52L20.041 8.898L20.888 9.38L21.552 9.971L22.047 10.673L22.392 11.489L22.484 11.757L22.565 12.041L22.645 12.319L22.737 12.572L22.852 12.78L23.001 12.921L23.196 12.976L23.448 12.925L23.84 12.782L24.209 12.628L24.566 12.477L24.922 12.342L25.286 12.238L25.67 12.178L26.083 12.176L26.537 12.247L26.919 12.266L27.241 12.336L27.517 12.443L27.76 12.572L27.984 12.712L28.202 12.849L28.429 12.97L28.678 13.06L28.843 13.146L28.99 13.258L29.113 13.392L29.206 13.545L29.264 13.711L29.28 13.887L29.249 14.069L29.166 14.252L29.11 14.114L29.009 13.989L28.866 13.885L28.685 13.812L28.471 13.777L28.228 13.787L27.962 13.853L27.675 13.981L27.302 14.179L26.968 14.395L26.665 14.642L26.385 14.933L26.119 15.281L25.858 15.7L25.594 16.202L25.318 16.799L24.738 18.04L24.069 19.075L23.307 19.931L22.443 20.633L21.47 21.209L20.384 21.684L19.176 22.084L17.84 22.435L16.392 22.818L14.971 23.224L13.602 23.666L12.309 24.156L11.116 24.707L10.047 25.331L9.128 26.042L8.383 26.852L9.171 25.292L10.108 23.72L11.189 22.164L12.407 20.654L13.757 19.217L15.234 17.882L16.832 16.678L18.544 15.634L16.854 15.578L15.121 15.269L13.38 14.742L11.665 14.032L10.013 13.174L8.458 12.201L7.036 11.149L5.782 10.052L5.225 9.478L4.713 8.863L4.249 8.222L3.834 7.57L3.472 6.921L3.164 6.292L2.913 5.696L2.72 5.148Z" fill-rule="evenodd" fill="#1738AB"/></svg>

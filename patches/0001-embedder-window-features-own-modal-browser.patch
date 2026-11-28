@@ -1,3 +1,36 @@
+diff --git a/chrome/browser/ui/browser_window/internal/BUILD.gn b/chrome/browser/ui/browser_window/internal/BUILD.gn
+index 4801306a04..ed44a454de 100644
+--- a/chrome/browser/ui/browser_window/internal/BUILD.gn
++++ b/chrome/browser/ui/browser_window/internal/BUILD.gn
+@@ -240,6 +240,7 @@ source_set("internal") {
+       "//chrome/browser/ui:browser_select_file_dialog_controller",
+       "//chrome/browser/ui:browser_window_header",
+       "//chrome/browser/ui/search",
++      "//chrome/browser/ui/modal_browser",
+       "//chrome/browser/ui/views/frame:browser_view_header",
+     ]
+   }
+diff --git a/chrome/browser/ui/browser_window/internal/embedder_browser_window_features.cc b/chrome/browser/ui/browser_window/internal/embedder_browser_window_features.cc
+index a2c0889f70..f5540ff528 100644
+--- a/chrome/browser/ui/browser_window/internal/embedder_browser_window_features.cc
++++ b/chrome/browser/ui/browser_window/internal/embedder_browser_window_features.cc
+@@ -5,6 +5,7 @@
+ #include "chrome/browser/ui/browser_window/public/embedder_browser_window_features.h"
+ 
+ #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
++#include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
+ #include "chrome/browser/ui/views/frame/browser_view.h"
+ 
+ DEFINE_USER_DATA(EmbedderBrowserWindowFeatures);
+@@ -35,5 +36,5 @@ void EmbedderBrowserWindowFeatures::InitPostBrowserViewConstruction(
+ }
+ 
+ void EmbedderBrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
+-  // Embedder implementation goes here.
++  modal_browser_controller_.reset();
+ }
+diff --git a/chrome/browser/ui/browser_window/public/embedder_browser_window_features.h b/chrome/browser/ui/browser_window/public/embedder_browser_window_features.h
+index 67af5a42c0..bae3667391 100644
 --- a/chrome/browser/ui/browser_window/public/embedder_browser_window_features.h
 +++ b/chrome/browser/ui/browser_window/public/embedder_browser_window_features.h
 @@ -5,11 +5,17 @@
@@ -18,7 +51,7 @@
  // This class should only be used by Chromium embedders, where it will own
  // embedder-specific browser window features.
  // Chromium features themselves should not be added to this class, rather to
-@@ -42,8 +48,16 @@
+@@ -42,8 +48,16 @@ class EmbedderBrowserWindowFeatures {
    // Called exactly once to tear down state that depends on the window object.
    void TearDownPreBrowserWindowDestruction();
  
@@ -35,30 +68,3 @@
  };
  
  #endif  // CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_EMBEDDER_BROWSER_WINDOW_FEATURES_H_
---- a/chrome/browser/ui/browser_window/internal/embedder_browser_window_features.cc
-+++ b/chrome/browser/ui/browser_window/internal/embedder_browser_window_features.cc
-@@ -5,6 +5,7 @@
- #include "chrome/browser/ui/browser_window/public/embedder_browser_window_features.h"
- 
- #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-+#include "chrome/browser/ui/modal_browser/modal_browser_controller.h"
- #include "chrome/browser/ui/views/frame/browser_view.h"
- 
- DEFINE_USER_DATA(EmbedderBrowserWindowFeatures);
-@@ -35,5 +36,5 @@
- }
- 
- void EmbedderBrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
--  // Embedder implementation goes here.
-+  modal_browser_controller_.reset();
- }
---- a/chrome/browser/ui/browser_window/internal/BUILD.gn
-+++ b/chrome/browser/ui/browser_window/internal/BUILD.gn
-@@ -241,6 +241,7 @@
-       "//chrome/browser/ui:browser_location_bar_model_delegate",
-       "//chrome/browser/ui:browser_select_file_dialog_controller",
-       "//chrome/browser/ui:browser_window_header",
-+      "//chrome/browser/ui/modal_browser",
-       "//chrome/browser/ui/views/frame:browser_view_header",
-     ]
-   }

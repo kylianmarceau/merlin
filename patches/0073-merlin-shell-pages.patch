@@ -1,3 +1,20 @@
+diff --git a/chrome/browser/ui/BUILD.gn b/chrome/browser/ui/BUILD.gn
+index 9469400d33..4499d474e4 100644
+--- a/chrome/browser/ui/BUILD.gn
++++ b/chrome/browser/ui/BUILD.gn
+@@ -1751,6 +1751,10 @@ if (!is_android) {
+     } else {
+       deps += [ "//chrome/browser/download/bubble" ]
+     }
++    if (is_mac) {
++      # Settings, history, downloads and bookmarks open Merlin's shell.
++      deps += [ "//chrome/browser/ui/modal_browser:shell_headers" ]
++    }
+   }
+ 
+   source_set("browser_tests") {
+diff --git a/chrome/browser/ui/chrome_pages.cc b/chrome/browser/ui/chrome_pages.cc
+index ce0f03d8c6..5aecaa2f81 100644
 --- a/chrome/browser/ui/chrome_pages.cc
 +++ b/chrome/browser/ui/chrome_pages.cc
 @@ -28,6 +28,9 @@
@@ -10,7 +27,7 @@
  #include "chrome/browser/signin/account_consistency_mode_manager.h"
  #include "chrome/browser/ui/browser_element_identifiers.h"
  #include "chrome/browser/ui/browser_window.h"
-@@ -322,6 +325,12 @@
+@@ -323,6 +326,12 @@ BrowserWindowInterface* GetOrCreateBrowserForProfile(Profile* profile) {
  
  void ShowBookmarkManager(BrowserWindowInterface* browser) {
    base::RecordAction(UserMetricsAction("ShowBookmarkManager"));
@@ -23,7 +40,7 @@
    ShowSingletonTabIgnorePathOverwriteNTP(browser, GURL(kChromeUIBookmarksURL));
  }
  
-@@ -342,6 +351,11 @@
+@@ -343,6 +352,11 @@ void ShowHistory(BrowserWindowInterface* browser,
    }
  
    base::RecordAction(UserMetricsAction("ShowHistory"));
@@ -35,7 +52,7 @@
    GURL url = GURL(kChromeUIHistoryURL);
    if (!host_name.empty()) {
      GURL::Replacements replacements;
-@@ -365,6 +379,11 @@
+@@ -366,6 +380,11 @@ void ShowHistorySubPage(BrowserWindowInterface* browser,
  
  void ShowDownloads(BrowserWindowInterface* browser) {
    base::RecordAction(UserMetricsAction("ShowDownloads"));
@@ -47,7 +64,7 @@
  #if !BUILDFLAG(IS_CHROMEOS)
    // Hide the download bubble if it is showing, to avoid redundancy with the
    // chrome://downloads page we are about to open.
-@@ -461,6 +480,13 @@
+@@ -462,6 +481,13 @@ bool IsTrustedPopupWindowWithScheme(const BrowserWindowInterface* browser,
  }
  
  void ShowSettings(BrowserWindowInterface* browser) {
@@ -60,17 +77,4 @@
 +#endif
    ShowSettingsSubPage(browser, std::string());
  }
- 
---- a/chrome/browser/ui/BUILD.gn
-+++ b/chrome/browser/ui/BUILD.gn
-@@ -1966,6 +1966,10 @@
-       ]
-     } else {
-       deps += [ "//chrome/browser/download/bubble" ]
-+    }
-+    if (is_mac) {
-+      # Settings, history, downloads and bookmarks open Merlin's shell.
-+      deps += [ "//chrome/browser/ui/modal_browser:shell_headers" ]
-     }
-   }
  

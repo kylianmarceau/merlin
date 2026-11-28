@@ -31,24 +31,28 @@ index eabfb36489..67c9a6cdff 100644
  
  }  // namespace views
 diff --git a/ui/views/controls/menu/menu_item_view.cc b/ui/views/controls/menu/menu_item_view.cc
-index 0bee2e87b0..834cb35752 100644
+index c4f089baa9..66ecde7790 100644
 --- a/ui/views/controls/menu/menu_item_view.cc
 +++ b/ui/views/controls/menu/menu_item_view.cc
-@@ -64,6 +64,7 @@
+@@ -65,6 +65,7 @@
  #include "ui/views/style/typography.h"
  #include "ui/views/style/typography_provider.h"
  #include "ui/views/vector_icons.h"
 +#include "ui/views/merlin_style.h"
  #include "ui/views/view_class_properties.h"
- #include "ui/views/view_tracker.h"
+ #include "ui/views/view_guard.h"
  #include "ui/views/view_utils.h"
-@@ -1426,6 +1427,9 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
-       item_bounds.Inset(gfx::Insets::TLBR(
-           menu_item_background_->top_padding, horizontal_margin,
-           menu_item_background_->bottom_padding, horizontal_margin));
+@@ -1484,7 +1485,12 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
+     }
+   } else if (paint_as_selected) {
+     gfx::Rect item_bounds = GetLocalBounds();
+-    item_bounds.Inset(GetHighlightInsets());
++    if (menu_item_background_.has_value()) {
++      item_bounds.Inset(GetHighlightInsets());
 +    } else if (merlin_style::IsEnabled()) {
 +      // Merlin: an inset rounded highlight (menu_config_mac.mm).
 +      item_bounds.Inset(gfx::Insets::VH(0, merlin_style::kRowInset));
-     }
++    }
      if (type_ == Type::kActionableSubMenu) {
        if (submenu_area_of_actionable_submenu_selected_) {
+         item_bounds = GetSubmenuAreaOfActionableSubmenu();

@@ -2,6 +2,7 @@
 
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/memory/self_deleting.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/merlin_adblock/context.h"
 #include "chrome/browser/merlin_adblock/service.h"
@@ -14,8 +15,9 @@ namespace {
 class DocumentHost : public content::DocumentService<mojom::AdblockHost> {
  public:
   DocumentHost(content::RenderFrameHost& frame,
-               mojo::PendingReceiver<mojom::AdblockHost> receiver)
-      : DocumentService(frame, std::move(receiver)),
+               mojo::PendingReceiver<mojom::AdblockHost> receiver,
+               base::SelfDeletingPassKey key)
+      : DocumentService(frame, std::move(receiver), key),
         service_(Service::Get(frame.GetBrowserContext())->GetWeakPtr()) {}
   void CheckRequest(const GURL& url,
                     const std::string& method,
@@ -64,6 +66,9 @@ class DocumentHost : public content::DocumentService<mojom::AdblockHost> {
   }
 
  private:
+  // DocumentService deletes itself with the document or its connection.
+  ~DocumentHost() override = default;
+
   void Checked(CheckRequestCallback done, Decision decision) {
     --requests_;
     auto result = mojom::RequestDecision::New();
@@ -128,6 +133,6 @@ void BindDocumentHost(content::RenderFrameHost* frame,
                       mojo::PendingReceiver<mojom::AdblockHost> receiver) {
   if (base::FeatureList::IsEnabled(kMerlinAdblock))
     if (Service::Get(frame->GetBrowserContext()))
-      new DocumentHost(*frame, std::move(receiver));
+      base::MakeSelfDeleting<DocumentHost>(*frame, std::move(receiver));
 }
 }  // namespace merlin_adblock

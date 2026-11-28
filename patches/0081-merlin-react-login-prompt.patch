@@ -1,3 +1,18 @@
+diff --git a/chrome/browser/ui/views/BUILD.gn b/chrome/browser/ui/views/BUILD.gn
+index 5b122f2616..f563dd2230 100644
+--- a/chrome/browser/ui/views/BUILD.gn
++++ b/chrome/browser/ui/views/BUILD.gn
+@@ -1065,6 +1065,8 @@ source_set("login_handler_views") {
+   deps = [
+     ":login_view",
+     "//base",
++    "//build:buildflag_header_h",
++    "//chrome/browser/ui/modal_browser:shell_headers",
+     "//chrome/browser/ui/blocked_content",
+     "//chrome/browser/ui/dialogs",
+     "//chrome/browser/ui/login",
+diff --git a/chrome/browser/ui/views/login_handler_views.cc b/chrome/browser/ui/views/login_handler_views.cc
+index f3becfac76..189965165c 100644
 --- a/chrome/browser/ui/views/login_handler_views.cc
 +++ b/chrome/browser/ui/views/login_handler_views.cc
 @@ -21,6 +21,10 @@
@@ -11,7 +26,7 @@
  
  class LoginHandlerViewsDialog;
  
-@@ -231,6 +235,13 @@
+@@ -231,6 +235,13 @@ std::unique_ptr<LoginHandler> LoginHandler::Create(
      const net::AuthChallengeInfo& auth_info,
      content::WebContents* web_contents,
      content::LoginDelegate::LoginAuthRequiredCallback auth_required_callback) {
@@ -25,14 +40,3 @@
    return std::make_unique<LoginHandlerViews>(auth_info, web_contents,
                                               std::move(auth_required_callback));
  }
---- a/chrome/browser/ui/views/BUILD.gn
-+++ b/chrome/browser/ui/views/BUILD.gn
-@@ -1054,6 +1054,8 @@
-   deps = [
-     ":login_view",
-     "//base",
-+    "//build:buildflag_header_h",
-+    "//chrome/browser/ui/modal_browser:shell_headers",
-     "//chrome/browser/ui/blocked_content",
-     "//chrome/browser/ui/dialogs",
-     "//chrome/browser/ui/login",

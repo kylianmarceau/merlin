@@ -1,7 +1,8 @@
 diff --git a/chrome/browser/preloading/prerender/BUILD.gn b/chrome/browser/preloading/prerender/BUILD.gn
+index 62e0edcbed..25804fc7ff 100644
 --- a/chrome/browser/preloading/prerender/BUILD.gn
 +++ b/chrome/browser/preloading/prerender/BUILD.gn
-@@ -76,6 +76,11 @@ source_set("impl") {
+@@ -77,6 +77,11 @@ source_set("impl") {
    if (!is_android) {
      deps += [ "//chrome/browser/ui/web_applications" ]
    }
@@ -14,9 +15,10 @@ diff --git a/chrome/browser/preloading/prerender/BUILD.gn b/chrome/browser/prelo
  
  source_set("test_support") {
 diff --git a/chrome/browser/preloading/prerender/prerender_manager.cc b/chrome/browser/preloading/prerender/prerender_manager.cc
+index 7cb3d96b90..d6656e8201 100644
 --- a/chrome/browser/preloading/prerender/prerender_manager.cc
 +++ b/chrome/browser/preloading/prerender/prerender_manager.cc
-@@ -64,6 +64,10 @@
+@@ -67,6 +67,10 @@
  #include "chromeos/components/kiosk/kiosk_utils.h"
  #endif
  
@@ -27,7 +29,7 @@ diff --git a/chrome/browser/preloading/prerender/prerender_manager.cc b/chrome/b
  namespace internal {
  const char kHistogramPrerenderPredictionStatusDefaultSearchEngine[] =
      "Prerender.Experimental.PredictionStatus.DefaultSearchEngine";
-@@ -329,6 +333,12 @@ PrerenderManager::StartPrerenderDirectUrlInput(
+@@ -381,6 +385,12 @@ PrerenderManager::StartPrerenderDirectUrlInput(
  }
  
  bool PrerenderManager::MaybeStartPrewarmSearchResult() {

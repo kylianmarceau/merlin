@@ -1,79 +1,175 @@
-diff --git a/ui/views/merlin_style.h b/ui/views/merlin_style.h
---- a/ui/views/merlin_style.h
-+++ b/ui/views/merlin_style.h
-@@ -6,6 +6,7 @@
- #define UI_VIEWS_MERLIN_STYLE_H_
+diff --git a/chrome/browser/ui/views/bubble_anchor_util_views.cc b/chrome/browser/ui/views/bubble_anchor_util_views.cc
+index 97995fe36d..4e620c0f20 100644
+--- a/chrome/browser/ui/views/bubble_anchor_util_views.cc
++++ b/chrome/browser/ui/views/bubble_anchor_util_views.cc
+@@ -35,6 +35,8 @@
+ #include "ui/gfx/geometry/rect.h"
+ #include "ui/views/bubble/bubble_border.h"
+ #include "ui/views/interaction/element_tracker_views.h"
++#include "ui/views/merlin_style.h"
++#include "ui/views/widget/widget.h"
  
- #include "third_party/skia/include/core/SkColor.h"
-+#include "ui/base/class_property.h"
- #include "ui/gfx/geometry/insets.h"
- #include "ui/gfx/image/image_skia.h"
- #include "ui/views/views_export.h"
-@@ -64,6 +65,24 @@
-                                           const gfx::Insets& insets,
-                                           int radius);
+ // This file contains the bubble_anchor_util implementation for a Views
+ // browser window (BrowserView).
+@@ -304,4 +306,33 @@ bool IsHighlightable(views::BubbleAnchor anchor) {
+   }
+ }
  
-+// Where a pop-up hangs from the view it is anchored to. Merlin marks its
-+// address field and toolbar so that pop-ups whose own control is hidden
-+// (Chromium's location bar icons, app menu) still look like Merlin's other
-+// pop-ups (BubbleDialogDelegate::GetBubbleBounds):
-+//   kTowardMiddle  hang from the view, arrow pointing at it, opening toward
-+//                  the middle of the window whichever side the caller asked
-+//                  for (Page Info, saved passwords, bookmarks).
-+//   kCentered      no arrow, centred just under the view (the toolbar, when
-+//                  the address field is hidden on the start page), like the
-+//                  find bar.
-+// Only bubbles that open downward from an arrow at their top change.
-+enum class PopoverPlacement { kDefault, kTowardMiddle, kCentered };
-+VIEWS_EXPORT extern const ui::ClassProperty<PopoverPlacement>* const
-+    kPopoverPlacementKey;
++views::View* GetMerlinPopupAnchorView(const views::View* in_window) {
++  views::Widget* widget =
++      in_window ? const_cast<views::View*>(in_window)->GetWidget() : nullptr;
++  widget = widget ? widget->GetTopLevelWidget() : nullptr;
++  if (!widget) {
++    return nullptr;
++  }
++  using views::merlin_style::kPopoverPlacementKey;
++  using views::merlin_style::PopoverPlacement;
++  const auto context = views::ElementTrackerViews::GetContextForWidget(widget);
++  for (views::View* view :
++       views::ElementTrackerViews::GetInstance()->GetAllMatchingViews(
++           kLocationIconElementId, context, /*require_visible=*/true)) {
++    if (view->IsDrawn() && view->GetProperty(kPopoverPlacementKey) ==
++                               PopoverPlacement::kTowardMiddle) {
++      return view;
++    }
++  }
++  BrowserView* browser_view =
++      BrowserView::GetBrowserViewForNativeWindow(widget->GetNativeWindow());
++  views::View* toolbar = browser_view ? browser_view->toolbar() : nullptr;
++  if (toolbar && toolbar->IsDrawn() &&
++      toolbar->GetProperty(kPopoverPlacementKey) ==
++          PopoverPlacement::kCentered) {
++    return toolbar;
++  }
++  return nullptr;
++}
 +
-+// Gap between a centred pop-up and the view above it, in DIPs.
-+inline constexpr int kCenteredPopoverGap = 6;
+ }  // namespace bubble_anchor_util
+diff --git a/chrome/browser/ui/views/bubble_anchor_util_views.h b/chrome/browser/ui/views/bubble_anchor_util_views.h
+index 657cdf813a..635b586197 100644
+--- a/chrome/browser/ui/views/bubble_anchor_util_views.h
++++ b/chrome/browser/ui/views/bubble_anchor_util_views.h
+@@ -66,6 +66,15 @@ AnchorConfiguration GetAppMenuAnchorConfiguration(
+ // Returns true if the given anchor can be used as a highlight.
+ bool IsHighlightable(views::BubbleAnchor anchor);
+ 
++// Merlin: the view a pop-up hangs from when the control it belongs to (a
++// location bar icon, the app menu button) is hidden behind Merlin's
++// toolbar: Merlin's address field, or Merlin's toolbar itself while the
++// address field is hidden (the start page). Null in `in_window`'s window
++// without Merlin's toolbar, and when neither is drawn (fullscreen), so callers
++// keep their own fallback. Both views carry merlin_style::kPopoverPlacementKey,
++// which places the pop-up like Merlin's other pop-ups.
++views::View* GetMerlinPopupAnchorView(const views::View* in_window);
 +
- // Frosted glass, as in macOS and Dia popovers: the system blur behind a
- // pop-up window (bubbles, menus, the address card) under a translucent tint
- // of the pop-up's own colour, with a hairline at its edge.
-@@ -106,4 +125,8 @@
+ }  // namespace bubble_anchor_util
  
- }  // namespace views::merlin_style
+ #endif  // CHROME_BROWSER_UI_VIEWS_BUBBLE_ANCHOR_UTIL_VIEWS_H_
+diff --git a/chrome/browser/ui/views/frame/BUILD.gn b/chrome/browser/ui/views/frame/BUILD.gn
+index 70eb3d5ac8..5bc253477e 100644
+--- a/chrome/browser/ui/views/frame/BUILD.gn
++++ b/chrome/browser/ui/views/frame/BUILD.gn
+@@ -599,6 +599,7 @@ source_set("app_menu_button_impl") {
+     "//chrome/browser/ui/actions",
+     "//chrome/browser/ui/browser_window",
+     "//chrome/browser/ui/toolbar",
++    "//chrome/browser/ui/views:bubble_anchor_util_views",
+     "//chrome/browser/ui/views:layout_provider",
+     "//chrome/browser/ui/views/app_menu",
+     "//chrome/browser/ui/views/interaction",
+diff --git a/chrome/browser/ui/views/frame/app_menu_button.cc b/chrome/browser/ui/views/frame/app_menu_button.cc
+index 47c1558ad8..621959e545 100644
+--- a/chrome/browser/ui/views/frame/app_menu_button.cc
++++ b/chrome/browser/ui/views/frame/app_menu_button.cc
+@@ -20,6 +20,7 @@
+ #include "chrome/browser/ui/toolbar/app_menu_model.h"
+ #include "chrome/browser/ui/ui_features.h"
+ #include "chrome/browser/ui/views/app_menu/action_app_menu.h"
++#include "chrome/browser/ui/views/bubble_anchor_util_views.h"
+ #include "chrome/browser/ui/views/chrome_typography.h"
+ #include "chrome/browser/ui/views/frame/app_menu_button_observer.h"
+ #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
+@@ -51,6 +52,13 @@ AppMenuButton::AppMenuButton(PressedCallback callback)
+ AppMenuButton::~AppMenuButton() = default;
  
-+DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(
-+    VIEWS_EXPORT,
-+    views::merlin_style::PopoverPlacement)
-+
- #endif  // UI_VIEWS_MERLIN_STYLE_H_
-diff --git a/ui/views/merlin_style.cc b/ui/views/merlin_style.cc
---- a/ui/views/merlin_style.cc
-+++ b/ui/views/merlin_style.cc
-@@ -19,8 +19,15 @@
- #include "ui/views/vector_icons.h"
- #include "ui/views/view.h"
- 
-+DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(VIEWS_EXPORT,
-+                                       views::merlin_style::PopoverPlacement)
-+
- namespace views::merlin_style {
- 
-+DEFINE_UI_CLASS_PROPERTY_KEY(PopoverPlacement,
-+                             kPopoverPlacementKey,
-+                             PopoverPlacement::kDefault)
-+
- namespace {
- 
- bool g_enabled = false;
+ views::BubbleAnchor AppMenuButton::GetAnchor() {
++  // Merlin keeps the app menu button as a 1 DIP stub at the end of its
++  // toolbar; pop-ups that belong to it (restore pages, relaunch) hang from
++  // Merlin's address field or toolbar instead, like Merlin's other pop-ups.
++  if (views::View* merlin_anchor =
++          bubble_anchor_util::GetMerlinPopupAnchorView(this)) {
++    return views::BubbleAnchor(merlin_anchor);
++  }
+   if (IsDrawn()) {
+     return views::BubbleAnchor(this);
+   }
+diff --git a/chrome/browser/ui/views/passwords/password_bubble_view_base.cc b/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
+index f3bd676684..09e4bf09ed 100644
+--- a/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
++++ b/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
+@@ -320,6 +320,12 @@ void PasswordBubbleViewBase::SetBubbleHeaderLottie(int lottie_image_id) {
+           "modal-browser-upstream-defaults") &&
+       (lottie_image_id == IDR_AUTOFILL_SAVE_PASSWORD_LOTTIE ||
+        lottie_image_id == IDR_PASSWORD_CHANGE_SUCCESS_LOTTIE)) {
++    // Save and update password: no header, as in Merlin's other pop-ups.
++    // The title already leads with the key.
++    if (lottie_image_id == IDR_AUTOFILL_SAVE_PASSWORD_LOTTIE) {
++      GetBubbleFrameView()->SetHeaderView(nullptr);
++      return;
++    }
+     const auto tone = lottie_image_id == IDR_PASSWORD_CHANGE_SUCCESS_LOTTIE
+         ? modal_browser::BubbleHeaderTone::kSuccess
+         : modal_browser::BubbleHeaderTone::kPassword;
+diff --git a/chrome/browser/ui/views/toolbar/BUILD.gn b/chrome/browser/ui/views/toolbar/BUILD.gn
+index 211453abc0..1fc50e69be 100644
+--- a/chrome/browser/ui/views/toolbar/BUILD.gn
++++ b/chrome/browser/ui/views/toolbar/BUILD.gn
+@@ -302,6 +302,7 @@ source_set("impl") {
+     "//chrome/browser/ui/tabs:tab_strip_model_observer",
+     "//chrome/browser/ui/tabs/saved_tab_groups",
+     "//chrome/browser/ui/user_education",
++    "//chrome/browser/ui/views:bubble_anchor_util_views",
+     "//chrome/browser/ui/views:intent_picker_bubble_view",
+     "//chrome/browser/ui/views:layout_provider",
+     "//chrome/browser/ui/views/app_menu:impl",
+diff --git a/chrome/browser/ui/views/toolbar/toolbar_view.cc b/chrome/browser/ui/views/toolbar/toolbar_view.cc
+index e100adfcc8..1acef4e974 100644
+--- a/chrome/browser/ui/views/toolbar/toolbar_view.cc
++++ b/chrome/browser/ui/views/toolbar/toolbar_view.cc
+@@ -69,6 +69,7 @@
+ #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
+ #include "chrome/browser/ui/ui_features.h"
+ #include "chrome/browser/ui/view_ids.h"
++#include "chrome/browser/ui/views/bubble_anchor_util_views.h"
+ #include "chrome/browser/ui/views/bookmarks/bookmark_bubble_view.h"
+ #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_button.h"
+ #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_close_tab_button.h"
+@@ -2073,6 +2074,12 @@ views::BubbleAnchor ToolbarView::GetBubbleAnchor(
+   // anchoring bubbles to a non-drawn view (e.g. on Ozone/Wayland) and always
+   // return a valid view anchor by falling back to the contents view.
+   if (anchor_not_drawn && browser_view_) {
++    // Merlin: its own address field or toolbar, where pop-ups look like its
++    // other pop-ups, rather than the far corner of the top container.
++    if (views::View* merlin_anchor =
++            bubble_anchor_util::GetMerlinPopupAnchorView(this)) {
++      return views::BubbleAnchor(merlin_anchor);
++    }
+     auto* top_container = browser_view_->top_container();
+     CHECK(top_container);
+     return views::BubbleAnchor(top_container);
 diff --git a/ui/views/bubble/bubble_dialog_delegate_view.cc b/ui/views/bubble/bubble_dialog_delegate_view.cc
+index c7279a72df..790e8fa817 100644
 --- a/ui/views/bubble/bubble_dialog_delegate_view.cc
 +++ b/ui/views/bubble/bubble_dialog_delegate_view.cc
-@@ -14,6 +14,7 @@
- #include <vector>
+@@ -15,6 +15,7 @@
  
+ #include "base/containers/adapters.h"
  #include "base/feature_list.h"
 +#include "base/i18n/rtl.h"
  #include "base/functional/bind.h"
  #include "base/logging.h"
  #include "base/memory/ptr_util.h"
-@@ -1052,6 +1053,35 @@
+@@ -1070,12 +1071,46 @@ gfx::Rect BubbleDialogDelegate::GetBubbleBounds() {
    gfx::Rect anchor_rect = GetAnchorRect();
    bool has_anchor = GetAnchorView() || anchor_rect != gfx::Rect();
  
@@ -109,10 +205,6 @@ diff --git a/ui/views/bubble/bubble_dialog_delegate_view.cc b/ui/views/bubble/bu
    bool adjust_to_fix_available_bounds =
        adjust_if_offscreen_ && !anchor_minimized && has_anchor;
  
-@@ -1066,9 +1096,14 @@
-   }
- #endif
- 
 -  return GetBubbleFrameView()->GetUpdatedWindowBounds(
 +  gfx::Rect bounds = GetBubbleFrameView()->GetUpdatedWindowBounds(
        anchor_rect, arrow(), GetWidget()->client_view()->GetPreferredSize({}),
@@ -126,9 +218,10 @@ diff --git a/ui/views/bubble/bubble_dialog_delegate_view.cc b/ui/views/bubble/bu
  
  ax::mojom::Role BubbleDialogDelegate::GetAccessibleWindowRole() {
 diff --git a/ui/views/bubble/bubble_frame_view.cc b/ui/views/bubble/bubble_frame_view.cc
+index 74618d6c6f..2060ffe009 100644
 --- a/ui/views/bubble/bubble_frame_view.cc
 +++ b/ui/views/bubble/bubble_frame_view.cc
-@@ -81,7 +81,17 @@
+@@ -81,7 +81,17 @@ bool ShouldShowCloseButton(const Widget* widget) {
      return true;
    }
    const BubbleDialogDelegate* bubble = delegate->AsBubbleDialogDelegate();
@@ -147,155 +240,69 @@ diff --git a/ui/views/bubble/bubble_frame_view.cc b/ui/views/bubble/bubble_frame
  }
  
  constexpr int kMainImageBorderStrokeThickness = 1;
-diff --git a/chrome/browser/ui/views/bubble_anchor_util_views.h b/chrome/browser/ui/views/bubble_anchor_util_views.h
---- a/chrome/browser/ui/views/bubble_anchor_util_views.h
-+++ b/chrome/browser/ui/views/bubble_anchor_util_views.h
-@@ -48,6 +48,15 @@
- // Returns true if the given anchor can be used as a highlight.
- bool IsHighlightable(views::BubbleAnchor anchor);
+diff --git a/ui/views/merlin_style.cc b/ui/views/merlin_style.cc
+index 1316c79da2..5bfb62d091 100644
+--- a/ui/views/merlin_style.cc
++++ b/ui/views/merlin_style.cc
+@@ -19,8 +19,15 @@
+ #include "ui/views/vector_icons.h"
+ #include "ui/views/view.h"
  
-+// Merlin: the view a pop-up hangs from when the control it belongs to (a
-+// location bar icon, the app menu button) is hidden behind Merlin's
-+// toolbar: Merlin's address field, or Merlin's toolbar itself while the
-+// address field is hidden (the start page). Null in `in_window`'s window
-+// without Merlin's toolbar, and when neither is drawn (fullscreen), so callers
-+// keep their own fallback. Both views carry merlin_style::kPopoverPlacementKey,
-+// which places the pop-up like Merlin's other pop-ups.
-+views::View* GetMerlinPopupAnchorView(const views::View* in_window);
++DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(VIEWS_EXPORT,
++                                       views::merlin_style::PopoverPlacement)
 +
- }  // namespace bubble_anchor_util
+ namespace views::merlin_style {
  
- #endif  // CHROME_BROWSER_UI_VIEWS_BUBBLE_ANCHOR_UTIL_VIEWS_H_
-diff --git a/chrome/browser/ui/views/bubble_anchor_util_views.cc b/chrome/browser/ui/views/bubble_anchor_util_views.cc
---- a/chrome/browser/ui/views/bubble_anchor_util_views.cc
-+++ b/chrome/browser/ui/views/bubble_anchor_util_views.cc
-@@ -27,6 +27,8 @@
- #include "ui/base/interaction/element_highlighter.h"
- #include "ui/views/bubble/bubble_border.h"
- #include "ui/views/interaction/element_tracker_views.h"
-+#include "ui/views/merlin_style.h"
-+#include "ui/views/widget/widget.h"
- 
- // This file contains the bubble_anchor_util implementation for a Views
- // browser window (BrowserView).
-@@ -242,4 +244,33 @@
-   }
- }
- 
-+views::View* GetMerlinPopupAnchorView(const views::View* in_window) {
-+  views::Widget* widget =
-+      in_window ? const_cast<views::View*>(in_window)->GetWidget() : nullptr;
-+  widget = widget ? widget->GetTopLevelWidget() : nullptr;
-+  if (!widget) {
-+    return nullptr;
-+  }
-+  using views::merlin_style::kPopoverPlacementKey;
-+  using views::merlin_style::PopoverPlacement;
-+  const auto context = views::ElementTrackerViews::GetContextForWidget(widget);
-+  for (views::View* view :
-+       views::ElementTrackerViews::GetInstance()->GetAllMatchingViews(
-+           kLocationIconElementId, context, /*require_visible=*/true)) {
-+    if (view->IsDrawn() && view->GetProperty(kPopoverPlacementKey) ==
-+                               PopoverPlacement::kTowardMiddle) {
-+      return view;
-+    }
-+  }
-+  BrowserView* browser_view =
-+      BrowserView::GetBrowserViewForNativeWindow(widget->GetNativeWindow());
-+  views::View* toolbar = browser_view ? browser_view->toolbar() : nullptr;
-+  if (toolbar && toolbar->IsDrawn() &&
-+      toolbar->GetProperty(kPopoverPlacementKey) ==
-+          PopoverPlacement::kCentered) {
-+    return toolbar;
-+  }
-+  return nullptr;
-+}
++DEFINE_UI_CLASS_PROPERTY_KEY(PopoverPlacement,
++                             kPopoverPlacementKey,
++                             PopoverPlacement::kDefault)
 +
- }  // namespace bubble_anchor_util
-diff --git a/chrome/browser/ui/views/toolbar/toolbar_view.cc b/chrome/browser/ui/views/toolbar/toolbar_view.cc
---- a/chrome/browser/ui/views/toolbar/toolbar_view.cc
-+++ b/chrome/browser/ui/views/toolbar/toolbar_view.cc
-@@ -70,6 +70,7 @@
- #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
- #include "chrome/browser/ui/ui_features.h"
- #include "chrome/browser/ui/view_ids.h"
-+#include "chrome/browser/ui/views/bubble_anchor_util_views.h"
- #include "chrome/browser/ui/views/bookmarks/bookmark_bubble_view.h"
- #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_button.h"
- #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_close_tab_button.h"
-@@ -2031,6 +2032,12 @@
-   // anchoring bubbles to a non-drawn view (e.g. on Ozone/Wayland) and always
-   // return a valid view anchor by falling back to the contents view.
-   if (anchor_not_drawn && browser_view_) {
-+    // Merlin: its own address field or toolbar, where pop-ups look like its
-+    // other pop-ups, rather than the far corner of the top container.
-+    if (views::View* merlin_anchor =
-+            bubble_anchor_util::GetMerlinPopupAnchorView(this)) {
-+      return views::BubbleAnchor(merlin_anchor);
-+    }
-     auto* top_container = browser_view_->top_container();
-     CHECK(top_container);
-     return views::BubbleAnchor(top_container);
-diff --git a/chrome/browser/ui/views/toolbar/BUILD.gn b/chrome/browser/ui/views/toolbar/BUILD.gn
---- a/chrome/browser/ui/views/toolbar/BUILD.gn
-+++ b/chrome/browser/ui/views/toolbar/BUILD.gn
-@@ -300,6 +300,7 @@
-     "//chrome/browser/ui/tabs:tab_strip_model_observer",
-     "//chrome/browser/ui/tabs/saved_tab_groups",
-     "//chrome/browser/ui/user_education",
-+    "//chrome/browser/ui/views:bubble_anchor_util_views",
-     "//chrome/browser/ui/views:intent_picker_bubble_view",
-     "//chrome/browser/ui/views:layout_provider",
-     "//chrome/browser/ui/views/app_menu:impl",
-diff --git a/chrome/browser/ui/views/frame/app_menu_button.cc b/chrome/browser/ui/views/frame/app_menu_button.cc
---- a/chrome/browser/ui/views/frame/app_menu_button.cc
-+++ b/chrome/browser/ui/views/frame/app_menu_button.cc
-@@ -18,6 +18,7 @@
- #include "chrome/browser/ui/toolbar/app_menu_model.h"
- #include "chrome/browser/ui/ui_features.h"
- #include "chrome/browser/ui/views/app_menu/action_app_menu.h"
-+#include "chrome/browser/ui/views/bubble_anchor_util_views.h"
- #include "chrome/browser/ui/views/chrome_typography.h"
- #include "chrome/browser/ui/views/frame/app_menu_button_observer.h"
- #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
-@@ -49,6 +50,13 @@
- AppMenuButton::~AppMenuButton() = default;
+ namespace {
  
- views::BubbleAnchor AppMenuButton::GetAnchor() {
-+  // Merlin keeps the app menu button as a 1 DIP stub at the end of its
-+  // toolbar; pop-ups that belong to it (restore pages, relaunch) hang from
-+  // Merlin's address field or toolbar instead, like Merlin's other pop-ups.
-+  if (views::View* merlin_anchor =
-+          bubble_anchor_util::GetMerlinPopupAnchorView(this)) {
-+    return views::BubbleAnchor(merlin_anchor);
-+  }
-   if (IsDrawn()) {
-     return views::BubbleAnchor(this);
-   }
-diff --git a/chrome/browser/ui/views/frame/BUILD.gn b/chrome/browser/ui/views/frame/BUILD.gn
---- a/chrome/browser/ui/views/frame/BUILD.gn
-+++ b/chrome/browser/ui/views/frame/BUILD.gn
-@@ -610,6 +610,7 @@
-     "//chrome/browser/ui/actions",
-     "//chrome/browser/ui/browser_window",
-     "//chrome/browser/ui/toolbar",
-+    "//chrome/browser/ui/views:bubble_anchor_util_views",
-     "//chrome/browser/ui/views:layout_provider",
-     "//chrome/browser/ui/views/app_menu",
-     "//chrome/browser/ui/views/interaction",
-diff --git a/chrome/browser/ui/views/passwords/password_bubble_view_base.cc b/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
---- a/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
-+++ b/chrome/browser/ui/views/passwords/password_bubble_view_base.cc
-@@ -319,6 +319,12 @@
-           "modal-browser-upstream-defaults") &&
-       (lottie_image_id == IDR_AUTOFILL_SAVE_PASSWORD_LOTTIE ||
-        lottie_image_id == IDR_PASSWORD_CHANGE_SUCCESS_LOTTIE)) {
-+    // Save and update password: no header, as in Merlin's other pop-ups.
-+    // The title already leads with the key.
-+    if (lottie_image_id == IDR_AUTOFILL_SAVE_PASSWORD_LOTTIE) {
-+      GetBubbleFrameView()->SetHeaderView(nullptr);
-+      return;
-+    }
-     const auto tone = lottie_image_id == IDR_PASSWORD_CHANGE_SUCCESS_LOTTIE
-         ? modal_browser::BubbleHeaderTone::kSuccess
-         : modal_browser::BubbleHeaderTone::kPassword;
+ bool g_enabled = false;
+diff --git a/ui/views/merlin_style.h b/ui/views/merlin_style.h
+index f598d6df62..c6e5a69ebe 100644
+--- a/ui/views/merlin_style.h
++++ b/ui/views/merlin_style.h
+@@ -6,6 +6,7 @@
+ #define UI_VIEWS_MERLIN_STYLE_H_
+ 
+ #include "third_party/skia/include/core/SkColor.h"
++#include "ui/base/class_property.h"
+ #include "ui/gfx/geometry/insets.h"
+ #include "ui/gfx/image/image_skia.h"
+ #include "ui/views/views_export.h"
+@@ -64,6 +65,24 @@ VIEWS_EXPORT void UseRoundedFlatHighlight(View* view,
+                                           const gfx::Insets& insets,
+                                           int radius);
+ 
++// Where a pop-up hangs from the view it is anchored to. Merlin marks its
++// address field and toolbar so that pop-ups whose own control is hidden
++// (Chromium's location bar icons, app menu) still look like Merlin's other
++// pop-ups (BubbleDialogDelegate::GetBubbleBounds):
++//   kTowardMiddle  hang from the view, arrow pointing at it, opening toward
++//                  the middle of the window whichever side the caller asked
++//                  for (Page Info, saved passwords, bookmarks).
++//   kCentered      no arrow, centred just under the view (the toolbar, when
++//                  the address field is hidden on the start page), like the
++//                  find bar.
++// Only bubbles that open downward from an arrow at their top change.
++enum class PopoverPlacement { kDefault, kTowardMiddle, kCentered };
++VIEWS_EXPORT extern const ui::ClassProperty<PopoverPlacement>* const
++    kPopoverPlacementKey;
++
++// Gap between a centred pop-up and the view above it, in DIPs.
++inline constexpr int kCenteredPopoverGap = 6;
++
+ // Frosted glass, as in macOS and Dia popovers: the system blur behind a
+ // pop-up window (bubbles, menus, the address card) under a translucent tint
+ // of the pop-up's own colour, with a hairline at its edge.
+@@ -106,4 +125,8 @@ VIEWS_EXPORT void PaintPopoverGlassEdge(gfx::Canvas* canvas,
+ 
+ }  // namespace views::merlin_style
+ 
++DECLARE_EXPORTED_UI_CLASS_PROPERTY_TYPE(
++    VIEWS_EXPORT,
++    views::merlin_style::PopoverPlacement)
++
+ #endif  // UI_VIEWS_MERLIN_STYLE_H_
